@@ -1,0 +1,130 @@
+{
+  "theme_and_archetype": {
+    "domain": "Dining Subscription & Food Management",
+    "theme": "light",
+    "archetype": "1 (Organic & Earthy)",
+    "vibe": "Premium organic food hall, sustainable, approachable, tactile.",
+    "rationale": "Patients/subscribers need warmth and trust. A dining app should feel appetizing and physical, not like a cold, generic SaaS tool. We are utilizing earthy greens and terracotta to stimulate appetite and denote health/freshness."
+  },
+  "typography": {
+    "anti_pattern_check": "Inter, Roboto, and generic sans-serifs are banned for headings.",
+    "font_families": {
+      "heading": "Cabinet Grotesk",
+      "body": "Manrope",
+      "mono": "JetBrains Mono"
+    },
+    "scale": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tight leading-none",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight",
+      "h3": "text-xl sm:text-2xl tracking-tight",
+      "h4": "text-lg sm:text-xl font-medium",
+      "body": "text-base leading-relaxed",
+      "label_overline": "text-xs tracking-[0.2em] uppercase font-bold text-muted-foreground"
+    },
+    "usage_rules": "Headings must always use Cabinet Grotesk with tight tracking. Use Manrope for high-legibility body copy and data tables."
+  },
+  "color_system": {
+    "css_variables": {
+      "--background": "40 25% 96%",
+      "--foreground": "140 5% 15%",
+      "--card": "0 0% 100%",
+      "--card-foreground": "140 5% 15%",
+      "--popover": "0 0% 100%",
+      "--popover-foreground": "140 5% 15%",
+      "--primary": "135 11% 33%",
+      "--primary-foreground": "0 0% 100%",
+      "--secondary": "26 43% 57%",
+      "--secondary-foreground": "0 0% 100%",
+      "--muted": "40 10% 90%",
+      "--muted-foreground": "140 5% 40%",
+      "--accent": "40 25% 90%",
+      "--accent-foreground": "135 11% 33%",
+      "--destructive": "0 60% 50%",
+      "--destructive-foreground": "0 0% 100%",
+      "--border": "40 15% 85%",
+      "--input": "40 15% 85%",
+      "--ring": "135 11% 33%",
+      "--radius": "0.75rem"
+    },
+    "description": "The palette revolves around Warm Sand (Background), Moss Green (Primary), and Terracotta/Clay (Secondary/Accents). No pure blacks (#000) or pure grays; all neutrals are tinted warmly."
+  },
+  "layout_and_spacing": {
+    "philosophy": "Generous Spacing Philosophy. Use 2x more padding than standard UI. Borders must have internal padding.",
+    "container_padding": "p-6 md:p-8 lg:p-12",
+    "grids": {
+      "marketing": "grid-cols-1 md:grid-cols-12 gap-8 lg:gap-12",
+      "dashboard": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6"
+    },
+    "alignment": "Left-align dense content and forms. Center-align only major marketing hero headings."
+  },
+  "surface_and_materials": {
+    "primary_surface": "Neumorphism & Tactile Edge. Cards use pure white (or off-white) on sand background, with a crisp 1px border-black/5 and a soft shadow-sm.",
+    "glassmorphism": "Used ONLY for sticky headers. backdrop-blur-xl bg-[#F9F6F0]/80 with a 1px border-b border-black/5.",
+    "ticket_pass_ui": "For the Subscriber QR pass, use a custom component with dashed borders (border-dashed) in the middle to simulate a tear-off ticket. Add a subtle drop-shadow."
+  },
+  "role_specific_layouts": {
+    "subscriber_dashboard": {
+      "layout": "Mobile-first, single-column bento.",
+      "hero_element": "Digital Meal Pass. A large, ticket-style card taking up 60vh on mobile. Prominent QR code in the center. Large typography indicating '30 Meals Remaining'.",
+      "supporting_elements": "Horizontal scroll list for 'Today's Menu', and a history list for 'Recent Check-ins'.",
+      "visual_vibe": "Appetizing, personal, highly accessible."
+    },
+    "staff_scanner": {
+      "layout": "Utilitarian full-screen dark UI.",
+      "hero_element": "Camera viewport taking up 70% of the screen. Dark overlay with a transparent scanning square and four corner brackets in Moss Green.",
+      "supporting_elements": "A prominent bottom sheet containing 'Manual Entry' and 'Recent Scans'. High contrast for visibility in brightly lit canteens.",
+      "visual_vibe": "Focused, fast, high-contrast."
+    },
+    "admin_dashboard": {
+      "layout": "Control Room Grid. grid-cols-1 md:grid-cols-4 gap-6.",
+      "hero_element": "Top row summary widgets (col-span-1 each): Total Subs, Active Today, Revenue. Second row: Large line chart for 'Attendance Trends' (col-span-3), 'Recent Logs' feed (col-span-1).",
+      "visual_vibe": "Clear, data-dense but breathable. Uses earth tones for charts instead of default blue/red."
+    }
+  },
+  "motion_and_interactions": {
+    "hover_states": "Cards lift slightly (-translate-y-1) and cast a shadow-lg. Buttons must explicitly change background and text color.",
+    "qr_interactions": "The QR ticket should use a Framer Motion 3D flip (rotateY) to reveal subscription details/history on the back.",
+    "page_transitions": "Smooth fade and slight slide-up (translate-y-4 to 0) on load for dashboard elements."
+  },
+  "component_strategies": {
+    "forms": "Use customized Shadcn UI forms. Inputs must have rounded-xl borders, subtle focus rings (ring-moss-green), and soft backgrounds.",
+    "tables": "Admin tables should be cardless, with border-b only between rows to maintain an open, clean look.",
+    "charts": "Recharts inside Shadcn chart wrapper. Use Moss Green and Terracotta for data lines. Hide grid lines on X-axis for a cleaner look."
+  },
+  "media_and_assets": {
+    "image_urls": {
+      "hero_marketing": {
+        "url": "https://images.unsplash.com/photo-1600488999806-8efb986d87b1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MTJ8MHwxfHNlYXJjaHwxfHx3YXJtJTIwbW9kZXJuJTIwZGluaW5nJTIwaGFsbHxlbnwwfHx8fDE3Nzc5MjYyMzJ8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Warm modern dining hall, use for landing page hero background with a 40% white overlay."
+      },
+      "food_display_1": {
+        "url": "https://images.unsplash.com/photo-1676300186673-615bcc8d5d68?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTN8MHwxfHNlYXJjaHwyfHxoZWFsdGh5JTIwZ291cm1ldCUyMGx1bmNoJTIwYm93bHxlbnwwfHx8fDE3Nzc5MjYyMjh8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Healthy gourmet lunch bowl, use for the 'Today's Menu' or subscription plan feature image."
+      },
+      "food_display_2": {
+        "url": "https://images.unsplash.com/photo-1768326119231-bf064c1b8fdf?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTN8MHwxfHNlYXJjaHwzfHxoZWFsdGh5JTIwZ291cm1ldCUyMGx1bmNoJTIwYm93bHxlbnwwfHx8fDE3Nzc5MjYyMjh8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Colorful poke bowl, use for secondary marketing imagery or meal selection previews."
+      },
+      "staff_avatar": {
+        "url": "https://images.pexels.com/photos/3814446/pexels-photo-3814446.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Professional chef/staff portrait, use for the Staff or Admin user profile avatar."
+      },
+      "qr_scan_example": {
+        "url": "https://images.unsplash.com/photo-1595079836278-25b7ad6d5ddb?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2OTV8MHwxfHNlYXJjaHwxfHxxciUyMGNvZGUlMjBvbiUyMHBob25lJTIwc2NyZWVufGVufDB8fHx8MTc3NzkyNjIzM3ww&ixlib=rb-4.1.0&q=85",
+        "description": "Phone displaying a QR code, use for 'How it works' section on the marketing page."
+      }
+    },
+    "icons": "Use lucide-react. Prefer soft, rounded stroke styles (strokeWidth 1.5). For organic aesthetics, do not use heavily filled or sharp icons."
+  },
+  "testing_guidelines": {
+    "required_attributes": "All interactive elements (buttons, links, form fields, QR codes, meal balances) MUST include a data-testid attribute in kebab-case format (e.g., data-testid='qr-ticket-card', data-testid='admin-login-button')."
+  },
+  "instructions_to_main_agent": [
+    "Strictly follow the color palette (Moss Green, Terracotta, Warm Sand) defined in CSS variables.",
+    "Do not use generic blue/purple default Tailwind templates.",
+    "Ensure the Subscriber Dashboard focuses heavily on the 'Ticket Pass' UI element (dashed borders, centered QR code).",
+    "Staff scanner page should be dark mode for visibility/glare reduction.",
+    "Always apply data-testid to UI interactive elements.",
+    "Use the provided image URLs as actual src paths, absolutely no placeholder services."
+  ]
+}
