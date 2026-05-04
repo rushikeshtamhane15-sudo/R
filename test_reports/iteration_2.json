@@ -1,0 +1,35 @@
+{
+  "summary": "Iteration 2 (rotating HMAC counter QR + kiosk + poster + confetti) tested end-to-end. Backend: 35/35 pytest cases pass including 12 new tests for HMAC counter codes, public/auth counter QR shape, /api/stats/today, PNG poster, self-scan with HMAC (success / invalid / duplicate / security: server uses meal from verified code, not client). Stripe /api/checkout/status now returns graceful 200 with payment_status fallback (regression fixed). Frontend: /k/main kiosk (no login) renders fullscreen with no header, large QR, dinner/lunch slot label, live check-ins counter; staff /counter page has all required testids (counter-qr, counter-qr-image, lunch/dinner toggles, copy-kiosk-url, download-poster-button, live-counter-card) and lunch/dinner toggle works; /self-scan loads cleanly with start-camera button; subscriber dashboard has subscription-status, status-card, qr-ticket, meals-remaining; admin dashboard has stat-card-0..3 populated.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now ~814 lines — recommend splitting into routers (auth, payments, attendance, counter, admin, menu) for maintainability.",
+    "Counter QR poster QR encodes a relative path '/k/{location}?meal={meal}' — when scanned by a generic QR app it won't resolve to the deployment domain; consider embedding full REACT_APP_BACKEND_URL or a configured public host so phones can navigate from any QR reader.",
+    "GRACE_BUCKETS=2 means a counter code is valid for current+previous 2 buckets (~15 min total) even though it 'rotates every 5 min'. Acceptable but the UX text says 'rotates every 5 minutes for security' which slightly under-sells the actual validity window.",
+    "verify_counter_code rejects future buckets but does not enforce a minimum — clock-skew on the kiosk producing slightly future buckets would break self-scan; consider allowing +1 future bucket of leeway.",
+    "current_meal_type() still uses raw UTC hours (carryover from iter 1); for non-UTC deployments the lunch/dinner window will drift (this is no longer used to gate self-scan since the verified code's meal is used instead — good security improvement).",
+    "No rate limiting on /api/attendance/self-scan — a leaked counter_code is valid up to 15 min and can still be replayed across many users; consider per-IP/per-token throttling."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py"
+  ],
+  "success_rate": {"backend": "100% (35/35)", "frontend": "100% on tested flows (kiosk, counter, self-scan, dashboard, admin)"},
+  "test_credentials": "Emergent Google OAuth — seeded TEST_* users/sessions in MongoDB per /app/auth_testing.md; admin allowlist email admin@mess.com used for admin testid check.",
+  "seed_data_creation": "Seeded TEST_* subscriber+sub, staff, admin users + sessions for backend pytest fixtures and Playwright UI runs. Cleaned up after each run.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All iteration 1 + iteration 2 backend tests live in /app/backend/tests/backend_test.py (35 tests, module-scoped fixtures + per-test scoped helpers in TestSelfScanHMAC). HMAC code format is 'location.meal.bucket.sig'. Self-scan deliberately ignores client-provided meal_type and uses the verified code's meal — verified by test_self_scan_uses_code_meal_not_client. Public kiosk URL is /k/:locationId?meal=lunch|dinner (no auth, no header). Stripe checkout/status now returns 200 with fallback payload (fixed by main agent). Admin testids stat-card-0..3 live on /admin.",
+  "rca of the issue": "No outstanding bugs. Iteration 1's checkout/status 500 has been fixed by wrapping the StripeCheckout.get_checkout_status call in try/except and returning a 200 with cached transaction state. Iteration 1's missing testids (qr-ticket, status-card, subscription-status, meals-remaining, counter-qr, counter-qr-image, stat-card-N) have all been added."
+}

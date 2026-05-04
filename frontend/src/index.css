@@ -1,115 +1,92 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@700,800,500,400,900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 body {
     margin: 0;
-    font-family:
-        -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
-        "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
-        sans-serif;
+    font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
 }
 
-code {
-    font-family:
-        source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+.font-display {
+    font-family: 'Cabinet Grotesk', 'Manrope', sans-serif;
+    letter-spacing: -0.02em;
+}
+
+.font-mono {
+    font-family: 'JetBrains Mono', monospace;
 }
 
 @layer base {
     :root {
-        --background: 0 0% 100%;
-        --foreground: 0 0% 3.9%;
+        --background: 40 25% 96%;
+        --foreground: 140 5% 15%;
         --card: 0 0% 100%;
-        --card-foreground: 0 0% 3.9%;
+        --card-foreground: 140 5% 15%;
         --popover: 0 0% 100%;
-        --popover-foreground: 0 0% 3.9%;
-        --primary: 0 0% 9%;
-        --primary-foreground: 0 0% 98%;
-        --secondary: 0 0% 96.1%;
-        --secondary-foreground: 0 0% 9%;
-        --muted: 0 0% 96.1%;
-        --muted-foreground: 0 0% 45.1%;
-        --accent: 0 0% 96.1%;
-        --accent-foreground: 0 0% 9%;
-        --destructive: 0 84.2% 60.2%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 89.8%;
-        --input: 0 0% 89.8%;
-        --ring: 0 0% 3.9%;
-        --chart-1: 12 76% 61%;
-        --chart-2: 173 58% 39%;
-        --chart-3: 197 37% 24%;
-        --chart-4: 43 74% 66%;
-        --chart-5: 27 87% 67%;
-        --radius: 0.5rem;
+        --popover-foreground: 140 5% 15%;
+        --primary: 135 11% 33%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 26 43% 57%;
+        --secondary-foreground: 0 0% 100%;
+        --muted: 40 10% 90%;
+        --muted-foreground: 140 5% 40%;
+        --accent: 40 25% 90%;
+        --accent-foreground: 135 11% 33%;
+        --destructive: 0 60% 50%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 40 15% 85%;
+        --input: 40 15% 85%;
+        --ring: 135 11% 33%;
+        --radius: 0.75rem;
+        --chart-1: 135 11% 33%;
+        --chart-2: 26 43% 57%;
+        --chart-3: 40 60% 55%;
+        --chart-4: 160 20% 45%;
+        --chart-5: 15 50% 50%;
     }
     .dark {
-        --background: 0 0% 3.9%;
-        --foreground: 0 0% 98%;
-        --card: 0 0% 3.9%;
-        --card-foreground: 0 0% 98%;
-        --popover: 0 0% 3.9%;
-        --popover-foreground: 0 0% 98%;
-        --primary: 0 0% 98%;
-        --primary-foreground: 0 0% 9%;
-        --secondary: 0 0% 14.9%;
-        --secondary-foreground: 0 0% 98%;
-        --muted: 0 0% 14.9%;
-        --muted-foreground: 0 0% 63.9%;
-        --accent: 0 0% 14.9%;
-        --accent-foreground: 0 0% 98%;
-        --destructive: 0 62.8% 30.6%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 14.9%;
-        --input: 0 0% 14.9%;
-        --ring: 0 0% 83.1%;
-        --chart-1: 220 70% 50%;
-        --chart-2: 160 60% 45%;
-        --chart-3: 30 80% 55%;
-        --chart-4: 280 65% 60%;
-        --chart-5: 340 75% 55%;
+        --background: 140 8% 10%;
+        --foreground: 40 25% 92%;
+        --card: 140 8% 13%;
+        --card-foreground: 40 25% 92%;
+        --popover: 140 8% 13%;
+        --popover-foreground: 40 25% 92%;
+        --primary: 135 25% 55%;
+        --primary-foreground: 140 8% 10%;
+        --secondary: 26 43% 57%;
+        --secondary-foreground: 140 8% 10%;
+        --muted: 140 8% 18%;
+        --muted-foreground: 40 15% 70%;
+        --accent: 140 8% 18%;
+        --accent-foreground: 135 25% 55%;
+        --destructive: 0 60% 50%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 140 8% 22%;
+        --input: 140 8% 22%;
+        --ring: 135 25% 55%;
     }
 }
 
 @layer base {
-    * {
-        @apply border-border;
-    }
-    body {
-        @apply bg-background text-foreground;
-    }
+    * { @apply border-border; }
+    body { @apply bg-background text-foreground; }
 }
 
-@layer base {
-    [data-debug-wrapper="true"] {
-        display: contents !important;
+@layer utilities {
+    .ticket-border {
+        -webkit-mask-image: radial-gradient(circle at 0 50%, transparent 12px, black 12px) 0 50% / 51% 100% no-repeat,
+                            radial-gradient(circle at 100% 50%, transparent 12px, black 12px) 100% 50% / 51% 100% no-repeat;
+                mask-image: radial-gradient(circle at 0 50%, transparent 12px, black 12px) 0 50% / 51% 100% no-repeat,
+                            radial-gradient(circle at 100% 50%, transparent 12px, black 12px) 100% 50% / 51% 100% no-repeat;
     }
-
-    [data-debug-wrapper="true"] > * {
-        margin-left: inherit;
-        margin-right: inherit;
-        margin-top: inherit;
-        margin-bottom: inherit;
-        padding-left: inherit;
-        padding-right: inherit;
-        padding-top: inherit;
-        padding-bottom: inherit;
-        column-gap: inherit;
-        row-gap: inherit;
-        gap: inherit;
-        border-left-width: inherit;
-        border-right-width: inherit;
-        border-top-width: inherit;
-        border-bottom-width: inherit;
-        border-left-style: inherit;
-        border-right-style: inherit;
-        border-top-style: inherit;
-        border-bottom-style: inherit;
-        border-left-color: inherit;
-        border-right-color: inherit;
-        border-top-color: inherit;
-        border-bottom-color: inherit;
+    .tracking-overline {
+        letter-spacing: 0.2em;
     }
 }
