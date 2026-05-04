@@ -660,14 +660,15 @@ async def stats_today():
 
 # Downloadable poster (PNG) with the current counter QR + branding
 @api_router.get("/counter/poster")
-async def counter_poster(meal: str = "lunch", location: str = "main"):
+async def counter_poster(request: Request, meal: str = "lunch", location: str = "main"):
     if meal not in ("lunch", "dinner"):
         raise HTTPException(status_code=400, detail="meal must be lunch or dinner")
-    # Embed kiosk URL so the QR points to the public kiosk page rather than
-    # a single rotating code (poster needs to remain valid)
-    # The QR encodes a JSON payload pointing to the kiosk URL; subscribers
-    # land on the kiosk page which auto-fetches a fresh rotating code.
-    kiosk_url = f"/k/{location}?meal={meal}"
+    # Encode an absolute kiosk URL so a generic phone QR-reader can open it.
+    # Prefer the X-Forwarded-Host (set by the ingress); fall back to request host.
+    fwd_host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
+    fwd_proto = request.headers.get("x-forwarded-proto", "https")
+    base = f"{fwd_proto}://{fwd_host}" if fwd_host else ""
+    kiosk_url = f"{base}/k/{location}?meal={meal}"
     qr = qrcode.QRCode(version=None, box_size=14, border=2)
     qr.add_data(kiosk_url)
     qr.make(fit=True)
