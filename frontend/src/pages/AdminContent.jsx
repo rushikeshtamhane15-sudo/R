@@ -75,6 +75,17 @@ const SCHEMAS = {
       { key: "resend_label", label: "Resend OTP — link text", type: "input" },
     ],
   },
+  announcement: {
+    title: "Announcement marquee",
+    description: "Scrolling bar shown right under the header on every page. Toggle it on/off, change colours and speed.",
+    fields: [
+      { key: "enabled", label: "Show announcement bar", type: "boolean" },
+      { key: "text", label: "Message (Hindi/English/anything)", type: "textarea", rows: 4 },
+      { key: "bg_color", label: "Background colour (hex e.g. #FACC15)", type: "color" },
+      { key: "text_color", label: "Text colour (hex e.g. #1F2937)", type: "color" },
+      { key: "speed_seconds", label: "Scroll speed in seconds (lower = faster, 10–180)", type: "input" },
+    ],
+  },
 };
 
 export default function AdminContent() {
@@ -134,6 +145,32 @@ export default function AdminContent() {
                 className="mt-2 rounded-xl"
                 data-testid={`field-${f.key}`}
               />
+            ) : f.type === "boolean" ? (
+              <label className="mt-2 flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={!!data[f.key]}
+                  onChange={(e) => update(f.key, e.target.checked)}
+                  className="h-4 w-4 accent-primary"
+                  data-testid={`field-${f.key}`}
+                />
+                <span className="text-sm text-foreground">{data[f.key] ? "Enabled" : "Disabled"}</span>
+              </label>
+            ) : f.type === "color" ? (
+              <div className="mt-2 flex items-center gap-3">
+                <input
+                  type="color"
+                  value={(data[f.key] || "#000000").startsWith("#") ? data[f.key] : "#000000"}
+                  onChange={(e) => update(f.key, e.target.value)}
+                  className="h-10 w-12 rounded-lg cursor-pointer border border-input bg-background"
+                />
+                <Input
+                  value={data[f.key] ?? ""}
+                  onChange={(e) => update(f.key, e.target.value)}
+                  className="rounded-xl flex-1 font-mono"
+                  data-testid={`field-${f.key}`}
+                />
+              </div>
             ) : (
               <Input
                 value={data[f.key] ?? ""}

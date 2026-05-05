@@ -103,23 +103,24 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-primary flex flex-col" data-testid="login-page">
-      {/* HERO — dark red full-bleed top, simple & centered */}
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 -z-10">
-          <img src={HERO_FOOD_IMG} alt="" className="w-full h-full object-cover opacity-25" />
-          <div className="absolute inset-0 bg-gradient-to-b from-primary/95 via-primary/90 to-primary"></div>
+      {/* HERO — dark red full-bleed top, simple & centered. Collapses if no title. */}
+      {(c.title_line1 || c.title_line2) && (
+        <div className="relative overflow-hidden">
+          <div className="absolute inset-0 -z-10">
+            <img src={HERO_FOOD_IMG} alt="" className="w-full h-full object-cover opacity-25" />
+            <div className="absolute inset-0 bg-gradient-to-b from-primary/95 via-primary/90 to-primary"></div>
+          </div>
+          <div className="max-w-md mx-auto w-full px-6 pt-8 pb-10 md:pt-10 md:pb-12 text-primary-foreground text-center">
+            <h1
+              className="font-display font-extrabold text-3xl md:text-4xl tracking-tight leading-[1.05]"
+              data-testid="login-title"
+            >
+              {c.title_line1 && <span className="block">{c.title_line1}</span>}
+              {c.title_line2 && <span className="block">{c.title_line2}</span>}
+            </h1>
+          </div>
         </div>
-
-        <div className="max-w-md mx-auto w-full px-6 pt-14 pb-16 md:pt-20 md:pb-24 text-primary-foreground text-center">
-          <h1
-            className="font-display font-extrabold text-4xl md:text-5xl tracking-tight leading-[1.05]"
-            data-testid="login-title"
-          >
-            <span className="block">{c.title_line1}</span>
-            <span className="block">{c.title_line2}</span>
-          </h1>
-        </div>
-      </div>
+      )}
 
       {/* FORM SHEET — pulls up over the hero */}
       <div className="bg-card flex-1 -mt-6 rounded-t-3xl shadow-[0_-12px_30px_-10px_rgba(0,0,0,0.18)] relative">

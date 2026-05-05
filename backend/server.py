@@ -915,6 +915,60 @@ DEFAULT_CONTENT = {
         "hero_cta_secondary": "View plans",
         "hero_image_url": "https://images.unsplash.com/photo-1600488999806-8efb986d87b1?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
         "sections": [],  # admin can add custom sections: {heading, body, image_url}
+        # How it works section
+        "how_overline": "How it works",
+        "how_title": "Pay once. Eat for 30 days. Pause when you travel.",
+        "how_body": "Money loads into your wallet on day one. Every day you eat, a small amount ticks down. Miss 3+ days in a row? Your subscription auto-extends — no wallet deduction on inactive days.",
+        "how_image_1": "https://images.unsplash.com/photo-1676300186673-615bcc8d5d68?crop=entropy&cs=srgb&fm=jpg&q=85&w=900",
+        "how_image_2": "https://images.unsplash.com/photo-1595079836278-25b7ad6d5ddb?crop=entropy&cs=srgb&fm=jpg&q=85&w=900",
+        "how_features": [
+            {"icon": "Smartphone", "title": "Pay by UPI in 10 seconds", "body": "Razorpay checkout with UPI, cards, netbanking."},
+            {"icon": "Wallet", "title": "Your money lives in a wallet", "body": "See ₹ ticking down every day as you eat."},
+            {"icon": "QrCode", "title": "Scan to check in", "body": "Show your QR or scan the counter — your choice."},
+            {"icon": "ShieldCheck", "title": "Skip days? We pause.", "body": "3+ inactive days → no deductions, auto-extend."},
+        ],
+        # Features band
+        "band_overline": "Built for modern tiffin halls",
+        "band_title": "The wallet that eats with you.",
+        "band_items": [
+            {"icon": "Utensils", "title": "Daily menu", "body": "Lunch + dinner items published every day."},
+            {"icon": "Wallet", "title": "Smart wallet", "body": "Auto-deduction · auto-pause · full transparency."},
+            {"icon": "TrendingUp", "title": "Admin analytics", "body": "Attendance trends, revenue, wallet balances — live."},
+        ],
+        # Healthy promise
+        "healthy_overline": "Our kitchen promise",
+        "healthy_title_part_1": "What's ",
+        "healthy_title_highlight_1": "NOT",
+        "healthy_title_part_2": " in your tiffin matters as much as ",
+        "healthy_title_highlight_2": "what is",
+        "healthy_title_part_3": ".",
+        "healthy_subtitle": "Real ghar ka khana means clean, honest ingredients. Here's what we promise — and what we'll never compromise on.",
+        "healthy_never_title": "Never on your plate",
+        "healthy_never_heading": "0% the bad stuff",
+        "healthy_never_items": [
+            {"label": "Ajinomoto / MSG", "note": "Zero added flavour enhancers"},
+            {"label": "Maida", "note": "No refined white flour, ever"},
+            {"label": "Artificial flavours", "note": "Only real spices, real aroma"},
+            {"label": "Artificial colours", "note": "Naturally vibrant, never dyed"},
+            {"label": "Polished grains", "note": "We keep the bran, you get the fibre"},
+            {"label": "Refined / Palm oil", "note": "Cheap oils stay out of our kitchen"},
+        ],
+        "healthy_always_title": "Always on your plate",
+        "healthy_always_heading": "100% the good stuff",
+        "healthy_always_bg": "green",  # green | red | blue
+        "healthy_always_items": [
+            {"icon": "Wheat", "label": "Chakki atta", "note": "Stone-ground whole wheat"},
+            {"icon": "Sprout", "label": "Unpolished toor dal", "note": "Naturally protein-rich"},
+            {"icon": "Soup", "label": "Premium aged rice", "note": "Fragrant, perfectly aged grains"},
+            {"icon": "Carrot", "label": "Fresh vegetables", "note": "Sourced fresh — every single day"},
+            {"icon": "Droplet", "label": "Filter / Cold-pressed oil", "note": "Wood-pressed, full of nutrients"},
+            {"icon": "BadgeCheck", "label": "Real ghar-style spices", "note": "Hand-blended, small batch"},
+        ],
+        # Final CTA
+        "cta_title_line1": "ghar se achha khana,",
+        "cta_title_line2": "ab UPI pe.",
+        "cta_subtitle": "Plans start at ₹1,800 for 30 days.",
+        "cta_button_label": "Start with OTP",
     },
     "privacy": {
         "title": "Privacy Policy",
@@ -935,6 +989,13 @@ DEFAULT_CONTENT = {
         "email": "hello@efoodcare.in",
         "hours": "Mon–Sun · 10 AM – 10 PM",
         "map_embed_src": "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d60304.49!2d73.75!3d18.55!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2sPune!5e0!3m2!1sen!2sin!4v1700000000000",
+    },
+    "announcement": {
+        "enabled": True,
+        "text": "चंद पैसों के लिए मिलावटी खाना हमारे स्वास्थ्य और परिवार के लिए बहुत बड़ा खतरा है। सिर्फ स्वाद या कम कीमत देखकर खाने-पीने की चीजें न खरीदें।",
+        "bg_color": "#FACC15",
+        "text_color": "#1F2937",
+        "speed_seconds": 45,
     },
     "login": {
         "title_line1": "Login or",
@@ -962,10 +1023,15 @@ DEFAULT_CONTENT = {
 
 
 async def _load_content(key: str):
+    default = DEFAULT_CONTENT.get(key)
     doc = await db.site_content.find_one({"key": key}, {"_id": 0})
     if doc:
-        return doc.get("data", DEFAULT_CONTENT.get(key, {}))
-    default = DEFAULT_CONTENT.get(key)
+        existing = doc.get("data", {}) or {}
+        if isinstance(default, dict):
+            # Merge default for any missing keys so schema upgrades flow through
+            merged = {**default, **existing}
+            return merged
+        return existing
     if default is None:
         raise HTTPException(status_code=404, detail="Unknown content key")
     await db.site_content.insert_one({"key": key, "data": default, "updated_at": iso(now_utc())})

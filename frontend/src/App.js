@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { Toaster } from "sonner";
 import Header from "./components/Header";
+import AnnouncementBar from "./components/AnnouncementBar";
 import Footer from "./components/Footer";
 import BottomNav from "./components/BottomNav";
 import AdminLayout from "./components/AdminLayout";
@@ -61,6 +62,7 @@ function AppRoutes() {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
+      <AnnouncementBar />
       <main className="flex-1">
         <Routes>
           <Route path="/" element={<Landing />} />
