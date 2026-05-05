@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { api } from "../lib/api";
 import { Button } from "../components/ui/button";
-import { QrCode, Wallet, ShieldCheck, Utensils, TrendingUp, Smartphone } from "lucide-react";
+import { QrCode, Wallet, ShieldCheck, Utensils, TrendingUp, Smartphone, Ban, BadgeCheck, Wheat, Sprout, Droplet, Carrot, Sparkles, Soup } from "lucide-react";
 
 const FOOD_IMG = "https://images.unsplash.com/photo-1676300186673-615bcc8d5d68?crop=entropy&cs=srgb&fm=jpg&q=85&w=900";
 const QR_IMG = "https://images.unsplash.com/photo-1595079836278-25b7ad6d5ddb?crop=entropy&cs=srgb&fm=jpg&q=85&w=900";
@@ -132,6 +132,9 @@ export default function Landing() {
         </section>
       ))}
 
+      {/* Healthy promise — what's NOT in vs what IS in */}
+      <HealthyPromise />
+
       <section className="max-w-7xl mx-auto px-6 md:px-8 lg:px-12 py-16 md:py-20">
         <div className="bg-primary rounded-3xl p-10 md:p-16 flex flex-col md:flex-row items-start md:items-center justify-between gap-8 text-primary-foreground">
           <div>
@@ -146,5 +149,113 @@ export default function Landing() {
         </div>
       </section>
     </div>
+  );
+}
+
+const NEVER_ITEMS = [
+  { icon: Ban, label: "Ajinomoto / MSG", note: "Zero added flavour enhancers" },
+  { icon: Ban, label: "Maida", note: "No refined white flour, ever" },
+  { icon: Ban, label: "Artificial flavours", note: "Only real spices, real aroma" },
+  { icon: Ban, label: "Artificial colours", note: "Naturally vibrant, never dyed" },
+  { icon: Ban, label: "Polished grains", note: "We keep the bran, you get the fibre" },
+  { icon: Ban, label: "Refined / Palm oil", note: "Cheap oils stay out of our kitchen" },
+];
+
+const ALWAYS_ITEMS = [
+  { icon: Wheat, label: "Chakki atta", note: "Stone-ground whole wheat" },
+  { icon: Sprout, label: "Unpolished toor dal", note: "Naturally protein-rich" },
+  { icon: Soup, label: "Premium aged rice", note: "Fragrant, perfectly aged grains" },
+  { icon: Carrot, label: "Fresh vegetables", note: "Sourced fresh — every single day" },
+  { icon: Droplet, label: "Filter / Cold-pressed oil", note: "Wood-pressed, full of nutrients" },
+  { icon: BadgeCheck, label: "Real ghar-style spices", note: "Hand-blended, small batch" },
+];
+
+function HealthyPromise() {
+  return (
+    <section className="relative overflow-hidden border-y border-border" data-testid="healthy-promise-section">
+      <div className="absolute inset-0 -z-10 bg-gradient-to-br from-accent/40 via-background to-secondary/5"></div>
+      <div className="max-w-7xl mx-auto px-6 md:px-8 lg:px-12 py-20 md:py-28">
+        <div className="max-w-3xl">
+          <p className="text-xs tracking-overline uppercase font-bold text-secondary mb-3 flex items-center gap-1.5" data-testid="healthy-promise-overline">
+            <Sparkles className="h-3.5 w-3.5" /> Our kitchen promise
+          </p>
+          <h2 className="font-display font-extrabold text-3xl sm:text-4xl lg:text-5xl tracking-tight leading-[1.05]">
+            What's <span className="text-primary">NOT</span> in your tiffin matters as much as <span className="text-primary">what is</span>.
+          </h2>
+          <p className="mt-5 text-muted-foreground leading-relaxed max-w-2xl">
+            Real ghar ka khana means clean, honest ingredients. Here's what we promise — and what we'll never compromise on.
+          </p>
+        </div>
+
+        <div className="mt-12 grid lg:grid-cols-2 gap-6 lg:gap-8">
+          {/* NEVER list */}
+          <div
+            className="rounded-3xl bg-card border border-border p-7 md:p-9 relative overflow-hidden"
+            data-testid="never-card"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <span className="inline-flex h-11 w-11 rounded-xl bg-destructive/10 text-destructive items-center justify-center">
+                <Ban className="h-5 w-5" strokeWidth={2} />
+              </span>
+              <div>
+                <p className="text-[10px] tracking-overline uppercase font-bold text-destructive">Never on your plate</p>
+                <h3 className="font-display font-extrabold text-2xl leading-tight mt-1">0% the bad stuff</h3>
+              </div>
+            </div>
+            <ul className="mt-6 divide-y divide-border">
+              {NEVER_ITEMS.map((it) => (
+                <li
+                  key={it.label}
+                  className="flex items-start gap-4 py-4"
+                  data-testid={`never-item-${it.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+                >
+                  <span className="font-display font-extrabold text-xl text-destructive shrink-0 w-12">0%</span>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm">{it.label}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{it.note}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* ALWAYS list */}
+          <div
+            className="rounded-3xl bg-primary text-primary-foreground p-7 md:p-9 relative overflow-hidden"
+            data-testid="always-card"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <span className="inline-flex h-11 w-11 rounded-xl bg-white/15 text-primary-foreground items-center justify-center">
+                <BadgeCheck className="h-5 w-5" strokeWidth={2} />
+              </span>
+              <div>
+                <p className="text-[10px] tracking-overline uppercase font-bold text-primary-foreground/80">Always on your plate</p>
+                <h3 className="font-display font-extrabold text-2xl leading-tight mt-1">100% the good stuff</h3>
+              </div>
+            </div>
+            <ul className="mt-6 divide-y divide-white/15">
+              {ALWAYS_ITEMS.map((it) => (
+                <li
+                  key={it.label}
+                  className="flex items-start gap-4 py-4"
+                  data-testid={`always-item-${it.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+                >
+                  <span className="font-display font-extrabold text-xl shrink-0 w-12">100%</span>
+                  <div className="min-w-0 flex items-start gap-3">
+                    <span className="inline-flex h-7 w-7 shrink-0 rounded-full bg-white/15 items-center justify-center mt-0.5">
+                      <it.icon className="h-3.5 w-3.5" strokeWidth={2} />
+                    </span>
+                    <div>
+                      <p className="font-semibold text-sm text-primary-foreground">{it.label}</p>
+                      <p className="text-xs text-primary-foreground/80 mt-0.5">{it.note}</p>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }

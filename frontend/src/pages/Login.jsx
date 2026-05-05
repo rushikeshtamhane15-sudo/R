@@ -5,7 +5,8 @@ import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
-import { UtensilsCrossed, Phone, KeyRound, ArrowLeft } from "lucide-react";
+import { BRAND_LOGO_URL } from "../lib/brand";
+import { Phone, KeyRound, ArrowLeft } from "lucide-react";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -54,9 +55,7 @@ export default function Login() {
     <div className="min-h-[calc(100vh-5rem)] flex items-center justify-center px-6 py-16" data-testid="login-page">
       <div className="w-full max-w-md">
         <div className="bg-card rounded-3xl border border-black/5 shadow-xl p-10">
-          <div className="h-14 w-14 rounded-2xl bg-primary flex items-center justify-center mb-8">
-            <UtensilsCrossed className="h-7 w-7 text-primary-foreground" strokeWidth={1.75} />
-          </div>
+          <img src={BRAND_LOGO_URL} alt="eFoodCare" className="h-14 w-14 rounded-2xl bg-primary p-1.5 mb-8 object-contain" />
           <p className="text-xs tracking-overline uppercase font-bold text-secondary mb-3">Welcome</p>
           <h1 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight leading-tight">
             Sign in to your<br />e-Meal Pass.

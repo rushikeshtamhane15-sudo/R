@@ -39,6 +39,16 @@ Build a tiffin / dining subscription app with:
 - **Mandatory profile** (name, phone, address) before checkout
 - 23/23 backend tests pass
 
+### Iteration 7 (Feb 5, 2026) — Custom Plans + Logo + Health Promise
+- **Custom subscription plans** (any 1–90 days): `/api/payments/custom-order` and `/api/plans/custom/preview` — pay exactly **₹70 per meal** (₹140/day, 2 meals)
+- Standard 30-day plans untouched (Premium/Classic/Saver)
+- **Theme refreshed to dark-red brand identity** — `primary` token migrated to `0 65% 38%` via theme migration on startup
+- **Logo redesign**: tight white-bordered rectangular badge over dark-red header background
+- **Background scheduler** (`subscription_tick_loop`): hourly cron walks every active subscription → applies daily wallet deduction or auto-pauses & extends end-date when 3+ consecutive inactive days. Plus admin manual trigger `POST /api/admin/cron/run-tick`
+- **"Our kitchen promise"** landing section: two-column distribution
+  - 0% the bad stuff: ajinomoto, maida, artificial flavours, artificial colours, polished grains, refined/palm oil
+  - 100% the good stuff: chakki atta, unpolished toor dal, premium aged rice, fresh vegetables, filter/cold-pressed oil, real ghar-style spices
+
 ## Mocked Integrations (clearly flagged)
 - **MOCKED Razorpay**: enable real flow by setting `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` in `/app/backend/.env`. Frontend automatically uses the real modal once keys are present.
 - **MOCKED OTP delivery**: enable real SMS by integrating MSG91/Twilio at `/api/auth/send-otp` (one function swap). Set `OTP_DEV_MODE=false` to stop returning OTP in API response.

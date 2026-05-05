@@ -5,7 +5,8 @@ import { useTheme } from "../context/ThemeContext";
 import { Button } from "./ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "./ui/sheet";
 import WalletPill from "./WalletPill";
-import { UtensilsCrossed, LogOut, Menu, X, Wallet } from "lucide-react";
+import { BRAND_LOGO_URL } from "../lib/brand";
+import { LogOut, Menu, X, Wallet } from "lucide-react";
 
 export default function Header() {
   const { user, logout } = useAuth();
@@ -39,25 +40,33 @@ export default function Header() {
       className="sticky top-0 z-30 bg-primary text-primary-foreground border-b border-primary/40 shadow-sm"
       data-testid="app-header"
     >
-      <div className="max-w-7xl mx-auto flex items-center justify-between px-4 md:px-8 lg:px-12 py-4">
-        <Link to="/" className="flex items-center gap-2.5" data-testid="logo-link">
-          <div className="h-9 w-9 rounded-xl bg-white/15 flex items-center justify-center">
-            <UtensilsCrossed className="h-5 w-5 text-primary-foreground" strokeWidth={1.75} />
-          </div>
-          <div className="flex flex-col leading-none">
-            <span className="font-display font-extrabold text-lg text-primary-foreground">{brandName}</span>
-            <span className="text-[10px] tracking-overline uppercase font-bold text-primary-foreground/85 mt-1" data-testid="header-tagline">{brandTagline}</span>
+      <div className="max-w-7xl mx-auto flex items-center justify-between px-3 md:px-8 lg:px-12 py-3 md:py-4 gap-3">
+        <Link to="/" className="flex items-center gap-2.5 min-w-0" data-testid="logo-link">
+          <span
+            className="inline-flex items-center justify-center h-10 w-14 md:h-11 md:w-16 rounded-md bg-primary border-2 border-white shrink-0 overflow-hidden"
+            data-testid="brand-logo-frame"
+          >
+            <img
+              src={BRAND_LOGO_URL}
+              alt={brandName}
+              className="h-full w-full object-contain p-0.5"
+              data-testid="brand-logo"
+            />
+          </span>
+          <div className="flex flex-col leading-none min-w-0">
+            <span className="font-display font-extrabold text-base md:text-lg text-primary-foreground truncate">{brandName}</span>
+            <span className="text-[9px] md:text-[10px] tracking-overline uppercase font-bold text-primary-foreground/85 mt-1 truncate" data-testid="header-tagline">{brandTagline}</span>
           </div>
         </Link>
 
-        <div className="flex items-center gap-2 md:gap-3">
-          {showWallet && <WalletPill />}
+        <div className="flex items-center gap-1.5 md:gap-3 shrink-0">
+          {showWallet && <WalletPill compact />}
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
               <Button
                 size="sm"
                 variant="outline"
-                className="rounded-full h-10 w-10 p-0 bg-white/15 text-primary-foreground border-white/30 hover:bg-white/25 hover:text-primary-foreground"
+                className="rounded-full h-9 w-9 md:h-10 md:w-10 p-0 bg-white/15 text-primary-foreground border-white/30 hover:bg-white/25 hover:text-primary-foreground"
                 data-testid="menu-toggle-button"
                 aria-label="Open menu"
               >
@@ -70,12 +79,11 @@ export default function Header() {
                 <SheetDescription>Navigate to pages, sign in, or log out.</SheetDescription>
               </SheetHeader>
 
-              {/* Brand block — primary bg, white text */}
               <div className="bg-primary text-primary-foreground px-6 py-6" data-testid="drawer-brand">
-                <div className="flex items-center gap-2.5">
-                  <div className="h-10 w-10 rounded-xl bg-white/15 flex items-center justify-center">
-                    <UtensilsCrossed className="h-5 w-5 text-primary-foreground" strokeWidth={1.75} />
-                  </div>
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex items-center justify-center h-12 w-16 rounded-md bg-primary border-2 border-white shrink-0 overflow-hidden">
+                    <img src={BRAND_LOGO_URL} alt={brandName} className="h-full w-full object-contain p-0.5" />
+                  </span>
                   <div className="flex flex-col leading-none">
                     <span className="font-display font-extrabold text-xl text-primary-foreground" data-testid="drawer-brand-name">{brandName}</span>
                     <span className="text-[10px] tracking-overline uppercase font-bold text-primary-foreground/85 mt-1.5">{brandTagline}</span>
@@ -86,7 +94,7 @@ export default function Header() {
               <div className="flex-1 overflow-y-auto px-4 py-5">
                 {user && (
                   <div className="rounded-2xl bg-muted/60 p-4 mb-5 flex items-center gap-3" data-testid="menu-user-card">
-                    {user.picture || user.photo_url ? (
+                    {user.photo_url || user.picture ? (
                       <img src={user.photo_url || user.picture} alt={user.name} className="h-10 w-10 rounded-full object-cover" />
                     ) : (
                       <div className="h-10 w-10 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center font-bold">

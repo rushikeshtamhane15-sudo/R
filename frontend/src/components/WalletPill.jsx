@@ -3,7 +3,7 @@ import { api } from "../lib/api";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "./ui/sheet";
 import { Wallet, IndianRupee, ArrowDownLeft, ArrowUpRight, Pause, Loader2 } from "lucide-react";
 
-export default function WalletPill({ trigger, alwaysShow = false }) {
+export default function WalletPill({ trigger, alwaysShow = false, compact = false }) {
   const [data, setData] = useState(null);
   const [txns, setTxns] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -32,11 +32,11 @@ export default function WalletPill({ trigger, alwaysShow = false }) {
           <button
             type="button"
             data-testid="wallet-pill"
-            className="flex items-center gap-2 rounded-full bg-white/15 hover:bg-white/25 active:bg-white/30 transition-colors px-3.5 py-2 border border-white/30 text-primary-foreground"
+            className={`flex items-center gap-1.5 rounded-full bg-white/15 hover:bg-white/25 active:bg-white/30 transition-colors border border-white/30 text-primary-foreground ${compact ? "px-2.5 py-1.5" : "px-3.5 py-2"}`}
           >
-            <Wallet className="h-4 w-4" strokeWidth={2} />
-            <span className="font-display font-bold text-sm flex items-center" data-testid="wallet-pill-balance">
-              <IndianRupee className="h-3 w-3" strokeWidth={2.5} />
+            <Wallet className={compact ? "h-3.5 w-3.5" : "h-4 w-4"} strokeWidth={2} />
+            <span className={`font-display font-bold flex items-center ${compact ? "text-xs" : "text-sm"}`} data-testid="wallet-pill-balance">
+              <IndianRupee className={compact ? "h-2.5 w-2.5" : "h-3 w-3"} strokeWidth={2.5} />
               {balance.toLocaleString("en-IN")}
             </span>
           </button>

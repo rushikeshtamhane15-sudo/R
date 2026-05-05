@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Literal
 from datetime import datetime, timezone, timedelta, date
 
+import asyncio
 import httpx
 import qrcode
 import razorpay
@@ -53,6 +54,12 @@ if OTP_DEV_MODE:
 COUNTER_SECRET = os.environ.get("COUNTER_SECRET", "efoodcare-counter-secret-2026")
 ROTATION_SECONDS = 300
 GRACE_BUCKETS = 2
+
+# Custom subscription pricing — fixed per-meal rate
+MEAL_PRICE_INR = 70.0
+MEALS_PER_DAY = 2
+CUSTOM_MIN_DAYS = 1
+CUSTOM_MAX_DAYS = 90
 
 DEFAULT_PLANS = [
     {"plan_id": "premium_60", "name": "Premium", "description": "Our best plan — 60 home-style meals", "amount": 2800.0, "currency": "INR", "duration_days": 30, "meals": 60, "active": True, "sort_order": 1},
@@ -143,6 +150,10 @@ class VerifyOtpRequest(BaseModel):
 
 class CreateOrderRequest(BaseModel):
     plan_id: str
+
+
+class CustomOrderRequest(BaseModel):
+    days: int
 
 
 class VerifyPaymentRequest(BaseModel):
@@ -470,44 +481,81 @@ async def create_payment_order(payload: CreateOrderRequest, user: User = Depends
     if not plan:
         raise HTTPException(status_code=400, detail="Invalid or inactive plan")
 
-    amount_paise = int(round(plan["amount"] * 100))
+    return await _create_order_record(
+        user=user, user_doc=user_doc,
+        plan_id=plan["plan_id"], plan_name=plan["name"],
+        amount=float(plan["amount"]), currency=plan["currency"],
+        duration_days=int(plan["duration_days"]), meals=int(plan["meals"]),
+        custom=False,
+    )
+
+
+@api_router.post("/payments/custom-order")
+async def create_custom_order(payload: CustomOrderRequest, user: User = Depends(get_current_user)):
+    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
+    missing = [f for f in ("name", "phone", "address", "photo_url") if not (user_doc.get(f) or "")]
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Profile incomplete: missing {', '.join(missing)}")
+    days = int(payload.days)
+    if days < CUSTOM_MIN_DAYS or days > CUSTOM_MAX_DAYS:
+        raise HTTPException(status_code=400, detail=f"Days must be between {CUSTOM_MIN_DAYS} and {CUSTOM_MAX_DAYS}")
+    meals = days * MEALS_PER_DAY
+    amount = round(meals * MEAL_PRICE_INR, 2)
+    return await _create_order_record(
+        user=user, user_doc=user_doc,
+        plan_id=f"custom_{days}d", plan_name=f"Custom — {days} day{'s' if days > 1 else ''}",
+        amount=amount, currency="INR",
+        duration_days=days, meals=meals,
+        custom=True,
+    )
+
+
+@api_router.get("/plans/custom/preview")
+async def custom_plan_preview(days: int):
+    if days < CUSTOM_MIN_DAYS or days > CUSTOM_MAX_DAYS:
+        raise HTTPException(status_code=400, detail=f"Days must be between {CUSTOM_MIN_DAYS} and {CUSTOM_MAX_DAYS}")
+    meals = days * MEALS_PER_DAY
+    amount = round(meals * MEAL_PRICE_INR, 2)
+    return {
+        "days": days, "meals": meals, "meal_price": MEAL_PRICE_INR,
+        "amount": amount, "currency": "INR",
+        "per_day_amount": round(amount / days, 2),
+    }
+
+
+async def _create_order_record(*, user, user_doc, plan_id, plan_name, amount, currency, duration_days, meals, custom):
+    amount_paise = int(round(amount * 100))
     receipt = f"rcpt_{uuid.uuid4().hex[:16]}"
     if RZP_ENABLED:
         rzp_order = rzp_client.order.create({
-            "amount": amount_paise,
-            "currency": plan["currency"],
-            "receipt": receipt,
+            "amount": amount_paise, "currency": currency, "receipt": receipt,
             "payment_capture": 1,
-            "notes": {"plan_id": plan["plan_id"], "user_id": user.user_id},
+            "notes": {"plan_id": plan_id, "user_id": user.user_id, "custom": str(custom).lower()},
         })
         order_id = rzp_order["id"]
         mock = False
     else:
-        # [MOCKED] Razorpay stub — generates a fake order that we can verify locally
         order_id = f"order_mock_{uuid.uuid4().hex[:14]}"
         mock = True
 
     await db.payment_orders.insert_one({
-        "order_id": order_id,
-        "receipt": receipt,
-        "user_id": user.user_id,
-        "plan_id": plan["plan_id"],
-        "plan_name": plan["name"],
-        "amount": plan["amount"],
-        "amount_paise": amount_paise,
-        "currency": plan["currency"],
-        "status": "created",
-        "mock": mock,
+        "order_id": order_id, "receipt": receipt,
+        "user_id": user.user_id, "plan_id": plan_id, "plan_name": plan_name,
+        "amount": amount, "amount_paise": amount_paise, "currency": currency,
+        "duration_days": duration_days, "meals": meals,
+        "custom": custom, "status": "created", "mock": mock,
         "created_at": iso(now_utc()),
     })
 
     return {
         "order_id": order_id,
         "amount_paise": amount_paise,
-        "currency": plan["currency"],
+        "currency": currency,
         "key_id": RZP_KEY_ID if RZP_ENABLED else "rzp_test_MOCK",
         "mock": mock,
-        "plan_name": plan["name"],
+        "plan_name": plan_name,
+        "duration_days": duration_days,
+        "meals": meals,
         "prefill": {"name": user_doc.get("name", ""), "email": user_doc.get("email", ""), "contact": user_doc.get("phone", "")},
     }
 
@@ -527,13 +575,26 @@ async def _log_wallet_txn(user_id: str, sub_id: Optional[str], txn_type: str, am
 
 
 async def _activate_subscription(order: dict):
-    """Create subscription + credit wallet. Idempotent on order_id."""
+    """Create subscription + credit wallet. Idempotent on order_id. Supports both standard plans and custom orders."""
     if order.get("status") == "paid":
         return
     user_id = order["user_id"]
-    plan = await db.plans.find_one({"plan_id": order["plan_id"]}, {"_id": 0})
-    if not plan:
-        return
+
+    # Build plan-shape from either DB plan or the order itself (custom flow)
+    if order.get("custom"):
+        plan = {
+            "plan_id": order["plan_id"],
+            "name": order.get("plan_name", "Custom plan"),
+            "amount": float(order["amount"]),
+            "currency": order.get("currency", "INR"),
+            "duration_days": int(order["duration_days"]),
+            "meals": int(order["meals"]),
+        }
+    else:
+        plan = await db.plans.find_one({"plan_id": order["plan_id"]}, {"_id": 0})
+        if not plan:
+            return
+
     start = now_utc()
     end = start + timedelta(days=plan["duration_days"])
     per_day = round(float(plan["amount"]) / max(1, plan["duration_days"]), 2)
@@ -554,6 +615,7 @@ async def _activate_subscription(order: dict):
         "paused_days": 0,
         "status": "active",
         "order_id": order["order_id"],
+        "is_custom": bool(order.get("custom")),
         "created_at": iso(start),
     }
     await db.subscriptions.insert_one(sub.copy())
@@ -688,6 +750,47 @@ async def get_active_subscription(user_id: str) -> Optional[dict]:
 
 
 # ---------------------------
+# Background scheduler — daily subscription tick (3-day inactivity extension)
+# ---------------------------
+TICK_INTERVAL_SECONDS = int(os.environ.get("TICK_INTERVAL_SECONDS", str(60 * 60)))  # default hourly
+
+
+async def run_subscription_tick() -> dict:
+    """Process every active subscription: apply daily deductions + auto-pause when 3+ inactive days."""
+    processed = 0
+    expired = 0
+    errors = 0
+    subs = await db.subscriptions.find({"status": "active"}, {"_id": 0}).to_list(10000)
+    for s in subs:
+        try:
+            # Expire if past end-date or all meals consumed
+            end_dt = parse_dt(s["end_date"])
+            if end_dt <= now_utc() or s.get("meals_used", 0) >= s.get("meals_total", 0):
+                await db.subscriptions.update_one({"sub_id": s["sub_id"]}, {"$set": {"status": "expired"}})
+                expired += 1
+                continue
+            await catch_up_subscription(s)
+            processed += 1
+        except Exception as e:
+            errors += 1
+            logger.exception(f"[TICK] error sub={s.get('sub_id')}: {e}")
+    logger.info(f"[CRON TICK] processed={processed} expired={expired} errors={errors}")
+    return {"processed": processed, "expired": expired, "errors": errors, "ran_at": iso(now_utc())}
+
+
+async def subscription_tick_loop():
+    """Background daemon — runs the tick every TICK_INTERVAL_SECONDS."""
+    # First run after a short delay to let the app finish booting
+    await asyncio.sleep(15)
+    while True:
+        try:
+            await run_subscription_tick()
+        except Exception as e:
+            logger.exception(f"[CRON TICK LOOP] crashed: {e}")
+        await asyncio.sleep(TICK_INTERVAL_SECONDS)
+
+
+# ---------------------------
 # Wallet + subscription views
 # ---------------------------
 @api_router.get("/my/wallet")
@@ -722,22 +825,23 @@ DEFAULT_THEME = {
         "foreground": "220 55% 22%",
         "card": "0 0% 100%",
         "card_foreground": "220 55% 22%",
-        "primary": "142 50% 35%",
+        "primary": "0 65% 38%",
         "primary_foreground": "0 0% 100%",
         "secondary": "220 70% 50%",
         "secondary_foreground": "0 0% 100%",
-        "accent": "142 30% 95%",
-        "accent_foreground": "142 50% 35%",
+        "accent": "0 40% 96%",
+        "accent_foreground": "0 65% 38%",
         "destructive": "0 70% 50%",
         "destructive_foreground": "0 0% 100%",
         "muted": "220 25% 96%",
         "muted_foreground": "220 20% 40%",
         "border": "220 20% 90%",
         "input": "220 20% 90%",
-        "ring": "142 50% 35%",
+        "ring": "0 65% 38%",
         "radius": "0.75rem",
     },
 }
+THEME_VERSION = 2
 
 
 class ThemeUpdate(BaseModel):
@@ -749,9 +853,21 @@ class ThemeUpdate(BaseModel):
 async def _load_theme():
     doc = await db.theme_settings.find_one({"_id": "active"}, {"_id": 0})
     if not doc:
-        await db.theme_settings.insert_one({"_id": "active", **DEFAULT_THEME, "updated_at": iso(now_utc())})
+        await db.theme_settings.insert_one({"_id": "active", **DEFAULT_THEME, "_version": THEME_VERSION, "updated_at": iso(now_utc())})
         return DEFAULT_THEME
     return doc
+
+
+async def _ensure_theme_version():
+    """Force-apply latest DEFAULT_THEME tokens when version bumps (one-time migration)."""
+    doc = await db.theme_settings.find_one({"_id": "active"}, {"_id": 0})
+    if not doc or doc.get("_version", 0) < THEME_VERSION:
+        await db.theme_settings.update_one(
+            {"_id": "active"},
+            {"$set": {**DEFAULT_THEME, "_version": THEME_VERSION, "updated_at": iso(now_utc())}},
+            upsert=True,
+        )
+        logger.info(f"[THEME MIGRATION] Theme upgraded to version {THEME_VERSION} (dark red)")
 
 
 @api_router.get("/theme")
@@ -1117,6 +1233,15 @@ async def admin_set_role(payload: SetRoleRequest, user: User = Depends(get_curre
     return {"ok": True}
 
 
+@api_router.post("/admin/cron/run-tick")
+async def admin_run_tick(user: User = Depends(get_current_user)):
+    """Manually run subscription tick across all active subs. Useful for testing 3-day inactivity logic."""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    result = await run_subscription_tick()
+    return {"ok": True, **result}
+
+
 # ---------------------------
 # Root
 # ---------------------------
@@ -1139,6 +1264,9 @@ app.add_middleware(
 @app.on_event("startup")
 async def on_startup():
     await seed_plans()
+    await _ensure_theme_version()
+    asyncio.create_task(subscription_tick_loop())
+    logger.info(f"[STARTUP] subscription tick scheduler launched · interval={TICK_INTERVAL_SECONDS}s")
 
 
 @app.on_event("shutdown")
