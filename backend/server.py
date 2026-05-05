@@ -93,6 +93,7 @@ class User(BaseModel):
     phone: Optional[str] = None
     name: str
     address: Optional[str] = None
+    photo_url: Optional[str] = None
     picture: Optional[str] = None
     role: Literal["admin", "staff", "subscriber"] = "subscriber"
     qr_token: str
@@ -192,6 +193,7 @@ def doc_to_user(doc) -> User:
         phone=doc.get("phone"),
         name=doc["name"],
         address=doc.get("address"),
+        photo_url=doc.get("photo_url"),
         picture=doc.get("picture"),
         role=doc.get("role", "subscriber"),
         qr_token=doc["qr_token"],
