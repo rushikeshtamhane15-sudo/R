@@ -67,9 +67,9 @@ CUSTOM_MIN_DAYS = 1
 CUSTOM_MAX_DAYS = 90
 
 DEFAULT_PLANS = [
-    {"plan_id": "premium_60", "name": "Premium", "description": "Our best plan — 60 home-style meals", "amount": 2800.0, "currency": "INR", "duration_days": 30, "meals": 60, "active": True, "sort_order": 1},
-    {"plan_id": "classic_60", "name": "Classic", "description": "Balanced thali — 60 meals", "amount": 2600.0, "currency": "INR", "duration_days": 30, "meals": 60, "active": True, "sort_order": 2},
-    {"plan_id": "saver_60", "name": "Saver", "description": "Light & healthy — 60 meals", "amount": 1800.0, "currency": "INR", "duration_days": 30, "meals": 60, "active": True, "sort_order": 3},
+    {"plan_id": "premium_60", "name": "Premium", "description": "Our best plan — 60 home-style meals", "amount": 2800.0, "currency": "INR", "duration_days": 30, "meals": 60, "active": True, "sort_order": 1, "plan_type": "kiosk", "tiffin_size": None, "tiffins_per_day": 0},
+    {"plan_id": "classic_60", "name": "Classic Full Tiffin", "description": "Full home-style tiffin — 5 chapati + sabzi/dal/rice, delivered twice daily", "amount": 2600.0, "currency": "INR", "duration_days": 30, "meals": 60, "active": True, "sort_order": 2, "plan_type": "delivery", "tiffin_size": "full", "tiffins_per_day": 2},
+    {"plan_id": "saver_60", "name": "Classic Half Tiffin", "description": "Lighter portion tiffin — 3 chapati + sabzi/dal, delivered twice daily", "amount": 1800.0, "currency": "INR", "duration_days": 30, "meals": 60, "active": True, "sort_order": 3, "plan_type": "delivery", "tiffin_size": "half", "tiffins_per_day": 2},
 ]
 
 
@@ -197,6 +197,13 @@ async def seed_plans():
         if not existing:
             doc = {**p, "created_at": iso(now_utc()), "updated_at": iso(now_utc())}
             await db.plans.insert_one(doc)
+        else:
+            # One-shot migration: ensure new delivery fields exist on existing rows
+            patch = {k: v for k, v in p.items() if k in ("plan_type", "tiffin_size", "tiffins_per_day", "name", "description") and existing.get(k) != v}
+            if patch:
+                patch["updated_at"] = iso(now_utc())
+                await db.plans.update_one({"plan_id": p["plan_id"]}, {"$set": patch})
+                logger.info(f"[PLAN MIGRATION] {p['plan_id']} updated with {list(patch.keys())}")
 
 
 # ---------------------------
@@ -1366,6 +1373,9 @@ async def root():
     return {"message": "eFoodCare API", "tagline": "ghar se achha khana"}
 
 
+# Mount delivery sub-router under /api
+from delivery import make_router as _make_delivery_router
+api_router.include_router(_make_delivery_router(db))
 app.include_router(api_router)
 
 app.add_middleware(

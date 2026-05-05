@@ -15,6 +15,7 @@ import AuthCallback from "./pages/AuthCallback";
 import Dashboard from "./pages/Dashboard";
 import AdminOverview from "./pages/AdminDashboard";
 import AdminPlans from "./pages/AdminPlans";
+import AdminDelivery from "./pages/AdminDelivery";
 import AdminCounter from "./pages/AdminCounter";
 import AdminScanner from "./pages/AdminScanner";
 import AdminMenu from "./pages/AdminMenu";
@@ -82,6 +83,7 @@ function AppRoutes() {
           <Route path="/admin" element={<RequireAuth roles={["admin"]}><AdminLayout /></RequireAuth>}>
             <Route index element={<AdminOverview />} />
             <Route path="plans" element={<AdminPlans />} />
+            <Route path="delivery" element={<AdminDelivery />} />
             <Route path="scanner" element={<AdminScanner />} />
             <Route path="counter" element={<AdminCounter />} />
             <Route path="menu" element={<AdminMenu />} />
