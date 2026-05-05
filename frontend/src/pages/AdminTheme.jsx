@@ -25,7 +25,7 @@ const TOKEN_FIELDS = [
 
 const PRESETS = [
   {
-    name: "Green & Blue (default)",
+    name: "Green & Blue Default",
     tokens: { primary: "142 45% 38%", primary_foreground: "0 0% 100%", secondary: "220 70% 50%", secondary_foreground: "0 0% 100%", destructive: "0 70% 50%", accent: "142 30% 95%", accent_foreground: "142 45% 38%", background: "0 0% 100%", foreground: "215 28% 17%", muted: "215 20% 96%", muted_foreground: "215 15% 45%", border: "215 20% 90%", ring: "142 45% 38%" },
   },
   {

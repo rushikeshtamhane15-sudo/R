@@ -39,7 +39,7 @@ export default function Plans() {
     <div className="max-w-6xl mx-auto px-6 md:px-8 lg:px-12 py-12" data-testid="plans-page">
       <div className="text-center max-w-2xl mx-auto">
         <p className="text-xs tracking-overline uppercase font-bold text-secondary">Subscription plans</p>
-        <h1 className="font-display font-extrabold text-4xl md:text-5xl tracking-tight mt-3 leading-[1.05]">Pick a plan. Eat ghar-jaisa khana.</h1>
+        <h1 className="font-display font-extrabold text-4xl md:text-5xl tracking-tight mt-3 leading-[1.05]">Pick a plan. Eat <span className="text-primary">ghar se achha khana.</span></h1>
         <p className="text-muted-foreground mt-4 leading-relaxed">All plans cover 30 days × 2 meals — wallet unused amount auto-pauses when you skip 3+ days in a row.</p>
       </div>
 

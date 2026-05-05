@@ -69,7 +69,7 @@ export default function SubscriberDashboard() {
           {!sub && (
             <div className="mt-6 bg-secondary/10 border border-secondary/20 rounded-2xl p-6 text-center" data-testid="no-sub-banner">
               <p className="font-display font-bold text-lg">You don't have an active e-Meal Pass</p>
-              <p className="text-sm text-muted-foreground mt-1">Grab a plan to start eating ghar-jaisa khana.</p>
+              <p className="text-sm text-muted-foreground mt-1">Grab a plan to start eating ghar se achha khana.</p>
               <Link to="/plans">
                 <Button className="mt-4 rounded-full bg-secondary hover:bg-secondary/90" data-testid="get-plan-button">Choose a plan</Button>
               </Link>
