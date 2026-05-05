@@ -336,9 +336,20 @@ function HandoffCard({ handoff, onChange }) {
 
   const mark = async (rosterId, status) => {
     try {
-      await api.post(`/admin/delivery/roster/${rosterId}/mark`, { status, otp: otpInputs[rosterId] || "" });
+      let extra = {};
+      if (status === "delivered" && navigator.geolocation) {
+        // Capture delivery boy's GPS — used for geofence verification on the server
+        try {
+          const pos = await new Promise((resolve, reject) =>
+            navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 7000 })
+          );
+          extra = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        } catch {
+          // Permission denied / timed out — proceed without geofence
+        }
+      }
+      await api.post(`/admin/delivery/roster/${rosterId}/mark`, { status, otp: otpInputs[rosterId] || "", ...extra });
       toast.success(status === "delivered" ? "Delivered" : status);
-      // refresh items locally
       const r = await api.get(`/admin/delivery/handoff/${handoff.handoff_id}`);
       setItems(r.data.items || []);
       onChange?.();
@@ -402,7 +413,32 @@ function HandoffCard({ handoff, onChange }) {
                 <p className="text-xs text-muted-foreground truncate">{it.phone} · {it.address}</p>
               </div>
               {it.status === "delivered" ? (
-                <span className="text-[10px] uppercase font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Delivered</span>
+                <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                  <span
+                    className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${
+                      it.confirmed_by === "customer"
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-emerald-100 text-emerald-700"
+                    }`}
+                    data-testid={`confirmed-by-${it.roster_id}`}
+                  >
+                    {it.confirmed_by === "customer" ? "Customer confirmed" : "Delivered"}
+                  </span>
+                  {it.distance_warning && (
+                    <span
+                      className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-destructive/10 text-destructive"
+                      title={`Marked from ${it.distance_m}m away`}
+                      data-testid={`geofence-warning-${it.roster_id}`}
+                    >
+                      ⚠ {it.distance_m}m off
+                    </span>
+                  )}
+                  {it.distance_m !== undefined && !it.distance_warning && (
+                    <span className="text-[10px] text-muted-foreground" title="Distance from customer">
+                      {Math.round(it.distance_m)}m
+                    </span>
+                  )}
+                </div>
               ) : it.status === "returned" || it.status === "undelivered" ? (
                 <span className="text-[10px] uppercase font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">{it.status}</span>
               ) : !isDone ? (

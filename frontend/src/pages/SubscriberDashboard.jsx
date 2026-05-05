@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import QRTicket from "../components/QRTicket";
+import PendingDeliveriesBanner from "../components/PendingDeliveriesBanner";
 import { Button } from "../components/ui/button";
 import { Utensils, Moon, Sun, Clock, Wallet, Pause, IndianRupee } from "lucide-react";
 
@@ -54,6 +55,8 @@ export default function SubscriberDashboard() {
         <h1 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-2">Your e-Meal Pass</h1>
         <p className="text-muted-foreground text-sm mt-1 italic">ghar se achha khana</p>
       </div>
+
+      <PendingDeliveriesBanner />
 
       <div className="grid lg:grid-cols-5 gap-8">
         <div className="lg:col-span-3">

@@ -141,6 +141,13 @@ class ProfileUpdate(BaseModel):
     phone: str
     address: str
     photo_url: Optional[str] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+
+
+class LocationUpdate(BaseModel):
+    lat: float
+    lng: float
 
 
 class SendOtpRequest(BaseModel):
@@ -419,9 +426,22 @@ async def update_profile(payload: ProfileUpdate, user: User = Depends(get_curren
         if payload.photo_url and len(payload.photo_url) > 1_200_000:
             raise HTTPException(status_code=413, detail="Photo too large; please use a smaller image")
         update["photo_url"] = payload.photo_url
+    if payload.lat is not None and payload.lng is not None:
+        update["lat"] = float(payload.lat)
+        update["lng"] = float(payload.lng)
     await db.users.update_one({"user_id": user.user_id}, {"$set": update})
     updated = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
     return {"ok": True, "user": updated}
+
+
+@api_router.post("/auth/location")
+async def update_location(payload: LocationUpdate, user: User = Depends(get_current_user)):
+    """Lightweight endpoint — customer pins their delivery location once."""
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {"lat": float(payload.lat), "lng": float(payload.lng), "location_set_at": iso(now_utc())}},
+    )
+    return {"ok": True}
 
 
 # ---------------------------
@@ -1374,8 +1394,9 @@ async def root():
 
 
 # Mount delivery sub-router under /api
-from delivery import make_router as _make_delivery_router
+from delivery import make_router as _make_delivery_router, make_customer_router as _make_customer_router
 api_router.include_router(_make_delivery_router(db))
+api_router.include_router(_make_customer_router(db))
 app.include_router(api_router)
 
 app.add_middleware(

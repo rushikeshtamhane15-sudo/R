@@ -16,9 +16,14 @@ Rules
 * Pincodes outside service_pincodes are tagged is_outside=True so admin can exclude.
 * Reconciliation: tiffins_handed = sum(items handed) ; tiffins_returned must come from items
   marked 'returned'/'undelivered'. Anything left over is flagged as `loss_count`.
+* Geofence: when admin/boy marks delivered with GPS, server computes distance to customer's
+  saved coords and stores it. >250m is recorded as `distance_warning=True` (not blocked).
+* Customer self-confirm: customer hits /api/my/deliveries/{roster_id}/confirm to mark
+  delivered without OTP — bypasses the geofence check (the customer is the witness).
 """
 from __future__ import annotations
 
+import math
 import re
 import secrets
 from datetime import date as date_cls, datetime, time, timedelta, timezone
@@ -41,7 +46,18 @@ DEFAULT_SETTINGS = {
     "service_pincodes": [],   # empty = treat all as in-service
     "lunch_otp_required": True,
     "dinner_otp_required": True,
+    "geofence_meters": 250,
 }
+
+
+def haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    """Great-circle distance in metres."""
+    R = 6371000.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp = math.radians(lat2 - lat1)
+    dl = math.radians(lng2 - lng1)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return float(2 * R * math.asin(math.sqrt(a)))
 
 
 # Body models — kept at module scope so FastAPI/Pydantic can fully resolve them.
@@ -51,6 +67,7 @@ class SettingsPatch(BaseModel):
     service_pincodes: list[str] | None = None
     lunch_otp_required: bool | None = None
     dinner_otp_required: bool | None = None
+    geofence_meters: int | None = None
 
 
 class BoyCreate(BaseModel):
@@ -80,6 +97,8 @@ class MarkItem(BaseModel):
     status: str   # delivered | undelivered | returned
     otp: str | None = None
     notes: str | None = None
+    lat: float | None = None
+    lng: float | None = None
 
 
 def now_utc() -> datetime:
@@ -382,14 +401,26 @@ def make_router(db) -> APIRouter:
         item = await db.daily_rosters.find_one({"roster_id": roster_id}, {"_id": 0})
         if not item:
             raise HTTPException(status_code=404, detail="Roster item not found")
-        if payload.status == "delivered":
-            settings = await _load_settings()
-            otp_required = settings.get(f"{item['meal_type']}_otp_required", True)
-            if otp_required and (payload.otp or "").strip() != (item.get("otp") or ""):
-                raise HTTPException(status_code=400, detail="Wrong OTP — ask the customer to read it from their phone")
+        settings = await _load_settings()
         upd = {"status": payload.status, "delivered_at": iso(now_utc()) if payload.status == "delivered" else None}
         if payload.notes:
             upd["notes"] = payload.notes
+
+        if payload.status == "delivered":
+            otp_required = settings.get(f"{item['meal_type']}_otp_required", True)
+            if otp_required and (payload.otp or "").strip() != (item.get("otp") or ""):
+                raise HTTPException(status_code=400, detail="Wrong OTP — ask the customer to read it from their phone")
+            upd["confirmed_by"] = "admin"
+            # Geofence: capture delivery boy's position + compare to customer's saved coords
+            if payload.lat is not None and payload.lng is not None:
+                upd["delivery_lat"] = float(payload.lat)
+                upd["delivery_lng"] = float(payload.lng)
+                user = await db.users.find_one({"user_id": item["user_id"]}, {"_id": 0})
+                if user and user.get("lat") and user.get("lng"):
+                    dist = haversine_m(payload.lat, payload.lng, user["lat"], user["lng"])
+                    upd["distance_m"] = round(dist, 1)
+                    upd["distance_warning"] = dist > float(settings.get("geofence_meters") or 250)
+
         await db.daily_rosters.update_one({"roster_id": roster_id}, {"$set": upd})
         return {"ok": True, **upd}
 
@@ -418,5 +449,45 @@ def make_router(db) -> APIRouter:
         }
         await db.delivery_handoffs.update_one({"handoff_id": handoff_id}, {"$set": upd})
         return {**h, **upd}
+
+    return router
+
+
+def make_customer_router(db) -> APIRouter:
+    """Customer-facing endpoints — list pending deliveries + self-confirm."""
+    from server import get_current_user, User  # type: ignore
+
+    router = APIRouter(prefix="/my/deliveries", tags=["my-deliveries"])
+
+    @router.get("/pending")
+    async def my_pending(user: User = Depends(get_current_user)):
+        """Pending tiffin deliveries for the current customer (today only)."""
+        today = today_local()
+        items = await db.daily_rosters.find(
+            {"user_id": user.user_id, "date": today, "status": {"$in": ["planned", "out"]}},
+            {"_id": 0, "otp": 0},   # don't leak OTP via this endpoint
+        ).to_list(20)
+        items.sort(key=lambda x: 0 if x["meal_type"] == "lunch" else 1)
+        return {"pending": items, "date": today}
+
+    @router.post("/{roster_id}/confirm")
+    async def my_confirm(roster_id: str, user: User = Depends(get_current_user)):
+        """Customer self-confirms tiffin received — bypasses OTP & geofence (they're the witness)."""
+        item = await db.daily_rosters.find_one({"roster_id": roster_id}, {"_id": 0})
+        if not item:
+            raise HTTPException(status_code=404, detail="Delivery not found")
+        if item["user_id"] != user.user_id:
+            raise HTTPException(status_code=403, detail="Forbidden")
+        if item["status"] == "delivered":
+            return {"ok": True, "already": True}
+        await db.daily_rosters.update_one(
+            {"roster_id": roster_id},
+            {"$set": {
+                "status": "delivered",
+                "delivered_at": iso(now_utc()),
+                "confirmed_by": "customer",
+            }},
+        )
+        return {"ok": True}
 
     return router
