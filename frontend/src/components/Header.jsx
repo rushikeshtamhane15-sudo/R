@@ -16,46 +16,57 @@ export default function Header() {
   const brandName = theme?.brand_name || "eFoodCare";
   const brandTagline = theme?.brand_tagline || "ghar se achha khana";
 
-  // Public-facing navigation only — admin tools are inside /admin
-  const navLinks = [];
+  const primary = [];
+  const info = [
+    { to: "/contact", label: "Contact" },
+    { to: "/privacy", label: "Privacy Policy" },
+    { to: "/refund", label: "Refund Policy" },
+  ];
   if (user) {
-    navLinks.push({ to: "/dashboard", label: "Dashboard" });
-    navLinks.push({ to: "/plans", label: "Plans" });
-    navLinks.push({ to: "/profile", label: "Profile" });
-    if (user.role === "admin") navLinks.push({ to: "/admin", label: "Admin" });
+    primary.push({ to: "/dashboard", label: "Dashboard" });
+    primary.push({ to: "/plans", label: "Plans" });
+    primary.push({ to: "/profile", label: "Profile" });
+    if (user.role === "admin") primary.push({ to: "/admin", label: "Admin" });
   } else {
-    navLinks.push({ to: "/", label: "Home" });
-    navLinks.push({ to: "/plans", label: "Plans" });
+    primary.push({ to: "/", label: "Home" });
+    primary.push({ to: "/plans", label: "Plans" });
   }
 
   const close = () => setOpen(false);
 
   return (
-    <header className="sticky top-0 z-30 backdrop-blur-xl bg-background/85 border-b border-border" data-testid="app-header">
+    <header
+      className="sticky top-0 z-30 bg-primary text-primary-foreground border-b border-primary/40 shadow-sm"
+      data-testid="app-header"
+    >
       <div className="max-w-7xl mx-auto flex items-center justify-between px-4 md:px-8 lg:px-12 py-4">
         <Link to="/" className="flex items-center gap-2.5" data-testid="logo-link">
-          <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center">
+          <div className="h-9 w-9 rounded-xl bg-white/15 flex items-center justify-center">
             <UtensilsCrossed className="h-5 w-5 text-primary-foreground" strokeWidth={1.75} />
           </div>
           <div className="flex flex-col leading-none">
-            <span className="font-display font-extrabold text-lg text-foreground">{brandName}</span>
-            <span className="text-[10px] tracking-overline uppercase font-bold text-secondary mt-0.5 hidden sm:block">{brandTagline}</span>
+            <span className="font-display font-extrabold text-lg text-primary-foreground">{brandName}</span>
+            <span className="text-[10px] tracking-overline uppercase font-bold text-primary-foreground/80 mt-0.5 hidden sm:block">{brandTagline}</span>
           </div>
         </Link>
 
         <div className="flex items-center gap-2 md:gap-3">
           {user && user.role === "subscriber" && <WalletPill />}
-
-          {/* Toggle menu (always available — works on mobile and desktop) */}
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" size="sm" className="rounded-full h-10 w-10 p-0" data-testid="menu-toggle-button" aria-label="Open menu">
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-full h-10 w-10 p-0 bg-white/15 text-primary-foreground border-white/30 hover:bg-white/25 hover:text-primary-foreground"
+                data-testid="menu-toggle-button"
+                aria-label="Open menu"
+              >
                 {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-72" data-testid="menu-drawer">
+            <SheetContent side="right" className="w-80" data-testid="menu-drawer">
               <div className="flex flex-col h-full">
-                <div className="flex items-center gap-2.5 mb-8">
+                <div className="flex items-center gap-2.5 mb-6">
                   <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center">
                     <UtensilsCrossed className="h-5 w-5 text-primary-foreground" strokeWidth={1.75} />
                   </div>
@@ -66,7 +77,7 @@ export default function Header() {
                 </div>
 
                 {user && (
-                  <div className="rounded-2xl bg-muted/60 p-4 mb-6 flex items-center gap-3" data-testid="menu-user-card">
+                  <div className="rounded-2xl bg-muted/60 p-4 mb-5 flex items-center gap-3" data-testid="menu-user-card">
                     {user.picture ? (
                       <img src={user.picture} alt={user.name} className="h-10 w-10 rounded-full" />
                     ) : (
@@ -82,7 +93,7 @@ export default function Header() {
                 )}
 
                 <nav className="flex flex-col gap-1">
-                  {navLinks.map((l) => (
+                  {primary.map((l) => (
                     <Link
                       key={l.to}
                       to={l.to}
@@ -96,6 +107,25 @@ export default function Header() {
                     </Link>
                   ))}
                 </nav>
+
+                <div className="mt-5 pt-5 border-t border-border">
+                  <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground px-1 mb-1">Information</p>
+                  <nav className="flex flex-col gap-1">
+                    {info.map((l) => (
+                      <Link
+                        key={l.to}
+                        to={l.to}
+                        onClick={close}
+                        data-testid={`menu-${l.label.toLowerCase().replace(/\s/g, "-")}`}
+                        className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                          location.pathname === l.to ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                        }`}
+                      >
+                        {l.label}
+                      </Link>
+                    ))}
+                  </nav>
+                </div>
 
                 <div className="mt-auto pt-6 border-t border-border">
                   {user ? (

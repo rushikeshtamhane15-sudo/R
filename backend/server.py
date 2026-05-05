@@ -709,22 +709,22 @@ DEFAULT_THEME = {
     "brand_tagline": "ghar se achha khana",
     "tokens": {
         "background": "0 0% 100%",
-        "foreground": "215 28% 17%",
+        "foreground": "220 55% 22%",
         "card": "0 0% 100%",
-        "card_foreground": "215 28% 17%",
-        "primary": "142 45% 38%",
+        "card_foreground": "220 55% 22%",
+        "primary": "142 50% 35%",
         "primary_foreground": "0 0% 100%",
         "secondary": "220 70% 50%",
         "secondary_foreground": "0 0% 100%",
         "accent": "142 30% 95%",
-        "accent_foreground": "142 45% 38%",
+        "accent_foreground": "142 50% 35%",
         "destructive": "0 70% 50%",
         "destructive_foreground": "0 0% 100%",
-        "muted": "215 20% 96%",
-        "muted_foreground": "215 15% 45%",
-        "border": "215 20% 90%",
-        "input": "215 20% 90%",
-        "ring": "142 45% 38%",
+        "muted": "220 25% 96%",
+        "muted_foreground": "220 20% 40%",
+        "border": "220 20% 90%",
+        "input": "220 20% 90%",
+        "ring": "142 50% 35%",
         "radius": "0.75rem",
     },
 }
@@ -770,6 +770,93 @@ async def reset_theme(user: User = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Admin only")
     await db.theme_settings.update_one({"_id": "active"}, {"$set": {**DEFAULT_THEME, "updated_at": iso(now_utc())}}, upsert=True)
     return DEFAULT_THEME
+
+
+# ---------------------------
+# Site content (admin-editable pages & footer & landing)
+# ---------------------------
+DEFAULT_CONTENT = {
+    "footer": {
+        "copyright": "copyright © efoodcare.in all rights reserved",
+        "tagline": "ghar se achha khana",
+    },
+    "landing": {
+        "hero_overline": "UPI · WALLET · E-MEAL PASS",
+        "hero_title_line1": "ghar se achha khana,",
+        "hero_title_line2": "ab ek e-Meal Pass pe.",
+        "hero_subtitle": "30-day tiffin subscriptions with a smart wallet. Pay once by UPI, check-in by QR, skip a few days — we pause your wallet, no meals wasted.",
+        "hero_cta_primary": "Get your e-Meal Pass",
+        "hero_cta_secondary": "View plans",
+        "hero_image_url": "https://images.unsplash.com/photo-1600488999806-8efb986d87b1?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600",
+        "sections": [],  # admin can add custom sections: {heading, body, image_url}
+    },
+    "privacy": {
+        "title": "Privacy Policy",
+        "last_updated": "",
+        "body": "Add your privacy policy here via Admin → Content → Privacy.\n\nInclude how you collect, use, and protect user data, cookies, and third-party sharing disclosures.",
+    },
+    "refund": {
+        "title": "Refund Policy",
+        "last_updated": "",
+        "body": "Add your refund policy here via Admin → Content → Refund.\n\nMention eligibility, the refund window, how to request a refund, and processing time.",
+    },
+    "contact": {
+        "title": "Contact Us",
+        "intro": "We'd love to hear from you. Reach out any time.",
+        "company": "eFoodCare",
+        "address": "Your full address line · City · State · PIN",
+        "phone": "+91 99707 05391",
+        "email": "hello@efoodcare.in",
+        "hours": "Mon–Sun · 10 AM – 10 PM",
+        "map_embed_src": "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d60304.49!2d73.75!3d18.55!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2sPune!5e0!3m2!1sen!2sin!4v1700000000000",
+    },
+}
+
+
+async def _load_content(key: str):
+    doc = await db.site_content.find_one({"key": key}, {"_id": 0})
+    if doc:
+        return doc.get("data", DEFAULT_CONTENT.get(key, {}))
+    default = DEFAULT_CONTENT.get(key)
+    if default is None:
+        raise HTTPException(status_code=404, detail="Unknown content key")
+    await db.site_content.insert_one({"key": key, "data": default, "updated_at": iso(now_utc())})
+    return default
+
+
+class ContentUpdate(BaseModel):
+    data: dict
+
+
+@api_router.get("/content/{key}")
+async def get_content(key: str):
+    return await _load_content(key)
+
+
+@api_router.post("/admin/content/{key}")
+async def update_content(key: str, payload: ContentUpdate, user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    if key not in DEFAULT_CONTENT:
+        raise HTTPException(status_code=400, detail="Unknown content key")
+    current = await _load_content(key)
+    merged = {**current, **payload.data}
+    await db.site_content.update_one(
+        {"key": key}, {"$set": {"key": key, "data": merged, "updated_at": iso(now_utc())}}, upsert=True,
+    )
+    return merged
+
+
+@api_router.post("/admin/content/{key}/reset")
+async def reset_content(key: str, user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    if key not in DEFAULT_CONTENT:
+        raise HTTPException(status_code=400, detail="Unknown content key")
+    await db.site_content.update_one(
+        {"key": key}, {"$set": {"key": key, "data": DEFAULT_CONTENT[key], "updated_at": iso(now_utc())}}, upsert=True,
+    )
+    return DEFAULT_CONTENT[key]
 
 
 @api_router.get("/my/subscription")

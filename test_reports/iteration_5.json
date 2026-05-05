@@ -1,0 +1,43 @@
+{
+  "summary": "Iteration 5 (site-content CMS + footer + privacy/refund/contact pages + Emergent-badge hide + header rebrand + new navy foreground) fully tested. Backend: pytest 46/46 PASS (7 new iter5 tests + 14 iter4 + 25 iter1-3 regression). All /api/content/{key} endpoints verified for footer/landing/privacy/refund/contact with expected default shape; admin gating on POST /api/admin/content/:key (subscriber→403, admin→200 merges), reset endpoint restores defaults, unknown key returns 400 for POST and 404 for GET; new theme defaults primary '142 50% 35%' + foreground '220 55% 22%' confirmed via GET /api/theme and POST /api/admin/theme/reset. Frontend: Footer (data-testid='app-footer') renders on / and on /privacy /refund /contact with exact 'copyright © efoodcare.in all rights reserved' text plus footer-contact/footer-privacy/footer-refund links; kiosk /k/main has NO footer (verified absent). Header: bg rgb(45,134,77) (primary green), brand text rgb(255,255,255) (white), menu-toggle-button present. Hamburger drawer on landing shows menu-contact, menu-privacy-policy, menu-refund-policy. /privacy renders privacy-page, /refund renders refund-page, /contact renders contact-page with contact-map iframe present. Emergent badge: no visible element matching #emergent-badge, .emergent-badge, [class*='EmergentBadge'], a[href*='emergent.sh'], a[href*='emergentagent'] after 3.5s settle. Body foreground color rgb(25,46,87) (navy, not pure black); heading also non-black. AdminContent pages (/admin/content/privacy, /contact, /footer) expose all required field-* inputs + save-content-button; edit→save→public page reflects change (verified end-to-end for privacy body: saved TEST_PRIVACY_BODY_xxx, shown on /privacy). AdminLanding (/admin/landing) has hero-overline/hero-title-1/hero-title-2/hero-subtitle/hero-cta-primary/hero-cta-secondary/hero-image-url + add-section-button; clicking add-section adds section-heading-0/section-body-0/section-image-0/section-align-0; save-landing-button persists; public / renders custom-section-0 with saved heading. Admin sidebar grouped Overview/Operations/Content & design with ALL 12 nav items (admin-nav-home-page, -privacy-policy, -refund-policy, -contact-us, -footer, -design-tokens, -dashboard, -plans, -users-roles, -qr-scanner, -counter-qr, -daily-menu). After testing, all mutated content was POST /admin/content/:key/reset and TEST_ users/sessions cleaned.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "All admin pages (and likely every route using Radix DialogContent)", "issues": ["Console warning: 'DialogContent requires a DialogTitle for the component to be accessible for screen reader users.' and 'Missing Description or aria-describedby={undefined} for DialogContent.' — non-blocking a11y warnings fired when the hamburger drawer (Radix Dialog/Sheet) opens. Wrap the drawer trigger content with <DialogTitle>/<DialogDescription> (VisuallyHidden if you don't want them shown) to silence."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter5.py",
+    "/app/backend/tests/test_iter4.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/iter5_results.xml"
+  ],
+  "action_items": [
+    "(a11y-minor) Wrap Radix Sheet/DialogContent (hamburger drawer) with VisuallyHidden DialogTitle + DialogDescription to clear console a11y warnings.",
+    "(tech-debt) POST /api/admin/content/:key performs shallow merge ({...current, ...data}); nested updates to hero.sections will wholesale-replace the sections array. Current admin UI always sends the full sections array so this works — just flag this contract for future API consumers.",
+    "(tech-debt) DEFAULT_CONTENT.contact.map_embed_src uses a generic Pune coordinate placeholder; make sure /app/memory/PRD.md notes that the admin must replace it with the real eFoodCare location before prod.",
+    "Updated /app/backend/tests/test_iter4.py::test_admin_theme_reset hard-coded primary from old '142 45% 38%' to new '142 50% 35%' (iter4 test was stale after iter5 theme default change)."
+  ],
+  "critical_code_review_comments": [
+    "server.py is now 1137 lines — over the 700-line guideline. Recommend splitting into routers: auth.py, payments.py, attendance.py, admin.py, content.py, theme.py. DRY: admin-role check is repeated ~15 times — extract `require_admin(user: User = Depends(get_current_user))` dependency.",
+    "POST /api/admin/content/:key does shallow merge only. If an admin partially updates contact (say only phone), that works; but if they ever POST {sections: []} it wholesale nukes sections — make sure admin UI always posts the full sections array (currently AdminLanding does).",
+    "No input validation on content payload (arbitrary dict). A malicious admin could inject HTML into body/address fields. Sanitize on render (React already escapes) or run a short DOMPurify pass before saving.",
+    "DEFAULT_CONTENT.contact.map_embed_src is a generic Pune Google-Maps URL — pure placeholder. Ensure you swap to the real address before launch.",
+    "/api/content/:key returns 404 for unknown (correct) but /api/admin/content/:key returns 400 for unknown — inconsistent status codes for same 'unknown key' condition across public/admin. Recommend both return 404.",
+    "Radix Dialog a11y: console logs 'DialogContent requires a DialogTitle' every time the hamburger opens. Add <DialogTitle>(VisuallyHidden) to the drawer.",
+    "Multiple 401s logged on every page load (`/api/auth/me` when anonymous) — not an error but pollutes the console. Frontend should swallow/ignore this cleanly rather than logging a failed resource."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter5.py (new)",
+    "/app/backend/tests/test_iter4.py (updated stale theme-default assertion)"
+  ],
+  "success_rate": {"backend": "100% (46/46 = 7 iter5 + 14 iter4 + 25 iter1-3)", "frontend": "100% on all iter5 spec flows (footer present on pages + absent on kiosk, header bg/brand colors, hamburger info links, /privacy /refund /contact pages + contact map, Emergent badge hidden, non-black text, AdminLanding hero+section save→public reflection, AdminContent privacy body save→public reflection, admin sidebar grouping + 12 nav items)"},
+  "test_credentials": "Admin phone OTP 9970705391 (auto-promoted via ADMIN_PHONES). Admin email rushikeshtamhane15@gmail.com or admin@efoodcare.com (auto-promoted via ADMIN_EMAILS on Google-OAuth login path). Test ran with a throwaway TEST_-prefixed admin session token injected directly into Mongo + cookie — cleaned up after.",
+  "seed_data_creation": "Created transient user_TEST_adm_* + sess_TEST_* for admin Playwright flows; deleted after run. Also POST /api/admin/content/{privacy,landing,refund,contact,footer}/reset at end to restore defaults so main agent sees clean DB.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter5 backend tests live at /app/backend/tests/test_iter5.py. Run full regression: `pytest /app/backend/tests/ -v --junitxml=/app/test_reports/pytest/results.xml`. Iter5 theme default changed primary to '142 50% 35%' and foreground to '220 55% 22%' — updated iter4 test accordingly. Site-content CMS lives in DEFAULT_CONTENT dict at top of server.py content block (around line 778). Admin sidebar is grouped in AdminLayout.jsx. Hamburger drawer ships with a Radix Dialog a11y warning — not a bug, just console noise. All Playwright tests used cookie-based auth (page.context.add_cookies with HttpOnly session_token) since frontend stores the session as an HttpOnly cookie.",
+  "rca of the issue": "No blocker bugs found in iter5. One stale iter4 unit test had hard-coded OLD primary '142 45% 38%' — updated to new '142 50% 35%' (this was expected fallout from iteration 5 deliberately changing the DEFAULT_THEME tokens). All public, admin-gated, and integration flows passed on first try."
+}

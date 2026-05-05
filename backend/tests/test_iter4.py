@@ -123,7 +123,7 @@ class TestTheme:
         assert d["brand_name"] == "eFoodCare"
         assert d["brand_tagline"] == "ghar se achha khana"
         # Default primary token should be the green
-        assert d["tokens"]["primary"] == "142 45% 38%"
+        assert d["tokens"]["primary"] == "142 50% 35%"
 
     def test_admin_theme_reset_subscriber_403(self, subscriber):
         r = requests.post(f"{BASE_URL}/api/admin/theme/reset", headers=h(subscriber["token"]))
