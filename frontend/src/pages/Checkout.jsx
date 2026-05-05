@@ -168,9 +168,6 @@ export default function Checkout() {
                 <dd className="font-display font-extrabold text-xl tabular-nums" data-testid="total-payable">₹{fees.total.toFixed(2)}</dd>
               </div>
             </dl>
-            <p className="text-[11px] text-muted-foreground mt-3 leading-relaxed">
-              Wallet loads with <span className="font-semibold text-foreground">₹{fees.base.toFixed(0)}</span> · platform fee covers payment-gateway charges.
-            </p>
           </div>
 
           <div className="bg-primary text-primary-foreground rounded-2xl p-6" data-testid="wallet-preview">

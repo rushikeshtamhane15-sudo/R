@@ -645,6 +645,10 @@ async def _activate_subscription(order: dict):
     await db.subscriptions.insert_one(sub.copy())
     await db.users.update_one({"user_id": user_id}, {"$inc": {"wallet_balance": float(plan["amount"])}})
     await _log_wallet_txn(user_id, sub["sub_id"], "credit", float(plan["amount"]), float(plan["amount"]), f"{plan['name']} subscription")
+    # Record the platform fee as a separate informational entry (does not affect wallet balance)
+    fee_amt = float(order.get("platform_fee") or 0)
+    if fee_amt > 0:
+        await _log_wallet_txn(user_id, sub["sub_id"], "fee", fee_amt, float(plan["amount"]), f"Platform fee ({order.get('platform_fee_pct', 2)}%)")
     await db.payment_orders.update_one({"order_id": order["order_id"]}, {"$set": {"status": "paid", "sub_id": sub["sub_id"], "paid_at": iso(start)}})
     logger.info(f"[SUB ACTIVATED] user={user_id} plan={plan['plan_id']} amount={plan['amount']} per_day={per_day}")
 

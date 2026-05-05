@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "./ui/sheet";
-import { Wallet, IndianRupee, ArrowDownLeft, ArrowUpRight, Pause, Loader2 } from "lucide-react";
+import { Wallet, IndianRupee, ArrowDownLeft, ArrowUpRight, Pause, Receipt, Loader2 } from "lucide-react";
 
 export default function WalletPill({ trigger, alwaysShow = false, compact = false }) {
   const [data, setData] = useState(null);
@@ -85,8 +85,15 @@ export default function WalletPill({ trigger, alwaysShow = false, compact = fals
 function TxnRow({ t }) {
   const isCredit = t.type === "credit";
   const isDebit = t.type === "debit";
-  const Icon = isCredit ? ArrowDownLeft : isDebit ? ArrowUpRight : Pause;
-  const color = isCredit ? "text-primary bg-primary/10" : isDebit ? "text-destructive bg-destructive/10" : "text-secondary bg-secondary/10";
+  const isFee = t.type === "fee";
+  const Icon = isCredit ? ArrowDownLeft : isDebit ? ArrowUpRight : isFee ? Receipt : Pause;
+  const color = isCredit
+    ? "text-primary bg-primary/10"
+    : isDebit
+      ? "text-destructive bg-destructive/10"
+      : isFee
+        ? "text-muted-foreground bg-muted"
+        : "text-secondary bg-secondary/10";
   const sign = isCredit ? "+" : isDebit ? "−" : "";
   return (
     <div className="flex items-center justify-between rounded-xl border border-border p-3" data-testid={`txn-${t.txn_id}`}>
@@ -101,11 +108,13 @@ function TxnRow({ t }) {
       </div>
       <div className="text-right shrink-0">
         {t.amount > 0 && (
-          <p className={`font-display font-bold text-sm ${isCredit ? "text-primary" : "text-destructive"}`}>
-            {sign}₹{Math.round(t.amount).toLocaleString("en-IN")}
+          <p className={`font-display font-bold text-sm ${isCredit ? "text-primary" : isFee ? "text-muted-foreground" : "text-destructive"}`}>
+            {sign}₹{Number(t.amount).toLocaleString("en-IN", { minimumFractionDigits: isFee ? 2 : 0, maximumFractionDigits: 2 })}
           </p>
         )}
-        <p className="text-[11px] text-muted-foreground">bal ₹{Math.round(t.balance_after).toLocaleString("en-IN")}</p>
+        {!isFee && (
+          <p className="text-[11px] text-muted-foreground">bal ₹{Math.round(t.balance_after).toLocaleString("en-IN")}</p>
+        )}
       </div>
     </div>
   );
