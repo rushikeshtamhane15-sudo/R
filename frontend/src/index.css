@@ -25,52 +25,32 @@ body {
 
 @layer base {
     :root {
-        --background: 40 25% 96%;
-        --foreground: 140 5% 15%;
+        /* Default theme (red, white, green, blue palette — NO black, NO yellow) */
+        --background: 0 0% 100%;
+        --foreground: 215 28% 17%;
         --card: 0 0% 100%;
-        --card-foreground: 140 5% 15%;
+        --card-foreground: 215 28% 17%;
         --popover: 0 0% 100%;
-        --popover-foreground: 140 5% 15%;
-        --primary: 135 11% 33%;
+        --popover-foreground: 215 28% 17%;
+        --primary: 142 45% 38%;
         --primary-foreground: 0 0% 100%;
-        --secondary: 26 43% 57%;
+        --secondary: 220 70% 50%;
         --secondary-foreground: 0 0% 100%;
-        --muted: 40 10% 90%;
-        --muted-foreground: 140 5% 40%;
-        --accent: 40 25% 90%;
-        --accent-foreground: 135 11% 33%;
-        --destructive: 0 60% 50%;
+        --muted: 215 20% 96%;
+        --muted-foreground: 215 15% 45%;
+        --accent: 142 30% 95%;
+        --accent-foreground: 142 45% 38%;
+        --destructive: 0 70% 50%;
         --destructive-foreground: 0 0% 100%;
-        --border: 40 15% 85%;
-        --input: 40 15% 85%;
-        --ring: 135 11% 33%;
+        --border: 215 20% 90%;
+        --input: 215 20% 90%;
+        --ring: 142 45% 38%;
         --radius: 0.75rem;
-        --chart-1: 135 11% 33%;
-        --chart-2: 26 43% 57%;
-        --chart-3: 40 60% 55%;
-        --chart-4: 160 20% 45%;
-        --chart-5: 15 50% 50%;
-    }
-    .dark {
-        --background: 140 8% 10%;
-        --foreground: 40 25% 92%;
-        --card: 140 8% 13%;
-        --card-foreground: 40 25% 92%;
-        --popover: 140 8% 13%;
-        --popover-foreground: 40 25% 92%;
-        --primary: 135 25% 55%;
-        --primary-foreground: 140 8% 10%;
-        --secondary: 26 43% 57%;
-        --secondary-foreground: 140 8% 10%;
-        --muted: 140 8% 18%;
-        --muted-foreground: 40 15% 70%;
-        --accent: 140 8% 18%;
-        --accent-foreground: 135 25% 55%;
-        --destructive: 0 60% 50%;
-        --destructive-foreground: 0 0% 100%;
-        --border: 140 8% 22%;
-        --input: 140 8% 22%;
-        --ring: 135 25% 55%;
+        --chart-1: 142 45% 38%;
+        --chart-2: 220 70% 50%;
+        --chart-3: 0 70% 50%;
+        --chart-4: 200 70% 45%;
+        --chart-5: 142 30% 60%;
     }
 }
 
@@ -80,13 +60,5 @@ body {
 }
 
 @layer utilities {
-    .ticket-border {
-        -webkit-mask-image: radial-gradient(circle at 0 50%, transparent 12px, black 12px) 0 50% / 51% 100% no-repeat,
-                            radial-gradient(circle at 100% 50%, transparent 12px, black 12px) 100% 50% / 51% 100% no-repeat;
-                mask-image: radial-gradient(circle at 0 50%, transparent 12px, black 12px) 0 50% / 51% 100% no-repeat,
-                            radial-gradient(circle at 100% 50%, transparent 12px, black 12px) 100% 50% / 51% 100% no-repeat;
-    }
-    .tracking-overline {
-        letter-spacing: 0.2em;
-    }
+    .tracking-overline { letter-spacing: 0.2em; }
 }

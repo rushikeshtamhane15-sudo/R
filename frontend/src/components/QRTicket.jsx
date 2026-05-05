@@ -32,7 +32,7 @@ export default function QRTicket({ token, userName, mealsLeft, mealsTotal, daysL
                 size={200}
                 level="M"
                 bgColor="#ffffff"
-                fgColor="#4b5c4a"
+                fgColor="#2e7d4f"
               />
             </div>
           </div>

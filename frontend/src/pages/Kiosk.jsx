@@ -64,7 +64,7 @@ export default function Kiosk() {
               <UtensilsCrossed className="h-5 w-5 text-primary-foreground" strokeWidth={1.75} />
             </div>
             <div>
-              <p className="font-display font-extrabold text-lg leading-none">MESSPASS</p>
+              <p className="font-display font-extrabold text-lg leading-none">e-Meal Pass</p>
               <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground mt-1">Counter · {locationId}</p>
             </div>
           </div>
@@ -102,7 +102,7 @@ export default function Kiosk() {
               data-testid="kiosk-qr"
             >
               {data ? (
-                <QRCodeSVG value={data.counter_code} size={340} level="M" fgColor="#4b5c4a" />
+                <QRCodeSVG value={data.counter_code} size={340} level="M" fgColor="#2e7d4f" />
               ) : (
                 <div className="h-[340px] w-[340px] flex items-center justify-center text-muted-foreground">Loading…</div>
               )}
@@ -131,7 +131,7 @@ export default function Kiosk() {
             <div className="rounded-2xl bg-accent border border-black/5 p-5">
               <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">How to check in</p>
               <ol className="text-sm mt-2 space-y-1 list-decimal pl-4 text-foreground/80">
-                <li>Open MessPass on your phone</li>
+                <li>Open eFoodCare on your phone</li>
                 <li>Tap "Scan counter QR"</li>
                 <li>Point at this screen — done.</li>
               </ol>

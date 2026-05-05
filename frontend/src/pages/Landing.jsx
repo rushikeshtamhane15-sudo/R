@@ -106,7 +106,7 @@ export default function Landing() {
         <div className="bg-primary rounded-3xl p-10 md:p-16 flex flex-col md:flex-row items-start md:items-center justify-between gap-8 text-primary-foreground">
           <div>
             <h3 className="font-display font-extrabold text-3xl md:text-4xl lg:text-5xl tracking-tight leading-[1.05]">
-              Ghar jaisa khana, <br/> ab UPI pe.
+              ghar se achha khana, <br/> ab UPI pe.
             </h3>
             <p className="mt-4 text-primary-foreground/80 max-w-lg">
               Plans start at ₹1,800 for 30 days.

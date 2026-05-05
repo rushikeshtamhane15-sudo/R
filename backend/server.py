@@ -37,6 +37,7 @@ logger = logging.getLogger("efoodcare")
 # Config
 # ---------------------------
 ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()}
+ADMIN_PHONES = {p.strip() for p in os.environ.get("ADMIN_PHONES", "").split(",") if p.strip()}
 
 RZP_KEY_ID = os.environ.get("RAZORPAY_KEY_ID", "")
 RZP_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "")
@@ -244,17 +245,21 @@ async def issue_session(user_id: str, response: Response) -> str:
 async def create_or_get_user(email: Optional[str], phone: Optional[str], name: str, picture: Optional[str] = None) -> dict:
     query = {"email": email.lower()} if email else {"phone": phone}
     existing = await db.users.find_one(query, {"_id": 0})
+    is_admin = (email and email.lower() in ADMIN_EMAILS) or (phone and phone in ADMIN_PHONES)
     if existing:
         updates = {}
         if name and existing.get("name") != name:
             updates["name"] = name
         if picture and existing.get("picture") != picture:
             updates["picture"] = picture
+        # Auto-promote on every login if email/phone is in admin list
+        if is_admin and existing.get("role") != "admin":
+            updates["role"] = "admin"
         if updates:
             await db.users.update_one({"user_id": existing["user_id"]}, {"$set": updates})
             existing.update(updates)
         return existing
-    role = "admin" if (email and email.lower() in ADMIN_EMAILS) else "subscriber"
+    role = "admin" if is_admin else "subscriber"
     user_doc = {
         "user_id": f"user_{uuid.uuid4().hex[:12]}",
         "email": email.lower() if email else None,
@@ -497,6 +502,20 @@ async def create_payment_order(payload: CreateOrderRequest, user: User = Depends
     }
 
 
+async def _log_wallet_txn(user_id: str, sub_id: Optional[str], txn_type: str, amount: float, balance_after: float, reason: str):
+    await db.wallet_transactions.insert_one({
+        "txn_id": f"wtxn_{uuid.uuid4().hex[:12]}",
+        "user_id": user_id,
+        "sub_id": sub_id,
+        "type": txn_type,  # credit | debit | pause
+        "amount": round(float(amount), 2),
+        "balance_after": round(float(balance_after), 2),
+        "reason": reason,
+        "date_str": today_str(),
+        "created_at": iso(now_utc()),
+    })
+
+
 async def _activate_subscription(order: dict):
     """Create subscription + credit wallet. Idempotent on order_id."""
     if order.get("status") == "paid":
@@ -517,7 +536,7 @@ async def _activate_subscription(order: dict):
         "currency": plan["currency"],
         "meals_total": plan["meals"],
         "meals_used": 0,
-        "wallet_balance": float(plan["amount"]),  # credited to user wallet
+        "wallet_balance": float(plan["amount"]),
         "per_day_amount": per_day,
         "start_date": iso(start),
         "end_date": iso(end),
@@ -529,6 +548,7 @@ async def _activate_subscription(order: dict):
     }
     await db.subscriptions.insert_one(sub.copy())
     await db.users.update_one({"user_id": user_id}, {"$inc": {"wallet_balance": float(plan["amount"])}})
+    await _log_wallet_txn(user_id, sub["sub_id"], "credit", float(plan["amount"]), float(plan["amount"]), f"{plan['name']} subscription")
     await db.payment_orders.update_one({"order_id": order["order_id"]}, {"$set": {"status": "paid", "sub_id": sub["sub_id"], "paid_at": iso(start)}})
     logger.info(f"[SUB ACTIVATED] user={user_id} plan={plan['plan_id']} amount={plan['amount']} per_day={per_day}")
 
@@ -615,17 +635,17 @@ async def catch_up_subscription(sub: dict) -> dict:
         }, {"_id": 0})
 
         if recent_scan:
-            # Deduct
             new_balance = round(float(sub["wallet_balance"]) - per_day, 2)
             if new_balance < 0:
                 new_balance = 0.0
             sub["wallet_balance"] = new_balance
             deducted_amount += per_day
+            await _log_wallet_txn(user_id, sub["sub_id"], "debit", per_day, new_balance, f"Daily deduction · {current.isoformat()}")
         else:
-            # Pause: extend end_date, do NOT deduct
             sub["paused_days"] = int(sub.get("paused_days", 0)) + 1
             sub["end_date"] = iso(parse_dt(sub["end_date"]) + timedelta(days=1))
             paused_added += 1
+            await _log_wallet_txn(user_id, sub["sub_id"], "pause", 0.0, float(sub["wallet_balance"]), f"Auto-pause · {current.isoformat()} (no scan in last 3 days)")
 
         days_processed += 1
 
@@ -671,6 +691,85 @@ async def my_wallet(user: User = Depends(get_current_user)):
         "paused_days": sub.get("paused_days", 0) if sub else 0,
         "inactivity_threshold_days": INACTIVITY_THRESHOLD_DAYS,
     }
+
+
+@api_router.get("/my/wallet/transactions")
+async def my_wallet_transactions(user: User = Depends(get_current_user)):
+    # ensure tick is up to date
+    await get_active_subscription(user.user_id)
+    txns = await db.wallet_transactions.find({"user_id": user.user_id}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return {"transactions": txns}
+
+
+# ---------------------------
+# Theme settings (admin-editable design tokens)
+# ---------------------------
+DEFAULT_THEME = {
+    "brand_name": "eFoodCare",
+    "brand_tagline": "ghar se achha khana",
+    "tokens": {
+        "background": "0 0% 100%",
+        "foreground": "215 28% 17%",
+        "card": "0 0% 100%",
+        "card_foreground": "215 28% 17%",
+        "primary": "142 45% 38%",
+        "primary_foreground": "0 0% 100%",
+        "secondary": "220 70% 50%",
+        "secondary_foreground": "0 0% 100%",
+        "accent": "142 30% 95%",
+        "accent_foreground": "142 45% 38%",
+        "destructive": "0 70% 50%",
+        "destructive_foreground": "0 0% 100%",
+        "muted": "215 20% 96%",
+        "muted_foreground": "215 15% 45%",
+        "border": "215 20% 90%",
+        "input": "215 20% 90%",
+        "ring": "142 45% 38%",
+        "radius": "0.75rem",
+    },
+}
+
+
+class ThemeUpdate(BaseModel):
+    brand_name: Optional[str] = None
+    brand_tagline: Optional[str] = None
+    tokens: Optional[dict] = None
+
+
+async def _load_theme():
+    doc = await db.theme_settings.find_one({"_id": "active"}, {"_id": 0})
+    if not doc:
+        await db.theme_settings.insert_one({"_id": "active", **DEFAULT_THEME, "updated_at": iso(now_utc())})
+        return DEFAULT_THEME
+    return doc
+
+
+@api_router.get("/theme")
+async def get_theme():
+    return await _load_theme()
+
+
+@api_router.post("/admin/theme")
+async def update_theme(payload: ThemeUpdate, user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    current = await _load_theme()
+    if payload.brand_name is not None:
+        current["brand_name"] = payload.brand_name.strip() or DEFAULT_THEME["brand_name"]
+    if payload.brand_tagline is not None:
+        current["brand_tagline"] = payload.brand_tagline.strip() or DEFAULT_THEME["brand_tagline"]
+    if payload.tokens:
+        current["tokens"] = {**current.get("tokens", {}), **payload.tokens}
+    await db.theme_settings.update_one({"_id": "active"}, {"$set": {**current, "updated_at": iso(now_utc())}}, upsert=True)
+    return current
+
+
+@api_router.post("/admin/theme/reset")
+async def reset_theme(user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    await db.theme_settings.update_one({"_id": "active"}, {"$set": {**DEFAULT_THEME, "updated_at": iso(now_utc())}}, upsert=True)
+    return DEFAULT_THEME
 
 
 @api_router.get("/my/subscription")

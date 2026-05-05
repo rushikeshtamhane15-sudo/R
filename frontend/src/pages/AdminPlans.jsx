@@ -61,7 +61,7 @@ export default function AdminPlans() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-6 md:px-8 lg:px-12 py-10" data-testid="admin-plans-page">
+    <div data-testid="admin-plans-page">
       <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
         <div>
           <p className="text-xs tracking-overline uppercase font-bold text-secondary">Admin</p>

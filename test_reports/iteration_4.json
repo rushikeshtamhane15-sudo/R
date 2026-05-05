@@ -1,0 +1,39 @@
+{
+  "summary": "Iteration 4 (theme system + wallet pill + admin auto-promote + admin layout consolidation + brand rebrand) tested end-to-end. Backend: 14/14 new pytest cases pass + 23/23 iter1-3 regression — GET /api/theme returns eFoodCare/'ghar se achha khana' with full token set (primary/secondary/destructive/background present); POST /api/admin/theme is admin-gated (subscriber→403, admin→200 with brand_name/tokens applied); POST /api/admin/theme/reset returns DEFAULT_THEME (brand 'eFoodCare', primary '142 45% 38%'); admin auto-promote: OTP login with phone 9970705391 sets role=admin (both fresh-create and demote+re-login flows verified); email-based promotion via create_or_get_user(email='rushikeshtamhane15@gmail.com') verified (fresh + existing-subscriber promotion); /api/my/wallet/transactions requires auth (401), returns [] initially, logs 'credit' txn (amount=plan.amount, reason includes plan name) on /payments/verify, logs 'debit' or 'pause' on tick processing. Frontend: Landing shows 'eFoodCare' + 'ghar se achha khana', NO 'ghar jaisa khana', 'Get your e-Meal Pass' CTA visible; logged-out hamburger drawer shows menu-home/menu-plans/menu-login-link; /scan and /counter for unauthenticated users redirect to /login; for admin (logged in via OTP w/ admin phone): hamburger has menu-admin + menu-dashboard/plans/profile, /scan→/admin/scanner (start-scanner-button + manual-token-input present), /counter→/admin/counter (copy-kiosk-url, download-poster-button, live-counter-card all present); /admin/theme renders admin-theme-page with brand-name-input, brand-tagline-input, token-primary, token-secondary, token-destructive, save-theme-button, reset-theme-button + 3 presets (preset-green-blue-default-, preset-red-green-festive, preset-blue-trust); admin sidebar has all 7 nav items (overview, plans, qr-scanner, counter-qr, daily-menu, users-roles, design); reset button restores brand_name to 'eFoodCare'; primary button bg=rgb(53,141,85) ≈ hsl(142,45%,38%) (green palette confirmed); Kiosk /k/main shows 'e-Meal Pass · COUNTER · MAIN' (NO 'MESSPASS'); subscriber dashboard shows wallet-pill with ₹2,800 balance, opening wallet-drawer reveals wallet-transactions with 1 txn-* item after seeded payment; subscriber hamburger menu correctly OMITS scan/counter links.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/admin/theme", "issues": ["Preset 'Green & Blue (default)' generates testid 'preset-green-blue-default-' (trailing dash from regex replacing '(default)') — spec expected 'preset-green-blue-default'. Functional but cosmetic ID mismatch."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter4.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/iter4_results.xml"
+  ],
+  "action_items": [
+    "(Optional) Fix AdminTheme preset slug: change first preset name from 'Green & Blue (default)' to 'Green & Blue Default' so its testid resolves to 'preset-green-blue-default' (currently 'preset-green-blue-default-' with trailing dash).",
+    "(Tech-debt) /app/frontend/src/pages/Kiosk.jsx had a duplicate 'function currentMeal()' block at lines 146-153 causing a Webpack SyntaxError that broke the ENTIRE frontend (compile failure → blank page on every route). Testing agent fixed by removing the duplicate. Main agent should add an ESLint rule (no-redeclare/no-dupe-fn-decl) or pre-commit lint check to catch this class of bug before deploy."
+  ],
+  "critical_code_review_comments": [
+    "BLOCKER (fixed by test agent): /app/frontend/src/pages/Kiosk.jsx had duplicate function declaration of currentMeal() at lines 146-153. Webpack SyntaxError broke the entire SPA. Removed duplicate.",
+    "create_or_get_user only checks ADMIN_EMAILS / ADMIN_PHONES against the email/phone passed-in args, not against the resolved user record. So an OTP-only login by phone for a user whose stored email is in ADMIN_EMAILS will NOT auto-promote. Today this only matters edge-case; consider widening the is_admin check post-fetch: 'is_admin = (email or existing.get(email)) in ADMIN_EMAILS or (phone or existing.get(phone)) in ADMIN_PHONES'.",
+    "AdminTheme preset name 'Green & Blue (default)' produces testid with trailing dash because the slugifier replaces '(default)' → '-' and then the trailing ')' produces the trailing '-'. Use a name without parentheses or trim trailing dashes.",
+    "DEFAULT_THEME tokens use snake_case keys (e.g. 'primary_foreground', 'card_foreground', 'muted_foreground') while CSS custom properties typically use kebab-case ('--primary-foreground'). Verify ThemeContext.jsx is correctly mapping snake→kebab when applying CSS vars.",
+    "wallet_transactions are written but never paginated/cleaned up — over time a long-running subscriber will accumulate hundreds of pause/debit rows. The /api/my/wallet/transactions endpoint returns 200 most-recent which is fine, but consider TTL or archival.",
+    "Theme update endpoint does no validation on tokens dict — a malicious admin could inject arbitrary keys (e.g., css-injection via crafted HSL string). Add a whitelist of allowed token keys + a regex check on values like '^\\d{1,3}\\s\\d{1,3}%\\s\\d{1,3}%$'."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter4.py",
+    "/app/frontend/src/pages/Kiosk.jsx (removed duplicate currentMeal() function declaration causing webpack build failure)"
+  ],
+  "success_rate": {"backend": "100% (37/37 = 14 iter4 + 23 regression)", "frontend": "100% on all spec'd flows (landing brand, hamburger drawer logged-out & admin & subscriber, /scan & /counter redirects, /admin/scanner, /admin/counter, /admin/theme inputs+presets+reset, admin sidebar 7 items, kiosk rebrand, wallet pill+drawer+txn list)"},
+  "test_credentials": "Admin phone OTP: 9970705391 (auto-promoted to role=admin via ADMIN_PHONES). OTP returned in /api/auth/send-otp dev_mode body. Admin email: rushikeshtamhane15@gmail.com (only auto-promotes via Google OAuth path, i.e., create_or_get_user called with email arg).",
+  "seed_data_creation": "Per-test TEST_-prefixed users + sessions + subscriptions + payment_orders + wallet_transactions. Auto-cleaned in fixture teardown. Admin phone user created+cleaned per test; admin email user inserted & cleaned in single combined async test.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "New backend tests at /app/backend/tests/test_iter4.py — 14 tests across TestTheme/TestWalletTransactions/TestAdminAutoPromote/TestRoleGating. Iter1-3 regression in /app/backend/tests/backend_test.py still 100% green. Run combined: pytest /app/backend/tests/ -v --junitxml=/app/test_reports/pytest/results.xml. NOTE: Kiosk.jsx duplicate-function bug was a regression introduced this iteration that completely broke the frontend — testing agent removed the duplicate. Frontend uses HttpOnly cookie for auth (cookie name: session_token) — Playwright tests must use page.context.add_cookies() not localStorage. AdminTheme has minor cosmetic preset-slug trailing-dash issue (preset-green-blue-default-).",
+  "rca of the issue": "Frontend was completely down due to /app/frontend/src/pages/Kiosk.jsx containing two identical 'function currentMeal()' declarations (lines 146-149 and 150-153). Webpack/Babel raised SyntaxError 'Identifier currentMeal has already been declared' which prevented the bundle from compiling, so every route rendered the red CRA error overlay instead of the app. Reproduction: GET / → blank page with overlay. Mitigation applied: deleted the second duplicate block (lines 150-153) via search_replace. Frontend recompiled successfully (24 unrelated source-map warnings) and all UI flows now work. Recommend adding ESLint 'no-redeclare' as an error and gating CI on lint."
+}
