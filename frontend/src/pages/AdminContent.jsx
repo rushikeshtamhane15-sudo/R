@@ -49,6 +49,32 @@ const SCHEMAS = {
       { key: "map_embed_src", label: "Google Maps embed URL (from Share → Embed a map → iframe src)", type: "textarea", rows: 3 },
     ],
   },
+  login: {
+    title: "Login & Sign up page",
+    description: "All text on the /login page. Keep it short and friendly.",
+    fields: [
+      { key: "title_line1", label: "Hero title — line 1", type: "input" },
+      { key: "title_line2", label: "Hero title — line 2", type: "input" },
+      { key: "form_overline", label: "Form section overline", type: "input" },
+      { key: "form_heading", label: "Form heading", type: "input" },
+      { key: "form_subheading", label: "Form subheading", type: "input" },
+      { key: "phone_label", label: "Phone field label", type: "input" },
+      { key: "phone_placeholder", label: "Phone field placeholder", type: "input" },
+      { key: "name_label", label: "Name field label", type: "input" },
+      { key: "name_optional_label", label: "Name field — optional suffix", type: "input" },
+      { key: "name_placeholder", label: "Name field placeholder", type: "input" },
+      { key: "cta_label", label: "Primary CTA button label", type: "input" },
+      { key: "or_divider", label: "Or divider text", type: "input" },
+      { key: "google_label", label: "Google button label", type: "input" },
+      { key: "terms_prefix", label: "Terms text prefix", type: "input" },
+      { key: "terms_separator", label: "Terms text separator (between Privacy & Refund)", type: "input" },
+      { key: "verify_overline", label: "Verify screen — overline", type: "input" },
+      { key: "verify_heading", label: "Verify screen — heading", type: "input" },
+      { key: "verify_cta_label", label: "Verify screen — CTA button", type: "input" },
+      { key: "resend_prompt", label: "Resend OTP — prompt text", type: "input" },
+      { key: "resend_label", label: "Resend OTP — link text", type: "input" },
+    ],
+  },
 };
 
 export default function AdminContent() {

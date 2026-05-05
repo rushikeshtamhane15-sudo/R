@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink, Outlet } from "react-router-dom";
-import { LayoutDashboard, Package, ScanLine, QrCode, Utensils, Users, Palette, Home, Shield, FileText, MapPin, FootprintsIcon } from "lucide-react";
+import { LayoutDashboard, Package, ScanLine, QrCode, Utensils, Users, Palette, Home, Shield, FileText, MapPin, FootprintsIcon, LogIn } from "lucide-react";
 
 const SECTIONS = [
   {
@@ -23,6 +23,7 @@ const SECTIONS = [
     title: "Content & design",
     items: [
       { to: "/admin/landing", label: "Home page", icon: Home },
+      { to: "/admin/content/login", label: "Login page", icon: LogIn },
       { to: "/admin/content/privacy", label: "Privacy Policy", icon: Shield },
       { to: "/admin/content/refund", label: "Refund Policy", icon: FileText },
       { to: "/admin/content/contact", label: "Contact Us", icon: MapPin },

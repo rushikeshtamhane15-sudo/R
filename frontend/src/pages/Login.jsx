@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../lib/api";
@@ -6,20 +6,53 @@ import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
-import { BRAND_LOGO_URL } from "../lib/brand";
-import { ArrowLeft, ArrowRight, ShieldCheck, Clock, BadgeCheck, KeyRound } from "lucide-react";
+import { ArrowLeft, ArrowRight, KeyRound } from "lucide-react";
 
 const HERO_FOOD_IMG = "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?crop=entropy&cs=srgb&fm=jpg&q=85&w=1400";
+
+const DEFAULTS = {
+  title_line1: "Login or",
+  title_line2: "Sign up",
+  form_overline: "Enter your details",
+  form_heading: "India's smartest tiffin pass.",
+  form_subheading: "Login with your phone number to continue.",
+  phone_label: "Phone number",
+  phone_placeholder: "Enter 10-digit number",
+  name_label: "Your name",
+  name_optional_label: "(optional)",
+  name_placeholder: "e.g. Aman Gupta",
+  cta_label: "Continue",
+  or_divider: "Or",
+  google_label: "Continue with Google",
+  terms_prefix: "By continuing, you agree to our",
+  terms_separator: "and",
+  verify_overline: "Verify OTP",
+  verify_heading: "Enter the 6-digit code",
+  verify_cta_label: "Verify & Continue",
+  resend_prompt: "Didn't get it?",
+  resend_label: "Resend OTP",
+};
 
 export default function Login() {
   const navigate = useNavigate();
   const { setUser } = useAuth();
+  const [content, setContent] = useState(DEFAULTS);
   const [mode, setMode] = useState("phone"); // phone | verify
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [otp, setOtp] = useState("");
   const [devOtp, setDevOtp] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await api.get("/content/login");
+        setContent({ ...DEFAULTS, ...r.data });
+      } catch {}
+    })();
+  }, []);
+  const c = content;
 
   const handleGoogle = () => {
     // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
@@ -70,47 +103,21 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-primary flex flex-col" data-testid="login-page">
-      {/* HERO — dark red full-bleed top */}
+      {/* HERO — dark red full-bleed top, simple & centered */}
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 -z-10">
-          <img
-            src={HERO_FOOD_IMG}
-            alt=""
-            className="w-full h-full object-cover opacity-25"
-          />
+          <img src={HERO_FOOD_IMG} alt="" className="w-full h-full object-cover opacity-25" />
           <div className="absolute inset-0 bg-gradient-to-b from-primary/95 via-primary/90 to-primary"></div>
         </div>
 
-        <div className="max-w-md mx-auto w-full px-6 pt-10 pb-14 md:pt-14 md:pb-20 text-primary-foreground">
-          <Link to="/" className="inline-flex items-center gap-1.5" data-testid="login-back-home">
-            <span className="inline-flex items-center justify-center h-11 w-16 rounded-md bg-white/15 overflow-hidden">
-              <img src={BRAND_LOGO_URL} alt="eFoodCare" className="h-full w-full object-contain p-0.5" />
-            </span>
-            <div className="flex flex-col leading-none">
-              <span className="font-display font-extrabold text-xl">eFoodCare</span>
-              <span className="text-[10px] tracking-overline uppercase font-bold text-primary-foreground/80 mt-1">ghar se achha khana</span>
-            </div>
-          </Link>
-
-          <h1 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight leading-[1.1] mt-10">
-            Login or<br />Sign up
+        <div className="max-w-md mx-auto w-full px-6 pt-14 pb-16 md:pt-20 md:pb-24 text-primary-foreground text-center">
+          <h1
+            className="font-display font-extrabold text-4xl md:text-5xl tracking-tight leading-[1.05]"
+            data-testid="login-title"
+          >
+            <span className="block">{c.title_line1}</span>
+            <span className="block">{c.title_line2}</span>
           </h1>
-          <p className="text-primary-foreground/85 text-sm mt-3">Hot, fresh, ghar-jaisa khana — delivered to your e-Meal Pass in seconds.</p>
-
-          <div className="mt-6 flex flex-wrap gap-2">
-            {[
-              { icon: BadgeCheck, t: "100% Chakki atta" },
-              { icon: ShieldCheck, t: "0% Maida" },
-              { icon: Clock, t: "Pause anytime" },
-            ].map((b) => (
-              <span
-                key={b.t}
-                className="inline-flex items-center gap-1.5 text-[11px] font-semibold bg-white/15 backdrop-blur-sm border border-white/20 px-3 py-1.5 rounded-full"
-              >
-                <b.icon className="h-3.5 w-3.5" /> {b.t}
-              </span>
-            ))}
-          </div>
         </div>
       </div>
 
@@ -127,16 +134,15 @@ export default function Login() {
                 transition={{ duration: 0.2 }}
                 data-testid="login-choose"
               >
-                {/* Keep legacy testid wrapper for tests */}
                 <div data-testid="otp-phone-form">
-                  <p className="text-xs tracking-overline uppercase font-bold text-secondary">Enter your details</p>
+                  <p className="text-xs tracking-overline uppercase font-bold text-secondary">{c.form_overline}</p>
                   <h2 className="font-display font-extrabold text-2xl tracking-tight mt-2 leading-tight">
-                    India's smartest tiffin pass.
+                    {c.form_heading}
                   </h2>
-                  <p className="text-sm text-muted-foreground mt-1.5">Login with your phone number to continue.</p>
+                  <p className="text-sm text-muted-foreground mt-1.5">{c.form_subheading}</p>
 
                   <label className="block text-xs tracking-overline uppercase font-bold text-muted-foreground mt-7" htmlFor="phone-input">
-                    Phone number
+                    {c.phone_label}
                   </label>
                   <div className="mt-2 flex items-stretch rounded-2xl border border-input bg-background overflow-hidden focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15 transition-colors">
                     <span className="flex items-center gap-1.5 pl-4 pr-3 text-sm font-semibold text-foreground border-r border-input bg-muted/40">
@@ -146,7 +152,7 @@ export default function Login() {
                       id="phone-input"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, "").slice(0, 10))}
-                      placeholder="Enter 10-digit number"
+                      placeholder={c.phone_placeholder}
                       className="border-0 focus-visible:ring-0 text-base h-12 px-3"
                       data-testid="phone-input"
                       inputMode="numeric"
@@ -156,13 +162,13 @@ export default function Login() {
                   </div>
 
                   <label className="block text-xs tracking-overline uppercase font-bold text-muted-foreground mt-5" htmlFor="name-input">
-                    Your name <span className="text-muted-foreground/70 normal-case tracking-normal font-normal">(optional)</span>
+                    {c.name_label} <span className="text-muted-foreground/70 normal-case tracking-normal font-normal">{c.name_optional_label}</span>
                   </label>
                   <Input
                     id="name-input"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Aman Gupta"
+                    placeholder={c.name_placeholder}
                     className="mt-2 rounded-2xl h-12 px-4"
                     data-testid="name-input"
                   />
@@ -173,18 +179,16 @@ export default function Login() {
                     data-testid="send-otp-button"
                     className="w-full h-13 mt-7 rounded-2xl bg-primary hover:bg-primary/90 font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {submitting ? (
-                      "Sending OTP…"
-                    ) : (
+                    {submitting ? "Sending OTP…" : (
                       <>
-                        Continue <ArrowRight className="h-4 w-4 ml-1.5" />
+                        {c.cta_label} <ArrowRight className="h-4 w-4 ml-1.5" />
                       </>
                     )}
                   </Button>
 
                   <div className="flex items-center gap-3 my-6">
                     <span className="flex-1 h-px bg-border"></span>
-                    <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Or</span>
+                    <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">{c.or_divider}</span>
                     <span className="flex-1 h-px bg-border"></span>
                   </div>
 
@@ -194,19 +198,19 @@ export default function Login() {
                     data-testid="google-login-button"
                     className="w-full h-12 rounded-2xl border-input font-semibold text-sm bg-background hover:bg-muted/60"
                   >
-                    <GoogleIcon /> Continue with Google
+                    <GoogleIcon /> {c.google_label}
                   </Button>
 
                   <p className="text-[11px] text-muted-foreground text-center mt-7 leading-relaxed">
-                    By continuing, you agree to our{" "}
+                    {c.terms_prefix}{" "}
                     <Link to="/privacy" className="font-semibold text-foreground underline-offset-2 hover:underline">Privacy Policy</Link>{" "}
-                    and{" "}
+                    {c.terms_separator}{" "}
                     <Link to="/refund" className="font-semibold text-foreground underline-offset-2 hover:underline">Refund Policy</Link>.
                   </p>
 
-                  {/* Hidden trigger preserved for legacy tests that look for login-with-otp */}
+                  {/* legacy testid for existing tests */}
                   <button type="button" data-testid="login-with-otp" onClick={sendOtp} className="sr-only" tabIndex={-1}>
-                    Send OTP
+                    {c.cta_label}
                   </button>
                 </div>
               </motion.div>
@@ -234,9 +238,9 @@ export default function Login() {
                   <ArrowLeft className="h-3 w-3" /> Change phone
                 </button>
 
-                <p className="text-xs tracking-overline uppercase font-bold text-secondary mt-5">Verify OTP</p>
+                <p className="text-xs tracking-overline uppercase font-bold text-secondary mt-5">{c.verify_overline}</p>
                 <h2 className="font-display font-extrabold text-2xl tracking-tight mt-2 leading-tight">
-                  Enter the 6-digit code
+                  {c.verify_heading}
                 </h2>
                 <p className="text-sm text-muted-foreground mt-1.5">
                   Sent to <span className="font-semibold text-foreground">+91 {phone}</span>
@@ -272,11 +276,11 @@ export default function Login() {
                   className="w-full h-13 mt-6 rounded-2xl bg-primary hover:bg-primary/90 font-semibold text-base disabled:opacity-50"
                 >
                   <KeyRound className="h-4 w-4 mr-2" />
-                  {submitting ? "Verifying…" : "Verify & Continue"}
+                  {submitting ? "Verifying…" : c.verify_cta_label}
                 </Button>
 
                 <p className="text-xs text-muted-foreground text-center mt-5">
-                  Didn't get it?{" "}
+                  {c.resend_prompt}{" "}
                   <button
                     type="button"
                     onClick={sendOtp}
@@ -284,7 +288,7 @@ export default function Login() {
                     className="font-semibold text-primary hover:underline disabled:opacity-50"
                     data-testid="resend-otp-button"
                   >
-                    Resend OTP
+                    {c.resend_label}
                   </button>
                 </p>
               </motion.div>
@@ -300,7 +304,6 @@ function GoogleIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-4 w-4 mr-2" aria-hidden>
       <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.24 1.4-1.7 4.1-5.5 4.1-3.3 0-6-2.7-6-6.1s2.7-6.1 6-6.1c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.7 3.4 14.6 2.4 12 2.4 6.7 2.4 2.4 6.7 2.4 12s4.3 9.6 9.6 9.6c5.5 0 9.2-3.9 9.2-9.4 0-.6-.1-1.1-.2-1.6H12z"/>
-      <path fill="#34A853" d="M3.7 7.5l3.2 2.4c.9-1.6 2.4-2.7 4.6-2.7v-3C8 4.2 5.2 5.4 3.7 7.5z" opacity="0"/>
     </svg>
   );
 }

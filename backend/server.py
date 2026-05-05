@@ -936,6 +936,28 @@ DEFAULT_CONTENT = {
         "hours": "Mon–Sun · 10 AM – 10 PM",
         "map_embed_src": "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d60304.49!2d73.75!3d18.55!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2sPune!5e0!3m2!1sen!2sin!4v1700000000000",
     },
+    "login": {
+        "title_line1": "Login or",
+        "title_line2": "Sign up",
+        "form_overline": "Enter your details",
+        "form_heading": "India's smartest tiffin pass.",
+        "form_subheading": "Login with your phone number to continue.",
+        "phone_label": "Phone number",
+        "phone_placeholder": "Enter 10-digit number",
+        "name_label": "Your name",
+        "name_optional_label": "(optional)",
+        "name_placeholder": "e.g. Aman Gupta",
+        "cta_label": "Continue",
+        "or_divider": "Or",
+        "google_label": "Continue with Google",
+        "terms_prefix": "By continuing, you agree to our",
+        "terms_separator": "and",
+        "verify_overline": "Verify OTP",
+        "verify_heading": "Enter the 6-digit code",
+        "verify_cta_label": "Verify & Continue",
+        "resend_prompt": "Didn't get it?",
+        "resend_label": "Resend OTP",
+    },
 }
 
 
