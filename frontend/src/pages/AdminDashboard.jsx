@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
-import { Users, Calendar, DollarSign, Check } from "lucide-react";
+import { Users, Calendar, IndianRupee, Check, Settings } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
 
 export default function AdminDashboard() {
@@ -47,13 +48,20 @@ export default function AdminDashboard() {
     { label: "Total users", value: stats.total_users, icon: Users },
     { label: "Active subs", value: stats.active_subscriptions, icon: Check },
     { label: "Today's check-ins", value: stats.today_attendance, icon: Calendar },
-    { label: "Revenue", value: `$${stats.revenue.toFixed(2)}`, icon: DollarSign },
+    { label: "Revenue", value: `₹${Math.round(stats.revenue).toLocaleString("en-IN")}`, icon: IndianRupee },
   ];
 
   return (
     <div className="max-w-7xl mx-auto px-6 md:px-8 lg:px-12 py-10" data-testid="admin-dashboard">
-      <p className="text-xs tracking-overline uppercase font-bold text-secondary">Control room</p>
-      <h1 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-2">Admin overview</h1>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-xs tracking-overline uppercase font-bold text-secondary">Control room</p>
+          <h1 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-2">Admin overview</h1>
+        </div>
+        <Link to="/admin/plans" data-testid="manage-plans-link">
+          <Button variant="outline" className="rounded-full"><Settings className="h-4 w-4 mr-2" /> Manage plans</Button>
+        </Link>
+      </div>
 
       <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4" data-testid="stat-cards">
         {cards.map((c, idx) => (

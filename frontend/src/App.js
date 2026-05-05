@@ -8,11 +8,12 @@ import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import AuthCallback from "./pages/AuthCallback";
 import Dashboard from "./pages/Dashboard";
-import SubscriberDashboard from "./pages/SubscriberDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminPlans from "./pages/AdminPlans";
 import StaffScanner from "./pages/StaffScanner";
 import Plans from "./pages/Plans";
-import PaymentSuccess from "./pages/PaymentSuccess";
+import Checkout from "./pages/Checkout";
+import Profile from "./pages/Profile";
 import CounterQR from "./pages/CounterQR";
 import Kiosk from "./pages/Kiosk";
 import SelfScan from "./pages/SelfScan";
@@ -27,11 +28,7 @@ function RequireAuth({ children, roles }) {
 
 function AppRoutes() {
   const location = useLocation();
-  // Process OAuth session_id synchronously BEFORE any ProtectedRoute/auth check
-  if (location.hash?.includes("session_id=")) {
-    return <AuthCallback />;
-  }
-  // Public kiosk: no header, no auth — full-screen counter display
+  if (location.hash?.includes("session_id=")) return <AuthCallback />;
   const isKiosk = location.pathname.startsWith("/k/");
   return (
     <>
@@ -41,12 +38,14 @@ function AppRoutes() {
         <Route path="/login" element={<Login />} />
         <Route path="/k/:locationId" element={<Kiosk />} />
         <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
+        <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
         <Route path="/plans" element={<Plans />} />
-        <Route path="/payment/success" element={<RequireAuth><PaymentSuccess /></RequireAuth>} />
+        <Route path="/checkout/:planId" element={<RequireAuth><Checkout /></RequireAuth>} />
         <Route path="/scan" element={<RequireAuth roles={["staff", "admin"]}><StaffScanner /></RequireAuth>} />
         <Route path="/counter" element={<RequireAuth roles={["staff", "admin"]}><CounterQR /></RequireAuth>} />
         <Route path="/self-scan" element={<RequireAuth><SelfScan /></RequireAuth>} />
         <Route path="/admin" element={<RequireAuth roles={["admin"]}><AdminDashboard /></RequireAuth>} />
+        <Route path="/admin/plans" element={<RequireAuth roles={["admin"]}><AdminPlans /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>

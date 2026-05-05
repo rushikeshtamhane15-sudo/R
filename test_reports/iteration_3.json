@@ -1,0 +1,32 @@
+{
+  "summary": "Iteration 3 (eFoodCare rebrand + OTP auth + plans CRUD + Razorpay mock + wallet/tick) tested end-to-end. Backend: 23/23 pytest cases pass — root rebrand+tagline, plans seeded with new IDs (premium_60 ₹2800 / classic_60 ₹2600 / saver_60 ₹1800, INR, 30d, 60 meals), OTP send/verify/wrong/rate-limit, profile update + 400 on missing field, /payments/order requires complete profile (400 'Profile incomplete'), mock order returns amount_paise=280000 + mock=true + creates payment_orders row, /payments/verify activates subscription with wallet=plan.amount + per_day=amount/30, /my/wallet+/my/subscription, tick logic validated (5-day inactivity → +5 paused_days + end_date pushed +5 + wallet unchanged; recent attendance in 3-day window → deduction), admin plan CRUD with 403 for subscriber + create/update/delete + inactive plan hidden from /api/plans, admin/stats currency INR, self-scan HMAC works post-refactor, webhook idempotency (2 calls of payment.captured create exactly 1 sub). Frontend: Landing shows eFoodCare brand + 'ghar se achha khana' + 'e-Meal Pass' + Get/View CTAs; /plans renders plan-card-premium_60/classic_60/saver_60 with ₹2800/₹2600/₹1800; OTP login flow (login-with-otp → phone-input → send-otp-button → dev-otp-banner → otp-input → verify-otp-button → /dashboard) works end-to-end; profile gating: subscribe → /profile?next=/checkout/premium_60 → save → /checkout/premium_60 → pay-button → /dashboard with wallet-card showing ₹2,800 + 60 meals + 30 days; admin /admin → manage-plans-link → /admin/plans with admin-plan-row-{premium_60,classic_60,saver_60} rows + new-plan-button → dialog with field-name/field-amount/field-description/field-duration/field-meals/save-plan-button.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now ~950 lines — strongly recommend splitting into routers (auth, payments, plans, attendance, counter, admin, menu) for maintainability.",
+    "create_or_get_user does not initialize wallet_balance for users created via Emergent Google OAuth path (only OTP path because both call same function — actually OK; ignore).",
+    "/api/auth/profile uses POST instead of PUT/PATCH for an idempotent update — minor REST convention nit.",
+    "verify_otp does not require an authenticated session to attempt — but rate-limited at 5 attempts which is fine; consider adding per-IP throttling for send-otp to prevent SMS-cost abuse once real provider is wired.",
+    "PlanUpsert allows negative amount or zero meals/duration — no validation. While the spec says 'verify endpoint returns ok', adding pydantic constraints (gt=0) would prevent bad data in admin UI.",
+    "catch_up_subscription advances last_tick_date even when sub.wallet_balance hits 0; consider auto-expiring sub when balance==0.",
+    "Webhook handler does not check signature when secret missing — that's intended for mock mode; ensure production deploy sets RAZORPAY_WEBHOOK_SECRET.",
+    "Tick logic when last_tick_date > today (clock-skew or pre-dated) silently no-ops — fine, but worth a log warning."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100% (23/23)", "frontend": "100% on all spec'd flows (landing, plans, OTP login, profile gating, mock checkout, subscriber dashboard wallet card, admin plans CRUD UI)"},
+  "test_credentials": "OTP dev mode: any phone + dev_otp returned in send-otp response. Admin allowlist: admin@efoodcare.com (seeded directly in Mongo for admin-page UI test).",
+  "seed_data_creation": "Per-test TEST_-prefixed users + sessions + payment_orders/subscriptions/attendance via pytest fixtures. Cleaned up after each test. One TEST_admin user seeded in Mongo for admin/plans Playwright run (cleaned after).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests at /app/backend/tests/backend_test.py — 23 tests organized as TestRoot/TestPlans/TestOtp/TestProfile/TestPayments/TestWallet/TestTick/TestAdminPlans/TestSelfScanHMAC/TestWebhook. Razorpay is in MOCK mode (RAZORPAY_KEY_ID empty); /payments/order returns mock=true + order_id starts with order_mock_; /payments/verify auto-accepts mock orders. OTP is in DEV mode (OTP_DEV_MODE=true); send-otp returns dev_otp in body. New plan IDs are premium_60/classic_60/saver_60 (₹2800/₹2600/₹1800). Tick logic: subscription must have last_tick_date set to a YYYY-MM-DD date string; catch_up_subscription processes each day in [last+1, today] using attendance window [day-3d, day). Webhook idempotency on order_id verified.",
+  "rca of the issue": "No outstanding bugs. All 16 spec'd test cases pass."
+}
