@@ -43,7 +43,7 @@ export default function Header() {
       <div className="max-w-7xl mx-auto flex items-center justify-between px-3 md:px-8 lg:px-12 py-3 md:py-4 gap-3">
         <Link to="/" className="flex items-center gap-2.5 min-w-0" data-testid="logo-link">
           <span
-            className="inline-flex items-center justify-center h-10 w-14 md:h-11 md:w-16 rounded-md bg-primary border-2 border-white shrink-0 overflow-hidden"
+            className="inline-flex items-center justify-center h-10 w-14 md:h-11 md:w-16 rounded-md bg-primary shrink-0 overflow-hidden"
             data-testid="brand-logo-frame"
           >
             <img
@@ -81,7 +81,7 @@ export default function Header() {
 
               <div className="bg-primary text-primary-foreground px-6 py-6" data-testid="drawer-brand">
                 <div className="flex items-center gap-3">
-                  <span className="inline-flex items-center justify-center h-12 w-16 rounded-md bg-primary border-2 border-white shrink-0 overflow-hidden">
+                  <span className="inline-flex items-center justify-center h-12 w-16 rounded-md bg-primary shrink-0 overflow-hidden">
                     <img src={BRAND_LOGO_URL} alt={brandName} className="h-full w-full object-contain p-0.5" />
                   </span>
                   <div className="flex flex-col leading-none">
