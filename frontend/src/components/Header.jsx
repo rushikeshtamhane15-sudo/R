@@ -5,7 +5,7 @@ import { useTheme } from "../context/ThemeContext";
 import { Button } from "./ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "./ui/sheet";
 import WalletPill from "./WalletPill";
-import { UtensilsCrossed, LogOut, Menu, X } from "lucide-react";
+import { UtensilsCrossed, LogOut, Menu, X, Wallet } from "lucide-react";
 
 export default function Header() {
   const { user, logout } = useAuth();
@@ -31,8 +31,8 @@ export default function Header() {
     primary.push({ to: "/", label: "Home" });
     primary.push({ to: "/plans", label: "Plans" });
   }
-
   const close = () => setOpen(false);
+  const showWallet = user && user.role !== "staff" && user.role !== "admin";
 
   return (
     <header
@@ -46,12 +46,12 @@ export default function Header() {
           </div>
           <div className="flex flex-col leading-none">
             <span className="font-display font-extrabold text-lg text-primary-foreground">{brandName}</span>
-            <span className="text-[10px] tracking-overline uppercase font-bold text-primary-foreground/80 mt-0.5 hidden sm:block">{brandTagline}</span>
+            <span className="text-[10px] tracking-overline uppercase font-bold text-primary-foreground/85 mt-1" data-testid="header-tagline">{brandTagline}</span>
           </div>
         </Link>
 
         <div className="flex items-center gap-2 md:gap-3">
-          {user && user.role === "subscriber" && <WalletPill />}
+          {showWallet && <WalletPill />}
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
               <Button
@@ -64,26 +64,30 @@ export default function Header() {
                 {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-80" data-testid="menu-drawer">
+            <SheetContent side="right" className="w-80 p-0 flex flex-col" data-testid="menu-drawer">
               <SheetHeader className="sr-only">
                 <SheetTitle>Navigation menu</SheetTitle>
                 <SheetDescription>Navigate to pages, sign in, or log out.</SheetDescription>
               </SheetHeader>
-              <div className="flex flex-col h-full">
-                <div className="flex items-center gap-2.5 mb-6">
-                  <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center">
+
+              {/* Brand block — primary bg, white text */}
+              <div className="bg-primary text-primary-foreground px-6 py-6" data-testid="drawer-brand">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-10 w-10 rounded-xl bg-white/15 flex items-center justify-center">
                     <UtensilsCrossed className="h-5 w-5 text-primary-foreground" strokeWidth={1.75} />
                   </div>
                   <div className="flex flex-col leading-none">
-                    <span className="font-display font-extrabold text-lg">{brandName}</span>
-                    <span className="text-[10px] tracking-overline uppercase font-bold text-secondary mt-0.5">{brandTagline}</span>
+                    <span className="font-display font-extrabold text-xl text-primary-foreground" data-testid="drawer-brand-name">{brandName}</span>
+                    <span className="text-[10px] tracking-overline uppercase font-bold text-primary-foreground/85 mt-1.5">{brandTagline}</span>
                   </div>
                 </div>
+              </div>
 
+              <div className="flex-1 overflow-y-auto px-4 py-5">
                 {user && (
                   <div className="rounded-2xl bg-muted/60 p-4 mb-5 flex items-center gap-3" data-testid="menu-user-card">
-                    {user.picture ? (
-                      <img src={user.picture} alt={user.name} className="h-10 w-10 rounded-full" />
+                    {user.picture || user.photo_url ? (
+                      <img src={user.photo_url || user.picture} alt={user.name} className="h-10 w-10 rounded-full object-cover" />
                     ) : (
                       <div className="h-10 w-10 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center font-bold">
                         {user.name?.[0]?.toUpperCase() || "U"}
@@ -96,6 +100,19 @@ export default function Header() {
                   </div>
                 )}
 
+                {showWallet && (
+                  <div className="mb-2">
+                    <WalletPill
+                      trigger={
+                        <button type="button" data-testid="menu-wallet-button" className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90">
+                          <span className="flex items-center gap-2"><Wallet className="h-4 w-4" /> Wallet</span>
+                          <span className="text-[10px] tracking-overline uppercase font-bold">Tap to open</span>
+                        </button>
+                      }
+                    />
+                  </div>
+                )}
+
                 <nav className="flex flex-col gap-1">
                   {primary.map((l) => (
                     <Link
@@ -104,7 +121,7 @@ export default function Header() {
                       onClick={close}
                       data-testid={`menu-${l.label.toLowerCase().replace(/\s/g, "-")}`}
                       className={`px-4 py-3 rounded-xl text-sm font-semibold transition-colors ${
-                        location.pathname === l.to ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+                        location.pathname === l.to ? "bg-accent text-accent-foreground" : "hover:bg-accent"
                       }`}
                     >
                       {l.label}
@@ -130,18 +147,18 @@ export default function Header() {
                     ))}
                   </nav>
                 </div>
+              </div>
 
-                <div className="mt-auto pt-6 border-t border-border">
-                  {user ? (
-                    <Button onClick={() => { logout(); close(); }} variant="outline" data-testid="logout-button" className="w-full rounded-full">
-                      <LogOut className="h-4 w-4 mr-2" /> Logout
-                    </Button>
-                  ) : (
-                    <Link to="/login" onClick={close} data-testid="menu-login-link">
-                      <Button className="w-full rounded-full bg-primary hover:bg-primary/90">Sign In</Button>
-                    </Link>
-                  )}
-                </div>
+              <div className="px-4 py-4 border-t border-border">
+                {user ? (
+                  <Button onClick={() => { logout(); close(); }} variant="outline" data-testid="logout-button" className="w-full rounded-full">
+                    <LogOut className="h-4 w-4 mr-2" /> Logout
+                  </Button>
+                ) : (
+                  <Link to="/login" onClick={close} data-testid="menu-login-link">
+                    <Button className="w-full rounded-full bg-primary hover:bg-primary/90">Sign In</Button>
+                  </Link>
+                )}
               </div>
             </SheetContent>
           </Sheet>

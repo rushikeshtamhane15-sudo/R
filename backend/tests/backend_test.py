@@ -34,6 +34,7 @@ def _seed_user(role="subscriber", email=None, complete_profile=False):
         "phone": f"99{uuid.uuid4().int % 10**8:08d}",
         "name": f"Test {role}",
         "address": "123 Test Street, Test City" if complete_profile else None,
+        "photo_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==" if complete_profile else None,
         "picture": None,
         "role": role,
         "qr_token": qr,

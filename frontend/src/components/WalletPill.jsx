@@ -3,57 +3,58 @@ import { api } from "../lib/api";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "./ui/sheet";
 import { Wallet, IndianRupee, ArrowDownLeft, ArrowUpRight, Pause, Loader2 } from "lucide-react";
 
-export default function WalletPill() {
+export default function WalletPill({ trigger, alwaysShow = false }) {
   const [data, setData] = useState(null);
   const [txns, setTxns] = useState([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
 
   const fetchWallet = async () => {
-    try { const r = await api.get("/my/wallet"); setData(r.data); } catch {}
+    try { const r = await api.get("/my/wallet"); setData(r.data); }
+    catch { setData({ wallet_balance: 0, subscription: null, paused_days: 0 }); }
   };
-
   const fetchTxns = async () => {
     setLoading(true);
     try { const r = await api.get("/my/wallet/transactions"); setTxns(r.data.transactions || []); }
+    catch { setTxns([]); }
     finally { setLoading(false); }
   };
 
   useEffect(() => { fetchWallet(); }, []);
-  useEffect(() => {
-    if (open) { fetchWallet(); fetchTxns(); }
-  }, [open]);
+  useEffect(() => { if (open) { fetchWallet(); fetchTxns(); } }, [open]);
 
-  if (!data) return null;
-  const balance = data.subscription ? Math.round(data.subscription.wallet_balance) : Math.round(data.wallet_balance || 0);
+  const balance = data?.subscription ? Math.round(data.subscription.wallet_balance) : Math.round(data?.wallet_balance || 0);
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <button
-          type="button"
-          data-testid="wallet-pill"
-          className="flex items-center gap-2 rounded-full bg-primary/10 hover:bg-primary/15 active:bg-primary/20 transition-colors px-3.5 py-2 border border-primary/20"
-        >
-          <Wallet className="h-4 w-4 text-primary" strokeWidth={2} />
-          <span className="font-display font-bold text-sm text-primary flex items-center" data-testid="wallet-pill-balance">
-            <IndianRupee className="h-3 w-3" strokeWidth={2.5} />
-            {balance.toLocaleString("en-IN")}
-          </span>
-        </button>
+        {trigger || (
+          <button
+            type="button"
+            data-testid="wallet-pill"
+            className="flex items-center gap-2 rounded-full bg-white/15 hover:bg-white/25 active:bg-white/30 transition-colors px-3.5 py-2 border border-white/30 text-primary-foreground"
+          >
+            <Wallet className="h-4 w-4" strokeWidth={2} />
+            <span className="font-display font-bold text-sm flex items-center" data-testid="wallet-pill-balance">
+              <IndianRupee className="h-3 w-3" strokeWidth={2.5} />
+              {balance.toLocaleString("en-IN")}
+            </span>
+          </button>
+        )}
       </SheetTrigger>
-      <SheetContent className="w-full sm:max-w-md" data-testid="wallet-drawer">
+      <SheetContent className="w-full sm:max-w-md overflow-y-auto" data-testid="wallet-drawer">
         <SheetHeader>
           <SheetTitle className="font-display text-xl flex items-center gap-2">
             <Wallet className="h-5 w-5 text-primary" /> My wallet
           </SheetTitle>
+          <SheetDescription className="sr-only">Current wallet balance and full transaction history</SheetDescription>
         </SheetHeader>
         <div className="mt-6 rounded-2xl bg-primary text-primary-foreground p-6">
           <p className="text-[10px] tracking-overline uppercase font-bold text-primary-foreground/70">Current balance</p>
           <p className="font-display font-extrabold text-5xl mt-2 leading-none flex items-center">
             <IndianRupee className="h-7 w-7" strokeWidth={2.5} />{balance.toLocaleString("en-IN")}
           </p>
-          {data.subscription && (
+          {data?.subscription && (
             <div className="mt-5 grid grid-cols-2 gap-3 text-sm pt-5 border-t border-white/15">
               <div>
                 <p className="text-[10px] tracking-overline uppercase font-bold text-primary-foreground/70">Per day</p>
@@ -65,15 +66,16 @@ export default function WalletPill() {
               </div>
             </div>
           )}
+          {!data?.subscription && (
+            <p className="text-xs text-primary-foreground/80 mt-3">No active plan yet — subscribe to load your wallet.</p>
+          )}
         </div>
 
         <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground mt-6 mb-3">Transactions</p>
-        <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1" data-testid="wallet-transactions">
+        <div className="space-y-2 pr-1" data-testid="wallet-transactions">
           {loading && <div className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>}
           {!loading && txns.length === 0 && <p className="text-sm text-muted-foreground">No transactions yet.</p>}
-          {txns.map((t) => (
-            <TxnRow key={t.txn_id} t={t} />
-          ))}
+          {txns.map((t) => <TxnRow key={t.txn_id} t={t} />)}
         </div>
       </SheetContent>
     </Sheet>

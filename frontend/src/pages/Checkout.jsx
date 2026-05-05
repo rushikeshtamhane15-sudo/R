@@ -26,7 +26,7 @@ export default function Checkout() {
   }, [planId, navigate]);
 
   useEffect(() => {
-    if (user && (!user.name || !user.phone || !user.address)) {
+    if (user && (!user.name || !user.phone || !user.address || !user.photo_url)) {
       navigate(`/profile?next=/checkout/${planId}`);
     }
   }, [user, navigate, planId]);

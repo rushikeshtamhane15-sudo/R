@@ -127,6 +127,7 @@ class ProfileUpdate(BaseModel):
     name: str
     phone: str
     address: str
+    photo_url: Optional[str] = None
 
 
 class SendOtpRequest(BaseModel):
@@ -383,10 +384,17 @@ async def auth_logout(response: Response, request: Request, session_token: Optio
 async def update_profile(payload: ProfileUpdate, user: User = Depends(get_current_user)):
     if not payload.name.strip() or not payload.phone.strip() or not payload.address.strip():
         raise HTTPException(status_code=400, detail="Name, phone and address are required")
-    await db.users.update_one(
-        {"user_id": user.user_id},
-        {"$set": {"name": payload.name.strip(), "phone": payload.phone.strip(), "address": payload.address.strip()}},
-    )
+    update = {
+        "name": payload.name.strip(),
+        "phone": payload.phone.strip(),
+        "address": payload.address.strip(),
+    }
+    if payload.photo_url is not None:
+        # Accept data: URLs (base64) up to ~800 KB after compression
+        if payload.photo_url and len(payload.photo_url) > 1_200_000:
+            raise HTTPException(status_code=413, detail="Photo too large; please use a smaller image")
+        update["photo_url"] = payload.photo_url
+    await db.users.update_one({"user_id": user.user_id}, {"$set": update})
     updated = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
     return {"ok": True, "user": updated}
 
@@ -450,9 +458,9 @@ async def admin_delete_plan(plan_id: str, user: User = Depends(get_current_user)
 # ---------------------------
 @api_router.post("/payments/order")
 async def create_payment_order(payload: CreateOrderRequest, user: User = Depends(get_current_user)):
-    # Enforce completed profile
+    # Enforce completed profile (name, phone, address, photo)
     user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
-    missing = [f for f in ("name", "phone", "address") if not (user_doc.get(f) or "").strip()]
+    missing = [f for f in ("name", "phone", "address", "photo_url") if not (user_doc.get(f) or "")]
     if missing:
         raise HTTPException(status_code=400, detail=f"Profile incomplete: missing {', '.join(missing)}")
 

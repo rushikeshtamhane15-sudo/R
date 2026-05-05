@@ -25,8 +25,7 @@ export default function Plans() {
       navigate(`/login`);
       return;
     }
-    // Profile gate: must have name + phone + address
-    if (!user.name || !user.phone || !user.address) {
+    if (!user.name || !user.phone || !user.address || !user.photo_url) {
       navigate(`/profile?next=/checkout/${planId}`);
       return;
     }
