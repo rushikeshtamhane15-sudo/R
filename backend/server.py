@@ -17,6 +17,7 @@ from typing import List, Optional, Literal
 from datetime import datetime, timezone, timedelta, date
 
 import asyncio
+import base64
 import httpx
 import qrcode
 import razorpay
@@ -46,6 +47,21 @@ RZP_ENABLED = bool(RZP_KEY_ID and RZP_SECRET)
 rzp_client = razorpay.Client(auth=(RZP_KEY_ID, RZP_SECRET)) if RZP_ENABLED else None
 if not RZP_ENABLED:
     logger.warning("[MOCKED] Razorpay keys not set — using STUB payment mode for demos.")
+
+# Paytm for Business — Dynamic QR (new default gateway)
+from paytm import client_from_env as _paytm_from_env, verify_checksum as _paytm_verify
+
+paytm_client = _paytm_from_env()
+PAYTM_ENABLED = paytm_client.enabled
+PAYMENT_PROVIDER = os.environ.get("PAYMENT_PROVIDER", "paytm").lower()  # paytm | razorpay
+PAYTM_MOCK_AUTO_SUCCESS_SECS = int(os.environ.get("PAYTM_MOCK_AUTO_SUCCESS_SECS", "10"))
+if PAYMENT_PROVIDER == "paytm" and not PAYTM_ENABLED:
+    logger.warning(
+        "[MOCKED] Paytm keys not set — using STUB QR + auto-success after "
+        f"{PAYTM_MOCK_AUTO_SUCCESS_SECS}s so the UI flow is demoable."
+    )
+else:
+    logger.info(f"[PAYTM] provider={PAYMENT_PROVIDER} enabled={PAYTM_ENABLED} env={os.environ.get('PAYTM_ENVIRONMENT', 'staging')}")
 
 OTP_DEV_MODE = os.environ.get("OTP_DEV_MODE", "true").lower() == "true"
 if OTP_DEV_MODE:
@@ -674,6 +690,211 @@ async def rzp_webhook(request: Request):
             if order and order.get("status") != "paid":
                 await _activate_subscription(order)
     return {"received": True}
+
+
+# ---------------------------
+# Paytm for Business — Dynamic QR flow
+# ---------------------------
+@api_router.post("/payments/paytm/order")
+async def paytm_create_order(payload: CreateOrderRequest, user: User = Depends(get_current_user)):
+    """Create a Dynamic QR order with Paytm (or a mock QR if keys missing)."""
+    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
+    missing = [f for f in ("name", "phone", "address", "photo_url") if not (user_doc.get(f) or "")]
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Profile incomplete: missing {', '.join(missing)}")
+    plan = await db.plans.find_one({"plan_id": payload.plan_id, "active": True}, {"_id": 0})
+    if not plan:
+        raise HTTPException(status_code=400, detail="Invalid or inactive plan")
+    return await _paytm_create_order_record(
+        user=user, user_doc=user_doc,
+        plan_id=plan["plan_id"], plan_name=plan["name"],
+        amount=float(plan["amount"]), currency=plan["currency"],
+        duration_days=int(plan["duration_days"]), meals=int(plan["meals"]),
+        custom=False,
+    )
+
+
+@api_router.post("/payments/paytm/custom-order")
+async def paytm_custom_order(payload: CustomOrderRequest, user: User = Depends(get_current_user)):
+    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
+    missing = [f for f in ("name", "phone", "address", "photo_url") if not (user_doc.get(f) or "")]
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Profile incomplete: missing {', '.join(missing)}")
+    days = int(payload.days)
+    if days < CUSTOM_MIN_DAYS or days > CUSTOM_MAX_DAYS:
+        raise HTTPException(status_code=400, detail=f"Days must be between {CUSTOM_MIN_DAYS} and {CUSTOM_MAX_DAYS}")
+    meals = days * MEALS_PER_DAY
+    amount = round(meals * MEAL_PRICE_INR, 2)
+    return await _paytm_create_order_record(
+        user=user, user_doc=user_doc,
+        plan_id=f"custom_{days}d", plan_name=f"Custom — {days} day{'s' if days > 1 else ''}",
+        amount=amount, currency="INR",
+        duration_days=days, meals=meals,
+        custom=True,
+    )
+
+
+def _make_upi_string(vpa: str, name: str, amount: float, order_id: str, note: str) -> str:
+    from urllib.parse import quote
+    return (
+        f"upi://pay?pa={vpa}&pn={quote(name)}&am={amount:.2f}"
+        f"&cu=INR&tn={quote(note)}&tr={order_id}"
+    )
+
+
+def _qr_png_base64(upi_payload: str) -> str:
+    """Render a UPI payload as a PNG QR code and return a base64-encoded string."""
+    qr = qrcode.QRCode(box_size=10, border=2)
+    qr.add_data(upi_payload)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="#a02323", back_color="white").convert("RGB")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode()
+
+
+async def _paytm_create_order_record(*, user, user_doc, plan_id, plan_name, amount, currency, duration_days, meals, custom):
+    order_id = f"EFC{uuid.uuid4().hex[:14].upper()}"
+    amount_paise = int(round(amount * 100))
+
+    mock = not PAYTM_ENABLED
+    qr_image_base64 = None
+    qr_data = None
+    paytm_qr_id = None
+    paytm_error = None
+
+    if PAYTM_ENABLED:
+        try:
+            resp = await paytm_client.create_dynamic_qr(
+                order_id=order_id,
+                amount=amount,
+                notes=f"{plan_name} · {user.user_id}",
+            )
+            body = resp.get("body", {})
+            result = body.get("resultInfo", {})
+            if result.get("resultStatus") == "SUCCESS":
+                paytm_qr_id = body.get("qrCodeId")
+                qr_data = body.get("qrData")
+                qr_image_base64 = body.get("image")
+                if qr_data and not qr_image_base64:
+                    qr_image_base64 = _qr_png_base64(qr_data)
+            else:
+                paytm_error = result.get("resultMsg") or "Paytm returned non-success"
+                logger.error(f"[PAYTM] QR create failed: {paytm_error}")
+        except Exception as e:
+            paytm_error = str(e)
+            logger.exception(f"[PAYTM] QR create exception: {e}")
+
+    if not qr_data:
+        # Mock / fallback — self-rendered UPI string (still scannable if VPA env var set)
+        mock = True
+        demo_vpa = os.environ.get("PAYTM_DEMO_VPA", "demo@paytm")
+        qr_data = _make_upi_string(demo_vpa, "eFoodCare", amount, order_id, f"{plan_name}")
+        qr_image_base64 = _qr_png_base64(qr_data)
+
+    await db.payment_orders.insert_one({
+        "order_id": order_id,
+        "provider": "paytm",
+        "user_id": user.user_id,
+        "plan_id": plan_id, "plan_name": plan_name,
+        "amount": amount, "amount_paise": amount_paise, "currency": currency,
+        "duration_days": duration_days, "meals": meals,
+        "custom": custom, "status": "created", "mock": mock,
+        "paytm_qr_id": paytm_qr_id,
+        "paytm_qr_data": qr_data,
+        "paytm_error": paytm_error,
+        "created_at": iso(now_utc()),
+    })
+
+    return {
+        "order_id": order_id,
+        "provider": "paytm",
+        "amount": amount,
+        "currency": currency,
+        "plan_name": plan_name,
+        "duration_days": duration_days,
+        "meals": meals,
+        "qr_image_base64": qr_image_base64,
+        "qr_data": qr_data,
+        "mock": mock,
+        "expires_in_seconds": 900,
+    }
+
+
+@api_router.get("/payments/paytm/status/{order_id}")
+async def paytm_order_status(order_id: str, user: User = Depends(get_current_user)):
+    order = await db.payment_orders.find_one({"order_id": order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order["user_id"] != user.user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if order.get("status") == "paid":
+        return {"status": "paid", "sub_id": order.get("sub_id")}
+
+    if order.get("mock"):
+        # Demo mode — auto-succeed after PAYTM_MOCK_AUTO_SUCCESS_SECS
+        created = parse_dt(order["created_at"])
+        if (now_utc() - created).total_seconds() >= PAYTM_MOCK_AUTO_SUCCESS_SECS:
+            await _activate_subscription(order)
+            fresh = await db.payment_orders.find_one({"order_id": order_id}, {"_id": 0})
+            return {"status": "paid", "sub_id": fresh.get("sub_id"), "mock": True}
+        return {"status": "pending", "mock": True, "auto_success_in_secs": max(0, int(PAYTM_MOCK_AUTO_SUCCESS_SECS - (now_utc() - created).total_seconds()))}
+
+    # Real Paytm polling
+    try:
+        resp = await paytm_client.get_order_status(order_id)
+        result_status = resp.get("body", {}).get("resultInfo", {}).get("resultStatus")
+        if result_status == "TXN_SUCCESS":
+            txn_id = resp.get("body", {}).get("txnId")
+            await db.payment_orders.update_one({"order_id": order_id}, {"$set": {"paytm_txn_id": txn_id}})
+            await _activate_subscription(order)
+            fresh = await db.payment_orders.find_one({"order_id": order_id}, {"_id": 0})
+            return {"status": "paid", "sub_id": fresh.get("sub_id")}
+        if result_status == "TXN_FAILURE":
+            await db.payment_orders.update_one({"order_id": order_id}, {"$set": {"status": "failed"}})
+            return {"status": "failed"}
+        return {"status": "pending"}
+    except Exception as e:
+        logger.exception(f"[PAYTM] status poll failed for {order_id}: {e}")
+        return {"status": "pending", "error": str(e)}
+
+
+@api_router.post("/webhook/paytm")
+async def paytm_webhook(request: Request):
+    try:
+        payload = await request.json()
+    except Exception:
+        return {"received": False, "reason": "invalid json"}
+    body = payload.get("body") or payload  # Paytm sometimes posts body at top level
+    head = payload.get("head") or {}
+    signature = head.get("signature") or body.get("checksumhash")
+    order_id = body.get("orderId") or body.get("ORDERID")
+    txn_status = body.get("txnStatus") or body.get("STATUS") or body.get("resultInfo", {}).get("resultStatus")
+    paytm_txn_id = body.get("txnId") or body.get("TXNID")
+
+    if PAYTM_ENABLED and signature:
+        # Paytm sends body as the exact dict it signed — pass the same dict
+        body_to_verify = {k: v for k, v in body.items() if k != "checksumhash"}
+        if not _paytm_verify(body_to_verify, paytm_client.key, signature):
+            logger.warning(f"[PAYTM WEBHOOK] signature mismatch for order {order_id}")
+            return {"received": False, "reason": "invalid signature"}
+
+    if not order_id:
+        return {"received": False, "reason": "missing orderId"}
+
+    order = await db.payment_orders.find_one({"order_id": order_id}, {"_id": 0})
+    if not order:
+        return {"received": False, "reason": "unknown order"}
+
+    if txn_status in ("TXN_SUCCESS", "SUCCESS"):
+        await db.payment_orders.update_one({"order_id": order_id}, {"$set": {"paytm_txn_id": paytm_txn_id}})
+        if order.get("status") != "paid":
+            await _activate_subscription(order)
+        return {"received": True, "status": "paid"}
+    if txn_status in ("TXN_FAILURE", "FAILURE"):
+        await db.payment_orders.update_one({"order_id": order_id}, {"$set": {"status": "failed"}})
+        return {"received": True, "status": "failed"}
+    return {"received": True, "status": "pending"}
 
 
 # ---------------------------
