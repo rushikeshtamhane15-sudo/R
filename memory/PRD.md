@@ -84,6 +84,11 @@ MSG91_FLOW_TIFFIN=
 MSG91_STUB_MODE=true
 ```
 
+### Iteration 16 (Feb 6, 2026) — Tasks refactor + branded splash screen
+- **Cron loops extracted** — `subscription_tick_loop`, `reminder_loop`, `expiry_reminder_loop` removed from `server.py` (~50 LOC), replaced by a single `start_background_loops(...)` call from new `/app/backend/tasks.py`. Generic `_periodic(name, fn, interval, initial_delay)` runner with per-iteration exception logging — one failed run never kills the scheduler. All three intervals (`TICK_INTERVAL_SECONDS`, `REMINDER_INTERVAL_SECONDS`, `EXPIRY_SCAN_INTERVAL_SECONDS`) live in `tasks.py`. No circular-import risk: `run_*` functions are passed in by `server.py` startup hook. 10/10 iter12 tests still green.
+- **Branded splash screen** (`/app/frontend/src/components/SplashScreen.jsx`) — full-viewport red overlay (`#a02323`) on first paint, mounted at the App root above the router. Smaller logo (96 px, down from header's 36-44 px scaled larger), then `eFoodCare` wordmark and `ghar se accha khana` tagline — both white. `efc-pop` (logo) + `efc-rise` (text) entrance animations, 1.1s hold + 350ms fade-out, sessionStorage flag prevents re-flash on hot reload / route change.
+- **PWA install splash matches brand**: `manifest.webmanifest` `background_color` updated `#ffffff` → `#a02323` so the OS-rendered splash is also red instead of jarring white.
+
 ### Iteration 15 (Feb 6, 2026) — Editable Testimonials + Subscription expiry reminders
 - **Admin Testimonials Editor** (`/admin/testimonials`) — full CRUD: add/edit/remove/reorder, per-row visibility toggle, 1-5 star rating, photo via file upload (base64 data URL, capped ~1.4 MB) OR pasted URL, sticky save bar. Fronts the existing `db.testimonials_config` collection. Sidebar nav added under Content & design. Public landing renders only `visible:true` testimonials; admin sees all.
 - **Subscription expiry reminders launched** — `expiry_reminder_loop` now started on startup (interval 1h, lead_days `[3, 1, 0]`). Walks all active subs, fires SMS via MSG91 (`send_expiry_reminder`) and Email via Resend (`send_email` + `expiry_email_html`), with branded HTML. Idempotent via compound key in `db.expiry_reminders_sent` (sub_id + days_left + sent_date). Both channels currently in **STUB mode** until `MSG91_AUTH_KEY` / `RESEND_API_KEY` are set in `.env`.

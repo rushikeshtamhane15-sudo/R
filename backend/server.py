@@ -950,7 +950,6 @@ async def get_active_subscription(user_id: str) -> Optional[dict]:
 # ---------------------------
 # Background scheduler — daily subscription tick (3-day inactivity extension)
 # ---------------------------
-TICK_INTERVAL_SECONDS = int(os.environ.get("TICK_INTERVAL_SECONDS", str(60 * 60)))  # default hourly
 
 
 async def run_subscription_tick() -> dict:
@@ -1010,7 +1009,6 @@ async def run_subscription_tick() -> dict:
 # ---------------------------
 # Empty-tiffin SMS reminder scanner — runs every 5 min
 # ---------------------------
-REMINDER_INTERVAL_SECONDS = int(os.environ.get("REMINDER_INTERVAL_SECONDS", "300"))
 
 
 async def _ist_now_dt() -> datetime:
@@ -1089,21 +1087,10 @@ async def run_empty_tiffin_reminders() -> dict:
     return {"sent": sent, "skipped": skipped, "failed": failed, "slots": slots}
 
 
-async def reminder_loop():
-    await asyncio.sleep(20)
-    while True:
-        try:
-            await run_empty_tiffin_reminders()
-        except Exception as e:
-            logger.exception(f"[REMINDER LOOP] crashed: {e}")
-        await asyncio.sleep(REMINDER_INTERVAL_SECONDS)
-
-
 # ---------------------------
 # Subscription expiry reminders — SMS + email, 3d / 1d / 0d before end_date
 # ---------------------------
 EXPIRY_LEAD_DAYS = [3, 1, 0]
-EXPIRY_SCAN_INTERVAL_SECONDS = int(os.environ.get("EXPIRY_SCAN_INTERVAL_SECONDS", "3600"))  # hourly
 
 
 def _ist_today_iso() -> str:
@@ -1194,28 +1181,6 @@ async def run_expiry_reminders() -> dict:
     if sent_sms or sent_email or failed:
         logger.info(f"[EXPIRY REMINDERS] sms={sent_sms} email={sent_email} skipped={skipped} failed={failed} email_stub={email_stub()}")
     return {"sms_sent": sent_sms, "emails_sent": sent_email, "skipped": skipped, "failed": failed}
-
-
-async def expiry_reminder_loop():
-    await asyncio.sleep(40)  # let other loops settle
-    while True:
-        try:
-            await run_expiry_reminders()
-        except Exception as e:
-            logger.exception(f"[EXPIRY LOOP] crashed: {e}")
-        await asyncio.sleep(EXPIRY_SCAN_INTERVAL_SECONDS)
-
-
-async def subscription_tick_loop():
-    """Background daemon — runs the tick every TICK_INTERVAL_SECONDS."""
-    # First run after a short delay to let the app finish booting
-    await asyncio.sleep(15)
-    while True:
-        try:
-            await run_subscription_tick()
-        except Exception as e:
-            logger.exception(f"[CRON TICK LOOP] crashed: {e}")
-        await asyncio.sleep(TICK_INTERVAL_SECONDS)
 
 
 # ---------------------------
@@ -2510,15 +2475,16 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def on_startup():
+    from tasks import start_background_loops  # local import — keeps tasks.py free of server side-effects
     await seed_plans()
     await _ensure_theme_version()
     await _load_dashboard_config()  # pre-seed default config so first GET doesn't write during a public read
-    asyncio.create_task(subscription_tick_loop())
-    asyncio.create_task(reminder_loop())
-    asyncio.create_task(expiry_reminder_loop())
-    logger.info(f"[STARTUP] subscription tick scheduler launched · interval={TICK_INTERVAL_SECONDS}s")
-    logger.info(f"[STARTUP] empty-tiffin reminder scanner launched · interval={REMINDER_INTERVAL_SECONDS}s · stub_mode={_sms_stub_mode_status()}")
-    logger.info(f"[STARTUP] subscription expiry reminder scheduler launched · interval={EXPIRY_SCAN_INTERVAL_SECONDS}s · lead_days={EXPIRY_LEAD_DAYS}")
+    start_background_loops(
+        run_subscription_tick=run_subscription_tick,
+        run_empty_tiffin_reminders=run_empty_tiffin_reminders,
+        run_expiry_reminders=run_expiry_reminders,
+    )
+    logger.info(f"[STARTUP] empty-tiffin SMS stub_mode={_sms_stub_mode_status()} · expiry lead_days={EXPIRY_LEAD_DAYS}")
 
 
 @app.on_event("shutdown")

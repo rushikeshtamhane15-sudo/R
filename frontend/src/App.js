@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { Toaster } from "sonner";
 import PWAInstallPrompt from "./components/PWAInstallPrompt";
+import SplashScreen from "./components/SplashScreen";
 import Header from "./components/Header";
 import AnnouncementBar from "./components/AnnouncementBar";
 import Footer from "./components/Footer";
@@ -132,6 +133,7 @@ function AppRoutes() {
 export default function App() {
   return (
     <div className="App">
+      <SplashScreen />
       <BrowserRouter>
         <ThemeProvider>
           <AuthProvider>
