@@ -84,6 +84,14 @@ MSG91_FLOW_TIFFIN=
 MSG91_STUB_MODE=true
 ```
 
+### Iteration 15 (Feb 6, 2026) — Editable Testimonials + Subscription expiry reminders
+- **Admin Testimonials Editor** (`/admin/testimonials`) — full CRUD: add/edit/remove/reorder, per-row visibility toggle, 1-5 star rating, photo via file upload (base64 data URL, capped ~1.4 MB) OR pasted URL, sticky save bar. Fronts the existing `db.testimonials_config` collection. Sidebar nav added under Content & design. Public landing renders only `visible:true` testimonials; admin sees all.
+- **Subscription expiry reminders launched** — `expiry_reminder_loop` now started on startup (interval 1h, lead_days `[3, 1, 0]`). Walks all active subs, fires SMS via MSG91 (`send_expiry_reminder`) and Email via Resend (`send_email` + `expiry_email_html`), with branded HTML. Idempotent via compound key in `db.expiry_reminders_sent` (sub_id + days_left + sent_date). Both channels currently in **STUB mode** until `MSG91_AUTH_KEY` / `RESEND_API_KEY` are set in `.env`.
+- **Manual trigger**: `POST /api/admin/cron/run-expiry-reminders` returns counts + `email_stub` + `sms_stub` flags for ops verification.
+- **Bug fix**: pre-existing missing `TestimonialsSection` import in `/app/frontend/src/pages/Landing.jsx` (caused runtime ReferenceError) — now imported correctly.
+- **Tele-calling explicitly skipped** per user instruction; remains in backlog.
+- 10/10 new backend tests pass (`test_iter12.py`); E2E frontend smoke green.
+
 ### Iteration 14 (Feb 6, 2026) — PWA + Razorpay graceful fallback + RM cache
 - **PWA install prompt** — `/app/frontend/public/manifest.webmanifest` + `service-worker.js` (network-first navigations, cache-first static assets, never caches `/api/*`). Tasteful bottom-right install pill (`PWAInstallPrompt.jsx`) listens for `beforeinstallprompt`, surfaces after 8 s delay, honors a 14-day dismissal window. Auto-hides on iOS standalone or already-installed Chrome PWA. App is installable on Chrome desktop, Edge, and Android Chrome.
 - **Razorpay graceful fallback** — when live key auth fails (`razorpay.errors.BadRequestError: Authentication failed`), backend falls back to mock-mode automatically, logs a warning, and frontend Checkout auto-verifies the mock order. Real keys keep working when valid; dev/preview never breaks.

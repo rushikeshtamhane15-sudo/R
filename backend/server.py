@@ -2339,7 +2339,7 @@ async def admin_set_testimonials(payload: TestimonialsPatch, user: User = Depend
             "role": (t.role or "").strip()[:80],
             "quote": (t.quote or "").strip()[:600],
             "image_url": img.strip()[:2_000_000],
-            "rating": max(1, min(5, int(t.rating or 5))),
+            "rating": max(1, min(5, int(t.rating) if t.rating is not None else 5)),
             "order": int(t.order if t.order is not None else i),
             "visible": bool(t.visible if t.visible is not None else True),
         })
