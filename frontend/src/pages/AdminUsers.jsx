@@ -52,7 +52,7 @@ export default function AdminUsers() {
   return (
     <div data-testid="admin-users-page">
       <p className="text-xs tracking-overline uppercase font-bold text-secondary">Admin · Users</p>
-      <h1 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-2">Users & roles</h1>
+      <h1 className="font-display font-extrabold text-2xl sm:text-3xl md:text-4xl tracking-tight mt-2">Users & roles</h1>
 
       <div className="mt-6 grid lg:grid-cols-3 gap-6">
         <div className="bg-card rounded-2xl border border-border p-6 lg:col-span-2">

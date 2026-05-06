@@ -135,7 +135,7 @@ export default function AdminRawMaterials() {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <p className="text-xs tracking-overline uppercase font-bold text-secondary flex items-center gap-1.5"><Wheat className="h-3.5 w-3.5" /> Kitchen procurement</p>
-          <h1 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-1">Today's raw material need</h1>
+          <h1 className="font-display font-extrabold text-2xl sm:text-3xl md:text-4xl tracking-tight mt-1">Today's raw material need</h1>
           <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
             Calculated live from active subscribers — full tiffin / dining = 1 person, half tiffin = 0.5. Each meal needs <b>1/60th</b> of one person's monthly allocation. Update rates anytime; numbers update across lunch + dinner.
           </p>
@@ -315,7 +315,7 @@ function Stat({ label, value, hint, icon: Icon, accent }) {
         <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">{label}</p>
         {Icon && <Icon className="h-3.5 w-3.5 text-muted-foreground" />}
       </div>
-      <p className="font-display font-extrabold text-3xl mt-2">{value}</p>
+      <p className="font-display font-extrabold text-2xl sm:text-3xl mt-2">{value}</p>
       {hint && <p className="text-[11px] text-muted-foreground mt-1">{hint}</p>}
     </div>
   );

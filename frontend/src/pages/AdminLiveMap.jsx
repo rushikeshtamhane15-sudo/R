@@ -123,7 +123,7 @@ export default function AdminLiveMap() {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <p className="text-xs tracking-overline uppercase font-bold text-secondary">Operations</p>
-          <h1 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-1">Live tracking</h1>
+          <h1 className="font-display font-extrabold text-2xl sm:text-3xl md:text-4xl tracking-tight mt-1">Live tracking</h1>
           <p className="text-sm text-muted-foreground mt-2">
             Real-time positions of delivery boys on a trip — auto-refreshes every {REFRESH_MS / 1000}s. Map locked to {radiusKm} km from dispatch.
           </p>

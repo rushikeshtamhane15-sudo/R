@@ -92,7 +92,7 @@ export default function AdminDashboardEditor() {
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <p className="text-xs tracking-overline uppercase font-bold text-secondary">Content & design</p>
-          <h1 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-1">Subscriber dashboard</h1>
+          <h1 className="font-display font-extrabold text-2xl sm:text-3xl md:text-4xl tracking-tight mt-1">Subscriber dashboard</h1>
           <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
             Reorder sections, hide what's not relevant, edit headings and tagline, and override card colours. Changes apply to every subscriber's dashboard immediately.
           </p>

@@ -1,7 +1,8 @@
-import React from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { LayoutDashboard, Package, Truck, ScanLine, QrCode, Utensils, Users, Palette, Home, Shield, FileText, MapPin, FootprintsIcon, LogIn, Megaphone, Radio, Layout, Wheat, ClipboardList } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
+import { LayoutDashboard, Package, Truck, ScanLine, QrCode, Utensils, Users, Palette, Home, Shield, FileText, MapPin, FootprintsIcon, LogIn, Megaphone, Radio, Layout, Wheat, ClipboardList, Menu } from "lucide-react";
 
 // `roles`: which roles can see the item. Default: admin only.
 const SECTIONS = [
@@ -41,49 +42,92 @@ const SECTIONS = [
   },
 ];
 
+function NavList({ filteredSections, onItemClick }) {
+  return (
+    <nav className="flex flex-col gap-5">
+      {filteredSections.map((sec) => (
+        <div key={sec.title}>
+          <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground px-3 mb-2">{sec.title}</p>
+          <div className="flex flex-col gap-1">
+            {sec.items.map((it) => (
+              <NavLink
+                key={it.to}
+                to={it.to}
+                end={it.end}
+                onClick={onItemClick}
+                data-testid={`admin-nav-${it.label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+$/, "")}`}
+                className={({ isActive }) =>
+                  `flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors whitespace-nowrap ${
+                    isActive ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-accent"
+                  }`
+                }
+              >
+                <it.icon className="h-4 w-4" strokeWidth={1.75} />
+                <span className="truncate">{it.label}</span>
+              </NavLink>
+            ))}
+          </div>
+        </div>
+      ))}
+    </nav>
+  );
+}
+
 export default function AdminLayout() {
   const { user } = useAuth();
+  const location = useLocation();
   const role = user?.role || "subscriber";
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Auto-close drawer on route change
+  useEffect(() => { setDrawerOpen(false); }, [location.pathname]);
 
   // Filter sections per role; hide a section when it ends up with zero visible items.
   const filteredSections = SECTIONS
     .map((sec) => ({ ...sec, items: sec.items.filter((it) => (it.roles || ["admin"]).includes(role)) }))
     .filter((sec) => sec.items.length > 0);
 
+  // Find current page label for the mobile header
+  const current = filteredSections.flatMap((s) => s.items).find((it) => location.pathname === it.to || (location.pathname.startsWith(it.to) && it.to !== "/admin"));
+  const currentLabel = current?.label || (role === "staff" ? "Staff workspace" : "Admin");
+
   return (
-    <div className="max-w-7xl mx-auto px-4 md:px-8 lg:px-12 py-8" data-testid="admin-layout">
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-8 lg:px-12 py-4 md:py-8" data-testid="admin-layout">
       {role === "staff" && (
-        <p className="text-xs tracking-overline uppercase font-bold text-secondary mb-3 inline-flex items-center gap-1.5" data-testid="staff-mode-tag">
+        <p className="text-xs tracking-overline uppercase font-bold text-secondary mb-3 hidden lg:inline-flex items-center gap-1.5" data-testid="staff-mode-tag">
           <Shield className="h-3.5 w-3.5" /> Staff workspace
         </p>
       )}
-      <div className="grid lg:grid-cols-[260px_1fr] gap-6 lg:gap-10">
-        <aside className="lg:sticky lg:top-24 lg:self-start" data-testid="admin-sidebar">
-          <nav className="flex flex-col gap-5">
-            {filteredSections.map((sec) => (
-              <div key={sec.title}>
-                <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground px-3 mb-2">{sec.title}</p>
-                <div className="flex flex-col gap-1">
-                  {sec.items.map((it) => (
-                    <NavLink
-                      key={it.to}
-                      to={it.to}
-                      end={it.end}
-                      data-testid={`admin-nav-${it.label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+$/, "")}`}
-                      className={({ isActive }) =>
-                        `flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors whitespace-nowrap ${
-                          isActive ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-accent"
-                        }`
-                      }
-                    >
-                      <it.icon className="h-4 w-4" strokeWidth={1.75} />
-                      <span className="truncate">{it.label}</span>
-                    </NavLink>
-                  ))}
-                </div>
+
+      {/* Mobile / tablet header bar — sticky for fast nav switching */}
+      <div className="lg:hidden sticky top-0 z-30 -mx-3 sm:-mx-4 mb-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border" data-testid="admin-mobile-header">
+        <div className="flex items-center gap-3 px-3 sm:px-4 py-3">
+          <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
+            <SheetTrigger asChild>
+              <button className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-foreground hover:bg-accent" data-testid="admin-menu-trigger" aria-label="Open admin menu">
+                <Menu className="h-5 w-5" />
+              </button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-72 p-0 overflow-y-auto" data-testid="admin-drawer">
+              <div className="px-5 py-5 border-b border-border">
+                <p className="text-[10px] tracking-overline uppercase font-bold text-secondary">{role === "staff" ? "Staff workspace" : "Admin"}</p>
+                <p className="font-display font-extrabold text-lg leading-tight mt-1 truncate">{user?.name || user?.email}</p>
               </div>
-            ))}
-          </nav>
+              <div className="px-3 py-4">
+                <NavList filteredSections={filteredSections} onItemClick={() => setDrawerOpen(false)} />
+              </div>
+            </SheetContent>
+          </Sheet>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] tracking-overline uppercase font-bold text-secondary truncate">{role === "staff" ? "Staff" : "Admin"}</p>
+            <p className="font-display font-extrabold text-base leading-tight truncate">{currentLabel}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-[260px_1fr] gap-6 lg:gap-10">
+        <aside className="hidden lg:block lg:sticky lg:top-24 lg:self-start" data-testid="admin-sidebar">
+          <NavList filteredSections={filteredSections} />
         </aside>
 
         <div className="min-w-0">

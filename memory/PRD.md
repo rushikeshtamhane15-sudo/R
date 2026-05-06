@@ -84,6 +84,11 @@ MSG91_FLOW_TIFFIN=
 MSG91_STUB_MODE=true
 ```
 
+### Iteration 13 (Feb 6, 2026) — ESLint guard + responsive admin layout
+- **ESLint flat config** (`/app/frontend/eslint.config.mjs`) with `no-undef` + `react/jsx-no-undef` enabled — catches missing imports (lucide icons, helpers) at build time so they never reach the browser as runtime errors. Same bug class that crashed Raw Materials twice (Wallet, FileDown). New `yarn lint` script. 0 errors across the codebase today.
+- **Mobile + tablet admin layout** — AdminLayout now collapses into a left-side drawer (`Sheet`) on screens below `lg` (1024 px). Sticky mini-header on small screens shows current page label + hamburger trigger. Desktop layout (sticky 260 px sidebar) preserved untouched. Drawer auto-closes on navigation. Heading sizes step down on mobile (`text-2xl sm:text-3xl md:text-4xl`).
+- 64/64 backend tests still green; no API changes.
+
 ### Iteration 12 (Feb 6, 2026) — Purchase Order PDF + Staff workspace
 - **Generate PO PDF** — `/admin/raw-materials` has a "Generate PO PDF" button that calls `POST /api/admin/purchase-orders/generate` (admin + staff). Backend uses `reportlab` (`/app/backend/po_pdf.py`) to render a branded A4 PDF with item-by-item quantities, lunch/dinner/day costs, supplier name, generated-by signature line, and notes. PO is stored in `db.purchase_orders` for audit; `GET /admin/purchase-orders` lists them, `GET /admin/purchase-orders/{po_number}/download` re-generates from snapshot.
 - **Staff workspace** — staff role now has access to `/admin` with a filtered sidebar showing only:

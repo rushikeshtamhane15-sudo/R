@@ -57,7 +57,7 @@ export default function StaffDeliveries() {
           <p className="text-xs tracking-overline uppercase font-bold text-secondary flex items-center gap-1.5">
             <Truck className="h-3.5 w-3.5" /> Operations · today
           </p>
-          <h1 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-1">
+          <h1 className="font-display font-extrabold text-2xl sm:text-3xl md:text-4xl tracking-tight mt-1">
             Today's tiffins · {data?.date}
           </h1>
           <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
@@ -198,7 +198,7 @@ function Stat({ label, value, icon: Icon, accent }) {
         <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">{label}</p>
         {Icon && <Icon className="h-3.5 w-3.5 text-muted-foreground" />}
       </div>
-      <p className="font-display font-extrabold text-3xl mt-2" data-testid={`stat-value-${label.toLowerCase().replace(/\s+/g, "-").replace(/·/g, "")}`}>{value}</p>
+      <p className="font-display font-extrabold text-2xl sm:text-3xl mt-2" data-testid={`stat-value-${label.toLowerCase().replace(/\s+/g, "-").replace(/·/g, "")}`}>{value}</p>
     </div>
   );
 }
