@@ -26,6 +26,7 @@ import AdminUsers from "./pages/AdminUsers";
 import AdminTheme from "./pages/AdminTheme";
 import AdminContent from "./pages/AdminContent";
 import AdminLanding from "./pages/AdminLanding";
+import AdminDashboardEditor from "./pages/AdminDashboardEditor";
 import Plans from "./pages/Plans";
 import Checkout from "./pages/Checkout";
 import Profile from "./pages/Profile";
@@ -97,6 +98,7 @@ function AppRoutes() {
             <Route path="users" element={<AdminUsers />} />
             <Route path="theme" element={<AdminTheme />} />
             <Route path="landing" element={<AdminLanding />} />
+            <Route path="dashboard-editor" element={<AdminDashboardEditor />} />
             <Route path="content/:contentKey" element={<AdminContent />} />
           </Route>
 

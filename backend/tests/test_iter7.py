@@ -24,6 +24,27 @@ mcli = MongoClient(MONGO_URL)
 db = mcli[DB_NAME]
 
 
+def _ist_today() -> str:
+    """Match server's today_local() — IST date string."""
+    return (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date().isoformat()
+
+
+@pytest.fixture(autouse=True)
+def _wide_open_slots():
+    """Open both lunch + dinner dispatch windows fully so tests don't depend on wall-clock time."""
+    db.delivery_settings.update_one(
+        {"_id": "active"},
+        {"$set": {
+            "lunch_dispatch_open": "00:00",
+            "lunch_dispatch_close": "23:59",
+            "dinner_dispatch_open": "00:00",
+            "dinner_dispatch_close": "23:59",
+        }},
+        upsert=True,
+    )
+    yield
+
+
 def _h(tok):
     return {"Authorization": f"Bearer {tok}"}
 
@@ -75,7 +96,7 @@ def _seed_delivery_boy(user_id: str, name="Boy X", pincodes=None):
 
 
 def _seed_roster_item(user_id: str, pincode="411001", meal_type="lunch", today=None, tiffin_size="full"):
-    today = today or date.today().isoformat()
+    today = today or _ist_today()
     rid = f"rst_TEST_{uuid.uuid4().hex[:8]}"
     db.daily_rosters.insert_one({
         "roster_id": rid,

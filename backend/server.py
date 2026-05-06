@@ -463,12 +463,37 @@ async def update_profile(payload: ProfileUpdate, user: User = Depends(get_curren
 
 @api_router.post("/auth/location")
 async def update_location(payload: LocationUpdate, user: User = Depends(get_current_user)):
-    """Lightweight endpoint — customer pins their delivery location once."""
-    await db.users.update_one(
-        {"user_id": user.user_id},
-        {"$set": {"lat": float(payload.lat), "lng": float(payload.lng), "location_set_at": iso(now_utc())}},
-    )
-    return {"ok": True}
+    """Lightweight endpoint — customer pins their delivery location once.
+    Auto-reverse-geocodes via free OSM Nominatim to extract pincode for delivery routing."""
+    update = {"lat": float(payload.lat), "lng": float(payload.lng), "location_set_at": iso(now_utc())}
+    pincode = await _reverse_geocode_pincode(payload.lat, payload.lng)
+    if pincode:
+        update["pincode"] = pincode
+    await db.users.update_one({"user_id": user.user_id}, {"$set": update})
+    return {"ok": True, "pincode": pincode}
+
+
+async def _reverse_geocode_pincode(lat: float, lng: float) -> str | None:
+    """Best-effort reverse geocode using Nominatim (free OSM). Returns 6-digit pincode or None."""
+    try:
+        async with httpx.AsyncClient(timeout=6.0) as client:
+            r = await client.get(
+                "https://nominatim.openstreetmap.org/reverse",
+                params={"lat": lat, "lon": lng, "format": "json", "zoom": 18, "addressdetails": 1},
+                headers={"User-Agent": "eFoodCare/1.0 (delivery-routing)"},
+            )
+            if r.status_code != 200:
+                return None
+            data = r.json() or {}
+            pin = (data.get("address") or {}).get("postcode")
+            if pin and isinstance(pin, str):
+                # Indian PIN must be 6 digits
+                digits = "".join(ch for ch in pin if ch.isdigit())
+                if len(digits) == 6:
+                    return digits
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Reverse geocode failed: %s", e)
+    return None
 
 
 # ---------------------------
@@ -1540,6 +1565,106 @@ async def admin_run_tick(user: User = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Admin only")
     result = await run_subscription_tick()
     return {"ok": True, **result}
+
+
+# ---------------------------
+# Subscriber Dashboard CMS — admin-controlled text, visibility, order, colour overrides
+# ---------------------------
+DASHBOARD_DEFAULT_SECTIONS = [
+    {"id": "greeting",        "label": "Greeting + heading",       "visible": True, "order": 0},
+    {"id": "hero",            "label": "Pass / Tiffin hero card",  "visible": True, "order": 1},
+    {"id": "tiffin_tracker",  "label": "Tiffin tracking widget",   "visible": True, "order": 2},
+    {"id": "wallet",          "label": "Wallet card",              "visible": True, "order": 3},
+    {"id": "today_status",    "label": "Today's check-in status",  "visible": True, "order": 4},
+    {"id": "todays_menu",     "label": "Today's menu",             "visible": True, "order": 5},
+    {"id": "history",         "label": "Recent check-ins",         "visible": True, "order": 6},
+]
+DASHBOARD_DEFAULT_TEXTS = {
+    "greeting_overline":      "Hello,",
+    "heading_eatin":          "Your e-Meal Pass",
+    "heading_tiffin":         "Your tiffin delivery",
+    "subtext":                "ghar se achha khana",
+    "no_sub_title":           "You don't have an active plan",
+    "no_sub_subtext":         "Pick a dining or tiffin plan to start eating ghar se achha khana.",
+}
+DASHBOARD_DEFAULT_COLORS = {
+    "wallet_bg":      "",   # empty = use theme primary
+    "wallet_fg":      "",   # empty = primary-foreground
+    "hero_accent":    "",
+    "section_card_bg":"",
+}
+DASHBOARD_DEFAULT_CONFIG = {
+    "sections": DASHBOARD_DEFAULT_SECTIONS,
+    "texts": DASHBOARD_DEFAULT_TEXTS,
+    "colors": DASHBOARD_DEFAULT_COLORS,
+}
+
+
+async def _load_dashboard_config() -> dict:
+    cfg = await db.dashboard_config.find_one({"_id": "active"}, {"_id": 0})
+    if not cfg:
+        await db.dashboard_config.insert_one({"_id": "active", **DASHBOARD_DEFAULT_CONFIG})
+        return dict(DASHBOARD_DEFAULT_CONFIG)
+    # Merge in any new defaults so admin sees newly-added sections/texts
+    out = {
+        "sections": cfg.get("sections") or DASHBOARD_DEFAULT_SECTIONS,
+        "texts": {**DASHBOARD_DEFAULT_TEXTS, **(cfg.get("texts") or {})},
+        "colors": {**DASHBOARD_DEFAULT_COLORS, **(cfg.get("colors") or {})},
+    }
+    # Ensure every default section exists (preserves admin's order/visibility for existing ones)
+    have = {s["id"] for s in out["sections"]}
+    next_order = max((s.get("order", 0) for s in out["sections"]), default=-1) + 1
+    for d in DASHBOARD_DEFAULT_SECTIONS:
+        if d["id"] not in have:
+            out["sections"].append({**d, "order": next_order})
+            next_order += 1
+    out["sections"].sort(key=lambda s: s.get("order", 0))
+    return out
+
+
+class DashboardConfigPatch(BaseModel):
+    sections: Optional[List[dict]] = None
+    texts: Optional[dict] = None
+    colors: Optional[dict] = None
+
+
+@api_router.get("/dashboard/config")
+async def get_dashboard_config():
+    """Public — subscriber dashboard reads this to render text, ordering and colour overrides."""
+    return await _load_dashboard_config()
+
+
+@api_router.patch("/admin/dashboard/config")
+async def patch_dashboard_config(payload: DashboardConfigPatch, user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    cur = await _load_dashboard_config()
+    patch = {k: v for k, v in payload.dict(exclude_none=True).items()}
+    if "sections" in patch:
+        # Sanitize: keep id/label/visible/order only
+        clean = []
+        for i, s in enumerate(patch["sections"]):
+            clean.append({
+                "id": str(s.get("id", "")).strip(),
+                "label": str(s.get("label", "")).strip()[:80],
+                "visible": bool(s.get("visible", True)),
+                "order": int(s.get("order", i)),
+            })
+        patch["sections"] = clean
+    if "texts" in patch:
+        patch["texts"] = {**(cur.get("texts") or {}), **{k: str(v)[:300] for k, v in patch["texts"].items()}}
+    if "colors" in patch:
+        patch["colors"] = {**(cur.get("colors") or {}), **{k: str(v)[:40] for k, v in patch["colors"].items()}}
+    await db.dashboard_config.update_one({"_id": "active"}, {"$set": patch}, upsert=True)
+    return await _load_dashboard_config()
+
+
+@api_router.post("/admin/dashboard/config/reset")
+async def reset_dashboard_config(user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    await db.dashboard_config.update_one({"_id": "active"}, {"$set": DASHBOARD_DEFAULT_CONFIG}, upsert=True)
+    return await _load_dashboard_config()
 
 
 # ---------------------------

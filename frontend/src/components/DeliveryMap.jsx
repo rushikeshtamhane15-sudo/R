@@ -1,11 +1,14 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo } from "react";
 import L from "leaflet";
-import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap, Circle } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import "./delivery-map.css";
 
-/**
- * Leaflet markers' default icons don't load via React bundling. Build them inline.
- */
+// CartoDB Voyager — clean, polished, free, no API key
+const TILE_URL = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+const TILE_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> · CARTO';
+const KM = 1000;
+
 function makeIcon({ color = "#a02323", text = "" } = {}) {
   const html = `
     <div style="position:relative;">
@@ -15,39 +18,82 @@ function makeIcon({ color = "#a02323", text = "" } = {}) {
   return L.divIcon({ html, className: "", iconSize: [28, 32], iconAnchor: [14, 28], popupAnchor: [0, -28] });
 }
 
-const ICON_BOY = makeIcon({ color: "#1e3a8a", text: "🛵" });
+// Animated delivery boy — pulsing ring + bobbing scooter emoji
+function makeAnimatedBoyIcon() {
+  const html = `
+    <div class="efc-boy-marker">
+      <span class="efc-boy-ring"></span>
+      <span class="efc-boy-ring efc-boy-ring--delay"></span>
+      <span class="efc-boy-pin">🛵</span>
+    </div>`;
+  return L.divIcon({ html, className: "efc-boy-icon", iconSize: [44, 44], iconAnchor: [22, 22], popupAnchor: [0, -20] });
+}
+
+// Dispatch / kitchen marker — solid badge with chef emoji
+function makeDispatchIcon() {
+  const html = `<div class="efc-dispatch-marker"><span>🍱</span></div>`;
+  return L.divIcon({ html, className: "efc-dispatch-icon", iconSize: [38, 38], iconAnchor: [19, 19], popupAnchor: [0, -18] });
+}
+
+const ICON_BOY_ANIM = makeAnimatedBoyIcon();
+const ICON_DISPATCH = makeDispatchIcon();
 const ICON_FULL = makeIcon({ color: "#a02323", text: "F" });
 const ICON_HALF = makeIcon({ color: "#d97706", text: "H" });
 const ICON_DELIVERED = makeIcon({ color: "#10b981", text: "✓" });
 const ICON_CUSTOMER = makeIcon({ color: "#a02323", text: "🏠" });
 
-function FitBounds({ points }) {
+function FitBounds({ points, padding = [40, 40] }) {
   const map = useMap();
   useEffect(() => {
     if (!points || points.length === 0) return;
     const b = L.latLngBounds(points);
-    map.fitBounds(b, { padding: [40, 40], maxZoom: 15 });
-  }, [points, map]);
+    map.fitBounds(b, { padding, maxZoom: 15 });
+  }, [points, map, padding]);
+  return null;
+}
+
+function ApplyMaxBounds({ center, radiusKm }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!center || !radiusKm) return;
+    // Convert km to degrees roughly (latitude only — close enough at small radii)
+    const c = L.latLng(center[0], center[1]);
+    const b = c.toBounds(radiusKm * 1000 * 2); // toBounds takes diameter in metres
+    map.setMaxBounds(b.pad(0.1));
+    map.setMinZoom(10);
+    map.options.maxBoundsViscosity = 0.9;
+  }, [center, radiusKm, map]);
   return null;
 }
 
 /**
  * <DeliveryMap />
- *   - boy: { lat, lng, name } | null
- *   - customer: { lat, lng } | null  (optional; for customer-track view)
- *   - items: [{ customer_lat, customer_lng, name, tiffin_size, status }] | null
- *   - showRoute: bool — draw polyline from boy → items in order
+ *   - boy:        { lat, lng, name, last_ping_at } | null   (animated)
+ *   - customer:   { lat, lng } | null
+ *   - items:      [{ customer_lat, customer_lng, name, tiffin_size, status }] | null
+ *   - dispatch:   { lat, lng, radius_km } | null
+ *   - showRoute:  bool — draw polyline boy → items in order
+ *   - bounded:    bool — clamp the map to dispatch + radius_km (default true if dispatch given)
  */
-export default function DeliveryMap({ boy, customer, items, showRoute = false, height = 400 }) {
+export default function DeliveryMap({
+  boy,
+  customer,
+  items,
+  dispatch,
+  showRoute = false,
+  bounded,
+  height = 400,
+}) {
   const points = useMemo(() => {
     const arr = [];
     if (boy?.lat && boy?.lng) arr.push([boy.lat, boy.lng]);
     if (customer?.lat && customer?.lng) arr.push([customer.lat, customer.lng]);
+    if (dispatch?.lat && dispatch?.lng) arr.push([dispatch.lat, dispatch.lng]);
     (items || []).forEach((it) => {
       if (it.customer_lat && it.customer_lng) arr.push([it.customer_lat, it.customer_lng]);
     });
     return arr;
-  }, [boy, customer, items]);
+  }, [boy, customer, items, dispatch]);
 
   const routeLine = useMemo(() => {
     if (!showRoute || !boy?.lat || !items?.length) return null;
@@ -57,6 +103,9 @@ export default function DeliveryMap({ boy, customer, items, showRoute = false, h
     ];
   }, [boy, items, showRoute]);
 
+  const radiusKm = dispatch?.radius_km || 15;
+  const shouldBound = bounded !== false && dispatch?.lat && dispatch?.lng;
+
   if (points.length === 0) {
     return (
       <div className="rounded-2xl border border-border bg-muted/40 flex items-center justify-center text-sm text-muted-foreground" style={{ height }}>
@@ -65,16 +114,42 @@ export default function DeliveryMap({ boy, customer, items, showRoute = false, h
     );
   }
 
-  const center = points[0];
+  const center = boy?.lat
+    ? [boy.lat, boy.lng]
+    : dispatch?.lat
+    ? [dispatch.lat, dispatch.lng]
+    : points[0];
 
   return (
-    <div className="rounded-2xl overflow-hidden border border-border" style={{ height }} data-testid="delivery-map">
-      <MapContainer center={center} zoom={14} scrollWheelZoom style={{ height: "100%", width: "100%" }}>
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap contributors' />
+    <div className="rounded-2xl overflow-hidden border border-border shadow-sm" style={{ height }} data-testid="delivery-map">
+      <MapContainer center={center} zoom={13} scrollWheelZoom style={{ height: "100%", width: "100%" }}>
+        <TileLayer url={TILE_URL} attribution={TILE_ATTR} subdomains="abcd" />
+        {shouldBound && <ApplyMaxBounds center={[dispatch.lat, dispatch.lng]} radiusKm={radiusKm} />}
         <FitBounds points={points} />
-        {routeLine && <Polyline positions={routeLine} pathOptions={{ color: "#a02323", weight: 4, opacity: 0.7, dashArray: "6,8" }} />}
+        {routeLine && (
+          <Polyline
+            positions={routeLine}
+            pathOptions={{ color: "#a02323", weight: 4, opacity: 0.7, dashArray: "6,8" }}
+          />
+        )}
+        {/* Dispatch (kitchen) — only renders when admin has set coordinates */}
+        {dispatch?.lat && (
+          <>
+            <Circle
+              center={[dispatch.lat, dispatch.lng]}
+              radius={radiusKm * KM}
+              pathOptions={{ color: "#a02323", weight: 1.5, opacity: 0.45, fillOpacity: 0.04, dashArray: "4,6" }}
+            />
+            <Marker position={[dispatch.lat, dispatch.lng]} icon={ICON_DISPATCH}>
+              <Popup>
+                <div className="font-display font-bold text-sm">Dispatch · kitchen</div>
+                <div className="text-xs text-gray-600 mt-0.5">{radiusKm} km service zone</div>
+              </Popup>
+            </Marker>
+          </>
+        )}
         {boy?.lat && (
-          <Marker position={[boy.lat, boy.lng]} icon={ICON_BOY}>
+          <Marker position={[boy.lat, boy.lng]} icon={ICON_BOY_ANIM}>
             <Popup>
               <div className="font-display font-bold text-sm">{boy.name || "Delivery boy"}</div>
               {boy.last_ping_at && <div className="text-xs text-gray-600">Last ping: {new Date(boy.last_ping_at).toLocaleTimeString()}</div>}
@@ -95,6 +170,9 @@ export default function DeliveryMap({ boy, customer, items, showRoute = false, h
                 <div className="font-display font-bold text-sm">#{i + 1} · {it.name}</div>
                 <div className="text-xs text-gray-600 capitalize">{it.tiffin_size} tiffin · {it.meal_type}</div>
                 <div className="text-xs text-gray-500 mt-1">{it.address}</div>
+                {it.tiffin_balance > 0 && (
+                  <div className="text-xs text-amber-700 font-bold mt-1">⚠ {it.tiffin_balance} empty tiffin{it.tiffin_balance !== 1 ? "s" : ""} to collect</div>
+                )}
               </Popup>
             </Marker>
           );

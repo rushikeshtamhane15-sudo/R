@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink, Outlet } from "react-router-dom";
-import { LayoutDashboard, Package, Truck, ScanLine, QrCode, Utensils, Users, Palette, Home, Shield, FileText, MapPin, FootprintsIcon, LogIn, Megaphone, Radio } from "lucide-react";
+import { LayoutDashboard, Package, Truck, ScanLine, QrCode, Utensils, Users, Palette, Home, Shield, FileText, MapPin, FootprintsIcon, LogIn, Megaphone, Radio, Layout } from "lucide-react";
 
 const SECTIONS = [
   {
@@ -25,6 +25,7 @@ const SECTIONS = [
     title: "Content & design",
     items: [
       { to: "/admin/landing", label: "Home page", icon: Home },
+      { to: "/admin/dashboard-editor", label: "Subscriber dashboard", icon: Layout },
       { to: "/admin/content/announcement", label: "Announcement bar", icon: Megaphone },
       { to: "/admin/content/login", label: "Login page", icon: LogIn },
       { to: "/admin/content/privacy", label: "Privacy Policy", icon: Shield },

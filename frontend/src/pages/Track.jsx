@@ -125,10 +125,21 @@ export default function Track() {
           <DeliveryMap
             boy={boyPos ? { lat: boyPos.lat, lng: boyPos.lng, name: data.boy_name, last_ping_at: boyPos.last_ping_at } : null}
             customer={myPos?.lat ? { lat: myPos.lat, lng: myPos.lng } : null}
+            dispatch={data?.dispatch}
             showRoute={!!(boyPos && myPos?.lat)}
-            items={(boyPos && myPos?.lat) ? [{ customer_lat: myPos.lat, customer_lng: myPos.lng, name: "You", tiffin_size: data.tiffin_size, meal_type: data.meal_type, address: "Home", status: "out" }] : null}
+            items={(boyPos && myPos?.lat) ? [{ customer_lat: myPos.lat, customer_lng: myPos.lng, name: "You", tiffin_size: data.tiffin_size, meal_type: data.meal_type, address: "Home", status: "out", tiffin_balance: data.tiffin_balance }] : null}
             height={380}
           />
+
+          {data.tiffin_balance > 0 && (
+            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 flex items-start gap-3" data-testid="empty-reminder">
+              <span className="inline-flex h-9 w-9 rounded-full bg-amber-200 text-amber-800 items-center justify-center shrink-0">♻️</span>
+              <div className="text-sm text-amber-900">
+                <p className="font-display font-bold">Please return {data.tiffin_balance} empty tiffin{data.tiffin_balance !== 1 ? "s" : ""}</p>
+                <p className="text-xs mt-1">When today's delivery arrives, hand over your previous empty tiffin so we can keep your meals coming on time.</p>
+              </div>
+            </div>
+          )}
 
           {rosterId && (
             <Button

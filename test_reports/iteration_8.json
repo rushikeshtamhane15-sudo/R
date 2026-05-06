@@ -1,0 +1,36 @@
+{
+  "summary": "Iter8 (slot lock + reverse-geocode + empty-tiffin accounting + dashboard CMS + dispatch info on payloads) tested. Backend pytest 19/19 PASS in /app/backend/tests/test_iter8.py. Frontend smoke-tested via cookie-injected admin session: /admin/dashboard-editor renders with 7 sections + 6 text inputs + 4 color pickers + up/down/eye/save/reset; /admin/live renders admin-live-map + dispatch-needed banner when dispatch coords unset; /track renders track-page. Save→GET→Reset round-trip verified via curl: history.visible toggles off via PATCH and back to True via /admin/dashboard/config/reset (default config restored). Reverse-geocode test passed against Delhi (28.6139,77.2090) — endpoint returns 200 with pincode (or null on rate-limit, both spec-compliant).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter8.py",
+    "/app/test_reports/pytest/iter8_results.xml"
+  ],
+  "action_items": [
+    "(env-config carry-over from iter7) Backend .env still has live RAZORPAY_KEY_ID/SECRET — payment-mock-mode tests in iter1-iter6 will continue to fail until either Razorpay keys are blanked or those fixtures are updated to bypass /api/payments/order. Not an iter8 regression.",
+    "(tech-debt) AdminLiveMap stat-card testids remain dynamic via slugified label (carry-over from iter7).",
+    "(minor) Subscriber dashboard's history-card visibility cleanly reflects PATCH/Reset on backend; in UI flow the Reset button click should be allowed a ~1s settle for React state to drain before re-querying — not a product bug, just a UI-test timing observation."
+  ],
+  "critical_code_review_comments": [
+    "delivery.py /admin/delivery/roster/{rid}/mark on `delivered` requires payload.lat+lng AND customer.lat+lng — if customer hasn't pinned location, admin gets 400. UI handles this but admin CSV-import scenario could surprise. Consider an admin-override flag for trusted manual marks.",
+    "_record_empty_collection_db raises 400 'No empty tiffins outstanding' when balance is 0 — fine, but the boy-side empties list is filtered to balance>0 so this is mostly defensive. Good.",
+    "_load_dashboard_config auto-creates the doc on first GET — public endpoint can therefore write to DB on cold-start. Low risk but consider pre-seeding on startup to avoid a write during a public read.",
+    "PATCH /admin/dashboard/config sanitizes sections to id/label/visible/order only — drops any unknown fields silently. Frontend sends only those, so OK, but worth documenting.",
+    "_reverse_geocode_pincode hits Nominatim with a 6-second timeout and no caching — heavy traffic could rate-limit and degrade location-pin UX. Consider caching by (rounded lat,lng) in Mongo for 24h.",
+    "/auth/location returns pincode:null silently when geocoding fails — UI can't tell the user 'try again' vs 'we couldn't determine your pincode'. Consider returning a `geocode_status` field.",
+    "/boy/empties filters by boy.assigned_pincodes — but if a customer's pincode field is stale (different from address-extracted), they may not appear. Reverse-geocode flow now populates user.pincode authoritatively, so this is consistent post-iter8."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter8.py (new — 19 tests covering all iter8 spec items)"
+  ],
+  "success_rate": {"backend": "100% (19/19 iter8 tests). Pre-iter7 Razorpay-mock-mode regressions persist due to live keys in .env, NOT iter8 bugs.", "frontend": "Smoke verified: admin-dashboard-editor (sections=7, texts=6, colors=4, all required testids present), admin-live-map, track-page render correctly with cookie-injected admin session. End-to-end save/reset of dashboard config validated via direct API."},
+  "test_credentials": "Direct-Mongo-injected TEST_-prefixed admin/subscriber/delivery_boy sessions. session_token cookie used for UI tests (matches backend Cookie auth path).",
+  "seed_data_creation": "Per-test transient TEST_-prefixed users + delivery_boys + daily_rosters + tiffin_movements, all cleaned up via Mongo delete in fixture teardown. delivery_settings snapshot/restore fixture protects production windows.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run iter8 with: `REACT_APP_BACKEND_URL=https://dining-pass-scan.preview.emergentagent.com MONGO_URL=mongodb://localhost:27017 DB_NAME=test_database pytest backend/tests/test_iter8.py -v`. Important: tests now snapshot+restore delivery_settings around slot-lock cases via the `reset_settings_after` fixture. The slot-closed test prefers '23:55-23:59' but auto-falls-back to '00:00-00:01' if wall-clock IST happens to be inside the chosen closed window — handles edge case gracefully. For UI testing, set the `session_token` cookie on the dining-pass-scan.preview.emergentagent.com domain (Secure, SameSite=None, path=/) — frontend axios uses withCredentials:true so cookie auth is the path that matches production. Reverse-geocode tests are tolerant of Nominatim rate-limit (pincode:null is acceptable per spec)."
+}

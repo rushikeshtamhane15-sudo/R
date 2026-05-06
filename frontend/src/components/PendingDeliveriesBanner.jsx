@@ -50,9 +50,9 @@ export default function PendingDeliveriesBanner() {
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         try {
-          await api.post("/auth/location", { lat: pos.coords.latitude, lng: pos.coords.longitude });
-          toast.success("Location pinned · delivery boy will be verified at your door");
-          // refresh user object so banner reacts (handled by parent on next load)
+          const r = await api.post("/auth/location", { lat: pos.coords.latitude, lng: pos.coords.longitude });
+          const pin = r.data?.pincode;
+          toast.success(pin ? `Location pinned · pin ${pin} detected` : "Location pinned · delivery boy will be verified at your door");
           window.location.reload();
         } catch { toast.error("Could not save location"); }
       },

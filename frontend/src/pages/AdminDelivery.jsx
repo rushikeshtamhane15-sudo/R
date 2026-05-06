@@ -6,12 +6,13 @@ import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
 import {
   Truck, RefreshCw, MapPin, AlertTriangle, CheckCircle2, Clock,
-  Plus, Trash2, Save, Settings as SettingsIcon, Phone, KeyRound, Package, Loader2, ArrowRight, X,
+  Plus, Trash2, Save, Settings as SettingsIcon, Phone, KeyRound, Package, Loader2, ArrowRight, X, Recycle, Locate, Lock,
 } from "lucide-react";
 
 const TABS = [
   { id: "today", label: "Today" },
   { id: "boys", label: "Delivery Boys" },
+  { id: "empties", label: "Empty Tiffins" },
   { id: "settings", label: "Settings" },
 ];
 
@@ -43,6 +44,7 @@ export default function AdminDelivery() {
       <div className="mt-7">
         {tab === "today" && <TodayPanel />}
         {tab === "boys" && <BoysPanel />}
+        {tab === "empties" && <EmptiesPanel />}
         {tab === "settings" && <SettingsPanel />}
       </div>
     </div>
@@ -513,6 +515,72 @@ function BoysPanel() {
   );
 }
 
+// =================== EMPTIES ===================
+function EmptiesPanel() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [collecting, setCollecting] = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    try { const r = await api.get("/admin/delivery/empties"); setData(r.data); }
+    catch (e) { toast.error(e?.response?.data?.detail || "Could not load empties"); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, []);
+
+  const collect = async (u, count = 1) => {
+    setCollecting(u.user_id);
+    try {
+      await api.post("/admin/delivery/empty/collect", { user_id: u.user_id, count });
+      toast.success(`Collected ${count} from ${u.name}`);
+      await load();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
+    finally { setCollecting(null); }
+  };
+
+  if (loading) return <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading empty-tiffin ledger…</div>;
+  if (!data) return null;
+  const list = data.users || [];
+
+  return (
+    <div className="space-y-5" data-testid="empties-panel">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <Stat label="Customers holding" value={data.count} icon={Recycle} accent />
+        <Stat label="Tiffins outstanding" value={data.total_outstanding} icon={Package} accent />
+        <Stat label="Estimated loss" value={`₹${(data.total_outstanding * 120).toLocaleString("en-IN")}`} icon={AlertTriangle} warn={data.total_outstanding > 0} />
+      </div>
+
+      {list.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border bg-muted/40 p-8 text-center text-sm text-muted-foreground">
+          All tiffins accounted for. No empties pending.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {list.map((u) => (
+            <div key={u.user_id} className="rounded-2xl border border-amber-200 bg-amber-50/40 p-4 flex flex-wrap items-center gap-3" data-testid={`empties-row-${u.user_id}`}>
+              <span className="inline-flex h-9 min-w-9 px-2 rounded-full bg-amber-600 text-white items-center justify-center text-sm font-bold">×{u.tiffin_balance}</span>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold truncate">{u.name}</p>
+                <p className="text-xs text-muted-foreground truncate">{u.phone} · pin {u.pincode || "?"} · {u.address || "no address"}</p>
+              </div>
+              <Button onClick={() => collect(u, 1)} disabled={collecting === u.user_id} size="sm" className="rounded-full bg-amber-600 hover:bg-amber-700 text-white" data-testid={`admin-collect-${u.user_id}`}>
+                {collecting === u.user_id ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> : <Recycle className="h-3 w-3 mr-1.5" />}
+                Collect 1
+              </Button>
+              {u.tiffin_balance > 1 && (
+                <Button onClick={() => collect(u, u.tiffin_balance)} disabled={collecting === u.user_id} size="sm" variant="outline" className="rounded-full" data-testid={`admin-collect-all-${u.user_id}`}>
+                  Collect all {u.tiffin_balance}
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // =================== SETTINGS ===================
 function SettingsPanel() {
   const [s, setS] = useState(null);
@@ -552,6 +620,21 @@ function SettingsPanel() {
     if (health?.suggested_geofence_m) upd({ geofence_meters: health.suggested_geofence_m });
   };
 
+  const pinDispatch = () => {
+    if (!navigator.geolocation) { toast.error("Geolocation unavailable"); return; }
+    toast.message("Reading kitchen GPS…");
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        upd({ dispatch_lat: p.coords.latitude, dispatch_lng: p.coords.longitude });
+        toast.success(`Pinned · ${p.coords.latitude.toFixed(5)}, ${p.coords.longitude.toFixed(5)}. Hit Save to lock it in.`);
+      },
+      () => toast.error("Allow location access on this device to pin dispatch"),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const clearDispatch = () => upd({ dispatch_lat: null, dispatch_lng: null });
+
   return (
     <div className="space-y-6" data-testid="settings-panel">
       {health?.show_hint && (
@@ -574,6 +657,52 @@ function SettingsPanel() {
           </div>
         </div>
       )}
+
+      <div className="bg-card rounded-2xl border border-border p-5 space-y-4" data-testid="dispatch-section">
+        <div>
+          <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground flex items-center gap-1.5">
+            <MapPin className="h-3.5 w-3.5" /> Dispatch (kitchen) location
+          </p>
+          <p className="text-sm text-muted-foreground mt-1">Anchors live tracking maps to a {s.dispatch_radius_km || 15} km service zone. Set this from the device sitting at the kitchen.</p>
+        </div>
+        <div className="grid md:grid-cols-3 gap-3">
+          <Field label="Latitude">
+            <Input type="number" step="0.000001" value={s.dispatch_lat ?? ""} onChange={(e) => upd({ dispatch_lat: e.target.value === "" ? null : Number(e.target.value) })} data-testid="dispatch-lat" />
+          </Field>
+          <Field label="Longitude">
+            <Input type="number" step="0.000001" value={s.dispatch_lng ?? ""} onChange={(e) => upd({ dispatch_lng: e.target.value === "" ? null : Number(e.target.value) })} data-testid="dispatch-lng" />
+          </Field>
+          <Field label="Service radius (km)">
+            <Input type="number" min={1} max={50} value={s.dispatch_radius_km ?? 15} onChange={(e) => upd({ dispatch_radius_km: Number(e.target.value || 15) })} data-testid="dispatch-radius" />
+          </Field>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={pinDispatch} variant="outline" size="sm" className="rounded-full" data-testid="pin-dispatch">
+            <Locate className="h-3.5 w-3.5 mr-1.5" /> Use this device's GPS
+          </Button>
+          <Button onClick={clearDispatch} variant="outline" size="sm" className="rounded-full text-destructive" data-testid="clear-dispatch">
+            Clear
+          </Button>
+        </div>
+      </div>
+
+      <div className="bg-card rounded-2xl border border-border p-5 space-y-4" data-testid="slot-windows">
+        <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground flex items-center gap-1.5">
+          <Lock className="h-3.5 w-3.5" /> Dispatch slot windows (IST)
+        </p>
+        <p className="text-xs text-muted-foreground">Boy can only start a slot's run during these times — prevents accidental wrong-slot dispatches.</p>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Lunch opens"><Input value={s.lunch_dispatch_open || "08:00"} onChange={(e) => upd({ lunch_dispatch_open: e.target.value })} placeholder="HH:MM" data-testid="lunch-open" /></Field>
+            <Field label="Lunch closes"><Input value={s.lunch_dispatch_close || "14:00"} onChange={(e) => upd({ lunch_dispatch_close: e.target.value })} placeholder="HH:MM" data-testid="lunch-close" /></Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Dinner opens"><Input value={s.dinner_dispatch_open || "15:00"} onChange={(e) => upd({ dinner_dispatch_open: e.target.value })} placeholder="HH:MM" data-testid="dinner-open" /></Field>
+            <Field label="Dinner closes"><Input value={s.dinner_dispatch_close || "22:00"} onChange={(e) => upd({ dinner_dispatch_close: e.target.value })} placeholder="HH:MM" data-testid="dinner-close" /></Field>
+          </div>
+        </div>
+      </div>
+
       <div className="bg-card rounded-2xl border border-border p-5 space-y-4">
         <div className="grid md:grid-cols-2 gap-4">
           <Field label="Lunch cut-off"><Input value={s.lunch_cutoff || ""} onChange={(e) => upd({ lunch_cutoff: e.target.value })} placeholder="HH:MM" data-testid="lunch-cutoff" /></Field>
@@ -592,7 +721,7 @@ function SettingsPanel() {
             type="number"
             value={s.geofence_meters ?? 250}
             onChange={(e) => upd({ geofence_meters: Number(e.target.value || 0) })}
-            min={50} max={2000}
+            min={5} max={2000}
             data-testid="geofence-meters"
           />
         </Field>

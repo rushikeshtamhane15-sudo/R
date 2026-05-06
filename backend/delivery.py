@@ -47,7 +47,47 @@ DEFAULT_SETTINGS = {
     "lunch_otp_required": True,
     "dinner_otp_required": True,
     "geofence_meters": 10,
+    # Slot windows — boy can only start dispatch within these IST windows
+    "lunch_dispatch_open": "08:00",
+    "lunch_dispatch_close": "14:00",
+    "dinner_dispatch_open": "15:00",
+    "dinner_dispatch_close": "22:00",
+    # Kitchen / dispatch location — anchors the map and the 15km radius
+    "dispatch_lat": None,
+    "dispatch_lng": None,
+    "dispatch_radius_km": 15,
 }
+
+
+def _ist_now() -> datetime:
+    return now_utc().astimezone(timezone(timedelta(hours=5, minutes=30)))
+
+
+def _parse_hhmm(s: str) -> tuple[int, int]:
+    try:
+        h, m = s.split(":")
+        return int(h), int(m)
+    except Exception:
+        return 0, 0
+
+
+def _slot_open_now(settings: dict, meal_type: str) -> tuple[bool, str]:
+    """Return (is_open, reason). Reason is empty when open, otherwise a friendly hint."""
+    now = _ist_now()
+    cur_min = now.hour * 60 + now.minute
+    if meal_type == "lunch":
+        oh, om = _parse_hhmm(settings.get("lunch_dispatch_open") or "08:00")
+        ch, cm = _parse_hhmm(settings.get("lunch_dispatch_close") or "14:00")
+    else:
+        oh, om = _parse_hhmm(settings.get("dinner_dispatch_open") or "15:00")
+        ch, cm = _parse_hhmm(settings.get("dinner_dispatch_close") or "22:00")
+    open_min = oh * 60 + om
+    close_min = ch * 60 + cm
+    if open_min <= cur_min <= close_min:
+        return True, ""
+    if cur_min < open_min:
+        return False, f"{meal_type.capitalize()} dispatch opens at {oh:02d}:{om:02d}"
+    return False, f"{meal_type.capitalize()} dispatch closed at {ch:02d}:{cm:02d}"
 
 
 def haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -68,6 +108,19 @@ class SettingsPatch(BaseModel):
     lunch_otp_required: bool | None = None
     dinner_otp_required: bool | None = None
     geofence_meters: int | None = None
+    lunch_dispatch_open: str | None = None
+    lunch_dispatch_close: str | None = None
+    dinner_dispatch_open: str | None = None
+    dinner_dispatch_close: str | None = None
+    dispatch_lat: float | None = None
+    dispatch_lng: float | None = None
+    dispatch_radius_km: float | None = None
+
+
+class CollectEmpty(BaseModel):
+    user_id: str
+    count: int = 1
+    notes: str | None = None
 
 
 class BoyCreate(BaseModel):
@@ -140,6 +193,37 @@ def gen_otp() -> str:
     return f"{secrets.randbelow(10000):04d}"
 
 
+async def _record_empty_collection_db(db, user_id: str, count: int, notes: str | None, source: str) -> dict:
+    """Decrement the user's tiffin_balance and log the movement. Used by admin + boy routers."""
+    if count <= 0:
+        raise HTTPException(status_code=400, detail="count must be > 0")
+    user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    held = int(user.get("tiffin_balance") or 0)
+    if held <= 0:
+        raise HTTPException(status_code=400, detail="No empty tiffins outstanding for this customer")
+    take = min(count, held)
+    await db.users.update_one({"user_id": user_id}, {"$inc": {"tiffin_balance": -take}})
+    await db.tiffin_movements.insert_one({
+        "ts": iso(now_utc()),
+        "kind": "collected",
+        "user_id": user_id,
+        "delta": -take,
+        "source": source,
+        "notes": notes or "",
+    })
+    return {"ok": True, "collected": take, "remaining": max(0, held - take)}
+
+
+async def _load_settings_db(db) -> dict:
+    s = await db.delivery_settings.find_one({"_id": "active"}, {"_id": 0})
+    if not s:
+        await db.delivery_settings.insert_one({"_id": "active", **DEFAULT_SETTINGS})
+        return dict(DEFAULT_SETTINGS)
+    return {**DEFAULT_SETTINGS, **s}
+
+
 def make_router(db) -> APIRouter:
     """Build and return the delivery API router. Imports `get_current_user` lazily
     via `auth_dep` injected from server.py to avoid circular imports."""
@@ -154,12 +238,10 @@ def make_router(db) -> APIRouter:
 
     # ---- settings ----
     async def _load_settings() -> dict:
-        s = await db.delivery_settings.find_one({"_id": "active"}, {"_id": 0})
-        if not s:
-            await db.delivery_settings.insert_one({"_id": "active", **DEFAULT_SETTINGS})
-            return dict(DEFAULT_SETTINGS)
-        # merge defaults for any newly-added settings keys
-        return {**DEFAULT_SETTINGS, **s}
+        return await _load_settings_db(db)
+
+    async def _record_empty_collection(user_id: str, count: int, notes: str | None, source: str):
+        return await _record_empty_collection_db(db, user_id, count, notes, source)
 
     @router.get("/settings")
     async def get_settings(_=Depends(admin_only)):
@@ -480,7 +562,31 @@ def make_router(db) -> APIRouter:
             upd["distance_warning"] = False
 
         await db.daily_rosters.update_one({"roster_id": roster_id}, {"$set": upd})
+        if payload.status == "delivered" and item["status"] != "delivered":
+            # Customer now holds an empty tiffin (debt). Boy must collect on a future visit.
+            await db.users.update_one({"user_id": item["user_id"]}, {"$inc": {"tiffin_balance": 1}})
+            await db.tiffin_movements.insert_one({
+                "ts": iso(now_utc()),
+                "kind": "issued",
+                "user_id": item["user_id"],
+                "roster_id": roster_id,
+                "meal_type": item["meal_type"],
+                "delta": 1,
+            })
         return {"ok": True, **upd}
+
+    @router.post("/empty/collect")
+    async def admin_collect_empty(payload: CollectEmpty = Body(...), _=Depends(admin_only)):
+        return await _record_empty_collection(payload.user_id, int(payload.count), payload.notes, source="admin")
+
+    @router.get("/empties")
+    async def list_empties(_=Depends(admin_only)):
+        users = await db.users.find(
+            {"tiffin_balance": {"$gt": 0}},
+            {"_id": 0, "user_id": 1, "name": 1, "phone": 1, "address": 1, "pincode": 1, "tiffin_balance": 1, "lat": 1, "lng": 1},
+        ).sort("tiffin_balance", -1).to_list(2000)
+        total = sum(u.get("tiffin_balance", 0) for u in users)
+        return {"users": users, "total_outstanding": total, "count": len(users)}
 
     @router.post("/handoff/{handoff_id}/reconcile")
     async def reconcile_handoff(handoff_id: str, payload: dict = Body(default=None), _=Depends(admin_only)):
@@ -548,7 +654,19 @@ def make_router(db) -> APIRouter:
             u = users.get(it["user_id"]) or {}
             it["customer_lat"] = u.get("lat")
             it["customer_lng"] = u.get("lng")
-        return {"date": d, "boys": boys, "items": items}
+            it["customer_pincode"] = u.get("pincode") or it.get("pincode")
+            it["tiffin_balance"] = int(u.get("tiffin_balance") or 0)
+        settings = await _load_settings()
+        return {
+            "date": d,
+            "boys": boys,
+            "items": items,
+            "dispatch": {
+                "lat": settings.get("dispatch_lat"),
+                "lng": settings.get("dispatch_lng"),
+                "radius_km": settings.get("dispatch_radius_km") or 15,
+            },
+        }
 
     return router
 
@@ -558,6 +676,9 @@ def make_boy_router(db) -> APIRouter:
     from server import get_current_user, User  # type: ignore
 
     router = APIRouter(prefix="/boy", tags=["delivery-boy"])
+
+    async def _load_settings_local() -> dict:
+        return await _load_settings_db(db)
 
     async def _resolve_boy(user: User) -> dict:
         boy = await db.delivery_boys.find_one({"user_id": user.user_id}, {"_id": 0})
@@ -569,6 +690,23 @@ def make_boy_router(db) -> APIRouter:
     async def me(user: User = Depends(get_current_user)):
         boy = await _resolve_boy(user)
         return boy
+
+    @router.get("/slots")
+    async def slot_status(user: User = Depends(get_current_user)):
+        await _resolve_boy(user)
+        s = await _load_settings_local()
+        out = {}
+        for meal in MEALS:
+            ok, reason = _slot_open_now(s, meal)
+            out[meal] = {
+                "open": ok,
+                "reason": reason,
+                "window": {
+                    "open_at": s.get(f"{meal}_dispatch_open"),
+                    "close_at": s.get(f"{meal}_dispatch_close"),
+                },
+            }
+        return {"slots": out, "now_ist": _ist_now().strftime("%H:%M")}
 
     @router.get("/today")
     async def today(user: User = Depends(get_current_user)):
@@ -586,15 +724,18 @@ def make_boy_router(db) -> APIRouter:
             items = await db.daily_rosters.find(
                 {"date": d, "pincode": {"$in": pincodes}, "is_outside": {"$ne": True}}, {"_id": 0}
             ).to_list(5000)
-        # Attach customer locations
+        # Attach customer locations + tiffin debt
         user_ids = list({i["user_id"] for i in items})
         users = {u["user_id"]: u async for u in db.users.find({"user_id": {"$in": user_ids}}, {"_id": 0})}
         for it in items:
             u = users.get(it["user_id"]) or {}
             it["customer_lat"] = u.get("lat")
             it["customer_lng"] = u.get("lng")
+            it["customer_pincode"] = u.get("pincode") or it.get("pincode")
+            it["tiffin_balance"] = int(u.get("tiffin_balance") or 0)
         # Nearest-neighbour route order from boy's current position (or from first item if unknown)
         ordered = _nearest_neighbour_order(items, boy.get("current_lat"), boy.get("current_lng"))
+        settings = await _load_settings_local()
         return {
             "date": d,
             "boy": boy,
@@ -605,6 +746,11 @@ def make_boy_router(db) -> APIRouter:
                 "half": sum(1 for i in items if i.get("tiffin_size") == "half"),
                 "delivered": sum(1 for i in items if i.get("status") == "delivered"),
                 "pending": sum(1 for i in items if i.get("status") in ("planned", "out")),
+            },
+            "dispatch": {
+                "lat": settings.get("dispatch_lat"),
+                "lng": settings.get("dispatch_lng"),
+                "radius_km": settings.get("dispatch_radius_km") or 15,
             },
         }
 
@@ -631,6 +777,11 @@ def make_boy_router(db) -> APIRouter:
         if payload.meal_type not in MEALS:
             raise HTTPException(status_code=400, detail="meal_type must be lunch|dinner")
         boy = await _resolve_boy(user)
+        # Hard slot-window lock — guards against accidental wrong-slot dispatches
+        settings = await _load_settings_local()
+        is_open, reason = _slot_open_now(settings, payload.meal_type)
+        if not is_open:
+            raise HTTPException(status_code=400, detail=reason)
         d = today_local()
         pincodes = boy.get("assigned_pincodes") or []
         if not pincodes:
@@ -703,6 +854,25 @@ def make_boy_router(db) -> APIRouter:
                 reconciled = {**h, **upd}
         await db.delivery_boys.update_one({"boy_id": boy["boy_id"]}, {"$set": {"on_trip": False, "trip_handoff_id": None}})
         return {"ok": True, "reconciled": reconciled}
+
+    @router.post("/empty/collect")
+    async def boy_collect_empty(payload: CollectEmpty = Body(...), user: User = Depends(get_current_user)):
+        await _resolve_boy(user)
+        return await _record_empty_collection_db(db, payload.user_id, int(payload.count), payload.notes, source="boy")
+
+    @router.get("/empties")
+    async def boy_outstanding(user: User = Depends(get_current_user)):
+        """Customers with outstanding empty tiffins in this boy's pincodes — surface on next visit."""
+        boy = await _resolve_boy(user)
+        pins = boy.get("assigned_pincodes") or []
+        q = {"tiffin_balance": {"$gt": 0}}
+        if pins:
+            q["pincode"] = {"$in": pins}
+        users = await db.users.find(
+            q,
+            {"_id": 0, "user_id": 1, "name": 1, "phone": 1, "address": 1, "pincode": 1, "tiffin_balance": 1, "lat": 1, "lng": 1},
+        ).sort("tiffin_balance", -1).to_list(2000)
+        return {"users": users, "count": len(users)}
 
     return router
 
@@ -785,6 +955,7 @@ def make_customer_router(db) -> APIRouter:
         if u and u.get("lat") and u.get("lng"):
             distance_m = haversine_m(boy["current_lat"], boy["current_lng"], u["lat"], u["lng"])
             eta_min = round(distance_m / 1000.0 / 25.0 * 60.0, 1)
+        settings = await _load_settings_db(db)
         return {
             "tracking": True,
             "boy_name": boy.get("name"),
@@ -796,6 +967,12 @@ def make_customer_router(db) -> APIRouter:
             "meal_type": item["meal_type"],
             "tiffin_size": item.get("tiffin_size"),
             "status": item["status"],
+            "dispatch": {
+                "lat": settings.get("dispatch_lat"),
+                "lng": settings.get("dispatch_lng"),
+                "radius_km": settings.get("dispatch_radius_km") or 15,
+            },
+            "tiffin_balance": int((u or {}).get("tiffin_balance") or 0),
         }
 
     return router
