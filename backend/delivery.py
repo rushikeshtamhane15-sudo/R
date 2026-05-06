@@ -46,7 +46,7 @@ DEFAULT_SETTINGS = {
     "service_pincodes": [],   # empty = treat all as in-service
     "lunch_otp_required": True,
     "dinner_otp_required": True,
-    "geofence_meters": 250,
+    "geofence_meters": 10,
 }
 
 
