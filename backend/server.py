@@ -110,6 +110,8 @@ class User(BaseModel):
     role: Literal["admin", "staff", "subscriber"] = "subscriber"
     qr_token: str
     created_at: datetime
+    lat: Optional[float] = None
+    lng: Optional[float] = None
 
 
 class Plan(BaseModel):
@@ -228,6 +230,8 @@ def doc_to_user(doc) -> User:
         role=doc.get("role", "subscriber"),
         qr_token=doc["qr_token"],
         created_at=parse_dt(doc["created_at"]),
+        lat=doc.get("lat"),
+        lng=doc.get("lng"),
     )
 
 
@@ -1374,6 +1378,54 @@ async def admin_set_role(payload: SetRoleRequest, user: User = Depends(get_curre
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
     return {"ok": True}
+
+
+async def _purge_user(user_id: str) -> dict:
+    """Delete a user and every record that points to them (sessions, subs, txns, attendance, deliveries)."""
+    user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if not user:
+        return {"deleted": False}
+    counts = {
+        "sessions": (await db.sessions.delete_many({"user_id": user_id})).deleted_count,
+        "subscriptions": (await db.subscriptions.delete_many({"user_id": user_id})).deleted_count,
+        "wallet_transactions": (await db.wallet_transactions.delete_many({"user_id": user_id})).deleted_count,
+        "attendance": (await db.attendance.delete_many({"user_id": user_id})).deleted_count,
+        "payment_orders": (await db.payment_orders.delete_many({"user_id": user_id})).deleted_count,
+        "daily_rosters": (await db.daily_rosters.delete_many({"user_id": user_id})).deleted_count,
+        "delivery_attempts": (await db.delivery_attempts.delete_many({"user_id": user_id})).deleted_count,
+        "otps": (await db.otps.delete_many({"phone": user.get("phone") or "__none__"})).deleted_count,
+        "users": (await db.users.delete_one({"user_id": user_id})).deleted_count,
+    }
+    logger.info(f"[USER PURGE] user={user_id} email={user.get('email')} phone={user.get('phone')} → {counts}")
+    return {"deleted": True, "counts": counts}
+
+
+@api_router.delete("/admin/users/{user_id}")
+async def admin_delete_user(user_id: str, user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    if user_id == user.user_id:
+        raise HTTPException(status_code=400, detail="You can't delete your own account from the admin panel — use Profile → Delete account")
+    target = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    # Block deleting other admins for safety; demote to subscriber first if needed
+    if target.get("role") == "admin":
+        raise HTTPException(status_code=400, detail="Cannot delete an admin. Demote them to subscriber/staff first.")
+    res = await _purge_user(user_id)
+    return {"ok": True, **res}
+
+
+@api_router.delete("/auth/me")
+async def delete_my_account(user: User = Depends(get_current_user)):
+    """User-initiated account deletion."""
+    if user.role == "admin":
+        # Prevent the only admin from accidentally locking themselves out
+        admin_count = await db.users.count_documents({"role": "admin"})
+        if admin_count <= 1:
+            raise HTTPException(status_code=400, detail="You're the only admin. Promote another user before deleting your account.")
+    res = await _purge_user(user.user_id)
+    return {"ok": True, **res}
 
 
 @api_router.post("/admin/cron/run-tick")

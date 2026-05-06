@@ -6,7 +6,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
-import { MapPin, User as UserIcon, Phone, CheckCircle2, Camera, Trash2 } from "lucide-react";
+import { MapPin, User as UserIcon, Phone, CheckCircle2, Camera, Trash2, AlertTriangle } from "lucide-react";
 
 const MAX_DIM = 720;
 const QUALITY = 0.7;
@@ -78,6 +78,20 @@ export default function Profile() {
   };
 
   const removePhoto = () => setForm({ ...form, photo_url: "" });
+
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const deleteAccount = async () => {
+    setDeleting(true);
+    try {
+      await api.delete("/auth/me");
+      toast.success("Account deleted. We'll miss you.");
+      setUser(null);
+      navigate("/", { replace: true });
+    } catch (e) { toast.error(e?.response?.data?.detail || "Could not delete account"); }
+    finally { setDeleting(false); }
+  };
 
   const save = async () => {
     if (!form.name.trim() || !form.phone.trim() || !form.address.trim()) {
@@ -166,7 +180,45 @@ export default function Profile() {
           </Button>
           {!next && <Link to="/dashboard"><Button variant="outline" className="rounded-full">Back</Button></Link>}
         </div>
+
+        {!next && (
+          <div className="mt-10 pt-6 border-t border-destructive/20" data-testid="danger-zone">
+            <p className="text-xs tracking-overline uppercase font-bold text-destructive flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5" /> Danger zone</p>
+            <h3 className="font-display font-extrabold text-lg mt-2">Delete my account</h3>
+            <p className="text-xs text-muted-foreground mt-1.5 max-w-md">
+              Permanently removes your profile, subscription, wallet history, attendance and deliveries. This cannot be undone.
+            </p>
+            <Button onClick={() => setDeleteOpen(true)} variant="outline" size="sm" className="mt-3 rounded-full text-destructive hover:bg-destructive/5" data-testid="delete-account-button">
+              <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete my account
+            </Button>
+          </div>
+        )}
       </div>
+
+      {deleteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !deleting && setDeleteOpen(false)} data-testid="delete-account-modal">
+          <div className="bg-card rounded-3xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="inline-flex h-11 w-11 rounded-xl bg-destructive/10 text-destructive items-center justify-center"><AlertTriangle className="h-5 w-5" /></div>
+            <h3 className="font-display font-extrabold text-2xl mt-4">Delete account?</h3>
+            <p className="text-sm text-muted-foreground mt-2">
+              We'll permanently remove everything tied to <b className="text-foreground">{user?.name}</b> — subscription, wallet, attendance, deliveries, history. <span className="text-destructive font-semibold">This cannot be undone.</span>
+            </p>
+            <p className="text-xs text-muted-foreground mt-4">Type <b className="text-foreground">DELETE</b> to confirm:</p>
+            <Input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} className="mt-2 rounded-xl" data-testid="confirm-delete-text" autoFocus />
+            <div className="mt-6 flex gap-3 justify-end">
+              <Button variant="outline" className="rounded-full" onClick={() => setDeleteOpen(false)} disabled={deleting} data-testid="cancel-delete">Cancel</Button>
+              <Button
+                className="rounded-full bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                onClick={deleteAccount}
+                disabled={deleting || confirmText !== "DELETE"}
+                data-testid="confirm-delete"
+              >
+                {deleting ? "Deleting…" : "Delete forever"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
