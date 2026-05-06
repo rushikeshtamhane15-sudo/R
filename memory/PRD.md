@@ -58,6 +58,15 @@ Build a tiffin / dining subscription app with:
 - Built on `react-leaflet` + free OpenStreetMap tiles (no API key needed)
 - 13/13 backend tests pass for new endpoints (test_iter7.py)
 
+### Iteration 9 (Feb 6, 2026) — Slot lock + tiffin accounting + dashboard CMS + map polish
+- **Slot-wise dispatch lock** — admin sets `lunch_dispatch_open/close` and `dinner_dispatch_open/close` (IST). Wrong-slot tap on `/boy` now disables tab + shows "Lunch dispatch opens at 08:00" reason. Backend hard-enforces.
+- **Auto pincode** — when customer pins delivery location, server reverse-geocodes via free Nominatim and stores `user.pincode`. Drives delivery-boy zone routing automatically.
+- **Empty-tiffin (utensil) ledger** — every delivered tiffin increments `user.tiffin_balance`; collection events decrement. New `/boy/empty/collect` + `/admin/delivery/empty/collect` + `/admin/delivery/empties` + `/boy/empties`. Boy dashboard surfaces a Recycle banner with red badges per outstanding customer; admin gets a dedicated **Empty Tiffins** tab with "Estimated loss" total.
+- **Polished maps** — CartoDB Voyager tiles, animated boy marker (pulsing ring + bobbing scooter), kitchen dispatch pin with chef-bento icon, dashed 15 km service-zone circle, `maxBounds` lock so admin/customer maps stay tight to dispatch radius.
+- **Admin: dispatch coordinates** — settings panel now has lat/lng/radius_km fields + "Use this device's GPS" button.
+- **Admin: Subscriber Dashboard CMS** (`/admin/dashboard-editor`) — option **C** scope: edit text content (greeting/headings/tagline/no-plan card), toggle each of 7 sections visible/hidden, drag up/down to reorder, override 4 card colours (wallet bg/fg, hero accent, side-card tint). `db.dashboard_config{_id:"active"}` + GET/PATCH/RESET endpoints. Subscriber dashboard reads on mount and applies.
+- 19/19 backend tests pass (test_iter8.py); admin/boy/customer flows smoke-tested.
+
 ## Mocked Integrations (clearly flagged)
 - **MOCKED Razorpay**: enable real flow by setting `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` in `/app/backend/.env`. Frontend automatically uses the real modal once keys are present.
 - **MOCKED OTP delivery**: enable real SMS by integrating MSG91/Twilio at `/api/auth/send-otp` (one function swap). Set `OTP_DEV_MODE=false` to stop returning OTP in API response.
