@@ -6,7 +6,8 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Check, Loader2, Sparkles, Utensils, Truck } from "lucide-react";
 
-const MEAL_PRICE = 70;
+const MEAL_PRICE_FULL = 70;
+const MEAL_PRICE_HALF = 50;
 const MEALS_PER_DAY = 2;
 const MIN_DAYS = 1;
 const MAX_DAYS = 90;
@@ -41,8 +42,9 @@ export default function Plans() {
   const customPreview = useMemo(() => {
     const d = Math.max(MIN_DAYS, Math.min(MAX_DAYS, Number(days) || 1));
     const meals = d * MEALS_PER_DAY;
-    return { days: d, meals, amount: meals * MEAL_PRICE, perDay: MEALS_PER_DAY * MEAL_PRICE };
-  }, [days]);
+    const mealPrice = service === "tiffin" && tiffinSize === "half" ? MEAL_PRICE_HALF : MEAL_PRICE_FULL;
+    return { days: d, meals, amount: meals * mealPrice, perDay: MEALS_PER_DAY * mealPrice, mealPrice };
+  }, [days, service, tiffinSize]);
 
   const profileIncomplete = (u) => !u || !u.name || !u.phone || !u.address || !u.photo_url;
 
@@ -146,7 +148,7 @@ export default function Plans() {
           <div className="lg:col-span-3">
             <p className="text-xs tracking-overline uppercase font-bold text-secondary flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5" /> Build your own</p>
             <h2 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-3 leading-tight">Pick any number of days.</h2>
-            <p className="text-muted-foreground mt-3 leading-relaxed">Pay exactly for the days you'll eat. Fixed at <span className="font-semibold text-foreground">₹{MEAL_PRICE} per meal</span> (₹{MEAL_PRICE * MEALS_PER_DAY}/day).</p>
+            <p className="text-muted-foreground mt-3 leading-relaxed">Pay exactly for the days you'll eat. <span className="font-semibold text-foreground">₹{MEAL_PRICE_FULL}/meal</span> for full tiffin or dining; <span className="font-semibold text-foreground">₹{MEAL_PRICE_HALF}/meal</span> for half tiffin.</p>
 
             <div className="mt-6">
               <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Service</label>
@@ -211,7 +213,7 @@ export default function Plans() {
                   <p className="font-display font-bold text-lg mt-1" data-testid="custom-meals">{customPreview.meals}</p>
                 </div>
               </div>
-              <p className="text-xs text-primary-foreground/80 mt-4">≈ ₹{customPreview.perDay} per day · ₹{MEAL_PRICE} per meal{service === "tiffin" && tiffinSize === "half" ? " · Half tiffin" : ""}</p>
+              <p className="text-xs text-primary-foreground/80 mt-4">≈ ₹{customPreview.perDay} per day · ₹{customPreview.mealPrice} per meal{service === "tiffin" && tiffinSize === "half" ? " · Half tiffin (3 chapati)" : ""}</p>
             </div>
             <Button onClick={startCustomCheckout} data-testid="custom-subscribe-button" className="mt-6 w-full rounded-full bg-white text-primary hover:bg-white/90 h-12 font-semibold">
               Subscribe for {customPreview.days} day{customPreview.days > 1 ? "s" : ""}

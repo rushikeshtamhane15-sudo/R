@@ -27,6 +27,7 @@ import AdminTheme from "./pages/AdminTheme";
 import AdminContent from "./pages/AdminContent";
 import AdminLanding from "./pages/AdminLanding";
 import AdminDashboardEditor from "./pages/AdminDashboardEditor";
+import AdminRawMaterials from "./pages/AdminRawMaterials";
 import Plans from "./pages/Plans";
 import Checkout from "./pages/Checkout";
 import Profile from "./pages/Profile";
@@ -99,6 +100,7 @@ function AppRoutes() {
             <Route path="theme" element={<AdminTheme />} />
             <Route path="landing" element={<AdminLanding />} />
             <Route path="dashboard-editor" element={<AdminDashboardEditor />} />
+            <Route path="raw-materials" element={<AdminRawMaterials />} />
             <Route path="content/:contentKey" element={<AdminContent />} />
           </Route>
 

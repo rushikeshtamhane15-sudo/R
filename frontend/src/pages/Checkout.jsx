@@ -26,8 +26,8 @@ export default function Checkout() {
     if (isCustom) {
       (async () => {
         try {
-          const r = await api.get(`/plans/custom/preview?days=${days}`);
-          const label = customServiceType === "tiffin" ? `Custom Tiffin (${customTiffinSize})` : "Custom Dining";
+          const r = await api.get(`/plans/custom/preview?days=${days}&service_type=${customServiceType}${customTiffinSize ? `&tiffin_size=${customTiffinSize}` : ""}`);
+          const label = customServiceType === "tiffin" ? `Custom ${customTiffinSize === "half" ? "Half" : "Full"} Tiffin` : "Custom Dining";
           setPlan({
             plan_id: `custom_${customServiceType}_${days}d`,
             name: `${label} — ${days} day${days > 1 ? "s" : ""}`,

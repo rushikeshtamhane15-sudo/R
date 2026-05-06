@@ -61,7 +61,8 @@ ROTATION_SECONDS = 300
 GRACE_BUCKETS = 2
 
 # Custom subscription pricing — fixed per-meal rate
-MEAL_PRICE_INR = 70.0
+MEAL_PRICE_INR = 70.0           # default — full tiffin / dining
+MEAL_PRICE_HALF_INR = 50.0      # half tiffin (3 chapati portion)
 MEALS_PER_DAY = 2
 CUSTOM_MIN_DAYS = 1
 CUSTOM_MAX_DAYS = 90
@@ -603,10 +604,13 @@ async def create_custom_order(payload: CustomOrderRequest, user: User = Depends(
     if days < CUSTOM_MIN_DAYS or days > CUSTOM_MAX_DAYS:
         raise HTTPException(status_code=400, detail=f"Days must be between {CUSTOM_MIN_DAYS} and {CUSTOM_MAX_DAYS}")
     meals = days * MEALS_PER_DAY
-    amount = round(meals * MEAL_PRICE_INR, 2)
     service_type = payload.service_type or "dining"
     tiffin_size = payload.tiffin_size if service_type == "tiffin" else None
+    meal_price = MEAL_PRICE_HALF_INR if (service_type == "tiffin" and tiffin_size == "half") else MEAL_PRICE_INR
+    amount = round(meals * meal_price, 2)
     name_suffix = "Tiffin" if service_type == "tiffin" else "Dining"
+    if service_type == "tiffin" and tiffin_size:
+        name_suffix = f"{tiffin_size.capitalize()} Tiffin"
     return await _create_order_record(
         user=user, user_doc=user_doc,
         plan_id=f"custom_{service_type}_{days}d",
@@ -621,15 +625,17 @@ async def create_custom_order(payload: CustomOrderRequest, user: User = Depends(
 
 
 @api_router.get("/plans/custom/preview")
-async def custom_plan_preview(days: int):
+async def custom_plan_preview(days: int, service_type: str = "dining", tiffin_size: Optional[str] = None):
     if days < CUSTOM_MIN_DAYS or days > CUSTOM_MAX_DAYS:
         raise HTTPException(status_code=400, detail=f"Days must be between {CUSTOM_MIN_DAYS} and {CUSTOM_MAX_DAYS}")
     meals = days * MEALS_PER_DAY
-    amount = round(meals * MEAL_PRICE_INR, 2)
+    meal_price = MEAL_PRICE_HALF_INR if (service_type == "tiffin" and tiffin_size == "half") else MEAL_PRICE_INR
+    amount = round(meals * meal_price, 2)
     return {
-        "days": days, "meals": meals, "meal_price": MEAL_PRICE_INR,
+        "days": days, "meals": meals, "meal_price": meal_price,
         "amount": amount, "currency": "INR",
         "per_day_amount": round(amount / days, 2),
+        "service_type": service_type, "tiffin_size": tiffin_size if service_type == "tiffin" else None,
     }
 
 
@@ -857,6 +863,8 @@ async def catch_up_subscription(sub: dict) -> dict:
                 new_balance = 0.0
             sub["wallet_balance"] = new_balance
             deducted_amount += per_day
+            new_used = min(int(sub.get("meals_total", 0)), int(sub.get("meals_used", 0)) + MEALS_PER_DAY)
+            sub["meals_used"] = new_used
             await _log_wallet_txn(user_id, sub["sub_id"], "debit", per_day, new_balance, f"Daily deduction (paused) · {current.isoformat()}")
             # Extend end-date once consecutive paused streak exceeds 7 days
             pause_start = sub.get("user_pause_started_at")
@@ -880,18 +888,22 @@ async def catch_up_subscription(sub: dict) -> dict:
         }, {"_id": 0})
 
         if recent_scan or sub.get("service_type") == "tiffin":
-            # Tiffin (active, not user-paused) always deducts; eat-in only deducts when scan window has activity.
+            # Active day — deduct money + consume the day's 2 meals from balance.
             new_balance = round(float(sub["wallet_balance"]) - per_day, 2)
             if new_balance < 0:
                 new_balance = 0.0
             sub["wallet_balance"] = new_balance
             deducted_amount += per_day
-            await _log_wallet_txn(user_id, sub["sub_id"], "debit", per_day, new_balance, f"Daily deduction · {current.isoformat()}")
+            # Bump meals_used by 2 (lunch + dinner) — capped at meals_total
+            new_used = min(int(sub.get("meals_total", 0)), int(sub.get("meals_used", 0)) + MEALS_PER_DAY)
+            sub["meals_used"] = new_used
+            await _log_wallet_txn(user_id, sub["sub_id"], "debit", per_day, new_balance, f"Daily deduction · {current.isoformat()} · 2 meals consumed")
         else:
+            # Inactive day (3+ consecutive no-scan) — no debit, no meal consumption, end-date extends.
             sub["paused_days"] = int(sub.get("paused_days", 0)) + 1
             sub["end_date"] = iso(parse_dt(sub["end_date"]) + timedelta(days=1))
             paused_added += 1
-            await _log_wallet_txn(user_id, sub["sub_id"], "pause", 0.0, float(sub["wallet_balance"]), f"Auto-pause · {current.isoformat()} (no scan in last 3 days)")
+            await _log_wallet_txn(user_id, sub["sub_id"], "pause", 0.0, float(sub["wallet_balance"]), f"Auto-pause · {current.isoformat()} (no scan in last 3 days · meals + day credited back)")
 
         days_processed += 1
 
@@ -903,6 +915,7 @@ async def catch_up_subscription(sub: dict) -> dict:
         "paused_days": sub["paused_days"],
         "end_date": sub["end_date"],
         "last_tick_date": sub["last_tick_date"],
+        "meals_used": sub.get("meals_used", 0),
     }})
     if deducted_amount > 0:
         await db.users.update_one({"user_id": user_id}, {"$inc": {"wallet_balance": -deducted_amount}})
@@ -1450,7 +1463,8 @@ async def _mark_attendance(target_user: dict, meal_type: str, marked_by: str, me
         "method": method,
     }
     await db.attendance.insert_one(record.copy())
-    await db.subscriptions.update_one({"sub_id": sub["sub_id"]}, {"$inc": {"meals_used": 1}})
+    # NOTE: meals_used is tick-driven (2 meals per active day, decremented from balance after midnight).
+    # Scans only record attendance — they don't double-deduct.
     return record
 
 
@@ -1652,6 +1666,112 @@ async def admin_set_role(payload: SetRoleRequest, user: User = Depends(get_curre
     return {"ok": True}
 
 
+# ---------------------------
+# Admin wallet / refund override
+# ---------------------------
+class WalletAdjustRequest(BaseModel):
+    delta: float                     # positive = credit, negative = debit
+    reason: str
+    extend_days: Optional[int] = 0   # also extend end_date by this many days
+    restore_meals: Optional[int] = 0 # also bump meals_total by this many (or unbump meals_used)
+
+
+@api_router.post("/admin/users/{target_user_id}/wallet-adjust")
+async def admin_wallet_adjust(target_user_id: str, payload: WalletAdjustRequest, user: User = Depends(get_current_user)):
+    """Admin manually credits or debits a user's wallet.
+    - delta > 0  → credit (refund / goodwill / promo).
+    - delta < 0  → debit  (correction / chargeback).
+    - extend_days  → optionally pushes the active subscription end_date forward.
+    - restore_meals→ optionally adds meals back (lowers meals_used; never below 0)."""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    if abs(float(payload.delta)) < 0.005 and not payload.extend_days and not payload.restore_meals:
+        raise HTTPException(status_code=400, detail="Provide a non-zero delta, extend_days, or restore_meals")
+    if not (payload.reason or "").strip():
+        raise HTTPException(status_code=400, detail="reason is required for audit log")
+    target = await db.users.find_one({"user_id": target_user_id}, {"_id": 0})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    sub = await db.subscriptions.find_one({"user_id": target_user_id, "status": "active"}, {"_id": 0})
+    if not sub and (payload.delta or payload.extend_days or payload.restore_meals):
+        # Wallet without an active sub — still allow user-level wallet adjust for goodwill credits
+        pass
+
+    delta = round(float(payload.delta), 2)
+    audit = {
+        "audit_id": f"adj_{uuid.uuid4().hex[:14]}",
+        "ts": iso(now_utc()),
+        "admin_user_id": user.user_id,
+        "admin_email": user.email,
+        "target_user_id": target_user_id,
+        "target_email": target.get("email"),
+        "delta": delta,
+        "extend_days": int(payload.extend_days or 0),
+        "restore_meals": int(payload.restore_meals or 0),
+        "reason": payload.reason.strip()[:500],
+        "before": {
+            "user_wallet": float(target.get("wallet_balance") or 0),
+            "sub_wallet": float((sub or {}).get("wallet_balance") or 0),
+            "end_date": (sub or {}).get("end_date"),
+            "meals_used": (sub or {}).get("meals_used"),
+            "meals_total": (sub or {}).get("meals_total"),
+        },
+    }
+
+    new_user_wallet = max(0.0, round(float(target.get("wallet_balance") or 0) + delta, 2))
+    await db.users.update_one({"user_id": target_user_id}, {"$set": {"wallet_balance": new_user_wallet}})
+
+    sub_updates = {}
+    if sub:
+        if delta:
+            sub_updates["wallet_balance"] = max(0.0, round(float(sub["wallet_balance"]) + delta, 2))
+            # Adjusting wallet may revive the sub from the wallet=0 grace window
+            if sub_updates["wallet_balance"] > 0 and sub.get("zero_wallet_grace_until"):
+                sub_updates["zero_wallet_grace_until"] = None
+        if payload.extend_days:
+            new_end = parse_dt(sub["end_date"]) + timedelta(days=int(payload.extend_days))
+            sub_updates["end_date"] = iso(new_end)
+        if payload.restore_meals:
+            new_used = max(0, int(sub.get("meals_used", 0)) - int(payload.restore_meals))
+            sub_updates["meals_used"] = new_used
+        if sub_updates:
+            unset_ops = {}
+            if sub_updates.get("zero_wallet_grace_until") is None and "zero_wallet_grace_until" in sub_updates:
+                unset_ops["zero_wallet_grace_until"] = ""
+                sub_updates.pop("zero_wallet_grace_until")
+            ops = {"$set": sub_updates}
+            if unset_ops:
+                ops["$unset"] = unset_ops
+            await db.subscriptions.update_one({"sub_id": sub["sub_id"]}, ops)
+
+    await _log_wallet_txn(
+        target_user_id, (sub or {}).get("sub_id") or "user-wallet",
+        "credit" if delta >= 0 else "debit",
+        abs(delta),
+        sub_updates.get("wallet_balance", new_user_wallet),
+        f"Admin override · {payload.reason.strip()[:200]} · by {user.email}",
+    )
+    audit["after"] = {
+        "user_wallet": new_user_wallet,
+        "sub_wallet": sub_updates.get("wallet_balance"),
+        "end_date": sub_updates.get("end_date"),
+        "meals_used": sub_updates.get("meals_used"),
+    }
+    await db.wallet_overrides.insert_one(audit.copy())
+    audit.pop("_id", None)
+    return {"ok": True, **audit}
+
+
+@api_router.get("/admin/users/{target_user_id}/wallet-history")
+async def admin_wallet_history(target_user_id: str, user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    txns = await db.wallet_transactions.find({"user_id": target_user_id}, {"_id": 0}).sort("ts", -1).to_list(200)
+    overrides = await db.wallet_overrides.find({"target_user_id": target_user_id}, {"_id": 0}).sort("ts", -1).to_list(200)
+    return {"transactions": txns, "overrides": overrides}
+
+
 async def _purge_user(user_id: str) -> dict:
     """Delete a user and every record that points to them (sessions, subs, txns, attendance, deliveries)."""
     user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
@@ -1824,6 +1944,168 @@ async def reset_dashboard_config(user: User = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Admin only")
     await db.dashboard_config.update_one({"_id": "active"}, {"$set": DASHBOARD_DEFAULT_CONFIG}, upsert=True)
     return await _load_dashboard_config()
+
+
+# ---------------------------
+# Raw material requirement calculator (admin)
+# ---------------------------
+# Defaults are per person per MONTH (30 days · 60 meals); halves for half-tiffin subscribers.
+# A,B,C,D are quantity-based; vegetables (E) is rupee-based and has no quantity.
+RAW_MATERIAL_DEFAULTS = [
+    {"key": "toor_dal",   "label": "Toor dal",   "unit": "kg",  "qty_per_person_month": 2.1, "price_per_unit": 60.0,  "is_amount_based": False},
+    {"key": "rice",       "label": "Rice",       "unit": "kg",  "qty_per_person_month": 2.5, "price_per_unit": 90.0,  "is_amount_based": False},
+    {"key": "wheat",      "label": "Wheat",      "unit": "kg",  "qty_per_person_month": 8.0, "price_per_unit": 40.0,  "is_amount_based": False},
+    {"key": "oil",        "label": "Oil",        "unit": "ltr", "qty_per_person_month": 1.8, "price_per_unit": 190.0, "is_amount_based": False},
+    {"key": "vegetables", "label": "Vegetables", "unit": "₹",   "qty_per_person_month": None, "price_per_unit": None, "is_amount_based": True, "amount_per_person_month": 400.0},
+]
+
+
+async def _load_raw_materials() -> list[dict]:
+    doc = await db.raw_materials_config.find_one({"_id": "active"}, {"_id": 0})
+    if not doc:
+        await db.raw_materials_config.insert_one({"_id": "active", "items": RAW_MATERIAL_DEFAULTS})
+        return list(RAW_MATERIAL_DEFAULTS)
+    items = doc.get("items") or RAW_MATERIAL_DEFAULTS
+    # Merge in any newly-added defaults
+    have = {i["key"] for i in items}
+    for d in RAW_MATERIAL_DEFAULTS:
+        if d["key"] not in have:
+            items.append(d)
+    return items
+
+
+def _per_meal_factor(item: dict) -> dict:
+    """Convert per-person-per-month → per-person-per-meal (1 meal = 1/60 of a month)."""
+    out = {**item}
+    if item.get("is_amount_based"):
+        amt_month = float(item.get("amount_per_person_month") or 0)
+        out["amount_per_person_meal"] = round(amt_month / 60.0, 4)
+    else:
+        qty_month = float(item.get("qty_per_person_month") or 0)
+        price = float(item.get("price_per_unit") or 0)
+        out["qty_per_person_meal"] = round(qty_month / 60.0, 6)
+        out["amount_per_person_meal"] = round((qty_month * price) / 60.0, 4)
+    return out
+
+
+async def _count_active_persons() -> dict:
+    """Persons-per-meal weighting: full tiffin / dining = 1.0; half tiffin = 0.5.
+    Inactive (auto-paused or user-paused tiffin) subs don't count for today's cooking."""
+    subs = await db.subscriptions.find({"status": "active"}, {"_id": 0}).to_list(20000)
+    full = 0
+    half = 0
+    today = date.today()
+    for s in subs:
+        end_dt = parse_dt(s["end_date"])
+        if end_dt.date() < today:
+            continue
+        # User-paused tiffin → not cooking for them today
+        if s.get("user_paused") and s.get("service_type") == "tiffin":
+            continue
+        # Wallet=0 grace started → still cooking for now (only stop after grace expiry on tick)
+        size = (s.get("tiffin_size") or "full") if s.get("service_type") == "tiffin" else "full"
+        if size == "half":
+            half += 1
+        else:
+            full += 1
+    persons = full + (half * 0.5)
+    return {"full": full, "half": half, "persons": round(persons, 2), "active_subs": full + half}
+
+
+@api_router.get("/admin/raw-materials")
+async def get_raw_materials(user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    items = await _load_raw_materials()
+    counts = await _count_active_persons()
+    persons = float(counts["persons"])
+
+    breakdown = []
+    total_lunch_cost = 0.0
+    total_dinner_cost = 0.0
+    total_day_cost = 0.0
+    for it in items:
+        factored = _per_meal_factor(it)
+        per_meal_amount = float(factored.get("amount_per_person_meal") or 0)
+        meal_cost = round(per_meal_amount * persons, 2)
+        if factored.get("is_amount_based"):
+            row = {
+                **factored,
+                "lunch_qty": None, "dinner_qty": None, "day_qty": None,
+                "lunch_cost": meal_cost, "dinner_cost": meal_cost,
+                "day_cost": round(meal_cost * 2, 2),
+            }
+        else:
+            per_meal_qty = float(factored.get("qty_per_person_meal") or 0)
+            qty_meal = round(per_meal_qty * persons, 4)
+            row = {
+                **factored,
+                "lunch_qty": qty_meal,
+                "dinner_qty": qty_meal,
+                "day_qty": round(qty_meal * 2, 4),
+                "lunch_cost": meal_cost,
+                "dinner_cost": meal_cost,
+                "day_cost": round(meal_cost * 2, 2),
+            }
+        total_lunch_cost += row["lunch_cost"]
+        total_dinner_cost += row["dinner_cost"]
+        total_day_cost += row["day_cost"]
+        breakdown.append(row)
+
+    return {
+        "items": items,
+        "breakdown": breakdown,
+        "counts": counts,
+        "totals": {
+            "lunch_cost": round(total_lunch_cost, 2),
+            "dinner_cost": round(total_dinner_cost, 2),
+            "day_cost": round(total_day_cost, 2),
+        },
+        "computed_at": iso(now_utc()),
+        "notes": [
+            "Quantities: per person per month (toor dal, rice, wheat, oil). Vegetables track ₹ instead of kg.",
+            "1 active subscriber = 1 person; half-tiffin subscriber = 0.5 person.",
+            "Per-meal need = per-person-per-month ÷ 60. Lunch + dinner = 2 meals/day.",
+        ],
+    }
+
+
+class RawMaterialItem(BaseModel):
+    key: str
+    label: Optional[str] = None
+    unit: Optional[str] = None
+    qty_per_person_month: Optional[float] = None
+    price_per_unit: Optional[float] = None
+    amount_per_person_month: Optional[float] = None
+    is_amount_based: Optional[bool] = None
+
+
+class RawMaterialPatch(BaseModel):
+    items: List[RawMaterialItem]
+
+
+@api_router.put("/admin/raw-materials")
+async def update_raw_materials(payload: RawMaterialPatch, user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    items = [i.dict(exclude_none=True) for i in payload.items]
+    if not items:
+        raise HTTPException(status_code=400, detail="At least one item required")
+    # Light validation — keep numbers non-negative
+    for it in items:
+        for k in ("qty_per_person_month", "price_per_unit", "amount_per_person_month"):
+            if k in it and it[k] is not None and float(it[k]) < 0:
+                raise HTTPException(status_code=400, detail=f"{k} cannot be negative")
+    await db.raw_materials_config.update_one({"_id": "active"}, {"$set": {"items": items, "updated_at": iso(now_utc())}}, upsert=True)
+    return await get_raw_materials(user)
+
+
+@api_router.post("/admin/raw-materials/reset")
+async def reset_raw_materials(user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    await db.raw_materials_config.update_one({"_id": "active"}, {"$set": {"items": RAW_MATERIAL_DEFAULTS, "updated_at": iso(now_utc())}}, upsert=True)
+    return await get_raw_materials(user)
 
 
 # ---------------------------

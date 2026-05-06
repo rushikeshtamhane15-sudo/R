@@ -1,0 +1,36 @@
+{
+  "summary": "Iter10 (half-tiffin pricing + admin wallet override + raw materials + tick model) end-to-end tested. Backend: 14/14 iter10 tests pass (53/53 across iter7-10). Frontend: /plans half/full tiffin pricing labels render exactly per spec; /admin/raw-materials renders correctly with sidebar Wheat icon link, all 5 rows (toor_dal/rice/wheat/oil/vegetables), edit-rates toggle works. /admin/users INITIALLY CRASHED with 'Wallet is not defined' ReferenceError — root cause: missing Wallet icon import from lucide-react. Fixed in /app/frontend/src/pages/AdminUsers.jsx (added Wallet to lucide-react imports). Re-test: WalletAdjustModal opens, empty-reason toast validation works, save persists delta/extend_days/restore_meals to DB and writes wallet_overrides audit doc (verified via direct Mongo read: delta=150 → user.wallet 100→250, meals_used 30→28, end_date +1d).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "WalletAdjustModal save UX", "issue": "On successful save the parent's onSaved closes the modal (setWalletTarget(null)). Spec says 'recent overrides list refreshes inside the modal' — currently modal closes immediately. Toast does show audit_id correctly. Minor UX deviation; consider keeping modal open and re-fetching /wallet-history after a successful save (only close on Cancel or explicit Done).", "affected_selectors": ["wallet-save", "wallet-adjust-modal", "override-*"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter10.py",
+    "/app/test_reports/pytest/iter10_results.xml"
+  ],
+  "action_items": [
+    "(FIXED by testing agent) Add Wallet icon to lucide-react imports in /app/frontend/src/pages/AdminUsers.jsx — was crashing the entire /admin/users page with 'Wallet is not defined' ReferenceError, blocking every wallet-adjust UX as well as the role-management UI on the same page. Please confirm the fix and consider adding a smoke test for /admin/users render in CI.",
+    "(UX polish) WalletAdjustModal: keep modal open after save and refresh recent overrides list inline, instead of closing via parent onSaved. The spec lists 'recent overrides list refreshes inside the modal' as a check. Easy fix: in onSaved (line ~136 of AdminUsers.jsx), drop setWalletTarget(null) and have the modal re-call /wallet-history after a successful submit. Alternatively, expose a refreshHistory ref."
+  ],
+  "critical_code_review_comments": [
+    "AdminUsers.jsx — Wallet import was missing despite being referenced both in the row action button AND inside the modal header. This is a production-impacting runtime crash on the entire /admin/users route (not just modal). Suggest a pre-commit ESLint no-undef rule or CI build that fails on undefined identifiers.",
+    "WalletAdjustModal does not handle the network/loading state for the initial /wallet-history fetch — silent catch swallows errors. If the endpoint fails, user sees 'No overrides yet' even when there are overrides; consider distinguishing 'loading' / 'error' / 'empty'.",
+    "WalletAdjustModal stores delta as string and converts in submit() — works, but inputs accept multi-decimal values like '1.5.6' which are coerced to NaN→0. Consider typing strict or using parseFloat with NaN guard explicitly.",
+    "Backend wallet-adjust endpoint accepts arbitrary delta magnitudes — no per-admin daily cap or upper bound. Could be valuable to log+alert on adjustments > ₹5000 for fraud/audit.",
+    "/api/admin/raw-materials endpoint is computed on every GET — no caching, even though counts only change when subs are created/cancelled. With many active subs the persons-weighted aggregation (full sum + 0.5×half sum) per request could become a bottleneck. Consider memoizing results for ~60s.",
+    "catch_up_subscription on inactive (3+ no-scan) day extends end_date but doesn't bump meals_used — verified. Verify edge case: a user pausing for >30 days could push end_date arbitrarily far; you may want to cap paused_days to plan.meals_total/2 or similar."
+  ],
+  "updated_files": [
+    "/app/frontend/src/pages/AdminUsers.jsx (added Wallet to lucide-react import; fixes runtime crash on /admin/users)"
+  ],
+  "success_rate": {"backend": "100% (14/14 iter10; 53/53 iter7-10 cumulative)", "frontend": "100% after Wallet-import fix — Plans half/full pricing, Raw Materials page (rows + edit/save/reset toggles + sidebar link), Users page wallet-adjust modal (open + validation + save + DB persistence) all verified."},
+  "test_credentials": "Mongo-injected admin session_token (TEST_st_*). admin_email = admin@efoodcare.com (in ADMIN_EMAILS allowlist).",
+  "seed_data_creation": "Per-test transient TEST_-prefixed admin user + admin session, plus a TEST_sub_* subscriber with active premium_60 tiffin sub for wallet-adjust E2E. All cleaned up via Mongo deleteMany at end of run.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run iter10: `REACT_APP_BACKEND_URL=https://dining-pass-scan.preview.emergentagent.com MONGO_URL=mongodb://localhost:27017 DB_NAME=test_database pytest backend/tests/test_iter10.py -v`. For UI testing /admin/* set the session_token cookie (Secure, SameSite=None) on dining-pass-scan.preview.emergentagent.com and seed an admin user with email in ADMIN_EMAILS allowlist. The Wallet icon import bug in AdminUsers.jsx is fixed in this iteration — verify no regression. WalletAdjustModal currently auto-closes on save; if main agent leaves modal open per spec, the previous override should appear at top of the 'Recent overrides' list with format 'override-{audit_id}'."
+}
