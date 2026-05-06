@@ -16,6 +16,9 @@ import Dashboard from "./pages/Dashboard";
 import AdminOverview from "./pages/AdminDashboard";
 import AdminPlans from "./pages/AdminPlans";
 import AdminDelivery from "./pages/AdminDelivery";
+import AdminLiveMap from "./pages/AdminLiveMap";
+import DeliveryBoyDashboard from "./pages/DeliveryBoyDashboard";
+import Track from "./pages/Track";
 import AdminCounter from "./pages/AdminCounter";
 import AdminScanner from "./pages/AdminScanner";
 import AdminMenu from "./pages/AdminMenu";
@@ -44,6 +47,7 @@ function PostLogin() {
   if (loading) return <div className="p-12 text-center text-muted-foreground">Loading…</div>;
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === "admin") return <Navigate to="/admin" replace />;
+  if (user.role === "delivery_boy") return <Navigate to="/boy" replace />;
   return <Dashboard />;
 }
 
@@ -73,6 +77,8 @@ function AppRoutes() {
           <Route path="/plans" element={<Plans />} />
           <Route path="/checkout/:planId" element={<RequireAuth><Checkout /></RequireAuth>} />
           <Route path="/self-scan" element={<RequireAuth><SelfScan /></RequireAuth>} />
+          <Route path="/track" element={<RequireAuth><Track /></RequireAuth>} />
+          <Route path="/boy" element={<RequireAuth roles={["delivery_boy"]}><DeliveryBoyDashboard /></RequireAuth>} />
 
           {/* Public information pages */}
           <Route path="/privacy" element={<Privacy />} />
@@ -84,6 +90,7 @@ function AppRoutes() {
             <Route index element={<AdminOverview />} />
             <Route path="plans" element={<AdminPlans />} />
             <Route path="delivery" element={<AdminDelivery />} />
+            <Route path="live" element={<AdminLiveMap />} />
             <Route path="scanner" element={<AdminScanner />} />
             <Route path="counter" element={<AdminCounter />} />
             <Route path="menu" element={<AdminMenu />} />

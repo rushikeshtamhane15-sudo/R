@@ -8,7 +8,7 @@ export default function BottomNav() {
   const location = useLocation();
   const { user } = useAuth();
   if (!user) return null;
-  if (user.role === "admin" || user.role === "staff") return null; // bottom nav is for subscribers
+  if (user.role === "admin" || user.role === "staff" || user.role === "delivery_boy") return null; // bottom nav is for subscribers
 
   const items = [
     { to: "/", label: "Home", icon: Home },

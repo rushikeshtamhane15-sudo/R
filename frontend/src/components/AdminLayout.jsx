@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink, Outlet } from "react-router-dom";
-import { LayoutDashboard, Package, Truck, ScanLine, QrCode, Utensils, Users, Palette, Home, Shield, FileText, MapPin, FootprintsIcon, LogIn, Megaphone } from "lucide-react";
+import { LayoutDashboard, Package, Truck, ScanLine, QrCode, Utensils, Users, Palette, Home, Shield, FileText, MapPin, FootprintsIcon, LogIn, Megaphone, Radio } from "lucide-react";
 
 const SECTIONS = [
   {
@@ -15,6 +15,7 @@ const SECTIONS = [
     title: "Operations",
     items: [
       { to: "/admin/delivery", label: "Tiffin delivery", icon: Truck },
+      { to: "/admin/live", label: "Live tracking", icon: Radio },
       { to: "/admin/scanner", label: "QR Scanner", icon: ScanLine },
       { to: "/admin/counter", label: "Counter QR", icon: QrCode },
       { to: "/admin/menu", label: "Daily Menu", icon: Utensils },
