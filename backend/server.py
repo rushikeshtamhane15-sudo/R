@@ -2515,8 +2515,10 @@ async def on_startup():
     await _load_dashboard_config()  # pre-seed default config so first GET doesn't write during a public read
     asyncio.create_task(subscription_tick_loop())
     asyncio.create_task(reminder_loop())
+    asyncio.create_task(expiry_reminder_loop())
     logger.info(f"[STARTUP] subscription tick scheduler launched · interval={TICK_INTERVAL_SECONDS}s")
     logger.info(f"[STARTUP] empty-tiffin reminder scanner launched · interval={REMINDER_INTERVAL_SECONDS}s · stub_mode={_sms_stub_mode_status()}")
+    logger.info(f"[STARTUP] subscription expiry reminder scheduler launched · interval={EXPIRY_SCAN_INTERVAL_SECONDS}s · lead_days={EXPIRY_LEAD_DAYS}")
 
 
 @app.on_event("shutdown")

@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
+import TestimonialsSection from "../components/TestimonialsSection";
 import * as Icons from "lucide-react";
 
 const DEFAULT_HERO = "https://images.unsplash.com/photo-1600488999806-8efb986d87b1?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600";

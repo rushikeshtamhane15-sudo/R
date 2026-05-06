@@ -28,6 +28,7 @@ import AdminTheme from "./pages/AdminTheme";
 import AdminContent from "./pages/AdminContent";
 import AdminLanding from "./pages/AdminLanding";
 import AdminDashboardEditor from "./pages/AdminDashboardEditor";
+import AdminTestimonials from "./pages/AdminTestimonials";
 import AdminRawMaterials from "./pages/AdminRawMaterials";
 import StaffDeliveries from "./pages/StaffDeliveries";
 import Plans from "./pages/Plans";
@@ -109,6 +110,7 @@ function AppRoutes() {
             <Route path="theme" element={<AdminTheme />} />
             <Route path="landing" element={<AdminLanding />} />
             <Route path="dashboard-editor" element={<AdminDashboardEditor />} />
+            <Route path="testimonials" element={<AdminTestimonials />} />
             <Route path="raw-materials" element={<AdminRawMaterials />} />
             <Route path="deliveries-today" element={<StaffDeliveries />} />
             <Route path="content/:contentKey" element={<AdminContent />} />

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
-import { LayoutDashboard, Package, Truck, ScanLine, QrCode, Utensils, Users, Palette, Home, Shield, FileText, MapPin, FootprintsIcon, LogIn, Megaphone, Radio, Layout, Wheat, ClipboardList, Menu } from "lucide-react";
+import { LayoutDashboard, Package, Truck, ScanLine, QrCode, Utensils, Users, Palette, Home, Shield, FileText, MapPin, FootprintsIcon, LogIn, Megaphone, Radio, Layout, Wheat, ClipboardList, Menu, MessageSquareQuote } from "lucide-react";
 
 // `roles`: which roles can see the item. Default: admin only.
 const SECTIONS = [
@@ -31,6 +31,7 @@ const SECTIONS = [
     items: [
       { to: "/admin/landing", label: "Home page", icon: Home, roles: ["admin"] },
       { to: "/admin/dashboard-editor", label: "Subscriber dashboard", icon: Layout, roles: ["admin"] },
+      { to: "/admin/testimonials", label: "Testimonials", icon: MessageSquareQuote, roles: ["admin"] },
       { to: "/admin/content/announcement", label: "Announcement bar", icon: Megaphone, roles: ["admin"] },
       { to: "/admin/content/login", label: "Login page", icon: LogIn, roles: ["admin"] },
       { to: "/admin/content/privacy", label: "Privacy Policy", icon: Shield, roles: ["admin"] },

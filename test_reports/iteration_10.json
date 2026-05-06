@@ -1,0 +1,38 @@
+{
+  "summary": "Iter12 (Editable Testimonials admin CRUD + Subscription expiry-reminder cron) end-to-end tested. Backend: 10/10 iter12 tests pass. Frontend E2E covered all critical flows: public landing /testimonials-section renders 3 visible default cards; admin /admin/testimonials route loads via session-token cookie; sidebar nav link present (data-testid='admin-nav-testimonials'); Add → Edit (name/quote/4-star) → Save persists across reload; Reset restores defaults. Startup log line confirmed: '[STARTUP] subscription expiry reminder scheduler launched · interval=3600s · lead_days=[3, 1, 0]'. Stub-mode flags verified in cron response (email_stub=true, sms_stub=true). Idempotency confirmed: 3 dedupe rows in db.expiry_reminders_sent for T+3/T+1/T+0 seeded subs, second run produced skipped>=3 with no new rows.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "PUT /api/admin/testimonials", "issue": "Rating clamp uses `int(t.rating or 5)` which treats explicit 0 as falsy and silently substitutes default 5 instead of clamping to min 1. Not user-facing today (UI uses 1-5 stars only) but a brittle pattern. Suggest `int(t.rating) if t.rating is not None else 5` then clamp."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter12.py",
+    "/app/test_reports/pytest/iter12_results.xml"
+  ],
+  "action_items": [
+    "(MINOR / non-blocking) Tighten rating coercion in PUT /api/admin/testimonials to honor explicit 0 (clamp to 1) instead of falling back to default 5 due to Python falsy-0. One-liner change in /app/backend/server.py L2342."
+  ],
+  "critical_code_review_comments": [
+    "Testimonials CRUD endpoints are correctly admin-gated (401 no-auth, 403 non-admin role) and public GET correctly filters by `visible:true`. ✅",
+    "expiry_reminder_loop schedules are launched on startup; idempotency via compound key (sub_id, days_left, sent_date) verified end-to-end. ✅",
+    "_load_testimonials() returns sorted-by-order results — order field truncation/typing is via `int(t.order if t.order is not None else i)`, robust. ✅",
+    "Stub-mode wiring is correct: cron response now includes both `email_stub` and `sms_stub` so a tester can verify nothing is going out over the wire when keys are blank.",
+    "Minor — rating coercion `int(t.rating or 5)` treats integer 0 as falsy. Replace with explicit None check.",
+    "Frontend AdminTestimonials.jsx — image upload reads File via FileReader → data URL and stores in image_url; backend caps at 2 MB. UX note: no client-side size warning before the request fails. Consider showing a toast if file > 1.5 MB before upload."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter12.py (new — 10 tests, all pass)"
+  ],
+  "success_rate": {"backend": "100% (10/10 iter12)", "frontend": "100% — public testimonials section, admin CRUD page load, add/edit/save persistence, reset, sidebar nav all verified"},
+  "test_credentials": "Mongo-injected admin session_token (TEST_st_*) for /admin/* UI testing; admin@efoodcare.com is in ADMIN_EMAILS allowlist.",
+  "seed_data_creation": "Per-test transient TEST_-prefixed admin/subscriber users + sessions for backend tests. test_run_with_seeded_subs_and_idempotent inserts 3 active subscriptions with end_date offsets {3,1,0} and removes them + their dedupe rows in teardown. UI test seeded a TEST_admin_* + TEST_st_* pair into Mongo (cleaned up post-run).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run iter12 backend: `REACT_APP_BACKEND_URL=https://dining-pass-scan.preview.emergentagent.com MONGO_URL=mongodb://localhost:27017 DB_NAME=test_database pytest backend/tests/test_iter12.py -v`. For UI testing /admin/testimonials, seed (user with role='admin' + matching session in db.user_sessions) and set cookie name 'session_token' (Secure, SameSite=None) on dining-pass-scan.preview.emergentagent.com, then visit /admin/testimonials. Public landing /testimonials-section is anonymous. Email/SMS are in stub mode (RESEND_API_KEY blank, MSG91_AUTH_KEY blank), so `/admin/cron/run-expiry-reminders` returns email_stub:true, sms_stub:true and counters; the dedupe collection is db.expiry_reminders_sent."
+}
