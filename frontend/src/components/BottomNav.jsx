@@ -2,7 +2,7 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import WalletPill from "./WalletPill";
-import { Home, Package, Wallet, User as UserIcon } from "lucide-react";
+import { Home, LayoutDashboard, Wallet, User as UserIcon } from "lucide-react";
 
 export default function BottomNav() {
   const location = useLocation();
@@ -12,7 +12,7 @@ export default function BottomNav() {
 
   const items = [
     { to: "/", label: "Home", icon: Home },
-    { to: "/plans", label: "Plans", icon: Package },
+    { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { wallet: true, label: "Wallet", icon: Wallet },
     { to: "/profile", label: "Account", icon: UserIcon },
   ];

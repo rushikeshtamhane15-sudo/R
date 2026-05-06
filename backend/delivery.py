@@ -216,8 +216,11 @@ def make_router(db) -> APIRouter:
 
         for sub in subs:
             plan = plans.get(sub["plan_id"]) or {}
-            if plan.get("plan_type") != "delivery":
-                continue
+            service = sub.get("service_type") or plan.get("service_type") or ("tiffin" if plan.get("plan_type") == "delivery" else "dining")
+            if service != "tiffin":
+                continue   # eat-in subscribers don't get tiffin delivery
+            if sub.get("user_paused"):
+                continue   # subscriber paused their tiffin — skip dispatch
             try:
                 start = parse_dt(sub["start_date"]).date()
                 end = parse_dt(sub["end_date"]).date()

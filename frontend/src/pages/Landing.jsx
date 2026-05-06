@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { api } from "../lib/api";
+import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
 import * as Icons from "lucide-react";
 
@@ -22,6 +23,11 @@ const ALWAYS_BG_CLASSES = {
 
 export default function Landing() {
   const [content, setContent] = useState(null);
+  const { user } = useAuth();
+  const ctaTarget = user
+    ? user.role === "admin" ? "/admin" : user.role === "staff" ? "/staff/scanner" : "/dashboard"
+    : "/login";
+  const ctaLabelOverride = user ? "Go to dashboard" : null;
 
   useEffect(() => {
     (async () => {
@@ -61,8 +67,8 @@ export default function Landing() {
             {c.hero_subtitle || "30-day tiffin subscriptions with a smart wallet. Pay once by UPI, check-in by QR, skip a few days — we pause your wallet, no meals wasted."}
           </motion.p>
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mt-10 flex flex-wrap gap-4">
-            <Link to="/login" data-testid="hero-cta-start">
-              <Button size="lg" className="rounded-full bg-primary hover:bg-primary/90 px-8 h-12 text-base">{c.hero_cta_primary || "Get your e-Meal Pass"}</Button>
+            <Link to={ctaTarget} data-testid="hero-cta-start">
+              <Button size="lg" className="rounded-full bg-primary hover:bg-primary/90 px-8 h-12 text-base">{ctaLabelOverride || c.hero_cta_primary || "Get your e-Meal Pass"}</Button>
             </Link>
             <Link to="/plans" data-testid="hero-cta-plans">
               <Button size="lg" variant="outline" className="rounded-full px-8 h-12 text-base">{c.hero_cta_secondary || "View plans"}</Button>
@@ -160,9 +166,9 @@ export default function Landing() {
             </h3>
             <p className="mt-4 text-primary-foreground/80 max-w-lg">{c.cta_subtitle || "Plans start at ₹1,800 for 30 days."}</p>
           </div>
-          <Link to="/login" data-testid="cta-footer">
+          <Link to={ctaTarget} data-testid="cta-footer">
             <Button size="lg" className="rounded-full bg-white text-primary hover:bg-white/90 px-8 h-12 text-base font-bold">
-              {c.cta_button_label || "Start with OTP"}
+              {ctaLabelOverride || c.cta_button_label || "Start with OTP"}
             </Button>
           </Link>
         </div>

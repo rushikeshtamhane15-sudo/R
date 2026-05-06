@@ -19,15 +19,18 @@ export default function Checkout() {
 
   const isCustom = planId === "custom";
   const days = isCustom ? Math.max(1, Math.min(90, Number(params.get("days") || 1))) : null;
+  const customServiceType = isCustom ? (params.get("service") || "dining") : null;
+  const customTiffinSize = isCustom ? (params.get("tiffin_size") || "full") : null;
 
   useEffect(() => {
     if (isCustom) {
       (async () => {
         try {
           const r = await api.get(`/plans/custom/preview?days=${days}`);
+          const label = customServiceType === "tiffin" ? `Custom Tiffin (${customTiffinSize})` : "Custom Dining";
           setPlan({
-            plan_id: `custom_${days}d`,
-            name: `Custom — ${days} day${days > 1 ? "s" : ""}`,
+            plan_id: `custom_${customServiceType}_${days}d`,
+            name: `${label} — ${days} day${days > 1 ? "s" : ""}`,
             description: `${r.data.meals} meals across ${days} day${days > 1 ? "s" : ""} · pay ₹${r.data.meal_price} per meal`,
             amount: r.data.amount,
             currency: "INR",
@@ -66,7 +69,7 @@ export default function Checkout() {
     setSubmitting(true); setStatus("creating");
     try {
       const orderRes = isCustom
-        ? await api.post("/payments/custom-order", { days })
+        ? await api.post("/payments/custom-order", { days, service_type: customServiceType, tiffin_size: customTiffinSize })
         : await api.post("/payments/order", { plan_id: planId });
       const order = orderRes.data;
 

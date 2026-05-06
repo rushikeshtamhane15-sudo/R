@@ -5,7 +5,10 @@ import { useAuth } from "../context/AuthContext";
 import QRTicket from "../components/QRTicket";
 import PendingDeliveriesBanner from "../components/PendingDeliveriesBanner";
 import { Button } from "../components/ui/button";
-import { Utensils, Moon, Sun, Clock, Wallet, Pause, IndianRupee } from "lucide-react";
+import { toast } from "sonner";
+import {
+  Utensils, Moon, Sun, Clock, Wallet, Pause, Play, IndianRupee, Loader2, Truck, AlertCircle,
+} from "lucide-react";
 
 function formatTime(iso) {
   try { return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); } catch { return ""; }
@@ -19,6 +22,7 @@ export default function SubscriberDashboard() {
   const [menu, setMenu] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [pausing, setPausing] = useState(false);
 
   const load = async () => {
     try {
@@ -39,6 +43,8 @@ export default function SubscriberDashboard() {
 
   useEffect(() => { load(); }, []);
 
+  const isTiffin = sub?.service_type === "tiffin";
+  const isPaused = !!sub?.user_paused;
   const today = new Date().toISOString().slice(0, 10);
   const todaysRecords = history.filter((r) => r.date_str === today);
   const lunchDone = todaysRecords.some((r) => r.meal_type === "lunch");
@@ -46,47 +52,56 @@ export default function SubscriberDashboard() {
   const daysLeft = sub ? Math.max(0, Math.ceil((new Date(sub.end_date) - new Date()) / (1000 * 60 * 60 * 24))) : 0;
   const mealsLeft = sub ? sub.meals_total - sub.meals_used : 0;
 
-  if (loading) return <div className="p-12 text-center text-muted-foreground">Loading your e-Meal Pass…</div>;
+  const togglePause = async () => {
+    setPausing(true);
+    try {
+      const ep = isPaused ? "/my/subscription/resume" : "/my/subscription/pause";
+      await api.post(ep);
+      toast.success(isPaused ? "Tiffin delivery resumed — see you tomorrow!" : "Tiffin paused — you're off the dispatch list.");
+      await load();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Could not update"); }
+    finally { setPausing(false); }
+  };
+
+  if (loading) return <div className="p-12 text-center text-muted-foreground flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading dashboard…</div>;
 
   return (
     <div className="max-w-6xl mx-auto px-6 md:px-8 lg:px-12 py-10" data-testid="subscriber-dashboard">
-      <div className="mb-10" data-testid="subscription-status">
+      <div className="mb-8" data-testid="subscription-status">
         <p className="text-xs tracking-overline uppercase font-bold text-secondary">Hello, {user?.name?.split(" ")[0]}</p>
-        <h1 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-2">Your e-Meal Pass</h1>
+        <h1 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-2">
+          {isTiffin ? "Your tiffin delivery" : "Your e-Meal Pass"}
+        </h1>
         <p className="text-muted-foreground text-sm mt-1 italic">ghar se achha khana</p>
       </div>
 
-      <PendingDeliveriesBanner />
+      {/* Tiffin tracking only renders for tiffin subscribers */}
+      {isTiffin && <PendingDeliveriesBanner />}
 
       <div className="grid lg:grid-cols-5 gap-8">
-        <div className="lg:col-span-3">
-          <QRTicket
-            token={qr?.qr_token}
-            userName={qr?.user_name || user?.name}
-            mealsLeft={sub ? mealsLeft : 0}
-            mealsTotal={sub ? sub.meals_total : 0}
-            daysLeft={daysLeft}
-            planName={sub ? sub.plan_name : "No active plan"}
-          />
-
-          {!sub && (
-            <div className="mt-6 bg-secondary/10 border border-secondary/20 rounded-2xl p-6 text-center" data-testid="no-sub-banner">
-              <p className="font-display font-bold text-lg">You don't have an active e-Meal Pass</p>
-              <p className="text-sm text-muted-foreground mt-1">Grab a plan to start eating ghar se achha khana.</p>
-              <Link to="/plans">
-                <Button className="mt-4 rounded-full bg-secondary hover:bg-secondary/90" data-testid="get-plan-button">Choose a plan</Button>
-              </Link>
-            </div>
+        <div className="lg:col-span-3 space-y-6">
+          {!sub ? (
+            <NoSubscriptionCard />
+          ) : isTiffin ? (
+            <TiffinHeroCard sub={sub} isPaused={isPaused} pausing={pausing} togglePause={togglePause} daysLeft={daysLeft} />
+          ) : (
+            <QRTicket
+              token={qr?.qr_token}
+              userName={qr?.user_name || user?.name}
+              mealsLeft={mealsLeft}
+              mealsTotal={sub.meals_total}
+              daysLeft={daysLeft}
+              planName={sub.plan_name}
+            />
           )}
         </div>
 
         <div className="lg:col-span-2 space-y-6">
-          {/* Wallet card */}
           {sub && (
-            <div className="bg-primary text-primary-foreground rounded-2xl p-6" data-testid="wallet-card">
+            <div className={`text-primary-foreground rounded-2xl p-6 ${isPaused ? "bg-amber-600" : "bg-primary"}`} data-testid="wallet-card">
               <div className="flex items-center justify-between">
                 <Wallet className="h-5 w-5 text-primary-foreground/70" strokeWidth={1.75} />
-                <span className="text-[10px] tracking-overline uppercase font-bold text-primary-foreground/70">Wallet</span>
+                <span className="text-[10px] tracking-overline uppercase font-bold text-primary-foreground/70">{isPaused ? "Wallet · Paused" : "Wallet"}</span>
               </div>
               <p className="font-display font-extrabold text-5xl mt-3 leading-none flex items-baseline" data-testid="wallet-balance">
                 <IndianRupee className="h-7 w-7" strokeWidth={2} />
@@ -99,27 +114,32 @@ export default function SubscriberDashboard() {
                   <p className="font-display font-bold text-lg mt-1">₹{Math.round(sub.per_day_amount)}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] tracking-overline uppercase font-bold text-primary-foreground/70 flex items-center gap-1"><Pause className="h-3 w-3" /> Paused</p>
+                  <p className="text-[10px] tracking-overline uppercase font-bold text-primary-foreground/70 flex items-center gap-1"><Pause className="h-3 w-3" /> Extended</p>
                   <p className="font-display font-bold text-lg mt-1" data-testid="paused-days">{sub.paused_days} days</p>
                 </div>
               </div>
-              <p className="text-xs text-primary-foreground/70 mt-4">Skip 3+ days in a row → wallet pauses & your plan auto-extends.</p>
+              <p className="text-xs text-primary-foreground/70 mt-4">
+                {isTiffin
+                  ? "Pause anytime · 7+ continuous days = end-date extended."
+                  : "Skip 3+ days in a row → wallet pauses & your plan auto-extends."}
+              </p>
             </div>
           )}
 
-          {/* Today's status */}
-          <div className="bg-card rounded-2xl border border-black/5 p-6" data-testid="status-card">
-            <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Today</p>
-            <div className="mt-4 space-y-3">
-              <StatusRow icon={Sun} label="Lunch" done={lunchDone} />
-              <StatusRow icon={Moon} label="Dinner" done={dinnerDone} />
+          {/* Eat-in only: Today's check-in status + scan CTA */}
+          {!isTiffin && sub && (
+            <div className="bg-card rounded-2xl border border-black/5 p-6" data-testid="status-card">
+              <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Today</p>
+              <div className="mt-4 space-y-3">
+                <StatusRow icon={Sun} label="Lunch" done={lunchDone} />
+                <StatusRow icon={Moon} label="Dinner" done={dinnerDone} />
+              </div>
+              <Link to="/self-scan">
+                <Button className="mt-5 w-full rounded-full bg-primary hover:bg-primary/90" data-testid="self-scan-cta">Scan counter QR</Button>
+              </Link>
             </div>
-            <Link to="/self-scan">
-              <Button className="mt-5 w-full rounded-full bg-primary hover:bg-primary/90" data-testid="self-scan-cta">Scan counter QR</Button>
-            </Link>
-          </div>
+          )}
 
-          {/* Menu */}
           <div className="bg-card rounded-2xl border border-black/5 p-6" data-testid="todays-menu">
             <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Today's menu</p>
             <div className="mt-4 space-y-4">
@@ -134,25 +154,96 @@ export default function SubscriberDashboard() {
             </div>
           </div>
 
-          {/* History */}
-          <div className="bg-card rounded-2xl border border-black/5 p-6" data-testid="history-card">
-            <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Recent check-ins</p>
-            <div className="mt-4 space-y-3 max-h-56 overflow-auto">
-              {history.length === 0 && <p className="text-sm text-muted-foreground">No check-ins yet.</p>}
-              {history.slice(0, 10).map((r) => (
-                <div key={r.att_id} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    {r.meal_type === "lunch" ? <Sun className="h-4 w-4 text-secondary" strokeWidth={1.75} /> : <Moon className="h-4 w-4 text-primary" strokeWidth={1.75} />}
-                    <span className="capitalize font-medium">{r.meal_type}</span>
-                    <span className="text-muted-foreground text-xs">· {r.date_str}</span>
+          {!isTiffin && (
+            <div className="bg-card rounded-2xl border border-black/5 p-6" data-testid="history-card">
+              <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Recent check-ins</p>
+              <div className="mt-4 space-y-3 max-h-56 overflow-auto">
+                {history.length === 0 && <p className="text-sm text-muted-foreground">No check-ins yet.</p>}
+                {history.slice(0, 10).map((r) => (
+                  <div key={r.att_id} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      {r.meal_type === "lunch" ? <Sun className="h-4 w-4 text-secondary" strokeWidth={1.75} /> : <Moon className="h-4 w-4 text-primary" strokeWidth={1.75} />}
+                      <span className="capitalize font-medium">{r.meal_type}</span>
+                      <span className="text-muted-foreground text-xs">· {r.date_str}</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" />{formatTime(r.checked_at)}</span>
                   </div>
-                  <span className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" />{formatTime(r.checked_at)}</span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function NoSubscriptionCard() {
+  return (
+    <div className="bg-secondary/10 border border-secondary/20 rounded-2xl p-8 text-center" data-testid="no-sub-banner">
+      <Utensils className="h-8 w-8 text-secondary mx-auto" />
+      <p className="font-display font-bold text-xl mt-3">You don't have an active plan</p>
+      <p className="text-sm text-muted-foreground mt-1">Pick a dining or tiffin plan to start eating ghar se achha khana.</p>
+      <Link to="/plans">
+        <Button className="mt-5 rounded-full bg-secondary hover:bg-secondary/90" data-testid="get-plan-button">Choose a plan</Button>
+      </Link>
+    </div>
+  );
+}
+
+function TiffinHeroCard({ sub, isPaused, pausing, togglePause, daysLeft }) {
+  return (
+    <div className="rounded-3xl border border-border bg-card p-6 md:p-7 space-y-5" data-testid="tiffin-hero-card">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] tracking-overline uppercase font-bold text-secondary flex items-center gap-1.5">
+            <Truck className="h-3.5 w-3.5" /> {sub.tiffin_size === "half" ? "Half" : "Full"} tiffin · {sub.plan_name}
+          </p>
+          <h2 className="font-display font-extrabold text-2xl md:text-3xl mt-2 leading-tight">
+            {isPaused ? "Delivery is paused" : "Delivery is active"}
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            {isPaused
+              ? "You're off the dispatch list — wallet keeps deducting; pause for 7+ days to auto-extend."
+              : `${daysLeft} day${daysLeft !== 1 ? "s" : ""} of tiffins left.`}
+          </p>
+        </div>
+        <Button
+          onClick={togglePause}
+          disabled={pausing}
+          className={`rounded-full font-semibold ${isPaused ? "bg-primary hover:bg-primary/90" : "bg-amber-500 hover:bg-amber-600 text-white"}`}
+          data-testid="toggle-pause-button"
+        >
+          {pausing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : isPaused ? <Play className="h-4 w-4 mr-2" /> : <Pause className="h-4 w-4 mr-2" />}
+          {isPaused ? "Resume delivery" : "Pause delivery"}
+        </Button>
+      </div>
+
+      {isPaused && (
+        <div className="flex items-start gap-3 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-900" data-testid="pause-info">
+          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+          <p>
+            While paused, your daily wallet deduction (₹{Math.round(sub.per_day_amount)}/day) continues —
+            but once you've been paused for <b>more than 7 days continuously</b>, every additional paused day
+            extends your subscription end-date by 1 day. <span className="font-semibold">Resume any time.</span>
+          </p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-3 gap-3 pt-2">
+        <Stat label="Days left" value={daysLeft} />
+        <Stat label="Tiffins left" value={Math.max(0, sub.meals_total - sub.meals_used)} />
+        <Stat label="End date" value={new Date(sub.end_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} />
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value }) {
+  return (
+    <div className="rounded-xl bg-muted/40 px-4 py-3">
+      <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">{label}</p>
+      <p className="font-display font-extrabold text-xl mt-1 leading-tight">{value}</p>
     </div>
   );
 }

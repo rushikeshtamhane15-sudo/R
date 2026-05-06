@@ -35,7 +35,18 @@ const DEFAULTS = {
 
 export default function Login() {
   const navigate = useNavigate();
-  const { setUser } = useAuth();
+  const { user, setUser } = useAuth();
+
+  // If already logged in, bounce to the right home — never show login form again.
+  useEffect(() => {
+    if (user) {
+      const target = user.role === "admin" ? "/admin"
+        : user.role === "staff" ? "/staff/scanner"
+        : "/dashboard";
+      navigate(target, { replace: true });
+    }
+  }, [user, navigate]);
+
   const [content, setContent] = useState(DEFAULTS);
   const [mode, setMode] = useState("phone"); // phone | verify
   const [phone, setPhone] = useState("");

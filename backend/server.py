@@ -67,9 +67,9 @@ CUSTOM_MIN_DAYS = 1
 CUSTOM_MAX_DAYS = 90
 
 DEFAULT_PLANS = [
-    {"plan_id": "premium_60", "name": "Premium", "description": "Our best plan — 60 home-style meals", "amount": 2800.0, "currency": "INR", "duration_days": 30, "meals": 60, "active": True, "sort_order": 1, "plan_type": "kiosk", "tiffin_size": None, "tiffins_per_day": 0},
-    {"plan_id": "classic_60", "name": "Classic Full Tiffin", "description": "Full home-style tiffin — 5 chapati + sabzi/dal/rice, delivered twice daily", "amount": 2600.0, "currency": "INR", "duration_days": 30, "meals": 60, "active": True, "sort_order": 2, "plan_type": "delivery", "tiffin_size": "full", "tiffins_per_day": 2},
-    {"plan_id": "saver_60", "name": "Classic Half Tiffin", "description": "Lighter portion tiffin — 3 chapati + sabzi/dal, delivered twice daily", "amount": 1800.0, "currency": "INR", "duration_days": 30, "meals": 60, "active": True, "sort_order": 3, "plan_type": "delivery", "tiffin_size": "half", "tiffins_per_day": 2},
+    {"plan_id": "premium_60", "name": "Premium Dining", "description": "Eat at our hall · 60 home-style meals across 30 days · scan QR at counter", "amount": 2800.0, "currency": "INR", "duration_days": 30, "meals": 60, "active": True, "sort_order": 1, "plan_type": "kiosk", "service_type": "dining", "tiffin_size": None, "tiffins_per_day": 0},
+    {"plan_id": "classic_60", "name": "Classic Full Tiffin", "description": "Full home-style tiffin — 5 chapati + sabzi/dal/rice, delivered twice daily", "amount": 2600.0, "currency": "INR", "duration_days": 30, "meals": 60, "active": True, "sort_order": 2, "plan_type": "delivery", "service_type": "tiffin", "tiffin_size": "full", "tiffins_per_day": 2},
+    {"plan_id": "saver_60", "name": "Classic Half Tiffin", "description": "Lighter portion tiffin — 3 chapati + sabzi/dal, delivered twice daily", "amount": 1800.0, "currency": "INR", "duration_days": 30, "meals": 60, "active": True, "sort_order": 3, "plan_type": "delivery", "service_type": "tiffin", "tiffin_size": "half", "tiffins_per_day": 2},
 ]
 
 
@@ -168,6 +168,8 @@ class CreateOrderRequest(BaseModel):
 
 class CustomOrderRequest(BaseModel):
     days: int
+    service_type: Literal["dining", "tiffin"] = "dining"
+    tiffin_size: Optional[Literal["full", "half"]] = "full"
 
 
 class VerifyPaymentRequest(BaseModel):
@@ -208,7 +210,7 @@ async def seed_plans():
             await db.plans.insert_one(doc)
         else:
             # One-shot migration: ensure new delivery fields exist on existing rows
-            patch = {k: v for k, v in p.items() if k in ("plan_type", "tiffin_size", "tiffins_per_day", "name", "description") and existing.get(k) != v}
+            patch = {k: v for k, v in p.items() if k in ("plan_type", "service_type", "tiffin_size", "tiffins_per_day", "name", "description") and existing.get(k) != v}
             if patch:
                 patch["updated_at"] = iso(now_utc())
                 await db.plans.update_one({"plan_id": p["plan_id"]}, {"$set": patch})
@@ -537,12 +539,19 @@ async def create_custom_order(payload: CustomOrderRequest, user: User = Depends(
         raise HTTPException(status_code=400, detail=f"Days must be between {CUSTOM_MIN_DAYS} and {CUSTOM_MAX_DAYS}")
     meals = days * MEALS_PER_DAY
     amount = round(meals * MEAL_PRICE_INR, 2)
+    service_type = payload.service_type or "dining"
+    tiffin_size = payload.tiffin_size if service_type == "tiffin" else None
+    name_suffix = "Tiffin" if service_type == "tiffin" else "Dining"
     return await _create_order_record(
         user=user, user_doc=user_doc,
-        plan_id=f"custom_{days}d", plan_name=f"Custom — {days} day{'s' if days > 1 else ''}",
+        plan_id=f"custom_{service_type}_{days}d",
+        plan_name=f"Custom {name_suffix} — {days} day{'s' if days > 1 else ''}",
         amount=amount, currency="INR",
         duration_days=days, meals=meals,
         custom=True,
+        service_type=service_type,
+        tiffin_size=tiffin_size,
+        plan_type="delivery" if service_type == "tiffin" else "kiosk",
     )
 
 
@@ -559,7 +568,7 @@ async def custom_plan_preview(days: int):
     }
 
 
-async def _create_order_record(*, user, user_doc, plan_id, plan_name, amount, currency, duration_days, meals, custom):
+async def _create_order_record(*, user, user_doc, plan_id, plan_name, amount, currency, duration_days, meals, custom, service_type=None, tiffin_size=None, plan_type=None):
     # Platform fee on top of plan amount — recovers payment-gateway cost
     base_amount = round(float(amount), 2)
     fee_pct = float(PLATFORM_FEE_PCT)
@@ -592,6 +601,9 @@ async def _create_order_record(*, user, user_doc, plan_id, plan_name, amount, cu
         "amount_paise": amount_paise, "currency": currency,
         "duration_days": duration_days, "meals": meals,
         "custom": custom, "status": "created", "mock": mock,
+        "service_type": service_type,
+        "tiffin_size": tiffin_size,
+        "plan_type": plan_type,
         "created_at": iso(now_utc()),
     })
 
@@ -635,6 +647,7 @@ async def _activate_subscription(order: dict):
     # Build plan-shape from either DB plan or the order itself (custom flow).
     # Use base_amount so the wallet loads the actual plan value, not the platform fee.
     plan_amount = float(order.get("base_amount") or order["amount"])
+    # For custom orders, fields come from the order; for standard, from the DB plan doc.
     if order.get("custom"):
         plan = {
             "plan_id": order["plan_id"],
@@ -643,6 +656,9 @@ async def _activate_subscription(order: dict):
             "currency": order.get("currency", "INR"),
             "duration_days": int(order["duration_days"]),
             "meals": int(order["meals"]),
+            "service_type": order.get("service_type") or "dining",
+            "tiffin_size": order.get("tiffin_size"),
+            "plan_type": order.get("plan_type") or ("delivery" if order.get("service_type") == "tiffin" else "kiosk"),
         }
     else:
         plan_doc = await db.plans.find_one({"plan_id": order["plan_id"]}, {"_id": 0})
@@ -671,6 +687,11 @@ async def _activate_subscription(order: dict):
         "status": "active",
         "order_id": order["order_id"],
         "is_custom": bool(order.get("custom")),
+        "service_type": plan.get("service_type") or "dining",
+        "plan_type": plan.get("plan_type") or "kiosk",
+        "tiffin_size": plan.get("tiffin_size"),
+        "user_paused": False,
+        "user_pause_started_at": None,
         "created_at": iso(start),
     }
     await db.subscriptions.insert_one(sub.copy())
@@ -742,7 +763,13 @@ INACTIVITY_THRESHOLD_DAYS = 3
 
 
 async def catch_up_subscription(sub: dict) -> dict:
-    """Apply per-day deductions + pause extension for days between last_tick and today."""
+    """Apply per-day deductions + pause extension for days between last_tick and today.
+
+    Two pause modes:
+      * Auto-pause (existing): no kiosk scan in last 3 days → no deduction, end-date +1 day.
+      * User-pause (tiffin only): subscriber tapped Pause Delivery → wallet still ticks daily;
+        after a continuous 7-day streak, every subsequent paused day extends end-date by 1.
+    """
     today = date.today()
     last = date.fromisoformat(sub["last_tick_date"])
     if last >= today or sub["status"] != "active":
@@ -757,6 +784,28 @@ async def catch_up_subscription(sub: dict) -> dict:
     current = last
     while current < today:
         current = current + timedelta(days=1)
+        # ---- USER-PAUSED branch (tiffin only) ----
+        if sub.get("user_paused") and sub.get("service_type") == "tiffin":
+            # Always deduct (matches eat-in deduction rate).
+            new_balance = round(float(sub["wallet_balance"]) - per_day, 2)
+            if new_balance < 0:
+                new_balance = 0.0
+            sub["wallet_balance"] = new_balance
+            deducted_amount += per_day
+            await _log_wallet_txn(user_id, sub["sub_id"], "debit", per_day, new_balance, f"Daily deduction (paused) · {current.isoformat()}")
+            # Extend end-date once consecutive paused streak exceeds 7 days
+            pause_start = sub.get("user_pause_started_at")
+            if pause_start:
+                streak = (current - date.fromisoformat(pause_start[:10])).days + 1
+                if streak > 7:
+                    sub["end_date"] = iso(parse_dt(sub["end_date"]) + timedelta(days=1))
+                    sub["paused_days"] = int(sub.get("paused_days", 0)) + 1
+                    paused_added += 1
+                    await _log_wallet_txn(user_id, sub["sub_id"], "pause", 0.0, new_balance, f"Pause-extension · {current.isoformat()} (day {streak})")
+            days_processed += 1
+            continue
+
+        # ---- AUTO-PAUSE branch (kiosk) ----
         # Determine inactivity: look at attendance in window [current - INACTIVITY_THRESHOLD, current)
         window_start = (current - timedelta(days=INACTIVITY_THRESHOLD_DAYS)).isoformat()
         window_end = current.isoformat()
@@ -765,7 +814,8 @@ async def catch_up_subscription(sub: dict) -> dict:
             "date_str": {"$gte": window_start, "$lt": window_end},
         }, {"_id": 0})
 
-        if recent_scan:
+        if recent_scan or sub.get("service_type") == "tiffin":
+            # Tiffin (active, not user-paused) always deducts; eat-in only deducts when scan window has activity.
             new_balance = round(float(sub["wallet_balance"]) - per_day, 2)
             if new_balance < 0:
                 new_balance = 0.0
@@ -1138,6 +1188,40 @@ async def my_subscription(user: User = Depends(get_current_user)):
     if not sub:
         return {"active": False, "subscription": None}
     return {"active": True, "subscription": sub}
+
+
+@api_router.post("/my/subscription/pause")
+async def pause_my_subscription(user: User = Depends(get_current_user)):
+    """Tiffin subscriber pauses delivery — they'll be skipped in roster generation.
+    Wallet keeps deducting; once continuous pause exceeds 7 days, end-date auto-extends."""
+    sub = await get_active_subscription(user.user_id)
+    if not sub:
+        raise HTTPException(status_code=404, detail="No active subscription")
+    if sub.get("service_type") != "tiffin":
+        raise HTTPException(status_code=400, detail="Only tiffin subscriptions can be paused — eat-in pass auto-pauses on 3+ skipped scans.")
+    if sub.get("user_paused"):
+        return {"ok": True, "already": True, "subscription": sub}
+    await db.subscriptions.update_one(
+        {"sub_id": sub["sub_id"]},
+        {"$set": {"user_paused": True, "user_pause_started_at": iso(now_utc())}},
+    )
+    fresh = await db.subscriptions.find_one({"sub_id": sub["sub_id"]}, {"_id": 0})
+    return {"ok": True, "subscription": fresh}
+
+
+@api_router.post("/my/subscription/resume")
+async def resume_my_subscription(user: User = Depends(get_current_user)):
+    sub = await get_active_subscription(user.user_id)
+    if not sub:
+        raise HTTPException(status_code=404, detail="No active subscription")
+    if not sub.get("user_paused"):
+        return {"ok": True, "already": True, "subscription": sub}
+    await db.subscriptions.update_one(
+        {"sub_id": sub["sub_id"]},
+        {"$set": {"user_paused": False, "user_pause_started_at": None}},
+    )
+    fresh = await db.subscriptions.find_one({"sub_id": sub["sub_id"]}, {"_id": 0})
+    return {"ok": True, "subscription": fresh}
 
 
 @api_router.get("/my/qr")
