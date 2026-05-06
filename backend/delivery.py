@@ -426,10 +426,29 @@ def make_router(db) -> APIRouter:
             upd["distance_m"] = round(dist, 1)
             geofence = float(settings.get("geofence_meters") or 250)
             if dist > geofence:
+                # Log the rejection so admins can see false-rejection patterns over time
+                await db.delivery_attempts.insert_one({
+                    "ts": iso(now_utc()),
+                    "outcome": "rejected_too_far",
+                    "distance_m": round(dist, 1),
+                    "geofence_meters": geofence,
+                    "roster_id": roster_id,
+                    "user_id": item["user_id"],
+                    "meal_type": item["meal_type"],
+                })
                 raise HTTPException(
                     status_code=400,
                     detail=f"You're {round(dist)}m away from the customer — geofence limit is {int(geofence)}m. Walk to the door and try again.",
                 )
+            await db.delivery_attempts.insert_one({
+                "ts": iso(now_utc()),
+                "outcome": "delivered",
+                "distance_m": round(dist, 1),
+                "geofence_meters": geofence,
+                "roster_id": roster_id,
+                "user_id": item["user_id"],
+                "meal_type": item["meal_type"],
+            })
             upd["distance_warning"] = False
 
         await db.daily_rosters.update_one({"roster_id": roster_id}, {"$set": upd})
@@ -460,6 +479,34 @@ def make_router(db) -> APIRouter:
         }
         await db.delivery_handoffs.update_one({"handoff_id": handoff_id}, {"$set": upd})
         return {**h, **upd}
+
+    @router.get("/health")
+    async def geofence_health(_=Depends(admin_only)):
+        """Last-7-days delivery attempt stats with a suggested geofence radius."""
+        cutoff = iso(now_utc() - timedelta(days=7))
+        attempts = await db.delivery_attempts.find({"ts": {"$gte": cutoff}}, {"_id": 0}).to_list(20000)
+        total = len(attempts)
+        rejected = [a for a in attempts if a["outcome"] == "rejected_too_far"]
+        delivered = [a for a in attempts if a["outcome"] == "delivered"]
+        rejection_rate = (len(rejected) / total) if total else 0.0
+        # Suggest a radius that would have admitted ~95% of recent rejections (P95 of their distances).
+        suggested = None
+        if rejected:
+            distances = sorted(r.get("distance_m", 0) for r in rejected)
+            idx = max(0, min(len(distances) - 1, int(round(0.95 * (len(distances) - 1)))))
+            suggested = int(math.ceil(distances[idx] / 5.0) * 5)  # round up to nearest 5
+        settings = await _load_settings()
+        current = int(settings.get("geofence_meters") or 10)
+        return {
+            "window_days": 7,
+            "total_attempts": total,
+            "delivered": len(delivered),
+            "rejected_too_far": len(rejected),
+            "rejection_rate": round(rejection_rate, 3),
+            "current_geofence_m": current,
+            "suggested_geofence_m": suggested,
+            "show_hint": rejection_rate >= 0.25 and total >= 5,
+        }
 
     return router
 

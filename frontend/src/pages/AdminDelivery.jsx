@@ -517,9 +517,17 @@ function BoysPanel() {
 function SettingsPanel() {
   const [s, setS] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [health, setHealth] = useState(null);
 
   useEffect(() => { (async () => {
-    try { const r = await api.get("/admin/delivery/settings"); setS(r.data); } catch {}
+    try {
+      const [sr, hr] = await Promise.all([
+        api.get("/admin/delivery/settings"),
+        api.get("/admin/delivery/health"),
+      ]);
+      setS(sr.data);
+      setHealth(hr.data);
+    } catch {}
   })(); }, []);
 
   if (!s) return <div className="text-muted-foreground flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading settings…</div>;
@@ -540,8 +548,32 @@ function SettingsPanel() {
     finally { setSaving(false); }
   };
 
+  const applySuggested = () => {
+    if (health?.suggested_geofence_m) upd({ geofence_meters: health.suggested_geofence_m });
+  };
+
   return (
     <div className="space-y-6" data-testid="settings-panel">
+      {health?.show_hint && (
+        <div className="rounded-2xl bg-amber-50 border border-amber-300 p-4 md:p-5 flex flex-wrap items-start gap-3" data-testid="geofence-hint">
+          <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-amber-900">Geofence may be too tight</p>
+            <p className="text-xs text-amber-900/80 mt-1">
+              In the last 7 days, <b>{health.rejected_too_far}</b> of <b>{health.total_attempts}</b> delivery attempts were rejected as "too far"
+              {" "}({Math.round(health.rejection_rate * 100)}%). Your delivery boys may be at the door but their phone GPS reads off.
+              {health.suggested_geofence_m && (
+                <> Try raising the radius to <b>{health.suggested_geofence_m}m</b> — that would have admitted ~95% of those.</>
+              )}
+            </p>
+            {health.suggested_geofence_m && (
+              <Button onClick={applySuggested} size="sm" className="mt-3 rounded-full bg-amber-600 hover:bg-amber-700 text-white" data-testid="apply-suggested-geofence">
+                Use {health.suggested_geofence_m}m
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
       <div className="bg-card rounded-2xl border border-border p-5 space-y-4">
         <div className="grid md:grid-cols-2 gap-4">
           <Field label="Lunch cut-off"><Input value={s.lunch_cutoff || ""} onChange={(e) => upd({ lunch_cutoff: e.target.value })} placeholder="HH:MM" data-testid="lunch-cutoff" /></Field>
