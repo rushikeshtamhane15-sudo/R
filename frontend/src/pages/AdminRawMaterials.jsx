@@ -14,6 +14,9 @@ export default function AdminRawMaterials() {
   const [draft, setDraft] = useState([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [generatingPO, setGeneratingPO] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState([]);
 
   const load = async () => {
     setLoading(true);
@@ -64,6 +67,61 @@ export default function AdminRawMaterials() {
     } catch { toast.error("Reset failed"); }
   };
 
+  const generatePO = async () => {
+    setGeneratingPO(true);
+    try {
+      const supplier = window.prompt("Supplier name (optional — leave blank to skip):", "") || null;
+      const r = await api.post(
+        "/admin/purchase-orders/generate",
+        { supplier_name: supplier },
+        { responseType: "blob" }
+      );
+      const poNumber = r.headers["x-po-number"] || `PO-${Date.now()}`;
+      const blob = new Blob([r.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${poNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success(`Purchase order ${poNumber} generated`);
+      // refresh history if it's open
+      if (showHistory) loadHistory();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Could not generate PO");
+    } finally { setGeneratingPO(false); }
+  };
+
+  const loadHistory = async () => {
+    try {
+      const r = await api.get("/admin/purchase-orders");
+      setHistory(r.data.purchase_orders || []);
+    } catch {}
+  };
+
+  const toggleHistory = () => {
+    const next = !showHistory;
+    setShowHistory(next);
+    if (next) loadHistory();
+  };
+
+  const redownload = async (poNumber) => {
+    try {
+      const r = await api.get(`/admin/purchase-orders/${poNumber}/download`, { responseType: "blob" });
+      const blob = new Blob([r.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${poNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) { toast.error(e?.response?.data?.detail || "Failed to download"); }
+  };
+
   if (loading || !data) {
     return <div className="text-muted-foreground flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Crunching today's requirements…</div>;
   }
@@ -82,7 +140,14 @@ export default function AdminRawMaterials() {
             Calculated live from active subscribers — full tiffin / dining = 1 person, half tiffin = 0.5. Each meal needs <b>1/60th</b> of one person's monthly allocation. Update rates anytime; numbers update across lunch + dinner.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button onClick={generatePO} disabled={generatingPO} className="rounded-full bg-primary hover:bg-primary/90 font-semibold" data-testid="generate-po">
+            {generatingPO ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileDown className="h-4 w-4 mr-2" />}
+            Generate PO PDF
+          </Button>
+          <Button onClick={toggleHistory} variant="outline" className="rounded-full" data-testid="toggle-po-history">
+            <History className="h-4 w-4 mr-2" /> {showHistory ? "Hide" : "Show"} history
+          </Button>
           {!editing && (
             <Button onClick={beginEdit} variant="outline" className="rounded-full" data-testid="edit-rates">
               <Edit3 className="h-4 w-4 mr-2" /> Edit rates
@@ -202,6 +267,35 @@ export default function AdminRawMaterials() {
           </table>
         </div>
       </div>
+
+      {showHistory && (
+        <div className="rounded-2xl border border-border bg-card p-5" data-testid="po-history-panel">
+          <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground flex items-center gap-1.5">
+            <History className="h-3.5 w-3.5" /> Past purchase orders · {history.length}
+          </p>
+          {history.length === 0 ? (
+            <p className="text-sm text-muted-foreground mt-3">No purchase orders generated yet.</p>
+          ) : (
+            <ul className="mt-3 space-y-2 max-h-72 overflow-auto">
+              {history.map((po) => (
+                <li key={po.po_number} className="rounded-xl bg-muted/30 px-4 py-3 flex flex-wrap items-center gap-3" data-testid={`po-row-${po.po_number}`}>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold font-mono text-sm">{po.po_number}</p>
+                    <p className="text-xs text-muted-foreground">
+                      For {po.for_date} · ₹{(po.totals?.day_cost || 0).toFixed(2)} · by {po.generated_by_name || po.generated_by_email}
+                    </p>
+                    {po.supplier_name && <p className="text-[11px] text-muted-foreground">Supplier: {po.supplier_name}</p>}
+                  </div>
+                  <span className="text-[11px] text-muted-foreground">{po.generated_at_local}</span>
+                  <Button onClick={() => redownload(po.po_number)} size="sm" variant="outline" className="rounded-full" data-testid={`redownload-${po.po_number}`}>
+                    <FileDown className="h-3.5 w-3.5 mr-1.5" /> Re-download
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       <div className="rounded-2xl bg-muted/40 border border-border p-4 flex items-start gap-2 text-xs text-muted-foreground">
         <Sparkles className="h-3.5 w-3.5 mt-0.5 shrink-0" />

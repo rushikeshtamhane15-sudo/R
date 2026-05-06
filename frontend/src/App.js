@@ -28,6 +28,7 @@ import AdminContent from "./pages/AdminContent";
 import AdminLanding from "./pages/AdminLanding";
 import AdminDashboardEditor from "./pages/AdminDashboardEditor";
 import AdminRawMaterials from "./pages/AdminRawMaterials";
+import StaffDeliveries from "./pages/StaffDeliveries";
 import Plans from "./pages/Plans";
 import Checkout from "./pages/Checkout";
 import Profile from "./pages/Profile";
@@ -44,11 +45,18 @@ function RequireAuth({ children, roles }) {
   return children;
 }
 
+function AdminIndex() {
+  const { user } = useAuth();
+  if (user?.role === "staff") return <Navigate to="/admin/deliveries-today" replace />;
+  return <AdminOverview />;
+}
+
 function PostLogin() {
   const { user, loading } = useAuth();
   if (loading) return <div className="p-12 text-center text-muted-foreground">Loading…</div>;
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === "admin") return <Navigate to="/admin" replace />;
+  if (user.role === "staff") return <Navigate to="/admin/deliveries-today" replace />;
   if (user.role === "delivery_boy") return <Navigate to="/boy" replace />;
   return <Dashboard />;
 }
@@ -87,9 +95,9 @@ function AppRoutes() {
           <Route path="/refund" element={<Refund />} />
           <Route path="/contact" element={<Contact />} />
 
-          {/* Admin */}
-          <Route path="/admin" element={<RequireAuth roles={["admin"]}><AdminLayout /></RequireAuth>}>
-            <Route index element={<AdminOverview />} />
+          {/* Admin / staff */}
+          <Route path="/admin" element={<RequireAuth roles={["admin", "staff"]}><AdminLayout /></RequireAuth>}>
+            <Route index element={<AdminIndex />} />
             <Route path="plans" element={<AdminPlans />} />
             <Route path="delivery" element={<AdminDelivery />} />
             <Route path="live" element={<AdminLiveMap />} />
@@ -101,6 +109,7 @@ function AppRoutes() {
             <Route path="landing" element={<AdminLanding />} />
             <Route path="dashboard-editor" element={<AdminDashboardEditor />} />
             <Route path="raw-materials" element={<AdminRawMaterials />} />
+            <Route path="deliveries-today" element={<StaffDeliveries />} />
             <Route path="content/:contentKey" element={<AdminContent />} />
           </Route>
 

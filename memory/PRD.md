@@ -84,7 +84,16 @@ MSG91_FLOW_TIFFIN=
 MSG91_STUB_MODE=true
 ```
 
-### Iteration 11 (Feb 6, 2026) — Wallet overrides + half-tiffin pricing + raw materials + tick model
+### Iteration 12 (Feb 6, 2026) — Purchase Order PDF + Staff workspace
+- **Generate PO PDF** — `/admin/raw-materials` has a "Generate PO PDF" button that calls `POST /api/admin/purchase-orders/generate` (admin + staff). Backend uses `reportlab` (`/app/backend/po_pdf.py`) to render a branded A4 PDF with item-by-item quantities, lunch/dinner/day costs, supplier name, generated-by signature line, and notes. PO is stored in `db.purchase_orders` for audit; `GET /admin/purchase-orders` lists them, `GET /admin/purchase-orders/{po_number}/download` re-generates from snapshot.
+- **Staff workspace** — staff role now has access to `/admin` with a filtered sidebar showing only:
+  - **Today's deliveries** (`/admin/deliveries-today`) — read-only packing list with lunch/dinner tabs, full/half/all filters, search by name/phone/pincode, outstanding-empties chip, status pill per row.
+  - **Raw materials** (read + generate PO; cannot edit rates).
+  - **QR Scanner / Counter QR** (existing staff scope).
+- **Backend access control**: `_admin_or_staff()` helper guards new staff endpoints. `PUT /admin/raw-materials` and `/reset` remain admin-only (rate edits stay with admin).
+- **New endpoint**: `GET /api/staff/today-deliveries` returns `{date, rows, counts:{lunch:{full,half,delivered}, dinner:{full,half,delivered}, total_lunch, total_dinner, outstanding_empties}}`.
+- **Staff post-login redirect**: staff land on `/admin/deliveries-today` (not subscriber dashboard).
+- 11/11 new backend tests (test_iter11.py); 64/64 cumulative iter7-11 pass.
 - **Admin wallet/refund overrides** — `POST /api/admin/users/{id}/wallet-adjust` with `{delta, reason, extend_days, restore_meals}` — admin can refund (positive delta), debit (negative, clamps at 0), extend the active sub end-date, or restore consumed meals. Audit-logged in `db.wallet_overrides`. Fronted by a new modal in `/admin/users` with recent-overrides list. `GET /admin/users/{id}/wallet-history` returns transactions + overrides.
 - **Half-tiffin custom pricing** — `MEAL_PRICE_HALF_INR = 50` for `tiffin_size="half"` (₹100/day); full tiffin & dining stay ₹70/meal (₹140/day). `/plans/custom/preview` now accepts `service_type` + `tiffin_size` query params.
 - **Tick model** — each active day-pass bumps `meals_used` by 2 (consumes the day's meal allocation) AND deducts the wallet. Inactive (3+ no-scan) days neither bump meals nor deduct money — they just extend `end_date` by 1 day. Scan-based `meals_used` increment removed (now solely tick-driven so attendance and meal accounting are decoupled).

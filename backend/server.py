@@ -2012,10 +2012,14 @@ async def _count_active_persons() -> dict:
     return {"full": full, "half": half, "persons": round(persons, 2), "active_subs": full + half}
 
 
+def _admin_or_staff(user: User):
+    if user.role not in ("admin", "staff"):
+        raise HTTPException(status_code=403, detail="Admin or staff only")
+
+
 @api_router.get("/admin/raw-materials")
 async def get_raw_materials(user: User = Depends(get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
+    _admin_or_staff(user)
     items = await _load_raw_materials()
     counts = await _count_active_persons()
     persons = float(counts["persons"])
@@ -2106,6 +2110,135 @@ async def reset_raw_materials(user: User = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Admin only")
     await db.raw_materials_config.update_one({"_id": "active"}, {"$set": {"items": RAW_MATERIAL_DEFAULTS, "updated_at": iso(now_utc())}}, upsert=True)
     return await get_raw_materials(user)
+
+
+# ---------------------------
+# Purchase order PDF — admin + staff
+# ---------------------------
+class POGenerateRequest(BaseModel):
+    for_date: Optional[str] = None        # ISO yyyy-mm-dd; defaults to tomorrow
+    supplier_name: Optional[str] = None
+    notes: Optional[List[str]] = None
+
+
+@api_router.post("/admin/purchase-orders/generate")
+async def generate_purchase_order(payload: POGenerateRequest, user: User = Depends(get_current_user)):
+    """Generate a PO PDF for tomorrow's procurement. Admin + staff. Stored under db.purchase_orders for audit + redownload."""
+    from po_pdf import build_po_pdf  # local import — keeps reportlab off the hot path until needed
+
+    _admin_or_staff(user)
+
+    # Reuse the live raw-materials calc
+    rm = await get_raw_materials(user)
+
+    for_date = payload.for_date or (date.today() + timedelta(days=1)).isoformat()
+    po_number = f"PO-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+    generated_at = now_utc()
+    generated_at_local = generated_at.astimezone(timezone(timedelta(hours=5, minutes=30))).strftime("%Y-%m-%d %H:%M IST")
+
+    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0}) or {}
+    po_data = {
+        "po_number": po_number,
+        "for_date": for_date,
+        "generated_at": iso(generated_at),
+        "generated_at_local": generated_at_local,
+        "generated_by_user_id": user.user_id,
+        "generated_by_email": user_doc.get("email") or user.email,
+        "generated_by_name": user_doc.get("name") or user.email,
+        "mess_name": "eFoodCare",
+        "supplier_name": (payload.supplier_name or "").strip() or None,
+        "counts": rm["counts"],
+        "breakdown": rm["breakdown"],
+        "totals": rm["totals"],
+        "items_snapshot": rm["items"],
+        "notes": payload.notes or rm.get("notes") or [],
+    }
+
+    pdf_bytes = build_po_pdf(po_data)
+
+    # Persist for audit + later redownload (we reconstruct on demand to avoid binary in mongo)
+    await db.purchase_orders.insert_one({
+        **po_data,
+        "size_bytes": len(pdf_bytes),
+        "_audit_only": True,  # pdf is regenerated on download from same data
+    })
+
+    headers = {
+        "Content-Disposition": f'attachment; filename="{po_number}.pdf"',
+        "X-PO-Number": po_number,
+    }
+    return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+
+
+@api_router.get("/admin/purchase-orders")
+async def list_purchase_orders(user: User = Depends(get_current_user)):
+    _admin_or_staff(user)
+    docs = await db.purchase_orders.find({}, {"_id": 0, "items_snapshot": 0, "breakdown": 0}).sort("generated_at", -1).to_list(200)
+    return {"purchase_orders": docs, "count": len(docs)}
+
+
+@api_router.get("/admin/purchase-orders/{po_number}/download")
+async def download_purchase_order(po_number: str, user: User = Depends(get_current_user)):
+    """Re-generate the PDF for a stored PO from its snapshot (avoids binary blobs in mongo)."""
+    from po_pdf import build_po_pdf
+    _admin_or_staff(user)
+    po = await db.purchase_orders.find_one({"po_number": po_number}, {"_id": 0})
+    if not po:
+        raise HTTPException(status_code=404, detail="Purchase order not found")
+    pdf_bytes = build_po_pdf(po)
+    headers = {"Content-Disposition": f'attachment; filename="{po_number}.pdf"'}
+    return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+
+
+# ---------------------------
+# Staff today's deliveries — read-only summary of tiffins to pack today
+# ---------------------------
+@api_router.get("/staff/today-deliveries")
+async def staff_today_deliveries(user: User = Depends(get_current_user)):
+    """Read-only view used by staff (and admin) to see today's tiffin packing list.
+    Returns counts + per-customer rows separated by full / half tiffin and lunch / dinner."""
+    _admin_or_staff(user)
+    d = today_str()
+    rosters = await db.daily_rosters.find({"date": d}, {"_id": 0, "otp": 0}).to_list(20000)
+    user_ids = list({r["user_id"] for r in rosters})
+    users = {u["user_id"]: u async for u in db.users.find({"user_id": {"$in": user_ids}}, {"_id": 0, "user_id": 1, "name": 1, "phone": 1, "address": 1, "pincode": 1, "tiffin_balance": 1})}
+
+    rows = []
+    for r in rosters:
+        u = users.get(r["user_id"]) or {}
+        rows.append({
+            "roster_id": r["roster_id"],
+            "user_id": r["user_id"],
+            "name": u.get("name") or r.get("name") or "—",
+            "phone": u.get("phone") or r.get("phone") or "",
+            "address": u.get("address") or r.get("address") or "",
+            "pincode": u.get("pincode") or r.get("pincode") or "",
+            "meal_type": r["meal_type"],
+            "tiffin_size": r.get("tiffin_size") or "full",
+            "status": r["status"],
+            "tiffin_balance": int(u.get("tiffin_balance") or 0),
+        })
+
+    def _bucket(meal: str, size: str):
+        return [x for x in rows if x["meal_type"] == meal and x["tiffin_size"] == size]
+
+    counts = {
+        "lunch": {
+            "full": len(_bucket("lunch", "full")),
+            "half": len(_bucket("lunch", "half")),
+            "delivered": sum(1 for x in rows if x["meal_type"] == "lunch" and x["status"] == "delivered"),
+        },
+        "dinner": {
+            "full": len(_bucket("dinner", "full")),
+            "half": len(_bucket("dinner", "half")),
+            "delivered": sum(1 for x in rows if x["meal_type"] == "dinner" and x["status"] == "delivered"),
+        },
+        "total_lunch": sum(1 for x in rows if x["meal_type"] == "lunch"),
+        "total_dinner": sum(1 for x in rows if x["meal_type"] == "dinner"),
+        "outstanding_empties": sum(x["tiffin_balance"] for x in rows),
+    }
+
+    return {"date": d, "rows": rows, "counts": counts}
 
 
 # ---------------------------
