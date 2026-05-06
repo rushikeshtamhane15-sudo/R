@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { Toaster } from "sonner";
+import PWAInstallPrompt from "./components/PWAInstallPrompt";
 import Header from "./components/Header";
 import AnnouncementBar from "./components/AnnouncementBar";
 import Footer from "./components/Footer";
@@ -134,6 +135,7 @@ export default function App() {
           <AuthProvider>
             <AppRoutes />
             <Toaster position="top-right" richColors />
+            <PWAInstallPrompt />
           </AuthProvider>
         </ThemeProvider>
       </BrowserRouter>

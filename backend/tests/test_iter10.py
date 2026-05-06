@@ -238,7 +238,7 @@ class TestRawMaterials:
                     "last_tick_date": now.date().isoformat(),
                 })
 
-            r = requests.get(f"{BASE_URL}/api/admin/raw-materials", headers=_h(admin["token"]))
+            r = requests.get(f"{BASE_URL}/api/admin/raw-materials?fresh=1", headers=_h(admin["token"]))
             d = r.json()
             counts = d["counts"]
             # We seeded specific subs but other tests/subs may also be live — assert at least these accumulated correctly.

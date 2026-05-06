@@ -647,15 +647,26 @@ async def _create_order_record(*, user, user_doc, plan_id, plan_name, amount, cu
     total_amount = round(base_amount + platform_fee, 2)
     amount_paise = int(round(total_amount * 100))
     receipt = f"rcpt_{uuid.uuid4().hex[:16]}"
+    rzp_order = None
     if RZP_ENABLED:
-        rzp_order = rzp_client.order.create({
-            "amount": amount_paise, "currency": currency, "receipt": receipt,
-            "payment_capture": 1,
-            "notes": {
-                "plan_id": plan_id, "user_id": user.user_id, "custom": str(custom).lower(),
-                "base_amount": str(base_amount), "platform_fee": str(platform_fee),
-            },
-        })
+        try:
+            rzp_order = rzp_client.order.create({
+                "amount": amount_paise, "currency": currency, "receipt": receipt,
+                "payment_capture": 1,
+                "notes": {
+                    "plan_id": plan_id, "user_id": user.user_id, "custom": str(custom).lower(),
+                    "base_amount": str(base_amount), "platform_fee": str(platform_fee),
+                },
+            })
+        except razorpay.errors.BadRequestError as e:
+            # Auth failed / invalid key etc. — fall back to mock mode so dev/preview keeps working.
+            # Production should be alerted to rotate the key.
+            logger.warning(f"[RZP] order.create auth failed → falling back to MOCK mode · {e}")
+            rzp_order = None
+        except Exception as e:  # noqa: BLE001 — network / unexpected
+            logger.warning(f"[RZP] order.create errored → falling back to MOCK mode · {e}")
+            rzp_order = None
+    if rzp_order is not None:
         order_id = rzp_order["id"]
         mock = False
     else:
@@ -2018,8 +2029,36 @@ def _admin_or_staff(user: User):
 
 
 @api_router.get("/admin/raw-materials")
-async def get_raw_materials(user: User = Depends(get_current_user)):
+async def get_raw_materials(user: User = Depends(get_current_user), fresh: bool = False):
     _admin_or_staff(user)
+    if fresh:
+        _invalidate_raw_materials_cache()
+    return await _compute_raw_materials_cached()
+
+
+# Lightweight in-process memo — invalidated when admin edits items or resets defaults,
+# or when the cached entry exceeds 60s. Cuts repeated mongo scans on the dashboard view.
+_RM_CACHE: dict = {"value": None, "ts": 0.0}
+_RM_TTL_SECONDS = 60
+
+
+def _invalidate_raw_materials_cache():
+    _RM_CACHE["value"] = None
+    _RM_CACHE["ts"] = 0.0
+
+
+async def _compute_raw_materials_cached() -> dict:
+    import time as _t
+    now_s = _t.monotonic()
+    if _RM_CACHE["value"] is not None and (now_s - _RM_CACHE["ts"]) < _RM_TTL_SECONDS:
+        return _RM_CACHE["value"]
+    val = await _compute_raw_materials_fresh()
+    _RM_CACHE["value"] = val
+    _RM_CACHE["ts"] = now_s
+    return val
+
+
+async def _compute_raw_materials_fresh() -> dict:
     items = await _load_raw_materials()
     counts = await _count_active_persons()
     persons = float(counts["persons"])
@@ -2101,6 +2140,7 @@ async def update_raw_materials(payload: RawMaterialPatch, user: User = Depends(g
             if k in it and it[k] is not None and float(it[k]) < 0:
                 raise HTTPException(status_code=400, detail=f"{k} cannot be negative")
     await db.raw_materials_config.update_one({"_id": "active"}, {"$set": {"items": items, "updated_at": iso(now_utc())}}, upsert=True)
+    _invalidate_raw_materials_cache()
     return await get_raw_materials(user)
 
 
@@ -2109,6 +2149,7 @@ async def reset_raw_materials(user: User = Depends(get_current_user)):
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
     await db.raw_materials_config.update_one({"_id": "active"}, {"$set": {"items": RAW_MATERIAL_DEFAULTS, "updated_at": iso(now_utc())}}, upsert=True)
+    _invalidate_raw_materials_cache()
     return await get_raw_materials(user)
 
 

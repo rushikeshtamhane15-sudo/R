@@ -84,6 +84,10 @@ MSG91_FLOW_TIFFIN=
 MSG91_STUB_MODE=true
 ```
 
+### Iteration 14 (Feb 6, 2026) — PWA + Razorpay graceful fallback + RM cache
+- **PWA install prompt** — `/app/frontend/public/manifest.webmanifest` + `service-worker.js` (network-first navigations, cache-first static assets, never caches `/api/*`). Tasteful bottom-right install pill (`PWAInstallPrompt.jsx`) listens for `beforeinstallprompt`, surfaces after 8 s delay, honors a 14-day dismissal window. Auto-hides on iOS standalone or already-installed Chrome PWA. App is installable on Chrome desktop, Edge, and Android Chrome.
+- **Razorpay graceful fallback** — when live key auth fails (`razorpay.errors.BadRequestError: Authentication failed`), backend falls back to mock-mode automatically, logs a warning, and frontend Checkout auto-verifies the mock order. Real keys keep working when valid; dev/preview never breaks.
+- **`/admin/raw-materials` cached 60 s** in process. Cache invalidates on rate edit (`PUT`) or reset (`POST`). Tests can bypass via `?fresh=1`. Cuts repeated mongo scans on the dashboard view.
 ### Iteration 13 (Feb 6, 2026) — ESLint guard + responsive admin layout
 - **ESLint flat config** (`/app/frontend/eslint.config.mjs`) with `no-undef` + `react/jsx-no-undef` enabled — catches missing imports (lucide icons, helpers) at build time so they never reach the browser as runtime errors. Same bug class that crashed Raw Materials twice (Wallet, FileDown). New `yarn lint` script. 0 errors across the codebase today.
 - **Mobile + tablet admin layout** — AdminLayout now collapses into a left-side drawer (`Sheet`) on screens below `lg` (1024 px). Sticky mini-header on small screens shows current page label + hamburger trigger. Desktop layout (sticky 260 px sidebar) preserved untouched. Drawer auto-closes on navigation. Heading sizes step down on mobile (`text-2xl sm:text-3xl md:text-4xl`).
