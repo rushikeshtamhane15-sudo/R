@@ -125,3 +125,4 @@ websockets==16.0
 yarl==1.23.0
 zipp==3.23.1
 reportlab==4.5.0
+resend==2.30.0

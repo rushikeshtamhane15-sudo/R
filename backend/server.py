@@ -1099,6 +1099,113 @@ async def reminder_loop():
         await asyncio.sleep(REMINDER_INTERVAL_SECONDS)
 
 
+# ---------------------------
+# Subscription expiry reminders — SMS + email, 3d / 1d / 0d before end_date
+# ---------------------------
+EXPIRY_LEAD_DAYS = [3, 1, 0]
+EXPIRY_SCAN_INTERVAL_SECONDS = int(os.environ.get("EXPIRY_SCAN_INTERVAL_SECONDS", "3600"))  # hourly
+
+
+def _ist_today_iso() -> str:
+    return (now_utc() + timedelta(hours=5, minutes=30)).date().isoformat()
+
+
+async def run_expiry_reminders() -> dict:
+    """Find subs ending in {3, 1, 0} days. For each, fire SMS + Email if not already sent today.
+    Idempotent via db.expiry_reminders_sent (compound: sub_id + days_left + sent_date)."""
+    from sms import send_expiry_reminder  # local imports — avoid loading deps at startup if disabled
+    from email_send import send_email, expiry_email_html, is_stub_mode as email_stub
+
+    today = (now_utc() + timedelta(hours=5, minutes=30)).date()
+    sent_sms = sent_email = skipped = failed = 0
+
+    subs = await db.subscriptions.find({"status": "active"}, {"_id": 0}).to_list(20000)
+    user_ids = list({s["user_id"] for s in subs})
+    user_map = {u["user_id"]: u async for u in db.users.find({"user_id": {"$in": user_ids}}, {"_id": 0})}
+
+    for sub in subs:
+        try:
+            end_dt = parse_dt(sub["end_date"])
+            days_left = (end_dt.date() - today).days
+            if days_left not in EXPIRY_LEAD_DAYS:
+                continue
+            user = user_map.get(sub["user_id"])
+            if not user:
+                continue
+            today_iso = today.isoformat()
+            dedupe_key = {"sub_id": sub["sub_id"], "days_left": days_left, "sent_date": today_iso}
+            already = await db.expiry_reminders_sent.find_one(dedupe_key, {"_id": 0})
+            if already:
+                skipped += 1
+                continue
+
+            renew_url = f"{(os.environ.get('PUBLIC_APP_URL') or '').rstrip('/')}/plans" if os.environ.get('PUBLIC_APP_URL') else "/plans"
+            end_pretty = end_dt.date().strftime("%d %b %Y")
+
+            sms_res = {"status": "skipped"}
+            if user.get("phone"):
+                sms_res = await send_expiry_reminder(
+                    phone=user["phone"], name=user.get("name") or "there",
+                    days_left=days_left, plan_name=sub.get("plan_name") or "Your plan",
+                    end_date=end_pretty,
+                )
+                if sms_res.get("ok"):
+                    sent_sms += 1
+                else:
+                    failed += 1
+
+            email_res = {"status": "skipped"}
+            if user.get("email"):
+                email_res = await send_email(
+                    to=user["email"],
+                    subject=(
+                        "Your eFoodCare plan expires today — renew now"
+                        if days_left == 0 else
+                        f"Your eFoodCare plan ends in {days_left} day{'s' if days_left != 1 else ''}"
+                    ),
+                    html=expiry_email_html(
+                        name=user.get("name") or "there",
+                        days_left=days_left,
+                        plan_name=sub.get("plan_name") or "Your plan",
+                        end_date=end_pretty,
+                        renew_url=renew_url,
+                    ),
+                )
+                if email_res.get("ok"):
+                    sent_email += 1
+                else:
+                    failed += 1
+
+            await db.expiry_reminders_sent.insert_one({
+                **dedupe_key,
+                "user_id": user["user_id"],
+                "phone": user.get("phone"),
+                "email": user.get("email"),
+                "plan_name": sub.get("plan_name"),
+                "end_date": sub["end_date"],
+                "sms_status": sms_res.get("status"),
+                "email_status": email_res.get("status"),
+                "ts": iso(now_utc()),
+            })
+        except Exception as e:
+            failed += 1
+            logger.exception(f"[EXPIRY] error sub={sub.get('sub_id')}: {e}")
+
+    if sent_sms or sent_email or failed:
+        logger.info(f"[EXPIRY REMINDERS] sms={sent_sms} email={sent_email} skipped={skipped} failed={failed} email_stub={email_stub()}")
+    return {"sms_sent": sent_sms, "emails_sent": sent_email, "skipped": skipped, "failed": failed}
+
+
+async def expiry_reminder_loop():
+    await asyncio.sleep(40)  # let other loops settle
+    while True:
+        try:
+            await run_expiry_reminders()
+        except Exception as e:
+            logger.exception(f"[EXPIRY LOOP] crashed: {e}")
+        await asyncio.sleep(EXPIRY_SCAN_INTERVAL_SECONDS)
+
+
 async def subscription_tick_loop():
     """Background daemon — runs the tick every TICK_INTERVAL_SECONDS."""
     # First run after a short delay to let the app finish booting
@@ -1849,6 +1956,20 @@ async def admin_run_reminders(user: User = Depends(get_current_user)):
     return {"ok": True, **result, "stub_mode": _sms_stub_mode_status()}
 
 
+@api_router.post("/admin/cron/run-expiry-reminders")
+async def admin_run_expiry_reminders(user: User = Depends(get_current_user)):
+    """Manually trigger the subscription-expiry reminder scan."""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    result = await run_expiry_reminders()
+    try:
+        from email_send import is_stub_mode as email_stub
+        result["email_stub"] = email_stub()
+    except Exception:
+        result["email_stub"] = True
+    return {"ok": True, **result, "sms_stub": _sms_stub_mode_status()}
+
+
 def _sms_stub_mode_status() -> bool:
     try:
         from sms import is_stub_mode  # type: ignore
@@ -2151,6 +2272,87 @@ async def reset_raw_materials(user: User = Depends(get_current_user)):
     await db.raw_materials_config.update_one({"_id": "active"}, {"$set": {"items": RAW_MATERIAL_DEFAULTS, "updated_at": iso(now_utc())}}, upsert=True)
     _invalidate_raw_materials_cache()
     return await get_raw_materials(user)
+
+
+# ---------------------------
+# Testimonials — public read, admin CRUD
+# ---------------------------
+TESTIMONIAL_DEFAULTS = [
+    {"id": "t_default_1", "name": "Priya · Hinjawadi",  "role": "Tiffin subscriber",  "quote": "Ghar jaisa hi swaad — and I save 90 min daily I used to spend cooking. Worth every rupee.", "image_url": "", "rating": 5, "order": 0, "visible": True},
+    {"id": "t_default_2", "name": "Rahul · Magarpatta", "role": "Dining member",      "quote": "QR pass at the gate is a game-changer. No queues, no card, just walk in and eat fresh.", "image_url": "", "rating": 5, "order": 1, "visible": True},
+    {"id": "t_default_3", "name": "Anita · Aundh",      "role": "Half-tiffin · 30 days", "quote": "The half-tiffin option is perfect for my mom — exactly enough for one. Delivery boy is always polite.", "image_url": "", "rating": 5, "order": 2, "visible": True},
+]
+
+
+class Testimonial(BaseModel):
+    id: Optional[str] = None
+    name: str
+    role: Optional[str] = ""
+    quote: str
+    image_url: Optional[str] = ""    # public URL OR data:image/... base64
+    rating: Optional[int] = 5
+    order: Optional[int] = 0
+    visible: Optional[bool] = True
+
+
+class TestimonialsPatch(BaseModel):
+    items: List[Testimonial]
+
+
+async def _load_testimonials() -> List[dict]:
+    doc = await db.testimonials_config.find_one({"_id": "active"}, {"_id": 0})
+    if not doc:
+        await db.testimonials_config.insert_one({"_id": "active", "items": TESTIMONIAL_DEFAULTS})
+        return list(TESTIMONIAL_DEFAULTS)
+    items = doc.get("items") or TESTIMONIAL_DEFAULTS
+    return sorted(items, key=lambda x: x.get("order", 0))
+
+
+@api_router.get("/testimonials")
+async def get_testimonials():
+    """Public — landing page renders these. Returns only visible testimonials."""
+    items = await _load_testimonials()
+    return {"items": [t for t in items if t.get("visible") is not False]}
+
+
+@api_router.get("/admin/testimonials")
+async def admin_get_testimonials(user: User = Depends(get_current_user)):
+    """Admin sees ALL (incl. hidden) testimonials."""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    return {"items": await _load_testimonials()}
+
+
+@api_router.put("/admin/testimonials")
+async def admin_set_testimonials(payload: TestimonialsPatch, user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    cleaned = []
+    for i, t in enumerate(payload.items):
+        # Allow data-URL images up to ~1.5 MB; URL paste is small
+        img = t.image_url or ""
+        if len(img) > 2_000_000:
+            raise HTTPException(status_code=400, detail=f"Testimonial #{i+1} image is too large (max ~1.5 MB)")
+        cleaned.append({
+            "id": t.id or f"t_{uuid.uuid4().hex[:10]}",
+            "name": (t.name or "").strip()[:80] or "Anonymous",
+            "role": (t.role or "").strip()[:80],
+            "quote": (t.quote or "").strip()[:600],
+            "image_url": img.strip()[:2_000_000],
+            "rating": max(1, min(5, int(t.rating or 5))),
+            "order": int(t.order if t.order is not None else i),
+            "visible": bool(t.visible if t.visible is not None else True),
+        })
+    await db.testimonials_config.update_one({"_id": "active"}, {"$set": {"items": cleaned, "updated_at": iso(now_utc())}}, upsert=True)
+    return {"items": await _load_testimonials()}
+
+
+@api_router.post("/admin/testimonials/reset")
+async def admin_reset_testimonials(user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    await db.testimonials_config.update_one({"_id": "active"}, {"$set": {"items": TESTIMONIAL_DEFAULTS, "updated_at": iso(now_utc())}}, upsert=True)
+    return {"items": await _load_testimonials()}
 
 
 # ---------------------------

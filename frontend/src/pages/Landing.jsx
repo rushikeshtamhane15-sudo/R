@@ -156,6 +156,8 @@ export default function Landing() {
 
       <HealthyPromise c={c} alwaysBgClass={alwaysBgClass} />
 
+      <TestimonialsSection />
+
       {/* Final CTA */}
       <section className="max-w-7xl mx-auto px-6 md:px-8 lg:px-12 py-16 md:py-20">
         <div className="bg-primary rounded-3xl p-10 md:p-16 flex flex-col md:flex-row items-start md:items-center justify-between gap-8 text-primary-foreground">
