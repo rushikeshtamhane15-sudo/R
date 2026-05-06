@@ -115,6 +115,8 @@ class SettingsPatch(BaseModel):
     dispatch_lat: float | None = None
     dispatch_lng: float | None = None
     dispatch_radius_km: float | None = None
+    reminder_enabled: bool | None = None
+    reminder_lead_minutes: int | None = None
 
 
 class CollectEmpty(BaseModel):

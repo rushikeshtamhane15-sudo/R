@@ -658,6 +658,39 @@ function SettingsPanel() {
         </div>
       )}
 
+      <div className="bg-card rounded-2xl border border-border p-5 space-y-4" data-testid="reminders-section">
+        <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground flex items-center gap-1.5">
+          <Recycle className="h-3.5 w-3.5" /> Empty-tiffin SMS reminders
+        </p>
+        <p className="text-xs text-muted-foreground">
+          When on, customers holding ≥1 empty tiffin get an SMS this many minutes before each delivery slot opens. Set MSG91 env vars (MSG91_AUTH_KEY / MSG91_SENDER_ID / MSG91_FLOW_TIFFIN) to enable real sending — otherwise calls are logged as 'stub'.
+        </p>
+        <div className="grid md:grid-cols-2 gap-4 items-end">
+          <Field label="Reminder enabled">
+            <label className="inline-flex items-center gap-2 mt-2">
+              <input
+                type="checkbox"
+                checked={s.reminder_enabled !== false}
+                onChange={(e) => upd({ reminder_enabled: e.target.checked })}
+                className="h-4 w-4 accent-primary"
+                data-testid="reminder-enabled"
+              />
+              <span className="text-sm">Send SMS reminders</span>
+            </label>
+          </Field>
+          <Field label="Lead time (minutes before slot opens)">
+            <Input
+              type="number"
+              min={5}
+              max={120}
+              value={s.reminder_lead_minutes ?? 30}
+              onChange={(e) => upd({ reminder_lead_minutes: Number(e.target.value || 30) })}
+              data-testid="reminder-lead"
+            />
+          </Field>
+        </div>
+      </div>
+
       <div className="bg-card rounded-2xl border border-border p-5 space-y-4" data-testid="dispatch-section">
         <div>
           <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground flex items-center gap-1.5">

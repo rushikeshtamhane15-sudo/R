@@ -464,17 +464,31 @@ async def update_profile(payload: ProfileUpdate, user: User = Depends(get_curren
 @api_router.post("/auth/location")
 async def update_location(payload: LocationUpdate, user: User = Depends(get_current_user)):
     """Lightweight endpoint — customer pins their delivery location once.
-    Auto-reverse-geocodes via free OSM Nominatim to extract pincode for delivery routing."""
+    Auto-reverse-geocodes via free OSM Nominatim (24h-cached) to extract pincode for delivery routing."""
     update = {"lat": float(payload.lat), "lng": float(payload.lng), "location_set_at": iso(now_utc())}
-    pincode = await _reverse_geocode_pincode(payload.lat, payload.lng)
+    pincode, geocode_status = await _reverse_geocode_pincode(payload.lat, payload.lng)
     if pincode:
         update["pincode"] = pincode
+    update["geocode_status"] = geocode_status
     await db.users.update_one({"user_id": user.user_id}, {"$set": update})
-    return {"ok": True, "pincode": pincode}
+    return {"ok": True, "pincode": pincode, "geocode_status": geocode_status}
 
 
-async def _reverse_geocode_pincode(lat: float, lng: float) -> str | None:
-    """Best-effort reverse geocode using Nominatim (free OSM). Returns 6-digit pincode or None."""
+_GEOCODE_CACHE_TTL_HOURS = 24
+
+
+async def _reverse_geocode_pincode(lat: float, lng: float) -> tuple[str | None, str]:
+    """Best-effort reverse geocode using Nominatim (free OSM), cached 24h by rounded coords.
+    Returns (pincode, status). Status: 'ok' | 'cached' | 'no_pincode' | 'rate_limited' | 'error' | 'invalid'."""
+    if not (-90 <= lat <= 90) or not (-180 <= lng <= 180):
+        return None, "invalid"
+    # Round to ~100m precision for caching
+    cache_key = f"{round(lat, 3)},{round(lng, 3)}"
+    cached = await db.geocode_cache.find_one({"_id": cache_key}, {"_id": 0})
+    if cached:
+        ts = parse_dt(cached["ts"]) if isinstance(cached.get("ts"), str) else None
+        if ts and (now_utc() - ts) < timedelta(hours=_GEOCODE_CACHE_TTL_HOURS):
+            return cached.get("pincode"), "cached"
     try:
         async with httpx.AsyncClient(timeout=6.0) as client:
             r = await client.get(
@@ -482,18 +496,23 @@ async def _reverse_geocode_pincode(lat: float, lng: float) -> str | None:
                 params={"lat": lat, "lon": lng, "format": "json", "zoom": 18, "addressdetails": 1},
                 headers={"User-Agent": "eFoodCare/1.0 (delivery-routing)"},
             )
+            if r.status_code == 429:
+                return None, "rate_limited"
             if r.status_code != 200:
-                return None
+                return None, "error"
             data = r.json() or {}
-            pin = (data.get("address") or {}).get("postcode")
-            if pin and isinstance(pin, str):
-                # Indian PIN must be 6 digits
-                digits = "".join(ch for ch in pin if ch.isdigit())
-                if len(digits) == 6:
-                    return digits
+            pin_raw = (data.get("address") or {}).get("postcode") or ""
+            digits = "".join(ch for ch in str(pin_raw) if ch.isdigit())
+            pincode = digits if len(digits) == 6 else None
+            await db.geocode_cache.update_one(
+                {"_id": cache_key},
+                {"$set": {"pincode": pincode, "ts": iso(now_utc())}},
+                upsert=True,
+            )
+            return pincode, ("ok" if pincode else "no_pincode")
     except Exception as e:  # noqa: BLE001
         logger.warning("Reverse geocode failed: %s", e)
-    return None
+        return None, "error"
 
 
 # ---------------------------
@@ -911,26 +930,149 @@ TICK_INTERVAL_SECONDS = int(os.environ.get("TICK_INTERVAL_SECONDS", str(60 * 60)
 
 
 async def run_subscription_tick() -> dict:
-    """Process every active subscription: apply daily deductions + auto-pause when 3+ inactive days."""
+    """Process every active subscription: apply daily deductions + auto-pause when 3+ inactive days.
+    Auto-expires subs when wallet hits 0 (after a 1-day grace window — protects against rounding edge cases)."""
     processed = 0
     expired = 0
     errors = 0
+    grace_started = 0
     subs = await db.subscriptions.find({"status": "active"}, {"_id": 0}).to_list(10000)
     for s in subs:
         try:
             # Expire if past end-date or all meals consumed
             end_dt = parse_dt(s["end_date"])
             if end_dt <= now_utc() or s.get("meals_used", 0) >= s.get("meals_total", 0):
-                await db.subscriptions.update_one({"sub_id": s["sub_id"]}, {"$set": {"status": "expired"}})
+                await db.subscriptions.update_one({"sub_id": s["sub_id"]}, {"$set": {"status": "expired", "expired_at": iso(now_utc()), "expired_reason": "end_date_or_meals"}})
                 expired += 1
                 continue
             await catch_up_subscription(s)
+            # Re-fetch after tick for latest wallet
+            fresh = await db.subscriptions.find_one({"sub_id": s["sub_id"]}, {"_id": 0})
+            if fresh and float(fresh.get("wallet_balance") or 0) <= 0.005:
+                grace_until_iso = fresh.get("zero_wallet_grace_until")
+                if not grace_until_iso:
+                    # Start the 24h grace window
+                    grace_until = now_utc() + timedelta(hours=24)
+                    await db.subscriptions.update_one(
+                        {"sub_id": s["sub_id"]},
+                        {"$set": {"zero_wallet_grace_until": iso(grace_until)}},
+                    )
+                    grace_started += 1
+                    logger.info(f"[TICK] sub={s['sub_id']} wallet=0 → grace until {grace_until.isoformat()}")
+                else:
+                    if parse_dt(grace_until_iso) <= now_utc():
+                        await db.subscriptions.update_one(
+                            {"sub_id": s["sub_id"]},
+                            {"$set": {"status": "expired", "expired_at": iso(now_utc()), "expired_reason": "wallet_zero"}},
+                        )
+                        expired += 1
+                        logger.info(f"[TICK] sub={s['sub_id']} EXPIRED · wallet=0 + grace elapsed")
+                        continue
+            else:
+                # Wallet recovered (refund/topup) — clear any grace flag
+                if fresh and fresh.get("zero_wallet_grace_until"):
+                    await db.subscriptions.update_one(
+                        {"sub_id": s["sub_id"]},
+                        {"$unset": {"zero_wallet_grace_until": ""}},
+                    )
             processed += 1
         except Exception as e:
             errors += 1
             logger.exception(f"[TICK] error sub={s.get('sub_id')}: {e}")
-    logger.info(f"[CRON TICK] processed={processed} expired={expired} errors={errors}")
-    return {"processed": processed, "expired": expired, "errors": errors, "ran_at": iso(now_utc())}
+    logger.info(f"[CRON TICK] processed={processed} expired={expired} grace_started={grace_started} errors={errors}")
+    return {"processed": processed, "expired": expired, "grace_started": grace_started, "errors": errors, "ran_at": iso(now_utc())}
+
+
+# ---------------------------
+# Empty-tiffin SMS reminder scanner — runs every 5 min
+# ---------------------------
+REMINDER_INTERVAL_SECONDS = int(os.environ.get("REMINDER_INTERVAL_SECONDS", "300"))
+
+
+async def _ist_now_dt() -> datetime:
+    return now_utc().astimezone(timezone(timedelta(hours=5, minutes=30)))
+
+
+async def run_empty_tiffin_reminders() -> dict:
+    """Scan customers with tiffin_balance>0 + a tiffin delivery scheduled within the next ~30 min IST.
+    Fire ONE SMS per (user, slot, day). Idempotency stored in db.tiffin_reminders_sent."""
+    from sms import send_tiffin_reminder  # local import — avoid loading at startup if MSG91 disabled
+
+    settings_doc = await db.delivery_settings.find_one({"_id": "active"}, {"_id": 0})
+    settings_doc = {**(settings_doc or {})}
+    lead_min = int(settings_doc.get("reminder_lead_minutes") or 30)
+    if not bool(settings_doc.get("reminder_enabled", True)):
+        return {"skipped": "disabled"}
+
+    ist = await _ist_now_dt()
+    today_iso = ist.date().isoformat()
+    # Identify which slot's reminder window we're inside.
+    # A reminder fires when current time is between (slot_open_at - lead) and slot_open_at.
+    # i.e. lunch window: 07:30-08:00 if lunch opens at 08:00.
+    slots = []
+    for meal in ("lunch", "dinner"):
+        open_at = settings_doc.get(f"{meal}_dispatch_open") or ("08:00" if meal == "lunch" else "15:00")
+        try:
+            oh, om = [int(x) for x in open_at.split(":")]
+        except Exception:
+            continue
+        slot_open = ist.replace(hour=oh, minute=om, second=0, microsecond=0)
+        window_start = slot_open - timedelta(minutes=lead_min)
+        if window_start <= ist <= slot_open:
+            slots.append(meal)
+    if not slots:
+        return {"sent": 0, "skipped": "outside_reminder_window"}
+
+    sent = 0
+    skipped = 0
+    failed = 0
+    cursor = db.users.find({"tiffin_balance": {"$gt": 0}}, {"_id": 0})
+    async for u in cursor:
+        if not u.get("phone"):
+            continue
+        # Only remind if user has an active tiffin sub today
+        sub = await db.subscriptions.find_one({"user_id": u["user_id"], "status": "active", "service_type": "tiffin"}, {"_id": 0})
+        if not sub:
+            continue
+        for meal in slots:
+            dedupe = await db.tiffin_reminders_sent.find_one({"user_id": u["user_id"], "date": today_iso, "meal": meal}, {"_id": 0})
+            if dedupe:
+                skipped += 1
+                continue
+            open_at = settings_doc.get(f"{meal}_dispatch_open") or ("08:00" if meal == "lunch" else "15:00")
+            res = await send_tiffin_reminder(
+                phone=u["phone"],
+                name=u.get("name") or "there",
+                count=int(u.get("tiffin_balance") or 0),
+                slot=meal,
+                eta=open_at,
+            )
+            await db.tiffin_reminders_sent.insert_one({
+                "user_id": u["user_id"],
+                "phone": u["phone"],
+                "date": today_iso,
+                "meal": meal,
+                "balance": int(u.get("tiffin_balance") or 0),
+                "status": res.get("status"),
+                "ts": iso(now_utc()),
+            })
+            if res.get("ok"):
+                sent += 1
+            else:
+                failed += 1
+    if sent or failed:
+        logger.info(f"[REMINDER] sent={sent} skipped={skipped} failed={failed} slots={slots}")
+    return {"sent": sent, "skipped": skipped, "failed": failed, "slots": slots}
+
+
+async def reminder_loop():
+    await asyncio.sleep(20)
+    while True:
+        try:
+            await run_empty_tiffin_reminders()
+        except Exception as e:
+            logger.exception(f"[REMINDER LOOP] crashed: {e}")
+        await asyncio.sleep(REMINDER_INTERVAL_SECONDS)
 
 
 async def subscription_tick_loop():
@@ -1567,6 +1709,23 @@ async def admin_run_tick(user: User = Depends(get_current_user)):
     return {"ok": True, **result}
 
 
+@api_router.post("/admin/cron/run-reminders")
+async def admin_run_reminders(user: User = Depends(get_current_user)):
+    """Manually trigger the empty-tiffin reminder scan. Reads slot windows from delivery_settings."""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    result = await run_empty_tiffin_reminders()
+    return {"ok": True, **result, "stub_mode": _sms_stub_mode_status()}
+
+
+def _sms_stub_mode_status() -> bool:
+    try:
+        from sms import is_stub_mode  # type: ignore
+        return is_stub_mode()
+    except Exception:
+        return True
+
+
 # ---------------------------
 # Subscriber Dashboard CMS — admin-controlled text, visibility, order, colour overrides
 # ---------------------------
@@ -1695,8 +1854,11 @@ app.add_middleware(
 async def on_startup():
     await seed_plans()
     await _ensure_theme_version()
+    await _load_dashboard_config()  # pre-seed default config so first GET doesn't write during a public read
     asyncio.create_task(subscription_tick_loop())
+    asyncio.create_task(reminder_loop())
     logger.info(f"[STARTUP] subscription tick scheduler launched · interval={TICK_INTERVAL_SECONDS}s")
+    logger.info(f"[STARTUP] empty-tiffin reminder scanner launched · interval={REMINDER_INTERVAL_SECONDS}s · stub_mode={_sms_stub_mode_status()}")
 
 
 @app.on_event("shutdown")

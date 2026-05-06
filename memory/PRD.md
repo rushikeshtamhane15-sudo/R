@@ -67,6 +67,23 @@ Build a tiffin / dining subscription app with:
 - **Admin: Subscriber Dashboard CMS** (`/admin/dashboard-editor`) — option **C** scope: edit text content (greeting/headings/tagline/no-plan card), toggle each of 7 sections visible/hidden, drag up/down to reorder, override 4 card colours (wallet bg/fg, hero accent, side-card tint). `db.dashboard_config{_id:"active"}` + GET/PATCH/RESET endpoints. Subscriber dashboard reads on mount and applies.
 - 19/19 backend tests pass (test_iter8.py); admin/boy/customer flows smoke-tested.
 
+### Iteration 10 (Feb 6, 2026) — SMS reminders, auto-expire, geocode hardening
+- **MSG91 SMS empty-tiffin reminders** — `/app/backend/sms.py` (DLT-compliant). Background `reminder_loop()` every 5 min scans for users with `tiffin_balance > 0` + active tiffin sub, fires SMS in the `(slot_open − reminder_lead_minutes, slot_open)` window. Idempotent via `db.tiffin_reminders_sent`. Toggle + lead-time editable in Admin → Delivery → Settings. **STUB MODE** is default until MSG91 keys are pasted into `.env` — calls log "[SMS · STUB] tiffin-reminder → 9XXXX · {…}".
+- **Auto-expire on wallet=0 with 1-day grace** — `run_subscription_tick()` flags subs at zero wallet with `zero_wallet_grace_until = now + 24h`. On the next tick after that, the sub is set `status="expired"` with `expired_reason="wallet_zero"`. Topping up the wallet before grace elapses clears the flag automatically.
+- **Geocode cache (24h)** — `db.geocode_cache` keyed by `lat,lng` rounded to 3 decimals (~100 m); cuts Nominatim load.
+- **Geocode status field** — `/auth/location` now returns `geocode_status: "ok" | "cached" | "no_pincode" | "rate_limited" | "error" | "invalid"` so the UI can prompt re-pin if needed.
+- **Pre-seed dashboard config** on startup — first GET no longer triggers a DB write during a public read.
+- **Admin manual triggers**: `POST /api/admin/cron/run-reminders` (and existing `/run-tick`) for instant testing.
+- 7/7 new backend tests (test_iter9.py); 39/39 cumulative iter7+8+9 pass.
+
+#### Required env vars (optional — stub mode otherwise)
+```
+MSG91_AUTH_KEY=
+MSG91_SENDER_ID=
+MSG91_FLOW_TIFFIN=
+MSG91_STUB_MODE=true
+```
+
 ## Mocked Integrations (clearly flagged)
 - **MOCKED Razorpay**: enable real flow by setting `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` in `/app/backend/.env`. Frontend automatically uses the real modal once keys are present.
 - **MOCKED OTP delivery**: enable real SMS by integrating MSG91/Twilio at `/api/auth/send-otp` (one function swap). Set `OTP_DEV_MODE=false` to stop returning OTP in API response.
