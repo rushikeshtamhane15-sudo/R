@@ -81,7 +81,7 @@ export default function PendingDeliveriesBanner() {
               {items.length} tiffin{items.length !== 1 ? "s" : ""} headed your way today
             </h3>
             <p className="text-xs md:text-sm text-muted-foreground mt-1">
-              Tap "I got my tiffin" the moment it lands — no need to read out an OTP.
+              Tap "I got my tiffin" the moment it lands — your delivery boy is geo-verified at your door.
             </p>
           </div>
         </div>

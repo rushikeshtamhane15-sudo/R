@@ -326,7 +326,6 @@ function HandoffCard({ handoff, onChange }) {
   const [expanded, setExpanded] = useState(false);
   const [items, setItems] = useState([]);
   const [reconciling, setReconciling] = useState(false);
-  const [otpInputs, setOtpInputs] = useState({});
 
   useEffect(() => {
     if (expanded) (async () => {
@@ -337,19 +336,24 @@ function HandoffCard({ handoff, onChange }) {
   const mark = async (rosterId, status) => {
     try {
       let extra = {};
-      if (status === "delivered" && navigator.geolocation) {
-        // Capture delivery boy's GPS — used for geofence verification on the server
+      if (status === "delivered") {
+        if (!navigator.geolocation) {
+          toast.error("This device can't share GPS — open delivery on a phone with location enabled.");
+          return;
+        }
+        toast.message("Getting your location…");
         try {
           const pos = await new Promise((resolve, reject) =>
-            navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 7000 })
+            navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 })
           );
           extra = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         } catch {
-          // Permission denied / timed out — proceed without geofence
+          toast.error("Allow location access in your browser to mark deliveries.");
+          return;
         }
       }
-      await api.post(`/admin/delivery/roster/${rosterId}/mark`, { status, otp: otpInputs[rosterId] || "", ...extra });
-      toast.success(status === "delivered" ? "Delivered" : status);
+      await api.post(`/admin/delivery/roster/${rosterId}/mark`, { status, ...extra });
+      toast.success(status === "delivered" ? "Geo-verified · delivered" : status);
       const r = await api.get(`/admin/delivery/handoff/${handoff.handoff_id}`);
       setItems(r.data.items || []);
       onChange?.();
@@ -422,18 +426,9 @@ function HandoffCard({ handoff, onChange }) {
                     }`}
                     data-testid={`confirmed-by-${it.roster_id}`}
                   >
-                    {it.confirmed_by === "customer" ? "Customer confirmed" : "Delivered"}
+                    {it.confirmed_by === "customer" ? "Customer confirmed" : "Geo-verified"}
                   </span>
-                  {it.distance_warning && (
-                    <span
-                      className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-destructive/10 text-destructive"
-                      title={`Marked from ${it.distance_m}m away`}
-                      data-testid={`geofence-warning-${it.roster_id}`}
-                    >
-                      ⚠ {it.distance_m}m off
-                    </span>
-                  )}
-                  {it.distance_m !== undefined && !it.distance_warning && (
+                  {it.distance_m !== undefined && (
                     <span className="text-[10px] text-muted-foreground" title="Distance from customer">
                       {Math.round(it.distance_m)}m
                     </span>
@@ -443,15 +438,8 @@ function HandoffCard({ handoff, onChange }) {
                 <span className="text-[10px] uppercase font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">{it.status}</span>
               ) : !isDone ? (
                 <div className="flex items-center gap-1.5">
-                  <Input
-                    placeholder="OTP" maxLength={4}
-                    value={otpInputs[it.roster_id] || ""}
-                    onChange={(e) => setOtpInputs({ ...otpInputs, [it.roster_id]: e.target.value.replace(/[^0-9]/g, "") })}
-                    className="h-8 w-20 text-center font-mono"
-                    data-testid={`otp-input-${it.roster_id}`}
-                  />
                   <Button size="sm" onClick={() => mark(it.roster_id, "delivered")} className="h-8 rounded-full bg-primary hover:bg-primary/90" data-testid={`mark-delivered-${it.roster_id}`}>
-                    <KeyRound className="h-3 w-3 mr-1" /> Deliver
+                    <KeyRound className="h-3 w-3 mr-1" /> Mark delivered
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => mark(it.roster_id, "returned")} className="h-8 rounded-full" data-testid={`mark-returned-${it.roster_id}`}>Return</Button>
                 </div>
@@ -567,10 +555,15 @@ function SettingsPanel() {
             data-testid="service-pincodes"
           />
         </Field>
-        <div className="grid md:grid-cols-2 gap-4">
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!s.lunch_otp_required} onChange={(e) => upd({ lunch_otp_required: e.target.checked })} className="h-4 w-4 accent-primary" data-testid="lunch-otp" /> Require OTP at lunch delivery</label>
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!s.dinner_otp_required} onChange={(e) => upd({ dinner_otp_required: e.target.checked })} className="h-4 w-4 accent-primary" data-testid="dinner-otp" /> Require OTP at dinner delivery</label>
-        </div>
+        <Field label="Geofence radius (metres) — delivery rejected if boy is farther than this">
+          <Input
+            type="number"
+            value={s.geofence_meters ?? 250}
+            onChange={(e) => upd({ geofence_meters: Number(e.target.value || 0) })}
+            min={50} max={2000}
+            data-testid="geofence-meters"
+          />
+        </Field>
         <Button onClick={save} disabled={saving} className="rounded-full bg-primary hover:bg-primary/90" data-testid="save-settings">
           <Save className="h-4 w-4 mr-2" /> {saving ? "Saving…" : "Save settings"}
         </Button>

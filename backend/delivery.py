@@ -407,19 +407,30 @@ def make_router(db) -> APIRouter:
             upd["notes"] = payload.notes
 
         if payload.status == "delivered":
-            otp_required = settings.get(f"{item['meal_type']}_otp_required", True)
-            if otp_required and (payload.otp or "").strip() != (item.get("otp") or ""):
-                raise HTTPException(status_code=400, detail="Wrong OTP — ask the customer to read it from their phone")
             upd["confirmed_by"] = "admin"
-            # Geofence: capture delivery boy's position + compare to customer's saved coords
-            if payload.lat is not None and payload.lng is not None:
-                upd["delivery_lat"] = float(payload.lat)
-                upd["delivery_lng"] = float(payload.lng)
-                user = await db.users.find_one({"user_id": item["user_id"]}, {"_id": 0})
-                if user and user.get("lat") and user.get("lng"):
-                    dist = haversine_m(payload.lat, payload.lng, user["lat"], user["lng"])
-                    upd["distance_m"] = round(dist, 1)
-                    upd["distance_warning"] = dist > float(settings.get("geofence_meters") or 250)
+            # Geofence is the verification mechanism — no OTP.
+            if payload.lat is None or payload.lng is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Location required — please allow GPS access on the delivery boy's phone",
+                )
+            upd["delivery_lat"] = float(payload.lat)
+            upd["delivery_lng"] = float(payload.lng)
+            user = await db.users.find_one({"user_id": item["user_id"]}, {"_id": 0})
+            if not user or user.get("lat") is None or user.get("lng") is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Customer hasn't pinned their location yet — ask them to open the app and tap 'Pin location'",
+                )
+            dist = haversine_m(payload.lat, payload.lng, user["lat"], user["lng"])
+            upd["distance_m"] = round(dist, 1)
+            geofence = float(settings.get("geofence_meters") or 250)
+            if dist > geofence:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"You're {round(dist)}m away from the customer — geofence limit is {int(geofence)}m. Walk to the door and try again.",
+                )
+            upd["distance_warning"] = False
 
         await db.daily_rosters.update_one({"roster_id": roster_id}, {"$set": upd})
         return {"ok": True, **upd}
