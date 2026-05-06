@@ -452,7 +452,7 @@ def make_router(db) -> APIRouter:
                 )
             dist = haversine_m(payload.lat, payload.lng, user["lat"], user["lng"])
             upd["distance_m"] = round(dist, 1)
-            geofence = float(settings.get("geofence_meters") or 250)
+            geofence = float(settings.get("geofence_meters") or DEFAULT_SETTINGS["geofence_meters"])
             if dist > geofence:
                 # Log the rejection so admins can see false-rejection patterns over time
                 await db.delivery_attempts.insert_one({
@@ -611,6 +611,9 @@ def make_boy_router(db) -> APIRouter:
     @router.post("/location")
     async def location_ping(payload: LocationPing = Body(...), user: User = Depends(get_current_user)):
         boy = await _resolve_boy(user)
+        # Sanity-check coords so a buggy/unset GPS can't pollute the live map.
+        if not (-90 <= payload.lat <= 90) or not (-180 <= payload.lng <= 180):
+            raise HTTPException(status_code=400, detail="Invalid GPS coordinates")
         await db.delivery_boys.update_one(
             {"boy_id": boy["boy_id"]},
             {"$set": {
@@ -676,8 +679,30 @@ def make_boy_router(db) -> APIRouter:
         boy = await _resolve_boy(user)
         if not boy.get("on_trip"):
             return {"ok": True, "already": True}
+        # Auto-reconcile the trip's handoff so it doesn't sit at 'out' forever.
+        handoff_id = boy.get("trip_handoff_id")
+        reconciled = None
+        if handoff_id:
+            h = await db.delivery_handoffs.find_one({"handoff_id": handoff_id}, {"_id": 0})
+            if h and h.get("status") != "reconciled":
+                items = await db.daily_rosters.find({"roster_id": {"$in": h["roster_ids"]}}, {"_id": 0}).to_list(5000)
+                delivered = sum(1 for i in items if i["status"] == "delivered")
+                returned = sum(1 for i in items if i["status"] in ("returned", "undelivered"))
+                unaccounted = sum(1 for i in items if i["status"] not in ("delivered", "returned", "undelivered"))
+                loss = max(0, int(h["tiffins_taken_total"]) - delivered - returned)
+                upd = {
+                    "status": "reconciled",
+                    "delivered_count": delivered,
+                    "returned_count": returned,
+                    "unaccounted_count": unaccounted,
+                    "loss_count": loss,
+                    "reconciled_at": iso(now_utc()),
+                    "auto_reconciled": True,
+                }
+                await db.delivery_handoffs.update_one({"handoff_id": handoff_id}, {"$set": upd})
+                reconciled = {**h, **upd}
         await db.delivery_boys.update_one({"boy_id": boy["boy_id"]}, {"$set": {"on_trip": False, "trip_handoff_id": None}})
-        return {"ok": True}
+        return {"ok": True, "reconciled": reconciled}
 
     return router
 

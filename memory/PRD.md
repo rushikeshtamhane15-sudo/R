@@ -49,6 +49,15 @@ Build a tiffin / dining subscription app with:
   - 0% the bad stuff: ajinomoto, maida, artificial flavours, artificial colours, polished grains, refined/palm oil
   - 100% the good stuff: chakki atta, unpolished toor dal, premium aged rice, fresh vegetables, filter/cold-pressed oil, real ghar-style spices
 
+### Iteration 8 (Feb 6, 2026) — Delivery Boy Live Tracking
+- **Delivery boy role** with dedicated `/boy` dashboard — start dispatch, see route-ordered stops, mark delivered with GPS geofence verification
+- **Live position pings** — boy's phone sends GPS every 15s via `POST /api/boy/location` while on trip
+- **Admin Live Map** (`/admin/live`) — real-time map of all delivery boys + customer pins, auto-refreshing every 10s, with per-boy route polylines
+- **Customer Track page** (`/track`) — tiffin subscribers see their delivery boy's live position + ETA (haversine over speed) + 'I got my tiffin' confirm
+- **Auto-reconciliation** — `/boy/dispatch/end` auto-closes the trip's handoff so admin doesn't have to manually reconcile every trip
+- Built on `react-leaflet` + free OpenStreetMap tiles (no API key needed)
+- 13/13 backend tests pass for new endpoints (test_iter7.py)
+
 ## Mocked Integrations (clearly flagged)
 - **MOCKED Razorpay**: enable real flow by setting `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` in `/app/backend/.env`. Frontend automatically uses the real modal once keys are present.
 - **MOCKED OTP delivery**: enable real SMS by integrating MSG91/Twilio at `/api/auth/send-otp` (one function swap). Set `OTP_DEV_MODE=false` to stop returning OTP in API response.
