@@ -101,6 +101,16 @@ class MarkItem(BaseModel):
     lng: float | None = None
 
 
+class LocationPing(BaseModel):
+    lat: float
+    lng: float
+    accuracy: float | None = None
+
+
+class DispatchStart(BaseModel):
+    meal_type: str   # lunch | dinner
+
+
 def now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -173,12 +183,27 @@ def make_router(db) -> APIRouter:
 
     @router.post("/boys")
     async def create_boy(payload: BoyCreate = Body(...), _=Depends(admin_only)):
+        # If a user with this phone already exists, reuse it; otherwise create one with role=delivery_boy
+        existing_user = await db.users.find_one({"phone": payload.phone.strip()}, {"_id": 0})
+        if existing_user:
+            user_id = existing_user["user_id"]
+            await db.users.update_one(
+                {"user_id": user_id},
+                {"$set": {"role": "delivery_boy", "name": payload.name.strip()}},
+            )
+        else:
+            from server import _create_user_for_phone  # type: ignore
+            new_user = await _create_user_for_phone(payload.phone.strip(), payload.name.strip(), role="delivery_boy")
+            user_id = new_user["user_id"]
         boy = {
             "boy_id": f"dlv_{uuid4().hex[:10]}",
+            "user_id": user_id,
             "name": payload.name.strip(),
             "phone": payload.phone.strip(),
             "assigned_pincodes": [str(p).strip() for p in payload.assigned_pincodes if str(p).strip()],
             "active": payload.active,
+            "current_lat": None, "current_lng": None, "last_ping_at": None,
+            "on_trip": False, "trip_handoff_id": None,
             "created_at": iso(now_utc()),
         }
         await db.delivery_boys.insert_one(boy.copy())
@@ -511,11 +536,176 @@ def make_router(db) -> APIRouter:
             "show_hint": rejection_rate >= 0.25 and total >= 5,
         }
 
+    @router.get("/live")
+    async def live_map(_=Depends(admin_only)):
+        """Live positions of every active delivery boy + today's roster overview for admin map."""
+        d = today_local()
+        boys = await db.delivery_boys.find({"active": True}, {"_id": 0}).to_list(500)
+        items = await db.daily_rosters.find({"date": d}, {"_id": 0, "otp": 0}).to_list(20000)
+        user_ids = list({i["user_id"] for i in items})
+        users = {u["user_id"]: u async for u in db.users.find({"user_id": {"$in": user_ids}}, {"_id": 0})}
+        for it in items:
+            u = users.get(it["user_id"]) or {}
+            it["customer_lat"] = u.get("lat")
+            it["customer_lng"] = u.get("lng")
+        return {"date": d, "boys": boys, "items": items}
+
     return router
 
 
+def make_boy_router(db) -> APIRouter:
+    """Endpoints used by the delivery-boy app: today's assignments, location ping, dispatch."""
+    from server import get_current_user, User  # type: ignore
+
+    router = APIRouter(prefix="/boy", tags=["delivery-boy"])
+
+    async def _resolve_boy(user: User) -> dict:
+        boy = await db.delivery_boys.find_one({"user_id": user.user_id}, {"_id": 0})
+        if not boy:
+            raise HTTPException(status_code=403, detail="Not registered as a delivery boy")
+        return boy
+
+    @router.get("/me")
+    async def me(user: User = Depends(get_current_user)):
+        boy = await _resolve_boy(user)
+        return boy
+
+    @router.get("/today")
+    async def today(user: User = Depends(get_current_user)):
+        """Today's deliveries assigned to this boy + nearest-neighbour route order."""
+        boy = await _resolve_boy(user)
+        d = today_local()
+        # Either pull items already in a handoff to this boy, OR items in any of his pincodes (preview before dispatch)
+        handoff_items = await db.daily_rosters.find(
+            {"date": d, "delivery_boy_id": boy["boy_id"]}, {"_id": 0}
+        ).to_list(5000)
+        if handoff_items:
+            items = handoff_items
+        else:
+            pincodes = boy.get("assigned_pincodes") or []
+            items = await db.daily_rosters.find(
+                {"date": d, "pincode": {"$in": pincodes}, "is_outside": {"$ne": True}}, {"_id": 0}
+            ).to_list(5000)
+        # Attach customer locations
+        user_ids = list({i["user_id"] for i in items})
+        users = {u["user_id"]: u async for u in db.users.find({"user_id": {"$in": user_ids}}, {"_id": 0})}
+        for it in items:
+            u = users.get(it["user_id"]) or {}
+            it["customer_lat"] = u.get("lat")
+            it["customer_lng"] = u.get("lng")
+        # Nearest-neighbour route order from boy's current position (or from first item if unknown)
+        ordered = _nearest_neighbour_order(items, boy.get("current_lat"), boy.get("current_lng"))
+        return {
+            "date": d,
+            "boy": boy,
+            "items": ordered,
+            "totals": {
+                "total": len(items),
+                "full": sum(1 for i in items if i.get("tiffin_size") == "full"),
+                "half": sum(1 for i in items if i.get("tiffin_size") == "half"),
+                "delivered": sum(1 for i in items if i.get("status") == "delivered"),
+                "pending": sum(1 for i in items if i.get("status") in ("planned", "out")),
+            },
+        }
+
+    @router.post("/location")
+    async def location_ping(payload: LocationPing = Body(...), user: User = Depends(get_current_user)):
+        boy = await _resolve_boy(user)
+        await db.delivery_boys.update_one(
+            {"boy_id": boy["boy_id"]},
+            {"$set": {
+                "current_lat": float(payload.lat),
+                "current_lng": float(payload.lng),
+                "current_accuracy": float(payload.accuracy or 0),
+                "last_ping_at": iso(now_utc()),
+            }},
+        )
+        return {"ok": True}
+
+    @router.post("/dispatch/start")
+    async def dispatch_start(payload: DispatchStart = Body(...), user: User = Depends(get_current_user)):
+        """Boy taps 'Start dispatch' — claims all unassigned items in his pincodes for today."""
+        if payload.meal_type not in MEALS:
+            raise HTTPException(status_code=400, detail="meal_type must be lunch|dinner")
+        boy = await _resolve_boy(user)
+        d = today_local()
+        pincodes = boy.get("assigned_pincodes") or []
+        if not pincodes:
+            raise HTTPException(status_code=400, detail="No pincodes assigned. Ask admin to assign your delivery zones.")
+        unassigned = await db.daily_rosters.find(
+            {"date": d, "meal_type": payload.meal_type,
+             "pincode": {"$in": pincodes},
+             "is_outside": {"$ne": True},
+             "delivery_boy_id": None,
+             "status": "planned"},
+            {"_id": 0},
+        ).to_list(5000)
+        if not unassigned:
+            raise HTTPException(status_code=400, detail="No tiffins available to dispatch in your zones right now.")
+        full = sum(1 for i in unassigned if i.get("tiffin_size") == "full")
+        half = sum(1 for i in unassigned if i.get("tiffin_size") == "half")
+        handoff_id = f"hdf_{uuid4().hex[:12]}"
+        roster_ids = [i["roster_id"] for i in unassigned]
+        handoff = {
+            "handoff_id": handoff_id,
+            "date": d,
+            "meal_type": payload.meal_type,
+            "delivery_boy_id": boy["boy_id"],
+            "delivery_boy_name": boy["name"],
+            "roster_ids": roster_ids,
+            "expected_full": full, "expected_half": half, "expected_total": full + half,
+            "tiffins_taken_full": full, "tiffins_taken_half": half, "tiffins_taken_total": full + half,
+            "extra_taken": 0,
+            "status": "out",
+            "delivered_count": 0, "returned_count": 0, "loss_count": 0,
+            "handed_over_at": iso(now_utc()),
+            "reconciled_at": None,
+            "self_dispatched": True,
+            "notes": "",
+        }
+        await db.delivery_handoffs.insert_one(handoff.copy())
+        await db.daily_rosters.update_many(
+            {"roster_id": {"$in": roster_ids}},
+            {"$set": {"handoff_id": handoff_id, "delivery_boy_id": boy["boy_id"], "status": "out"}},
+        )
+        await db.delivery_boys.update_one({"boy_id": boy["boy_id"]}, {"$set": {"on_trip": True, "trip_handoff_id": handoff_id}})
+        return handoff
+
+    @router.post("/dispatch/end")
+    async def dispatch_end(user: User = Depends(get_current_user)):
+        boy = await _resolve_boy(user)
+        if not boy.get("on_trip"):
+            return {"ok": True, "already": True}
+        await db.delivery_boys.update_one({"boy_id": boy["boy_id"]}, {"$set": {"on_trip": False, "trip_handoff_id": None}})
+        return {"ok": True}
+
+    return router
+
+
+def _nearest_neighbour_order(items: list, start_lat, start_lng) -> list:
+    """Greedy nearest-neighbour ordering. Items without coords go to the end."""
+    located = [it for it in items if it.get("customer_lat") and it.get("customer_lng")]
+    unlocated = [it for it in items if not (it.get("customer_lat") and it.get("customer_lng"))]
+    if not located:
+        return items
+    if start_lat is None or start_lng is None:
+        # Start from the first item
+        first = located.pop(0)
+        ordered = [first]
+        cur = (first["customer_lat"], first["customer_lng"])
+    else:
+        ordered = []
+        cur = (start_lat, start_lng)
+    while located:
+        located.sort(key=lambda i: haversine_m(cur[0], cur[1], i["customer_lat"], i["customer_lng"]))
+        nxt = located.pop(0)
+        ordered.append(nxt)
+        cur = (nxt["customer_lat"], nxt["customer_lng"])
+    return ordered + unlocated
+
+
 def make_customer_router(db) -> APIRouter:
-    """Customer-facing endpoints — list pending deliveries + self-confirm."""
+    """Customer-facing endpoints — list pending deliveries + self-confirm + track boy."""
     from server import get_current_user, User  # type: ignore
 
     router = APIRouter(prefix="/my/deliveries", tags=["my-deliveries"])
@@ -526,14 +716,13 @@ def make_customer_router(db) -> APIRouter:
         today = today_local()
         items = await db.daily_rosters.find(
             {"user_id": user.user_id, "date": today, "status": {"$in": ["planned", "out"]}},
-            {"_id": 0, "otp": 0},   # don't leak OTP via this endpoint
+            {"_id": 0, "otp": 0},
         ).to_list(20)
         items.sort(key=lambda x: 0 if x["meal_type"] == "lunch" else 1)
         return {"pending": items, "date": today}
 
     @router.post("/{roster_id}/confirm")
     async def my_confirm(roster_id: str, user: User = Depends(get_current_user)):
-        """Customer self-confirms tiffin received — bypasses OTP & geofence (they're the witness)."""
         item = await db.daily_rosters.find_one({"roster_id": roster_id}, {"_id": 0})
         if not item:
             raise HTTPException(status_code=404, detail="Delivery not found")
@@ -550,5 +739,38 @@ def make_customer_router(db) -> APIRouter:
             }},
         )
         return {"ok": True}
+
+    @router.get("/track")
+    async def track_my_delivery(user: User = Depends(get_current_user)):
+        """Customer-side live tracking — returns delivery boy's current position + ETA."""
+        d = today_local()
+        item = await db.daily_rosters.find_one(
+            {"user_id": user.user_id, "date": d, "status": {"$in": ["planned", "out"]}, "delivery_boy_id": {"$ne": None}},
+            {"_id": 0, "otp": 0},
+        )
+        if not item:
+            return {"tracking": False}
+        boy = await db.delivery_boys.find_one({"boy_id": item["delivery_boy_id"]}, {"_id": 0})
+        if not boy or not boy.get("current_lat"):
+            return {"tracking": True, "boy_name": boy.get("name") if boy else None, "boy_position": None}
+        # Estimate ETA at 25 km/h
+        u = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
+        eta_min = None
+        distance_m = None
+        if u and u.get("lat") and u.get("lng"):
+            distance_m = haversine_m(boy["current_lat"], boy["current_lng"], u["lat"], u["lng"])
+            eta_min = round(distance_m / 1000.0 / 25.0 * 60.0, 1)
+        return {
+            "tracking": True,
+            "boy_name": boy.get("name"),
+            "boy_phone": boy.get("phone"),
+            "boy_position": {"lat": boy["current_lat"], "lng": boy["current_lng"], "last_ping_at": boy.get("last_ping_at")},
+            "your_position": {"lat": u.get("lat"), "lng": u.get("lng")} if u else None,
+            "distance_m": round(distance_m, 1) if distance_m is not None else None,
+            "eta_minutes": eta_min,
+            "meal_type": item["meal_type"],
+            "tiffin_size": item.get("tiffin_size"),
+            "status": item["status"],
+        }
 
     return router

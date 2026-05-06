@@ -107,7 +107,7 @@ class User(BaseModel):
     address: Optional[str] = None
     photo_url: Optional[str] = None
     picture: Optional[str] = None
-    role: Literal["admin", "staff", "subscriber"] = "subscriber"
+    role: Literal["admin", "staff", "subscriber", "delivery_boy"] = "subscriber"
     qr_token: str
     created_at: datetime
     lat: Optional[float] = None
@@ -306,6 +306,27 @@ async def create_or_get_user(email: Optional[str], phone: Optional[str], name: s
         "name": name,
         "address": None,
         "picture": picture,
+        "role": role,
+        "qr_token": f"qr_{uuid.uuid4().hex}",
+        "wallet_balance": 0.0,
+        "created_at": iso(now_utc()),
+    }
+    await db.users.insert_one(user_doc.copy())
+    return user_doc
+
+
+async def _create_user_for_phone(phone: str, name: str, role: str = "subscriber") -> dict:
+    """Create a minimal user record (used by admin when adding delivery boys)."""
+    existing = await db.users.find_one({"phone": phone}, {"_id": 0})
+    if existing:
+        return existing
+    user_doc = {
+        "user_id": f"user_{uuid.uuid4().hex[:12]}",
+        "email": None,
+        "phone": phone,
+        "name": name,
+        "address": None,
+        "picture": None,
         "role": role,
         "qr_token": f"qr_{uuid.uuid4().hex}",
         "wallet_balance": 0.0,
@@ -1530,9 +1551,10 @@ async def root():
 
 
 # Mount delivery sub-router under /api
-from delivery import make_router as _make_delivery_router, make_customer_router as _make_customer_router
+from delivery import make_router as _make_delivery_router, make_customer_router as _make_customer_router, make_boy_router as _make_boy_router
 api_router.include_router(_make_delivery_router(db))
 api_router.include_router(_make_customer_router(db))
+api_router.include_router(_make_boy_router(db))
 app.include_router(api_router)
 
 app.add_middleware(
