@@ -5,7 +5,7 @@ import { Input } from "../components/ui/input";
 import { toast } from "sonner";
 import {
   Wheat, Loader2, Save, RotateCcw, Sun, Moon, Calculator, Edit3, X,
-  TrendingUp, Users, IndianRupee, Sparkles,
+  TrendingUp, Users, IndianRupee, Sparkles, FileDown, History,
 } from "lucide-react";
 
 export default function AdminRawMaterials() {
