@@ -132,8 +132,8 @@ export default function AdminUsers() {
       {walletTarget && (
         <WalletAdjustModal
           target={walletTarget}
-          onClose={() => setWalletTarget(null)}
-          onSaved={() => { setWalletTarget(null); load(); }}
+          onClose={() => { setWalletTarget(null); load(); }}
+          onSaved={(opts) => { if (!opts?.silent) { setWalletTarget(null); } load(); }}
         />
       )}
     </div>
@@ -170,7 +170,16 @@ function WalletAdjustModal({ target, onClose, onSaved }) {
         restore_meals: Number(restoreMeals || 0),
       });
       toast.success(`Saved · audit ${r.data.audit_id}`);
-      onSaved();
+      // Keep modal open and refresh in place — admin can do follow-up adjustments and verify history.
+      setDelta("");
+      setExtendDays(0);
+      setRestoreMeals(0);
+      setReason("");
+      try {
+        const h = await api.get(`/admin/users/${target.user_id}/wallet-history`);
+        setHistory(h.data || { transactions: [], overrides: [] });
+      } catch {}
+      onSaved?.({ silent: true });
     } catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
     finally { setSaving(false); }
   };

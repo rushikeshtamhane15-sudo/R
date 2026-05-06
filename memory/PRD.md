@@ -84,6 +84,18 @@ MSG91_FLOW_TIFFIN=
 MSG91_STUB_MODE=true
 ```
 
+### Iteration 11 (Feb 6, 2026) — Wallet overrides + half-tiffin pricing + raw materials + tick model
+- **Admin wallet/refund overrides** — `POST /api/admin/users/{id}/wallet-adjust` with `{delta, reason, extend_days, restore_meals}` — admin can refund (positive delta), debit (negative, clamps at 0), extend the active sub end-date, or restore consumed meals. Audit-logged in `db.wallet_overrides`. Fronted by a new modal in `/admin/users` with recent-overrides list. `GET /admin/users/{id}/wallet-history` returns transactions + overrides.
+- **Half-tiffin custom pricing** — `MEAL_PRICE_HALF_INR = 50` for `tiffin_size="half"` (₹100/day); full tiffin & dining stay ₹70/meal (₹140/day). `/plans/custom/preview` now accepts `service_type` + `tiffin_size` query params.
+- **Tick model** — each active day-pass bumps `meals_used` by 2 (consumes the day's meal allocation) AND deducts the wallet. Inactive (3+ no-scan) days neither bump meals nor deduct money — they just extend `end_date` by 1 day. Scan-based `meals_used` increment removed (now solely tick-driven so attendance and meal accounting are decoupled).
+- **Admin Raw Materials page** (`/admin/raw-materials`) — live-calculates daily procurement need from active subs:
+  - Persons weighting: dining + full tiffin = 1, half tiffin = 0.5
+  - Per-meal need = monthly per-person ÷ 60 (1 month = 60 meals)
+  - Default rates: toor dal 2.1 kg @ ₹60/kg, rice 2.5 kg @ ₹90/kg, wheat 8 kg @ ₹40/kg, oil 1.8 L @ ₹190/L, vegetables ₹400/month
+  - Lunch + dinner shown separately, with totals for each + day total
+  - Admin can edit qty / price / amount per item, save, or reset to defaults
+- 14/14 new backend tests (test_iter10.py); 53/53 cumulative iter7-10 pass.
+
 ## Mocked Integrations (clearly flagged)
 - **MOCKED Razorpay**: enable real flow by setting `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` in `/app/backend/.env`. Frontend automatically uses the real modal once keys are present.
 - **MOCKED OTP delivery**: enable real SMS by integrating MSG91/Twilio at `/api/auth/send-otp` (one function swap). Set `OTP_DEV_MODE=false` to stop returning OTP in API response.
