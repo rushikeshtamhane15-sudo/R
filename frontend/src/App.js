@@ -66,18 +66,6 @@ function AdminIndex() {
   return <AdminOverview />;
 }
 
-function PostLogin() {
-  const { user, loading } = useAuth();
-  if (loading) return <div className="p-12 text-center text-muted-foreground">Loading…</div>;
-  if (!user) return <Navigate to="/login" replace />;
-  if (user.role === "admin") return <Navigate to="/admin" replace />;
-  if (user.role === "staff") return <Navigate to="/admin/deliveries-today" replace />;
-  if (user.role === "delivery_boy") return <Navigate to="/boy" replace />;
-  if (user.role === "rider") return <Navigate to="/rider" replace />;
-  // Subscribers (and any other normal user) — restaurant page is now the landing
-  return <Navigate to="/restaurant" replace />;
-}
-
 function AppRoutes() {
   const location = useLocation();
   if (location.hash?.includes("session_id=")) return <AuthCallback />;
@@ -105,7 +93,7 @@ function AppRoutes() {
           <Route path="/restaurant/orders" element={<RequireAuth><RestaurantOrderHistory /></RequireAuth>} />
           <Route path="/restaurant/track/:orderId" element={<RequireAuth><OrderTrack /></RequireAuth>} />
           <Route path="/rider" element={<RequireAuth><RiderDashboard /></RequireAuth>} />
-          <Route path="/dashboard" element={<RequireAuth><PostLogin /></RequireAuth>} />
+          <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
           <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
           <Route path="/plans" element={<Plans />} />
           <Route path="/checkout/:planId" element={<RequireAuth><Checkout /></RequireAuth>} />

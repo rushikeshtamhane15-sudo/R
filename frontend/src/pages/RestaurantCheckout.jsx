@@ -161,7 +161,7 @@ export default function RestaurantCheckout() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-32" data-testid="restaurant-checkout">
+    <div className="min-h-screen bg-background pb-44 md:pb-32" data-testid="restaurant-checkout">
       <header className="bg-primary text-primary-foreground">
         <div className="max-w-3xl mx-auto px-5 py-6">
           <Link to="/restaurant" className="inline-flex items-center text-primary-foreground/85 hover:text-primary-foreground text-xs font-bold uppercase tracking-overline" data-testid="back-restaurant">
@@ -266,8 +266,8 @@ export default function RestaurantCheckout() {
         </section>
       </div>
 
-      {/* Sticky pay button */}
-      <div className="fixed bottom-0 inset-x-0 z-30 bg-background border-t border-border px-5 py-3.5 md:bottom-0 md:py-4">
+      {/* Sticky pay button — sits above BottomNav on mobile (bottom-16) */}
+      <div className="fixed bottom-16 md:bottom-0 inset-x-0 z-40 bg-background border-t border-border px-5 py-3.5 md:py-4">
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
           <div className="text-sm">
             <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Total</p>

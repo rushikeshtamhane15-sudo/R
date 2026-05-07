@@ -1,0 +1,33 @@
+{
+  "summary": "Iter18 — re-verified two reported bugs after fixes. (1) /restaurant/checkout Pay button now sits ABOVE the mobile BottomNav and clicks through Mock-Razorpay → success page. (2) BottomNav 'Dashboard' tab navigates to /dashboard and SubscriberDashboard renders (not the prior PostLogin → /restaurant redirect). Frontend-only testing per request.",
+  "tests_executed": [
+    "MOBILE 390x844 — OTP login → add menu item → /restaurant/checkout. Pay btn (data-testid=checkout-pay-btn) bbox y=722 h=40 (bottom=762) vs BottomNav y=786. 24px clear gap above the BottomNav. Pay btn fully visible & enabled. PASS",
+    "MOBILE Pay click (mock Razorpay): filled empty address (form requires it), clicked checkout-pay-btn → /restaurant/order then auto /restaurant/verify → restaurant-success page rendered with order id, total ₹290 (₹260 subtotal + ₹30 delivery), Track + My orders + Continue browsing CTAs. PASS",
+    "DESKTOP 1440x900 — /restaurant/checkout Pay btn bbox bottom=880 (≈900 vp height). BottomNav not visible (md:hidden). Pay btn anchored at bottom-0 on desktop as expected. PASS",
+    "MOBILE BUG 2 — Logged-in subscriber on /restaurant clicks bottom-nav-dashboard → URL becomes /dashboard, page renders subscriber-dashboard + no-sub-banner (subscriber w/o subscription). NO redirect to /restaurant. PASS (verified via 3 click methods: Playwright click force=True, native JS .click(), and direct page.goto('/dashboard') — all land on /dashboard with SubscriberDashboard rendered).",
+    "REGRESSION /login?next=/restaurant/orders — fresh OTP login → lands on /restaurant/orders (NOT /dashboard). PASS",
+    "REGRESSION restaurant-page testid still rendered at /restaurant; bottom-nav-{restaurant,orders,dashboard,account} all rendered for logged-in subscriber on mobile."
+  ],
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "RestaurantCheckout.jsx L270 — fixed bottom-16 md:bottom-0 z-40 correctly stacks above BottomNav (bottom-0 z-30 md:hidden). The page wrapper pb-44 md:pb-32 ensures bill-summary content isn't hidden behind the lifted bar on mobile. Verified visually + via bbox.",
+    "App.js L96 — /dashboard now wired to <Dashboard /> (which dispatches by role). PostLogin component completely removed — confirmed no PostLogin references remain in App.js. Login.jsx computeNext() handles initial post-login redirect (admin→/admin, staff→/admin/deliveries-today, delivery_boy→/boy, rider→/rider, default→/restaurant) and honours ?next=. Subscriber explicit click on Dashboard tab now correctly lands on the dashboard route.",
+    "Dashboard.jsx role dispatch is correct (admin→AdminDashboard, staff→StaffScanner, default→SubscriberDashboard). No redirects out of /dashboard for subscribers — fix verified.",
+    "Mobile checkout flow has one subtle UX point (NOT a regression): the address field is empty for new users on first checkout (we had to fill it in test). User must enter it manually; this is by design. Just flagging for awareness — not an issue."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only)", "frontend": "100% (3/3 spec'd scenarios + 1 regression)"},
+  "test_credentials": "OTP login per /app/memory/test_credentials.md — fresh phone per test run; dev_otp surfaced via dev-otp-banner.",
+  "seed_data_creation": "None — used fresh OTP-registered users; no DB seeding required.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "1) When chaining /restaurant/checkout flows, ALWAYS fill co-address before clicking checkout-pay-btn — empty address triggers a 'Please fill name, phone and delivery address' toast and order is NOT placed (the Pay btn is enabled, but placeOrder() returns early). 2) BottomNav cart-bar (Restaurant.jsx) sits at fixed bottom-16 z-30 on mobile when cart has items — it does NOT overlap the BottomNav at bottom-0 z-30 (vertically separated), but if you ever see flaky tap-through behaviour on the BottomNav after a recent successful order, navigate fresh via page.goto('/restaurant') AFTER the success page has fully rendered to ensure clearCart() and React state have settled. 3) data-testids confirmed: checkout-pay-btn, restaurant-success, bottom-nav-dashboard, subscriber-dashboard, no-sub-banner, tiffin-hero-card, restaurant-page. 4) /dashboard for subscribers without an active subscription correctly shows BOTH subscriber-dashboard wrapper AND the no-sub-banner CTA (Choose a plan).",
+  "rca of the issue": "BUG 1 was a CSS stacking issue: previously checkout-pay-btn sat at fixed bottom-0 z-30, but BottomNav (md:hidden) was also at fixed bottom-0 z-30 — on mobile they overlapped in the same 64px band, and the BottomNav (declared later in JSX tree) painted on top, completely hiding the Pay btn. FIX: bottom-16 md:bottom-0 z-40 lifts the pay bar 64px above the BottomNav on mobile while keeping it at bottom-0 on desktop. Wrapper padding bumped to pb-44 md:pb-32 to preserve scroll clearance. Verified bbox: pay y=722-762, BottomNav y=786-844 — 24px clear gap. BUG 2 was a routing regression: /dashboard route was rendering <PostLogin /> which auto-redirected subscribers to /restaurant, so the Dashboard tab in BottomNav effectively round-tripped to /restaurant. FIX: replaced /dashboard route with <Dashboard /> (role-dispatching component); PostLogin function deleted from App.js. Login.jsx already had its own computeNext() so initial post-login still routes correctly per role."
+}
