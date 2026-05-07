@@ -1,0 +1,35 @@
+{
+  "summary": "RETEST of iter12 spec deviation (login ?next= preservation) — ALL 5 RETEST CASES PASS. The fix in /app/frontend/src/App.js RequireAuth (lines 51-58) and /app/frontend/src/pages/Login.jsx (computeNext + verifyOtp + handleGoogle) is correctly implemented and verified end-to-end against the public preview URL.",
+  "tests_executed": [
+    "T1 unauth /restaurant/checkout → /login?next=%2Frestaurant%2Fcheckout: PASS",
+    "T2 OTP login on /login?next=%2Frestaurant%2Forders → lands on /restaurant/orders (NOT /dashboard): PASS",
+    "T3 already-logged-in user visiting /login?next=/restaurant/checkout → auto-redirect to /restaurant/checkout: PASS",
+    "T4 Google button on /login?next=/restaurant/orders → window.location.href = https://auth.emergentagent.com/?redirect=https%3A%2F%2Fdining-pass-scan.preview.emergentagent.com%2Frestaurant%2Forders (encoded /restaurant/orders preserved in redirect param): PASS",
+    "T5 REGRESSION login without ?next= → subscriber lands on /restaurant per computeNext fallback: PASS"
+  ],
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "RequireAuth (App.js L51-58): correctly captures useLocation() and forwards both pathname and search into encoded ?next=. Open-redirect protection is in place (Login.jsx L44 validates next.startsWith('/') && !next.startsWith('//')). ✅",
+    "Login.jsx computeNext() (L42-51) is invoked from BOTH the already-logged-in useEffect (L54-59) AND verifyOtp() (L120). DRY and consistent. ✅",
+    "handleGoogle() (L79-85) re-implements the same ?next= read+validate logic inline. Minor DRY: consider hoisting `const next = getValidNext(searchParams)` helper, but functionally correct. The redirect URL builds origin+dest then encodes the whole thing once via encodeURIComponent — verified output: https://auth.emergentagent.com/?redirect=https%3A%2F%2F...%2Frestaurant%2Forders. ✅",
+    "Open-redirect guard correctly rejects protocol-relative URLs (//evil.com) by checking !raw.startsWith('//'). Does NOT reject absolute http(s):// URLs because they don't start with '/'. Safe. ✅"
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only retest)", "frontend": "100% (5/5 retest cases pass)"},
+  "test_credentials": "Same as iter12 — POST /api/auth/send-otp {phone:'9XXXXXXXXX'} returns dev_otp; POST /api/auth/verify-otp {phone, otp, name?}. Verified live: dev_otp returned in response body and rendered in [data-testid='dev-otp-banner']. Used fresh phones per test (9630604461, 9133139276) to avoid rate limiting.",
+  "seed_data_creation": "No seeded data — used live OTP send-otp/verify-otp with fresh random phones. Two TEST_ subscriber users were auto-created via verify-otp and remain in Mongo (not cleaned up — only 2 minimal user docs each with 1 session).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Login ?next= preservation fix is fully verified — all 5 cases (RequireAuth forward, OTP verify honour, already-logged-in bounce, Google redirect URL, regression default) pass. Two playwright nuances learned: (1) page.click() on the OTP send button under the Header/BottomNav stack on mobile viewport (390x844) was sometimes a no-op; using keyboard.press('Enter') on the focused phone-input (which the component handles via onKeyDown) is more reliable. (2) Capturing window.location.href set inside React handlers cannot be done via Object.defineProperty (Chrome blocks redefining window.location and location.href is non-configurable). Use page.route('https://auth.emergentagent.com/**', handler) with route.abort() and inspect request.url — this works perfectly and is the recommended technique for smoke-checking external redirect URLs without leaving the test app.",
+  "rca of the issue": "iter12's spec deviation has been resolved. RequireAuth in App.js now reads useLocation() and emits <Navigate to={`/login?next=${encodeURIComponent(location.pathname + (location.search || ''))}`} replace />. Login.jsx exposes a single computeNext(u) that reads searchParams.get('next'), validates it starts with '/' and not '//', and falls back to role-based default. Both the already-logged-in useEffect and verifyOtp() use computeNext(). handleGoogle() replicates the validation and builds redirect=encodeURIComponent(origin+dest). End-to-end behaviour matches spec exactly."
+}

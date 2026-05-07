@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
@@ -35,17 +35,28 @@ const DEFAULTS = {
 
 export default function Login() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, setUser } = useAuth();
 
-  // If already logged in, bounce to the right home — never show login form again.
+  // Decide post-login destination — `?next=/path` wins, else role-based default.
+  const computeNext = (u) => {
+    const raw = searchParams.get("next");
+    if (raw && raw.startsWith("/") && !raw.startsWith("//")) return raw;
+    if (!u) return "/dashboard";
+    if (u.role === "admin") return "/admin";
+    if (u.role === "staff") return "/admin/deliveries-today";
+    if (u.role === "delivery_boy") return "/boy";
+    if (u.role === "rider") return "/rider";
+    return "/restaurant";
+  };
+
+  // If already logged in, bounce — honour ?next= when present.
   useEffect(() => {
     if (user) {
-      const target = user.role === "admin" ? "/admin"
-        : user.role === "staff" ? "/staff/scanner"
-        : "/dashboard";
-      navigate(target, { replace: true });
+      navigate(computeNext(user), { replace: true });
     }
-  }, [user, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const [content, setContent] = useState(DEFAULTS);
   const [mode, setMode] = useState("phone"); // phone | verify
@@ -67,7 +78,9 @@ export default function Login() {
 
   const handleGoogle = () => {
     // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-    const redirectUrl = window.location.origin + "/dashboard";
+    const next = searchParams.get("next");
+    const dest = (next && next.startsWith("/") && !next.startsWith("//")) ? next : "/dashboard";
+    const redirectUrl = window.location.origin + dest;
     window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
   };
 
@@ -104,7 +117,7 @@ export default function Login() {
       });
       setUser(r.data.user);
       toast.success("Welcome to efoodcare");
-      navigate("/dashboard", { replace: true, state: { user: r.data.user } });
+      navigate(computeNext(r.data.user), { replace: true, state: { user: r.data.user } });
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Verification failed");
     } finally {

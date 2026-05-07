@@ -50,8 +50,12 @@ import { Privacy, Refund } from "./pages/PolicyPage";
 
 function RequireAuth({ children, roles }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
   if (loading) return <div className="p-12 text-center text-muted-foreground">Loading…</div>;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) {
+    const next = encodeURIComponent(location.pathname + (location.search || ""));
+    return <Navigate to={`/login?next=${next}`} replace />;
+  }
   if (roles && !roles.includes(user.role)) return <Navigate to="/dashboard" replace />;
   return children;
 }
