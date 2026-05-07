@@ -84,7 +84,7 @@ export default function PWAInstallPrompt() {
           <Download className="h-5 w-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-display font-extrabold text-base leading-tight">Install eFoodCare</p>
+          <p className="font-display font-extrabold text-base leading-tight">Install efoodcare</p>
           <p className="text-xs text-muted-foreground mt-1">
             Add the app to your home screen — opens full-screen, loads instantly, works through patchy network.
           </p>

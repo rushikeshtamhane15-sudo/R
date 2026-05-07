@@ -61,7 +61,7 @@ export default function Kiosk() {
         {/* Top strip */}
         <div className="flex items-center justify-between px-8 md:px-12 py-6 border-b border-black/5">
           <div className="flex items-center gap-3">
-            <img src={BRAND_LOGO_URL} alt="eFoodCare" className="h-10 w-10 rounded-xl bg-primary p-1 object-contain" />
+            <img src={BRAND_LOGO_URL} alt="efoodcare" className="h-10 w-10 rounded-xl bg-primary p-1 object-contain" />
             <div>
               <p className="font-display font-extrabold text-lg leading-none">e-Meal Pass</p>
               <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground mt-1">Counter · {locationId}</p>
@@ -130,7 +130,7 @@ export default function Kiosk() {
             <div className="rounded-2xl bg-accent border border-black/5 p-5">
               <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">How to check in</p>
               <ol className="text-sm mt-2 space-y-1 list-decimal pl-4 text-foreground/80">
-                <li>Open eFoodCare on your phone</li>
+                <li>Open efoodcare on your phone</li>
                 <li>Tap "Scan counter QR"</li>
                 <li>Point at this screen — done.</li>
               </ol>

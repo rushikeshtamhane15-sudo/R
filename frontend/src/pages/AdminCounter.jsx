@@ -10,7 +10,7 @@ const LOCATION = "main";
 
 export default function AdminCounter() {
   const { theme } = useTheme();
-  const brandName = theme?.brand_name || "eFoodCare";
+  const brandName = theme?.brand_name || "efoodcare";
   const [meal, setMeal] = useState(currentMeal());
   const [data, setData] = useState(null);
   const [stats, setStats] = useState(null);

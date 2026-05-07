@@ -14,7 +14,7 @@ export default function Header() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
 
-  const brandName = theme?.brand_name || "eFoodCare";
+  const brandName = theme?.brand_name || "efoodcare";
   const brandTagline = theme?.brand_tagline || "ghar se achha khana";
 
   const primary = [];

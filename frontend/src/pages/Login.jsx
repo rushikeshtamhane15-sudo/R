@@ -103,7 +103,7 @@ export default function Login() {
         name: name.trim() || undefined,
       });
       setUser(r.data.user);
-      toast.success("Welcome to eFoodCare");
+      toast.success("Welcome to efoodcare");
       navigate("/dashboard", { replace: true, state: { user: r.data.user } });
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Verification failed");
@@ -133,13 +133,22 @@ export default function Login() {
         </div>
       )}
 
-      {/* FORM SHEET — pulls up over the hero */}
-      <div className="bg-card flex-1 -mt-6 rounded-t-3xl shadow-[0_-12px_30px_-10px_rgba(0,0,0,0.18)] relative">
-        <div className="max-w-md mx-auto w-full px-6 py-7">
+      {/* FORM SHEET — Zomato-clone style: floating white card with thick border + shadow */}
+      <div className="bg-background flex-1 -mt-8 px-4 sm:px-6 relative pb-8">
+        <div
+          className="max-w-lg mx-auto w-full bg-card rounded-3xl px-6 py-7 sm:px-8 sm:py-8 mt-2"
+          style={{
+            border: "3px solid #ffffff",
+            boxShadow: "0 24px 60px -16px rgba(0,0,0,0.25), 0 8px 24px -6px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.06)",
+          }}
+          data-testid="login-form-card"
+        >
+          {/* 10mm spacer above the login icon */}
+          <div className="h-10 sm:h-10" data-testid="login-spacer" />
           {/* Dark-blue 3D login icon — visual anchor above the form */}
           <div
             data-testid="login-icon-badge"
-            className="mx-auto -mt-12 mb-5 flex items-center justify-center h-16 w-16 rounded-2xl"
+            className="mx-auto mb-5 flex items-center justify-center h-16 w-16 rounded-2xl"
             style={{
               background: "linear-gradient(145deg, #2746a3 0%, #14266b 100%)",
               boxShadow:

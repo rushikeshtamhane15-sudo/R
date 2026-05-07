@@ -15,7 +15,7 @@ import React, { useEffect, useState } from "react";
 const LOGO_URL =
   "https://customer-assets.emergentagent.com/job_dining-pass-scan/artifacts/uzs344m6_9a705f5a-b3a0-4286-b51d-b9bd6f55b7bb_20260504_011957_0000.png";
 
-const HOLD_MS = 2000;
+const HOLD_MS = 5000;
 const FADE_MS = 380;
 
 export default function SplashScreen() {
@@ -109,23 +109,25 @@ export default function SplashScreen() {
           letterSpacing: "-0.02em",
           margin: "26px 0 0",
           lineHeight: 1.05,
+          textTransform: "lowercase",
           textShadow: "0 2px 12px rgba(0,0,0,0.35)",
           animation: "efc-rise 700ms ease-out 120ms both",
         }}
       >
-        eFoodCare
+        efoodcare
       </h1>
 
       <p
         style={{
           color: "#ffffff",
-          opacity: 0.92,
+          opacity: 0.95,
           fontFamily: '"Manrope", system-ui, sans-serif',
           fontStyle: "italic",
-          fontSize: "clamp(1rem, 3.4vw, 1.25rem)",
-          letterSpacing: "0.01em",
-          margin: "44px 0 0",
-          textShadow: "0 1px 6px rgba(0,0,0,0.25)",
+          fontSize: "clamp(1.5rem, 5vw, 2rem)",
+          fontWeight: 600,
+          letterSpacing: "0.005em",
+          margin: "32px 0 0",
+          textShadow: "0 1px 8px rgba(0,0,0,0.3)",
           animation: "efc-rise 700ms ease-out 240ms both",
         }}
       >

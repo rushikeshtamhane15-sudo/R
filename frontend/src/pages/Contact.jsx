@@ -24,7 +24,7 @@ export default function Contact() {
         <div className="md:col-span-3 rounded-2xl overflow-hidden border border-border bg-card shadow-sm" data-testid="contact-map">
           {data.map_embed_src ? (
             <iframe
-              title="eFoodCare location"
+              title="efoodcare location"
               src={data.map_embed_src}
               className="w-full h-[420px] border-0"
               loading="lazy"

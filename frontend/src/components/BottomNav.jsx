@@ -1,13 +1,15 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import WalletPill from "./WalletPill";
-import { Home, LayoutDashboard, Wallet, User as UserIcon, UtensilsCrossed, Phone, LogIn } from "lucide-react";
+import { Home, UtensilsCrossed, LayoutDashboard, User as UserIcon, Phone, LogIn } from "lucide-react";
 
 /**
- * Bottom nav — visible to BOTH logged-in subscribers and logged-out users.
+ * Bottom nav — 4-tab, equally spaced.
  * Hidden for staff / admin / delivery_boy / rider (they get the admin sidebar
  * / rider dashboard instead).
+ *
+ * Logged-in subscriber: Home (Restaurant) · Dashboard · Account
+ * Logged-out: Home (Restaurant) · Tiffin Plans · Contact · Login
  */
 export default function BottomNav() {
   const location = useLocation();
@@ -16,49 +18,35 @@ export default function BottomNav() {
 
   const items = user
     ? [
-        { to: "/",          label: "Home",       icon: Home },
+        { to: "/",          label: "Restaurant", icon: UtensilsCrossed },
         { to: "/dashboard", label: "Dashboard",  icon: LayoutDashboard },
-        { to: "/restaurant", label: "Restaurant", icon: UtensilsCrossed },
-        { wallet: true,     label: "Wallet",     icon: Wallet },
+        { to: "/home",      label: "Tiffin",     icon: Home },
         { to: "/profile",   label: "Account",    icon: UserIcon },
       ]
     : [
-        { to: "/",           label: "Home",       icon: Home },
-        { to: "/restaurant", label: "Restaurant", icon: UtensilsCrossed },
-        { to: "/contact",    label: "Contact",    icon: Phone },
-        { to: "/login",      label: "Login",      icon: LogIn },
+        { to: "/",        label: "Restaurant", icon: UtensilsCrossed },
+        { to: "/home",    label: "Tiffin",     icon: Home },
+        { to: "/contact", label: "Contact",    icon: Phone },
+        { to: "/login",   label: "Login",      icon: LogIn },
       ];
-
-  const cols = items.length === 5 ? "grid-cols-5" : "grid-cols-4";
 
   return (
     <nav
       className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-background border-t border-border shadow-[0_-4px_12px_rgba(0,0,0,0.04)]"
       data-testid="bottom-nav"
     >
-      <ul className={`grid ${cols}`}>
+      <ul className="flex items-stretch justify-around">
         {items.map((it) => {
-          const isActive = it.to && (it.to === "/" ? location.pathname === "/" : location.pathname.startsWith(it.to));
-          if (it.wallet) {
-            return (
-              <li key="wallet" className="flex">
-                <WalletPill
-                  trigger={
-                    <button type="button" className="w-full flex flex-col items-center justify-center gap-0.5 py-2.5 text-muted-foreground hover:text-primary transition-colors" data-testid="bottom-nav-wallet">
-                      <it.icon className="h-5 w-5" strokeWidth={1.75} />
-                      <span className="text-[10px] tracking-overline uppercase font-bold">{it.label}</span>
-                    </button>
-                  }
-                />
-              </li>
-            );
-          }
+          const isActive =
+            it.to === "/"
+              ? location.pathname === "/"
+              : location.pathname.startsWith(it.to);
           return (
-            <li key={it.to} className="flex">
+            <li key={it.to} className="flex-1 flex">
               <Link
                 to={it.to}
                 data-testid={`bottom-nav-${it.label.toLowerCase()}`}
-                className={`w-full flex flex-col items-center justify-center gap-0.5 py-2.5 transition-colors ${isActive ? "text-primary" : "text-muted-foreground hover:text-primary"}`}
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 transition-colors ${isActive ? "text-primary" : "text-muted-foreground hover:text-primary"}`}
               >
                 <it.icon className="h-5 w-5" strokeWidth={1.75} />
                 <span className="text-[10px] tracking-overline uppercase font-bold">{it.label}</span>

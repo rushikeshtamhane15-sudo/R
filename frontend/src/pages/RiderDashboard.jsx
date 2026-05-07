@@ -152,7 +152,7 @@ export default function RiderDashboard() {
           <div className="flex items-center gap-3">
             <Bike className="h-6 w-6" />
             <div>
-              <p className="text-xs tracking-overline uppercase font-bold opacity-75">eFoodCare Rider</p>
+              <p className="text-xs tracking-overline uppercase font-bold opacity-75">efoodcare Rider</p>
               <h1 className="font-display font-extrabold text-lg leading-tight">{me.name || "Rider"}</h1>
             </div>
           </div>

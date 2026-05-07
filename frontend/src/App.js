@@ -69,7 +69,8 @@ function PostLogin() {
   if (user.role === "staff") return <Navigate to="/admin/deliveries-today" replace />;
   if (user.role === "delivery_boy") return <Navigate to="/boy" replace />;
   if (user.role === "rider") return <Navigate to="/rider" replace />;
-  return <Dashboard />;
+  // Subscribers (and any other normal user) — restaurant page is now the landing
+  return <Navigate to="/restaurant" replace />;
 }
 
 function AppRoutes() {
@@ -91,7 +92,8 @@ function AppRoutes() {
       <AnnouncementBar />
       <main className="flex-1">
         <Routes>
-          <Route path="/" element={<Landing />} />
+          <Route path="/" element={<Restaurant />} />
+          <Route path="/home" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/restaurant" element={<Restaurant />} />
           <Route path="/restaurant/checkout" element={<RequireAuth><RestaurantCheckout /></RequireAuth>} />

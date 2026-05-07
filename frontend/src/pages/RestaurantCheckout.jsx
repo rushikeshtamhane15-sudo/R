@@ -178,38 +178,41 @@ export default function RestaurantCheckout() {
           </div>
           {priced.lines.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground text-sm">
-              Cart is empty. <Link to="/restaurant" className="text-primary font-semibold underline-offset-2 hover:underline">Browse the menu</Link>.
+              Cart is empty. <Link to="/" className="text-primary font-semibold underline-offset-2 hover:underline">Browse the menu</Link>.
             </div>
           ) : (
             <ul className="divide-y divide-border">
               {priced.lines.map((l) => (
-                <li key={l.id} className="p-4 flex gap-4 items-center" data-testid={`checkout-line-${l.id}`}>
-                  <img src={l.image_url} alt={l.name} className="h-14 w-14 rounded-xl object-cover flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold leading-tight truncate">{l.name}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">₹{l.unit} each · {l.category}</p>
+                <li key={l.id} className="p-3 sm:p-4 flex flex-col sm:flex-row gap-3 sm:items-center" data-testid={`checkout-line-${l.id}`}>
+                  <div className="flex gap-3 items-center flex-1 min-w-0">
+                    <img src={l.image_url} alt={l.name} className="h-14 w-14 rounded-xl object-cover flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold leading-tight truncate text-sm">{l.name}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">₹{l.unit} × {l.qty} = <span className="font-bold tabular-nums text-foreground">₹{l.line_total.toFixed(0)}</span></p>
+                    </div>
                   </div>
-                  <div className="inline-flex items-center gap-1 rounded-full border border-border bg-background overflow-hidden">
-                    <button type="button" className="h-9 w-9 flex items-center justify-center hover:bg-muted" onClick={() => onSub(l.id)} aria-label="Decrease" data-testid={`co-dec-${l.id}`}>
-                      <Minus className="h-4 w-4" />
-                    </button>
-                    <input
-                      type="number"
-                      value={l.qty}
-                      onChange={(e) => onChangeQty(l.id, e.target.value)}
-                      className="w-10 h-9 text-center bg-transparent text-sm font-bold focus:outline-none"
-                      data-testid={`co-qty-${l.id}`}
-                      min={0}
-                      max={50}
-                    />
-                    <button type="button" className="h-9 w-9 flex items-center justify-center hover:bg-muted" onClick={() => onAdd(l.id)} aria-label="Increase" data-testid={`co-inc-${l.id}`}>
-                      <Plus className="h-4 w-4" />
+                  <div className="flex items-center justify-between gap-2 sm:gap-3 sm:justify-end flex-shrink-0">
+                    <div className="inline-flex items-center gap-0.5 rounded-full border border-border bg-background overflow-hidden">
+                      <button type="button" className="h-8 w-8 flex items-center justify-center hover:bg-muted" onClick={() => onSub(l.id)} aria-label="Decrease" data-testid={`co-dec-${l.id}`}>
+                        <Minus className="h-3.5 w-3.5" />
+                      </button>
+                      <input
+                        type="number"
+                        value={l.qty}
+                        onChange={(e) => onChangeQty(l.id, e.target.value)}
+                        className="w-9 h-8 text-center bg-transparent text-xs font-bold focus:outline-none tabular-nums"
+                        data-testid={`co-qty-${l.id}`}
+                        min={0}
+                        max={50}
+                      />
+                      <button type="button" className="h-8 w-8 flex items-center justify-center hover:bg-muted" onClick={() => onAdd(l.id)} aria-label="Increase" data-testid={`co-inc-${l.id}`}>
+                        <Plus className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <button type="button" onClick={() => onRemove(l.id)} className="text-muted-foreground hover:text-destructive p-1.5" aria-label="Remove" data-testid={`co-remove-${l.id}`}>
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
-                  <p className="font-bold tabular-nums w-16 text-right">₹{l.line_total.toFixed(0)}</p>
-                  <button type="button" onClick={() => onRemove(l.id)} className="text-muted-foreground hover:text-destructive" aria-label="Remove" data-testid={`co-remove-${l.id}`}>
-                    <Trash2 className="h-4 w-4" />
-                  </button>
                 </li>
               ))}
             </ul>

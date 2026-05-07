@@ -87,7 +87,7 @@ export default function Checkout() {
         setStatus("paying");
         const options = {
           key: order.key_id, amount: order.amount_paise, currency: order.currency,
-          order_id: order.order_id, name: "eFoodCare",
+          order_id: order.order_id, name: "efoodcare",
           description: `${order.plan_name} — ghar se achha khana`,
           prefill: order.prefill, theme: { color: "#a02323" },
           handler: async (res) => {

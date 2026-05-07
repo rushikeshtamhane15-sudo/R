@@ -95,8 +95,8 @@ DEFAULT_MENU: list[dict] = [
 for _it in DEFAULT_MENU:
     _it.setdefault("active", True)
 
-DELIVERY_FEE_FREE_OVER = 400  # ₹ — free delivery above this
-DELIVERY_FEE_FLAT = 30          # ₹ — flat below threshold
+DELIVERY_FEE_FREE_OVER = 500  # ₹ — free delivery above this
+DELIVERY_FEE_FLAT = 50          # ₹ — flat below threshold
 
 
 # ---------------------------------------------------------------------------

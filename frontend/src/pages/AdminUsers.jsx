@@ -79,7 +79,7 @@ export default function AdminUsers() {
                     onClick={async () => {
                       try {
                         await api.post(`/admin/rider/${u.user_id}/promote`);
-                        toast.success(`${u.name || u.user_id} is now an eFoodCare rider`);
+                        toast.success(`${u.name || u.user_id} is now an efoodcare rider`);
                         load();
                       } catch (e) { toast.error(e?.response?.data?.detail || "Could not promote"); }
                     }}
@@ -127,7 +127,7 @@ export default function AdminUsers() {
 
           <div className="border-t border-border mt-5 pt-4">
             <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground mb-2">Quick: Promote to rider</p>
-            <p className="text-[11px] text-muted-foreground mb-2 leading-relaxed">Click the bike icon on any row to instantly mark them as an eFoodCare rider — they'll get rider-only login redirect + dashboard.</p>
+            <p className="text-[11px] text-muted-foreground mb-2 leading-relaxed">Click the bike icon on any row to instantly mark them as an efoodcare rider — they'll get rider-only login redirect + dashboard.</p>
           </div>
         </div>
       </div>
