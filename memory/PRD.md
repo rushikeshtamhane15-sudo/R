@@ -194,6 +194,13 @@ MSG91_STUB_MODE=true
 - **MOCKED Razorpay**: enable real flow by setting `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` in `/app/backend/.env`. Frontend automatically uses the real modal once keys are present.
 - **MOCKED OTP delivery**: enable real SMS by integrating MSG91/Twilio at `/api/auth/send-otp` (one function swap). Set `OTP_DEV_MODE=false` to stop returning OTP in API response.
 
+## Iteration 16 (Feb 7, 2026) — Customer Order History + Reorder + Login redirect fix
+- **Customer-side Restaurant Order History** at `/restaurant/orders` (`RestaurantOrderHistory.jsx`) — newest-first, status-coloured chip per order, item summary (top 4 + "+ N more"), total, **Reorder** button, optional **Track** button for in-flight orders. Empty-state CTA back to menu. Backed by existing `GET /api/restaurant/orders`.
+- **Reorder flow** — clicking Reorder pulls live menu, restocks the localStorage cart (`efc_restaurant_cart_v1`) with available items only (skipped items toast-warned), navigates to `/restaurant/checkout`. Same `RefreshCw` button also added to `OrderTrack.jsx` (`track-reorder-btn`) along with an "Order history" link.
+- **BottomNav** — logged-in subscriber tabs are now `Restaurant · Orders · Dashboard · Account` (Tiffin moved out; Orders added).
+- **Checkout success state** — added "My orders" CTA next to "Track" and "Continue browsing".
+- **Login `?next=` redirect preservation (P0 fix)** — `RequireAuth` in `App.js` now forwards `location.pathname + location.search` via `?next=...`. `Login.jsx` reads `searchParams.get("next")` via a `computeNext()` helper used by both the already-logged-in bounce `useEffect` and `verifyOtp()`. Same `?next=` honoured on Google login redirect URL. **Verified 5/5 retest cases pass.**
+
 ## Backlog
 - P1: Per-IP rate limit on `/auth/send-otp` (SMS cost protection)
 - P1: Admin menu editor UI (backend ready)
