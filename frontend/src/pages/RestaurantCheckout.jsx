@@ -149,6 +149,9 @@ export default function RestaurantCheckout() {
               <Link to={`/restaurant/track/${success.order_id}`} data-testid="success-track">Track your order</Link>
             </Button>
             <Button asChild variant="outline" className="rounded-full">
+              <Link to="/restaurant/orders" data-testid="success-history">My orders</Link>
+            </Button>
+            <Button asChild variant="outline" className="rounded-full">
               <Link to="/restaurant" data-testid="success-keep-browsing">Continue browsing</Link>
             </Button>
           </div>

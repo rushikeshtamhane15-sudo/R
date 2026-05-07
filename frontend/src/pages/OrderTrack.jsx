@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
+import { toast } from "sonner";
+import { loadCart, saveCart, setQty } from "../lib/cart";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import {
-  ChevronLeft, Phone, CheckCircle2, ChefHat, Bike, MapPin, PackageCheck, Hourglass, Clock,
+  ChevronLeft, Phone, CheckCircle2, ChefHat, Bike, MapPin, PackageCheck, Hourglass, Clock, RefreshCw, Receipt,
 } from "lucide-react";
 
 const POLL_MS = 15_000;
@@ -41,6 +43,7 @@ function statusIndex(status) {
 
 export default function OrderTrack() {
   const { orderId } = useParams();
+  const navigate = useNavigate();
   const [order, setOrder] = useState(null);
   const [err, setErr] = useState("");
   const polling = useRef(null);
@@ -57,6 +60,32 @@ export default function OrderTrack() {
     polling.current = setInterval(load, POLL_MS);
     return () => clearInterval(polling.current);
   }, [orderId]);
+
+  const reorder = async () => {
+    if (!order?.items?.length) return;
+    let liveIds = new Set();
+    try {
+      const r = await api.get("/restaurant/menu");
+      liveIds = new Set((r.data?.items || []).map((m) => m.id));
+    } catch {
+      toast.error("Menu unavailable, cannot reorder right now");
+      return;
+    }
+    let next = { ...loadCart() };
+    let added = 0;
+    let skipped = 0;
+    for (const line of order.items) {
+      if (!liveIds.has(line.id)) { skipped += 1; continue; }
+      const cur = next[line.id]?.qty || 0;
+      next = setQty(next, line.id, cur + (line.qty || 1));
+      added += 1;
+    }
+    saveCart(next);
+    if (added === 0) { toast.error("None of the items are available right now"); return; }
+    if (skipped > 0) toast.warning(`${skipped} item(s) no longer available — skipped`);
+    toast.success(`Added ${added} item${added > 1 ? "s" : ""} to cart`);
+    navigate("/restaurant/checkout");
+  };
 
   const idx = useMemo(() => order ? statusIndex(order.status) : 0, [order]);
 
@@ -152,6 +181,24 @@ export default function OrderTrack() {
           </div>
           <div className="flex justify-between font-display font-extrabold text-lg mt-2">
             <span>Total</span><span className="tabular-nums text-primary">₹{order.total?.toFixed(0)}</span>
+          </div>
+
+          <div className="flex flex-wrap gap-2 mt-5 pt-4 border-t border-border">
+            <button
+              type="button"
+              onClick={reorder}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition"
+              data-testid="track-reorder-btn"
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Reorder these items
+            </button>
+            <Link
+              to="/restaurant/orders"
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full border border-border text-xs font-bold hover:bg-muted transition"
+              data-testid="track-history-link"
+            >
+              <Receipt className="h-3.5 w-3.5" /> Order history
+            </Link>
           </div>
         </section>
       </main>

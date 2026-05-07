@@ -1,0 +1,45 @@
+{
+  "summary": "Iter16 (Customer Restaurant Order History + Reorder + Pay Now flow + login redirect smoke + Login UI smoke) end-to-end tested. Backend: 7/7 iter16 tests pass — GET /api/restaurant/orders auth-gated (401 unauth), returns empty list for fresh users, lists user's orders newest-first after place+verify, user-isolated, history limit capped at 100, /restaurant/orders/{id}/track returns full items list. Frontend (mobile 390x844, logged-in subscriber): /restaurant/orders renders with seeded order card; data-testids order-card-{id}, order-track-{id}, order-reorder-{id} all present; clicking Reorder restocks localStorage cart (efc_restaurant_cart_v1) and navigates to /restaurant/checkout; Pay Now button enables when name/phone/address filled, mock-mode auto-completes and shows success state with success-track / success-history / success-keep-browsing CTAs all visible; OrderTrack page (/restaurant/track/<id>) shows track-reorder-btn + track-history-link, clicking track-reorder-btn also restocks cart and routes to checkout; Bottom-nav for logged-in subscriber on mobile correctly shows Restaurant · Orders · Dashboard · Account (Tiffin tab moved out as spec); Login page loads with login-icon-badge visible. ONE SPEC DEVIATION FOUND: visiting /restaurant/checkout while logged-out redirects to /login but the ?next=/restaurant/checkout query param is NOT preserved — after OTP login the user lands on /dashboard, not back on /restaurant/checkout. RequireAuth in App.js uses <Navigate to=\"/login\" replace /> without forwarding the path, and Login.jsx does navigate(\"/dashboard\") unconditionally on verify-otp success.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Login redirect with ?next= preservation",
+        "issue": "Spec says: /restaurant/checkout (unauth) → /login?next=/restaurant/checkout → after OTP login bounces back to /restaurant/checkout. Actual: redirected to /login (no ?next= param), and Login.jsx hard-codes navigate('/dashboard') after verify-otp. Spec deviation — login flow does not bounce back to the originally requested path.",
+        "affected_selectors": ["RequireAuth in /app/frontend/src/App.js (line 51-57)", "Login.jsx verifyOtp() line 107"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter16.py",
+    "/app/test_reports/pytest/iter16_results.xml"
+  ],
+  "action_items": [
+    "Fix login-redirect ?next= preservation: (a) update RequireAuth in /app/frontend/src/App.js to do <Navigate to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`} replace /> using useLocation(); (b) update Login.jsx verifyOtp() (line 107) to read ?next= via useSearchParams and navigate(next || '/dashboard', { replace: true }). Apply the same to the already-logged-in bounce useEffect (line 41-48) so a logged-in user hitting /login?next=/restaurant/checkout is redirected to that path instead of role-based default."
+  ],
+  "critical_code_review_comments": [
+    "RestaurantOrderHistory.jsx (195 lines): clean, well-scoped. Reorder logic correctly fetches live menu before re-adding so removed items are skipped with a warning toast. Status meta map is exhaustive. data-testids order-card-{id}, order-reorder-{id}, order-track-{id} are present per spec. ✅",
+    "OrderTrack.jsx reorder() helper duplicates the menu-availability + cart-merge logic from RestaurantOrderHistory.reorder(). Suggest extracting to /lib/cart.js as `reorderToCart(orderItems, menu)` to avoid drift if availability rules evolve.",
+    "Backend GET /api/restaurant/orders correctly excludes _id, uses limit cap (1..100), sorts created_at desc, scopes to user_id. ✅",
+    "BottomNav.jsx: logged-in subscriber tabs are exactly 4 (Restaurant, Orders, Dashboard, Account) per spec. Tiffin tab correctly removed from logged-in nav while still present in logged-out nav. ✅",
+    "RestaurantCheckout success block exposes all three CTAs (success-track, success-history, success-keep-browsing). Pay button disabled-state is computed on cart non-empty + name/phone/address filled — verified empty fields keep it disabled. ✅",
+    "RequireAuth (App.js line 51) loses the originally-requested URL — must capture useLocation() and forward it as ?next= to Login. This is the only functional gap this iteration.",
+    "Login.jsx verifyOtp() always navigate('/dashboard'); does not honour ?next= even if RequireAuth were fixed. Needs combined fix.",
+    "Splash screen still mounts on every route navigation — mildly slows automation. Not a defect, but worth a flag (sessionStorage skip after first load?) for UX polish."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter16.py (new — 7 tests, all pass)"
+  ],
+  "success_rate": {"backend": "100% (7/7 iter16)", "frontend": "85% — order history, reorder, pay-now, success CTAs, track-reorder, bottom-nav, login-icon-badge all verified. Login ?next= bounce-back is broken (1 spec deviation)."},
+  "test_credentials": "OTP dev mode: POST /api/auth/send-otp {phone:'9876543210'} → response.dev_otp; then POST /api/auth/verify-otp {phone, otp, name?}. Backend tests inject TEST_subscriber_* + TEST_st_* sessions directly into Mongo (cleaned up in teardown).",
+  "seed_data_creation": "Iter16 backend tests seed module-scoped TEST_subscriber via Mongo and place 3 mock restaurant orders (tiffin_half, bev_masala_chai, tiffin_full) which are deleted in fixture teardown. UI smoke test seeded TEST_subscriber_iter16_<hex> + 1 paid order (rorder_8def6a5e427f4c05ba) and was cleaned up after the run (cleaned users=1 sessions=1 orders=2).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run iter16 backend: `REACT_APP_BACKEND_URL=https://dining-pass-scan.preview.emergentagent.com MONGO_URL=mongodb://localhost:27017 DB_NAME=test_database pytest backend/tests/test_iter16.py -v`. The new RestaurantOrderHistory.jsx is at /app/frontend/src/pages/ and is wired in App.js as /restaurant/orders (RequireAuth gated). data-testids on the page: restaurant-order-history (root), orders-back-link, orders-empty / orders-empty-cta (empty state), orders-error (load error), order-card-{id}, order-reorder-{id}, order-track-{id}. The reorder() helper does GET /api/restaurant/menu and only re-adds items whose ids still exist in the live menu (skipped items toast a warning). For UI smoke testing logged-in flows, seed TEST_subscriber + session_token directly into Mongo and set the cookie on dining-pass-scan.preview.emergentagent.com (Secure, SameSite=None) — see iter15 context for the exact recipe. The splash screen runs on every cold load (~2s), so prefer page.evaluate(...).click() and wait_for_timeout(2500) instead of wait_for_url('**/checkout') after clicking Reorder buttons — Playwright's navigation event was occasionally missed under the splash overlay even though the navigation itself succeeded. Login bounce-back via ?next= is currently broken (see action_items) and is the only functional gap.",
+  "rca of the issue": "Login bounce-back: RequireAuth in /app/frontend/src/App.js line 54 does `return <Navigate to=\"/login\" replace />` without using useLocation() to capture the original pathname. Login.jsx verifyOtp() at line 107 hard-codes `navigate(\"/dashboard\", { replace: true })` and does not parse ?next= from useSearchParams. The already-logged-in bounce-effect (Login.jsx lines 41-48) also routes purely by user.role, ignoring ?next=. Mitigation (one-line each): RequireAuth: `const loc = useLocation(); ...; if (!user) return <Navigate to={`/login?next=${encodeURIComponent(loc.pathname+loc.search)}`} replace />;` and in Login.jsx import useSearchParams and read const next = params.get('next') || null; in both the already-logged-in effect and verifyOtp use `navigate(next || '/dashboard', { replace: true })` (and validate next starts with '/' to prevent open-redirect)."
+}

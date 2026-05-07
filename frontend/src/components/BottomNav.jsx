@@ -1,7 +1,7 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { Home, UtensilsCrossed, LayoutDashboard, User as UserIcon, Phone, LogIn } from "lucide-react";
+import { Home, UtensilsCrossed, LayoutDashboard, User as UserIcon, Phone, LogIn, Receipt } from "lucide-react";
 
 /**
  * Bottom nav — 4-tab, equally spaced.
@@ -18,10 +18,10 @@ export default function BottomNav() {
 
   const items = user
     ? [
-        { to: "/",          label: "Restaurant", icon: UtensilsCrossed },
-        { to: "/dashboard", label: "Dashboard",  icon: LayoutDashboard },
-        { to: "/home",      label: "Tiffin",     icon: Home },
-        { to: "/profile",   label: "Account",    icon: UserIcon },
+        { to: "/",                   label: "Restaurant", icon: UtensilsCrossed },
+        { to: "/restaurant/orders",  label: "Orders",     icon: Receipt },
+        { to: "/dashboard",          label: "Dashboard",  icon: LayoutDashboard },
+        { to: "/profile",            label: "Account",    icon: UserIcon },
       ]
     : [
         { to: "/",        label: "Restaurant", icon: UtensilsCrossed },

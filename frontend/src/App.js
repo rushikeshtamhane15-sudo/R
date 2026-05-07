@@ -44,6 +44,7 @@ import Contact from "./pages/Contact";
 import Restaurant from "./pages/Restaurant";
 import RestaurantCheckout from "./pages/RestaurantCheckout";
 import OrderTrack from "./pages/OrderTrack";
+import RestaurantOrderHistory from "./pages/RestaurantOrderHistory";
 import RiderDashboard from "./pages/RiderDashboard";
 import { Privacy, Refund } from "./pages/PolicyPage";
 
@@ -97,6 +98,7 @@ function AppRoutes() {
           <Route path="/login" element={<Login />} />
           <Route path="/restaurant" element={<Restaurant />} />
           <Route path="/restaurant/checkout" element={<RequireAuth><RestaurantCheckout /></RequireAuth>} />
+          <Route path="/restaurant/orders" element={<RequireAuth><RestaurantOrderHistory /></RequireAuth>} />
           <Route path="/restaurant/track/:orderId" element={<RequireAuth><OrderTrack /></RequireAuth>} />
           <Route path="/rider" element={<RequireAuth><RiderDashboard /></RequireAuth>} />
           <Route path="/dashboard" element={<RequireAuth><PostLogin /></RequireAuth>} />
