@@ -6,7 +6,7 @@ import { loadCart, saveCart, setQty } from "../lib/cart";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import {
-  ChevronLeft, Phone, CheckCircle2, ChefHat, Bike, MapPin, PackageCheck, Hourglass, Clock, RefreshCw, Receipt,
+  ChevronLeft, Phone, CheckCircle2, ChefHat, Bike, MapPin, PackageCheck, Hourglass, Clock, RefreshCw, Receipt, XCircle,
 } from "lucide-react";
 
 const POLL_MS = 15_000;
@@ -85,6 +85,18 @@ export default function OrderTrack() {
     if (skipped > 0) toast.warning(`${skipped} item(s) no longer available — skipped`);
     toast.success(`Added ${added} item${added > 1 ? "s" : ""} to cart`);
     navigate("/restaurant/checkout");
+  };
+
+  const cancelOrder = async () => {
+    if (!order) return;
+    if (!window.confirm(`Cancel this order? ₹${Number(order.total).toFixed(0)} will be refunded to your smart wallet instantly.`)) return;
+    try {
+      const r = await api.post(`/restaurant/orders/${order.order_id}/cancel`);
+      toast.success(`Order cancelled · ₹${Number(r.data.refund_amount).toFixed(0)} refunded to wallet`);
+      load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Could not cancel order");
+    }
   };
 
   const idx = useMemo(() => order ? statusIndex(order.status) : 0, [order]);
@@ -184,6 +196,16 @@ export default function OrderTrack() {
           </div>
 
           <div className="flex flex-wrap gap-2 mt-5 pt-4 border-t border-border">
+            {order.status === "paid" && (
+              <button
+                type="button"
+                onClick={cancelOrder}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full border border-rose-300 text-rose-700 text-xs font-bold hover:bg-rose-50 transition"
+                data-testid="track-cancel-btn"
+              >
+                <XCircle className="h-3.5 w-3.5" /> Cancel order
+              </button>
+            )}
             <button
               type="button"
               onClick={reorder}

@@ -1,0 +1,42 @@
+{
+  "summary": "Iter17 — order cancel/refund + reorder banner + horizontal categories + ChefHat + responsive grid. Backend 12/12 pytest pass. Frontend critical flows verified end-to-end against the public preview URL.",
+  "tests_executed": [
+    "BACKEND POST /api/restaurant/orders/{id}/cancel: 401 unauth, 404 not-found, 403 cross-user, 400 for status in {preparing,delivered,cancelled,out_for_delivery}, 200 happy-path with refund_amount==total credited to wallet_balance, wallet_transactions credit row with 'cancellation refund' reason, response shape {ok, order, refund_amount, wallet_balance} — ALL PASS",
+    "BACKEND idempotency: cancel twice → 1st 200, 2nd 400 — PASS",
+    "BACKEND regression: GET /restaurant/orders, POST /restaurant/order, /restaurant/verify, /restaurant/orders/{id}/track, /restaurant/menu — ALL PASS",
+    "FRONTEND /restaurant/orders: order-cancel-{id} button visible only for status=paid (absent for delivered) — PASS. Click triggers window.confirm; on accept, API called, order chip flips to CANCELLED, '₹150 refunded to wallet' line appears under Total, cancel btn removed — PASS",
+    "FRONTEND /restaurant/track/{id}: track-cancel-btn ABSENT for delivered + cancelled orders — PASS (only 'paid' state would show it; cancelled order had btn absent as expected)",
+    "FRONTEND Restaurant page reorder-banner: visible when user logged in AND has at least one delivered order; reorder-banner-cta + reorder-banner-dismiss present; dismiss sets sessionStorage 'efc_reorder_dismissed_v1'='1' and banner stays hidden across reload — PASS",
+    "FRONTEND restaurant-categories: container has overflow-x-auto (horizontal sticky chip rail), 6 chips rendered including cat-all — PASS",
+    "FRONTEND restaurant-items grid classes = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3' — PASS",
+    "FRONTEND BottomNav for logged-in subscriber: bottom-nav-restaurant present, ChefHat icon (lucide-chef-hat) confirmed in inner SVG — PASS",
+    "BACKEND wallet credit verified directly in mongo: wallet_balance=150.0, wallet_transactions credit row with reason='Restaurant order cancellation refund · rorder_…', restaurant_orders.refund_amount=150 / refund_mode='wallet' — PASS"
+  ],
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Header wallet pill (RestaurantOrderHistory)", "issue": "After successful cancel + refund, the header wallet badge still shows the stale ₹0 until a page reload or auth context refresh. The DB wallet_balance is correctly updated and the order card itself renders '₹150 refunded to wallet', so this is purely a client-side stale-state issue (cancelOrder() does not call refreshUser()/auth.refresh).", "selector": "header wallet pill on /restaurant/orders", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_iter17.py", "/app/test_reports/pytest/iter17_results.xml"],
+  "action_items": [
+    "(LOW) After successful cancel in RestaurantOrderHistory.jsx (and OrderTrack.jsx), invoke the AuthContext refresh (e.g. await refreshUser() or call /api/auth/me) so the header wallet pill reflects the new balance immediately without requiring a manual reload."
+  ],
+  "critical_code_review_comments": [
+    "/app/backend/routes/restaurant.py L385-411 (customer_cancel_order): correctly guards on status=='paid', uses $inc for wallet_balance (idempotent-safe at the DB level), logs a wallet txn with a clear reason, and returns the canonical {ok, order, refund_amount, wallet_balance}. Status check before mutation gives natural idempotency: 2nd call returns 400 ✅",
+    "Status set is 'paid' only — note that some orders may transition through internal states ('preparing','out_for_delivery','delivered') without ever surfacing back to 'paid', so the 400 message ('kitchen has already started or it has been delivered') is accurate ✅",
+    "Open question / nice-to-have: cancellation refund credits to wallet only, no Razorpay refund call is made even for live (non-mock) Razorpay payments. Current spec explicitly says wallet-only refund — flagging here so future iterations are aware that real-money customers will get a wallet credit, not a card refund. This is intentional per problem statement.",
+    "Frontend Restaurant.jsx reorder-banner trigger uses the FIRST delivered order in the last 10 (api.get('/restaurant/orders?limit=10').find(o.status==='delivered')), which since the list is newest-first means 'most recent delivered'. Correct ✅",
+    "BottomNav.jsx label 'Restaurant' produces data-testid 'bottom-nav-restaurant' (lowercase) — matches spec ✅"
+  ],
+  "updated_files": ["/app/backend/tests/test_iter17.py"],
+  "success_rate": {"backend": "100% (12/12)", "frontend": "100% on the spec'd flows; 1 LOW UX nit (stale wallet badge until reload)"},
+  "test_credentials": "Used direct mongo session-token seeding (TEST_st_*) per /app/auth_testing.md — bypasses OTP rate limits and lets the test use a deterministic auth cookie. All TEST_* users + sessions + orders + wallet_transactions cleaned up at end of run.",
+  "seed_data_creation": "Per-test isolated TEST_subscriber users with auto-cleanup (module fixture). Frontend test seeded one TEST_fe_* user with one paid order + one delivered order (cleaned up after run).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "1) Use mongo session-token seeding (see test_iter17.py _seed_user) — much faster + more reliable than OTP send-otp/verify-otp loops, no rate limits. Set the cookie via page.context.add_cookies with domain (NOT url) on this preview host. 2) For Playwright clicks on small icon buttons inside a flex row (e.g. reorder-banner-dismiss X icon, order-cancel-{id} ghost button next to Reorder/Track), prefer page.evaluate(\"() => document.querySelector(SEL).click()\") over page.click(force=True) — the latter occasionally lands on the wrong element on mobile viewport (390x844). The JS .click() fires the real React handler reliably and is what we used for the cancel/dismiss confirmations. 3) Always register page.on('dialog', d=>d.accept()) BEFORE clicking buttons that call window.confirm. 4) For verifying horizontal scroll layout, check container has 'overflow-x-auto' class — there are 6 categories on the live menu (All + 5 cats).",
+  "rca of the issue": "No bugs found in the under-test feature set. The single LOW item is a UX polish gap (stale wallet pill in header until reload) — not a functional bug; backend wallet is correctly updated and the order card itself surfaces the refund line."
+}

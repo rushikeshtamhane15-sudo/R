@@ -363,3 +363,49 @@ async def admin_orders(user: server.User = Depends(server.get_current_user), lim
     limit = max(1, min(500, int(limit)))
     rows = await server.db.restaurant_orders.find({}, {"_id": 0}).sort("created_at", -1).to_list(limit)
     return {"orders": rows}
+
+
+# ---------------------------------------------------------------------------
+# Customer-initiated cancel — only allowed while status == "paid" (kitchen
+# hasn't started yet). Auto-credits the order total back to the user's wallet.
+# ---------------------------------------------------------------------------
+@router.post("/restaurant/orders/{order_id}/cancel")
+async def customer_cancel_order(order_id: str, user: server.User = Depends(server.get_current_user)):
+    order = await server.db.restaurant_orders.find_one({"order_id": order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order["user_id"] != user.user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if order.get("status") != "paid":
+        raise HTTPException(
+            status_code=400,
+            detail="Order can no longer be cancelled — kitchen has already started or it has been delivered.",
+        )
+
+    refund_amount = round(float(order.get("total") or 0), 2)
+    now_iso = server.iso(server.now_utc())
+
+    # Credit user wallet (refunds always land in the smart wallet for instant reuse).
+    user_doc = await server.db.users.find_one({"user_id": user.user_id}, {"_id": 0}) or {}
+    new_balance = round(float(user_doc.get("wallet_balance") or 0) + refund_amount, 2)
+    await server.db.users.update_one(
+        {"user_id": user.user_id},
+        {"$inc": {"wallet_balance": refund_amount}},
+    )
+    await server._log_wallet_txn(
+        user.user_id, None, "credit", refund_amount, new_balance,
+        f"Restaurant order cancellation refund · {order_id}",
+    )
+
+    await server.db.restaurant_orders.update_one(
+        {"order_id": order_id},
+        {"$set": {
+            "status": "cancelled",
+            "cancelled_at": now_iso,
+            "cancelled_by": "customer",
+            "refund_amount": refund_amount,
+            "refund_mode": "wallet",
+        }},
+    )
+    fresh = await server.db.restaurant_orders.find_one({"order_id": order_id}, {"_id": 0})
+    return {"ok": True, "order": fresh, "refund_amount": refund_amount, "wallet_balance": new_balance}

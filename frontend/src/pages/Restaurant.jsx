@@ -7,13 +7,14 @@ import { toast } from "sonner";
 import { loadCart, saveCart, setQty, bumpQty, cartCount, priceCart } from "../lib/cart";
 import { useAuth } from "../context/AuthContext";
 import {
-  ShoppingBag, Plus, Minus, Search, UtensilsCrossed, ArrowRight, Tag, Truck, ChevronLeft, Star,
+  ShoppingBag, Plus, Minus, Search, ChefHat, ArrowRight, Tag, Truck, ChevronLeft, Star, RefreshCw, X,
 } from "lucide-react";
 
 /**
  * Restaurant browse — Zomato-style:
- *   • LEFT vertical category rail (sticky)
- *   • RIGHT compact horizontal item cards
+ *   • Horizontal category chips (sticky)
+ *   • Compact horizontal item cards
+ *   • "Reorder in 1 tap" banner for returning customers
  *   • Sticky cart pill at the bottom
  */
 export default function Restaurant() {
@@ -24,12 +25,28 @@ export default function Restaurant() {
   const [cart, setCart] = useState(loadCart());
   const [q, setQ] = useState("");
   const [activeCat, setActiveCat] = useState("All");
+  const [lastOrder, setLastOrder] = useState(null); // most recent delivered order for reorder banner
+  const [reorderDismissed, setReorderDismissed] = useState(false);
 
   useEffect(() => {
     api.get("/restaurant/menu")
       .then((r) => { setMenu(r.data.items || []); setMeta({ delivery_fee_flat: r.data.delivery_fee_flat, delivery_free_over: r.data.delivery_free_over }); })
       .catch(() => toast.error("Could not load menu"));
   }, []);
+
+  // Pull most recent delivered order for the "reorder in 1 tap" banner
+  useEffect(() => {
+    if (!user) { setLastOrder(null); return; }
+    try {
+      if (sessionStorage.getItem("efc_reorder_dismissed_v1") === "1") setReorderDismissed(true);
+    } catch {}
+    api.get("/restaurant/orders?limit=10")
+      .then((r) => {
+        const delivered = (r.data?.orders || []).find((o) => o.status === "delivered");
+        if (delivered) setLastOrder(delivered);
+      })
+      .catch(() => {});
+  }, [user]);
 
   useEffect(() => { saveCart(cart); }, [cart]);
 
@@ -68,6 +85,31 @@ export default function Restaurant() {
     navigate("/restaurant/checkout");
   };
 
+  // 1-tap reorder: restock cart against current menu, jump to checkout
+  const reorderNow = () => {
+    if (!lastOrder || !menu) return;
+    const liveIds = new Set(menu.map((m) => m.id));
+    let next = { ...cart };
+    let added = 0;
+    let skipped = 0;
+    for (const line of lastOrder.items || []) {
+      if (!liveIds.has(line.id)) { skipped += 1; continue; }
+      const cur = next[line.id]?.qty || 0;
+      next = setQty(next, line.id, cur + (line.qty || 1));
+      added += 1;
+    }
+    setCart(next);
+    if (added === 0) { toast.error("None of those items are available right now"); return; }
+    if (skipped > 0) toast.warning(`${skipped} item(s) no longer available — skipped`);
+    toast.success(`Reordered ${added} item${added > 1 ? "s" : ""}`);
+    navigate("/restaurant/checkout");
+  };
+
+  const dismissReorder = () => {
+    setReorderDismissed(true);
+    try { sessionStorage.setItem("efc_reorder_dismissed_v1", "1"); } catch {}
+  };
+
   return (
     <div className="min-h-screen bg-background pb-32" data-testid="restaurant-page">
       {/* Hero */}
@@ -78,7 +120,7 @@ export default function Restaurant() {
           </Link>
           <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="text-xs tracking-overline uppercase font-bold opacity-80 flex items-center gap-1.5"><UtensilsCrossed className="h-3.5 w-3.5" /> efoodcare restaurant</p>
+              <p className="text-xs tracking-overline uppercase font-bold opacity-80 flex items-center gap-1.5"><ChefHat className="h-3.5 w-3.5" /> efoodcare restaurant</p>
               <h1 className="font-display font-extrabold text-2xl sm:text-3xl tracking-tight mt-1.5 lowercase">order online · ghar se accha khana</h1>
               <p className="opacity-90 text-sm mt-1.5 flex items-center gap-2">
                 <Truck className="h-4 w-4" />
@@ -90,6 +132,44 @@ export default function Restaurant() {
       </header>
 
       <div className="max-w-6xl mx-auto px-3 sm:px-5">
+        {/* Reorder banner — most recent delivered order, 1-tap CTA */}
+        {user && lastOrder && !reorderDismissed && (
+          <div
+            className="mt-4 rounded-2xl border border-primary/30 bg-primary/5 p-4 sm:p-5 flex items-center gap-3 sm:gap-4"
+            data-testid="reorder-banner"
+          >
+            <div className="hidden sm:flex h-12 w-12 rounded-full bg-primary/15 items-center justify-center flex-shrink-0">
+              <RefreshCw className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] tracking-overline uppercase font-bold text-primary">Welcome back</p>
+              <p className="font-display font-extrabold text-base sm:text-lg leading-tight mt-0.5 truncate">
+                Reorder your last meal · ₹{Number(lastOrder.total).toFixed(0)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                {(lastOrder.items || []).map((i) => `${i.name} × ${i.qty}`).join(" · ")}
+              </p>
+            </div>
+            <Button
+              onClick={reorderNow}
+              size="sm"
+              className="rounded-full bg-primary hover:bg-primary/90 flex-shrink-0 h-9 px-4 text-xs sm:text-sm"
+              data-testid="reorder-banner-cta"
+            >
+              <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Reorder
+            </Button>
+            <button
+              type="button"
+              onClick={dismissReorder}
+              className="text-muted-foreground hover:text-foreground flex-shrink-0"
+              aria-label="Dismiss"
+              data-testid="reorder-banner-dismiss"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
         {/* Search */}
         <div className="sticky top-0 z-20 -mx-3 sm:-mx-5 px-3 sm:px-5 pt-3.5 pb-2.5 bg-background/95 backdrop-blur border-b border-border">
           <div className="relative">
@@ -104,32 +184,37 @@ export default function Restaurant() {
           </div>
         </div>
 
-        {/* Two-column: categories left, items right */}
-        <div className="grid grid-cols-[88px_minmax(0,1fr)] sm:grid-cols-[140px_minmax(0,1fr)] gap-3 sm:gap-5 mt-3">
-          {/* Vertical category rail */}
-          <aside className="sticky top-[58px] self-start" data-testid="restaurant-categories">
-            <ul className="space-y-1.5">
-              {categories.map((c) => (
-                <li key={c}>
-                  <button
-                    onClick={() => setActiveCat(c)}
-                    className={`w-full text-left text-[11px] sm:text-xs font-bold tracking-overline uppercase px-2.5 sm:px-3 py-2 rounded-xl border transition-all ${activeCat === c ? "bg-primary text-primary-foreground border-primary shadow-sm" : "bg-card text-foreground border-border hover:border-primary/40"}`}
-                    data-testid={`cat-${c.toLowerCase().replace(/\s+/g, "-")}`}
-                  >
-                    {c}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </aside>
+        {/* Horizontal category chips */}
+        <div
+          className="sticky top-[58px] z-10 -mx-3 sm:-mx-5 px-3 sm:px-5 py-2.5 bg-background/95 backdrop-blur border-b border-border overflow-x-auto no-scrollbar"
+          data-testid="restaurant-categories"
+        >
+          <ul className="flex items-center gap-2 min-w-max">
+            {categories.map((c) => (
+              <li key={c} className="flex-shrink-0">
+                <button
+                  onClick={() => setActiveCat(c)}
+                  className={`text-xs font-bold tracking-overline uppercase px-3.5 py-1.5 rounded-full border transition-all whitespace-nowrap ${activeCat === c ? "bg-primary text-primary-foreground border-primary shadow-sm" : "bg-card text-foreground border-border hover:border-primary/40"}`}
+                  data-testid={`cat-${c.toLowerCase().replace(/\s+/g, "-")}`}
+                >
+                  {c}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
 
-          {/* Items list — small horizontal card per row */}
+        {/* Items list — responsive grid: 1 col on mobile, 2 cols ≥sm, 3 cols ≥lg */}
+        <div className="mt-3">
           {!menu ? (
-            <p className="text-center text-muted-foreground py-12 col-span-full">Loading menu…</p>
+            <p className="text-center text-muted-foreground py-12">Loading menu…</p>
           ) : filtered.length === 0 ? (
             <p className="text-center text-muted-foreground py-12" data-testid="restaurant-no-items">No items match your search.</p>
           ) : (
-            <ul className="space-y-2.5" data-testid="restaurant-items">
+            <ul
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3"
+              data-testid="restaurant-items"
+            >
               {filtered.map((it) => {
                 const qty = cart[it.id]?.qty || 0;
                 const hasDiscount = it.discounted_price != null && it.discounted_price < it.price;

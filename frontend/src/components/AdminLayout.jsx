@@ -19,7 +19,7 @@ const SECTIONS = [
     items: [
       { to: "/admin/deliveries-today", label: "Today's deliveries", icon: ClipboardList, roles: ["admin", "staff"] },
       { to: "/admin/raw-materials", label: "Raw materials", icon: Wheat, roles: ["admin", "staff"] },
-      { to: "/admin/restaurant", label: "Restaurant menu", icon: UtensilsCrossed, roles: ["admin"] },
+      { to: "/admin/restaurant", label: "Restaurant menu", icon: ChefHat, roles: ["admin"] },
       { to: "/admin/restaurant-orders", label: "Restaurant orders", icon: ChefHat, roles: ["admin", "staff"] },
       { to: "/admin/whatsapp", label: "WhatsApp outbox", icon: MessageCircle, roles: ["admin"] },
       { to: "/admin/delivery", label: "Tiffin delivery", icon: Truck, roles: ["admin"] },

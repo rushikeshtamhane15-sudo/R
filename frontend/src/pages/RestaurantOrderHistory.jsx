@@ -4,7 +4,7 @@ import { api } from "../lib/api";
 import { toast } from "sonner";
 import { loadCart, saveCart, setQty } from "../lib/cart";
 import {
-  ChevronLeft, Package, Clock, CheckCircle2, Bike, ChefHat, RefreshCw, Hourglass, ArrowRight,
+  ChevronLeft, Package, Clock, CheckCircle2, Bike, ChefHat, RefreshCw, Hourglass, ArrowRight, XCircle,
 } from "lucide-react";
 
 /**
@@ -38,6 +38,7 @@ export default function RestaurantOrderHistory() {
   const navigate = useNavigate();
   const [orders, setOrders] = useState(null);
   const [err, setErr] = useState("");
+  const [cancellingId, setCancellingId] = useState(null);
 
   const load = async () => {
     try {
@@ -50,6 +51,22 @@ export default function RestaurantOrderHistory() {
   };
 
   useEffect(() => { load(); }, []);
+
+  const cancelOrder = async (order) => {
+    if (!window.confirm(`Cancel order ${order.order_id}? ₹${Number(order.total).toFixed(0)} will be refunded to your smart wallet instantly.`)) {
+      return;
+    }
+    setCancellingId(order.order_id);
+    try {
+      const r = await api.post(`/restaurant/orders/${order.order_id}/cancel`);
+      toast.success(`Order cancelled · ₹${Number(r.data.refund_amount).toFixed(0)} refunded to wallet`);
+      load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Could not cancel order");
+    } finally {
+      setCancellingId(null);
+    }
+  };
 
   const reorder = async (order) => {
     // Pull live menu so we only re-add still-available items.
@@ -131,6 +148,8 @@ export default function RestaurantOrderHistory() {
           const Icon = meta.icon;
           const showTrack = ["paid", "preparing", "ready_for_pickup", "out_for_delivery"].includes(o.status);
           const showReorder = ["delivered", "cancelled", "rejected", "paid", "preparing", "ready_for_pickup", "out_for_delivery"].includes(o.status);
+          const canCancel = o.status === "paid";
+          const isCancelling = cancellingId === o.order_id;
           return (
             <article
               key={o.order_id}
@@ -162,8 +181,24 @@ export default function RestaurantOrderHistory() {
               <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
                 <p className="font-display font-extrabold text-base">
                   Total <span className="text-primary tabular-nums">₹{Number(o.total || 0).toFixed(0)}</span>
+                  {o.status === "cancelled" && o.refund_amount && (
+                    <span className="block text-[11px] text-emerald-700 font-bold mt-0.5">
+                      ₹{Number(o.refund_amount).toFixed(0)} refunded to wallet
+                    </span>
+                  )}
                 </p>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {canCancel && (
+                    <button
+                      type="button"
+                      disabled={isCancelling}
+                      onClick={() => cancelOrder(o)}
+                      className="inline-flex items-center gap-1 px-3 py-2 rounded-full border border-rose-300 text-rose-700 text-xs font-bold hover:bg-rose-50 transition disabled:opacity-50"
+                      data-testid={`order-cancel-${o.order_id}`}
+                    >
+                      <XCircle className="h-3.5 w-3.5" /> {isCancelling ? "Cancelling…" : "Cancel"}
+                    </button>
+                  )}
                   {showTrack && (
                     <Link
                       to={`/restaurant/track/${o.order_id}`}

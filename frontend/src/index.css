@@ -1,3 +1,8 @@
+/* Hide horizontal scrollbar on category chip rails (Restaurant page etc.) */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 @import url('https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@700,800,500,400,900&display=swap');
 
