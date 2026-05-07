@@ -218,11 +218,13 @@ class TestExpiryReminders:
             assert r.status_code == 200, r.text
             d = r.json()
             assert d.get("ok") is True
-            # Stub mode flags should be present and True (no API keys)
-            assert d.get("email_stub") is True
+            # Stub mode flag should be present and True (no SMS API keys configured)
             assert d.get("sms_stub") is True
-            # Counters present
-            for k in ("sms_sent", "emails_sent", "skipped", "failed"):
+            # Email channel was removed; verify it is no longer reported.
+            assert "email_stub" not in d
+            assert "emails_sent" not in d
+            # SMS counters present
+            for k in ("sms_sent", "skipped", "failed"):
                 assert k in d, f"missing counter {k}"
 
             # Dedupe rows should now exist for our seeded subs (one per sub since each is unique day)

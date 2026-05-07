@@ -84,6 +84,11 @@ MSG91_FLOW_TIFFIN=
 MSG91_STUB_MODE=true
 ```
 
+### Iteration 19 (Feb 7, 2026) — Email channel removed
+- **Email notifications fully removed** per product decision. Expiry reminders are now **SMS only** (T-3 / T-1 / T-0). The `db.expiry_reminders_sent` dedupe collection no longer carries `email_status`, and the admin trigger response no longer reports `email_stub` / `emails_sent`.
+- Deleted `/app/backend/email_send.py` (Resend integration). Removed `RESEND_API_KEY` and `SENDER_EMAIL` from `/app/backend/.env`. No frontend changes were needed — email was a backend-only path.
+- 22/22 tests still green (test_iter12 updated to assert email fields are absent, not present).
+
 ### Iteration 18 (Feb 7, 2026) — Server.py refactor + Razorpay webhook event log
 - **Auth + Payments routes extracted** to `/app/backend/routes/auth.py` (173 LOC) and `/app/backend/routes/payments.py` (236 LOC). server.py shrank from 2645 → 2297 lines (~13%) with zero behavioural change. Pattern: route modules `import server` (late-binding) and call `server.<helper>` — works because server.py imports the routers at the BOTTOM of its module body so all helpers/models are populated before route decorators run. New `/app/backend/routes/__init__.py` documents the contract.
 - **Razorpay webhook signature verification logging** — every event posted to `/api/webhook/razorpay` is now persisted to `db.webhook_events` with: `{event_id, ts, event, signature_ok (T/F/None), signature_error, body_size, has_signature_header, order_id, payment_id, amount, processed, processing_error, ip}`. Three-state signature flag: `True`=verified, `False`=invalid (rejected, logged), `None`=no `RAZORPAY_WEBHOOK_SECRET` configured. Lazy cap at 500 rows (oldest pruned) so the collection never grows unbounded.

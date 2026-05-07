@@ -888,13 +888,15 @@ def _ist_today_iso() -> str:
 
 
 async def run_expiry_reminders() -> dict:
-    """Find subs ending in {3, 1, 0} days. For each, fire SMS + Email if not already sent today.
-    Idempotent via db.expiry_reminders_sent (compound: sub_id + days_left + sent_date)."""
-    from sms import send_expiry_reminder  # local imports — avoid loading deps at startup if disabled
-    from email_send import send_email, expiry_email_html, is_stub_mode as email_stub
+    """Find subs ending in {3, 1, 0} days. For each, fire SMS reminder if not already sent today.
+    Idempotent via db.expiry_reminders_sent (compound: sub_id + days_left + sent_date).
+
+    NB: Email channel was removed Feb 7, 2026 per product decision — SMS-only now.
+    """
+    from sms import send_expiry_reminder  # local import — avoid loading deps at startup if disabled
 
     today = (now_utc() + timedelta(hours=5, minutes=30)).date()
-    sent_sms = sent_email = skipped = failed = 0
+    sent_sms = skipped = failed = 0
 
     subs = await db.subscriptions.find({"status": "active"}, {"_id": 0}).to_list(20000)
     user_ids = list({s["user_id"] for s in subs})
@@ -916,7 +918,6 @@ async def run_expiry_reminders() -> dict:
                 skipped += 1
                 continue
 
-            renew_url = f"{(os.environ.get('PUBLIC_APP_URL') or '').rstrip('/')}/plans" if os.environ.get('PUBLIC_APP_URL') else "/plans"
             end_pretty = end_dt.date().strftime("%d %b %Y")
 
             sms_res = {"status": "skipped"}
@@ -931,46 +932,22 @@ async def run_expiry_reminders() -> dict:
                 else:
                     failed += 1
 
-            email_res = {"status": "skipped"}
-            if user.get("email"):
-                email_res = await send_email(
-                    to=user["email"],
-                    subject=(
-                        "Your eFoodCare plan expires today — renew now"
-                        if days_left == 0 else
-                        f"Your eFoodCare plan ends in {days_left} day{'s' if days_left != 1 else ''}"
-                    ),
-                    html=expiry_email_html(
-                        name=user.get("name") or "there",
-                        days_left=days_left,
-                        plan_name=sub.get("plan_name") or "Your plan",
-                        end_date=end_pretty,
-                        renew_url=renew_url,
-                    ),
-                )
-                if email_res.get("ok"):
-                    sent_email += 1
-                else:
-                    failed += 1
-
             await db.expiry_reminders_sent.insert_one({
                 **dedupe_key,
                 "user_id": user["user_id"],
                 "phone": user.get("phone"),
-                "email": user.get("email"),
                 "plan_name": sub.get("plan_name"),
                 "end_date": sub["end_date"],
                 "sms_status": sms_res.get("status"),
-                "email_status": email_res.get("status"),
                 "ts": iso(now_utc()),
             })
         except Exception as e:
             failed += 1
             logger.exception(f"[EXPIRY] error sub={sub.get('sub_id')}: {e}")
 
-    if sent_sms or sent_email or failed:
-        logger.info(f"[EXPIRY REMINDERS] sms={sent_sms} email={sent_email} skipped={skipped} failed={failed} email_stub={email_stub()}")
-    return {"sms_sent": sent_sms, "emails_sent": sent_email, "skipped": skipped, "failed": failed}
+    if sent_sms or failed:
+        logger.info(f"[EXPIRY REMINDERS] sms={sent_sms} skipped={skipped} failed={failed}")
+    return {"sms_sent": sent_sms, "skipped": skipped, "failed": failed}
 
 
 # ---------------------------
@@ -1713,15 +1690,10 @@ async def admin_run_reminders(user: User = Depends(get_current_user)):
 
 @api_router.post("/admin/cron/run-expiry-reminders")
 async def admin_run_expiry_reminders(user: User = Depends(get_current_user)):
-    """Manually trigger the subscription-expiry reminder scan."""
+    """Manually trigger the subscription-expiry reminder scan (SMS only)."""
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
     result = await run_expiry_reminders()
-    try:
-        from email_send import is_stub_mode as email_stub
-        result["email_stub"] = email_stub()
-    except Exception:
-        result["email_stub"] = True
     return {"ok": True, **result, "sms_stub": _sms_stub_mode_status()}
 
 
