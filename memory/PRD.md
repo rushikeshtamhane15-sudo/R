@@ -84,6 +84,14 @@ MSG91_FLOW_TIFFIN=
 MSG91_STUB_MODE=true
 ```
 
+### Iteration 17 (Feb 7, 2026) — OTP rate-limit + Razorpay live key validator
+- **Per-IP + per-phone rate limit on `/auth/send-otp`** (P1 — protects SMS bill from abuse loops). Tight defaults: 3/phone/10 min · 10/IP/hour · 50/IP/day. Cascade order is per-phone → per-IP-hour → per-IP-day. Returns HTTP 429 with `Retry-After` header (computed from the earliest hit in the window). Storage: new `db.rate_limit_hits` collection with TTL index on `expires_at` (Mongo auto-reaps stale rows). Generic implementation in `/app/backend/rate_limit.py` is reusable for any future endpoint. Client-IP extraction respects `CF-Connecting-IP` → `X-Forwarded-For` (first hop) → `X-Real-IP` → socket peer.
+- **Razorpay live key validation** — `validate_razorpay_keys()` pings Razorpay via `client.order.all({count:1})` (auth-checked, read-only). Returns `{ok, status: live|mock|auth_failed|error, detail, key_id_masked}`. Wired into:
+  - **Startup log line** with ✅/⚠️ emoji telling ops the live status of the keys
+  - **Admin endpoint** `GET /api/admin/payments/razorpay-status`
+  - **Admin UI**: tone-coded status card + "Re-test" button on `/admin/plans` (green=live, amber=mock/error, red=auth_failed, with masked key id)
+- **Tests**: 5/5 new in `test_iter13.py`; cumulative 15/15 (iter12+iter13) green.
+
 ### Iteration 16 (Feb 6, 2026) — Tasks refactor + branded splash screen
 - **Cron loops extracted** — `subscription_tick_loop`, `reminder_loop`, `expiry_reminder_loop` removed from `server.py` (~50 LOC), replaced by a single `start_background_loops(...)` call from new `/app/backend/tasks.py`. Generic `_periodic(name, fn, interval, initial_delay)` runner with per-iteration exception logging — one failed run never kills the scheduler. All three intervals (`TICK_INTERVAL_SECONDS`, `REMINDER_INTERVAL_SECONDS`, `EXPIRY_SCAN_INTERVAL_SECONDS`) live in `tasks.py`. No circular-import risk: `run_*` functions are passed in by `server.py` startup hook. 10/10 iter12 tests still green.
 - **Branded splash screen** (`/app/frontend/src/components/SplashScreen.jsx`) — full-viewport red overlay (`#a02323`) on first paint, mounted at the App root above the router. Smaller logo (96 px, down from header's 36-44 px scaled larger), then `eFoodCare` wordmark and `ghar se accha khana` tagline — both white. `efc-pop` (logo) + `efc-rise` (text) entrance animations, 1.1s hold + 350ms fade-out, sessionStorage flag prevents re-flash on hot reload / route change.

@@ -377,10 +377,24 @@ async def auth_session(request: Request, response: Response):
 # OTP Auth (DEV MOCKED)
 # ---------------------------
 @api_router.post("/auth/send-otp")
-async def send_otp(payload: SendOtpRequest):
+async def send_otp(payload: SendOtpRequest, request: Request):
+    from rate_limit import check_and_record, client_ip, RateLimitExceeded
     phone = payload.phone.strip()
     if len(phone) < 6:
         raise HTTPException(status_code=400, detail="Invalid phone number")
+
+    # Per-IP + per-phone tight limits — protects SMS bill from abuse / loops.
+    # NB: Order matters — phone limit first so a single bad actor can't burn
+    # one number's quota across multiple IPs without first hitting their IP cap.
+    ip = client_ip(request)
+    try:
+        await check_and_record(db, key=f"otp:phone:{phone}", max_count=3,  window_seconds=600,    label="OTP per phone (10 min)")
+        await check_and_record(db, key=f"otp:ip:{ip}:hour", max_count=10, window_seconds=3600,   label="OTP per IP (hour)")
+        await check_and_record(db, key=f"otp:ip:{ip}:day",  max_count=50, window_seconds=86400,  label="OTP per IP (day)")
+    except RateLimitExceeded as e:
+        logger.warning(f"[RATE LIMIT] /auth/send-otp blocked phone={phone} ip={ip} → {e}")
+        raise HTTPException(status_code=429, detail=str(e), headers={"Retry-After": str(e.retry_after)})
+
     otp = f"{random.randint(100000, 999999)}"
     expires_at = now_utc() + timedelta(minutes=10)
     await db.otp_codes.update_one(
@@ -573,6 +587,36 @@ async def admin_delete_plan(plan_id: str, user: User = Depends(get_current_user)
 # ---------------------------
 # Razorpay (MOCKED when keys missing)
 # ---------------------------
+async def validate_razorpay_keys() -> dict:
+    """Test live Razorpay keys with a cheap auth-checked call. Returns:
+        {ok, status: 'live'|'mock'|'auth_failed'|'error', detail, key_id_masked}
+
+    `live`         — keys present AND auth succeeds (real payments will work)
+    `mock`         — keys not configured (env empty); using stub-mode fallback
+    `auth_failed`  — keys present but Razorpay rejected them (invalid/rotated)
+    `error`        — network/SDK error (transient)
+    """
+    masked = (RZP_KEY_ID[:8] + "…") if RZP_KEY_ID else ""
+    if not RZP_ENABLED or not rzp_client:
+        return {"ok": False, "status": "mock", "detail": "RAZORPAY_KEY_ID/SECRET not set in backend/.env", "key_id_masked": masked}
+    # `orders.all({count: 1})` is auth-checked, read-only, and doesn't create anything.
+    try:
+        await asyncio.to_thread(rzp_client.order.all, {"count": 1})
+        return {"ok": True, "status": "live", "detail": "Razorpay authentication succeeded — live payments enabled.", "key_id_masked": masked}
+    except razorpay.errors.BadRequestError as e:
+        return {"ok": False, "status": "auth_failed", "detail": f"Razorpay rejected the keys: {e}", "key_id_masked": masked}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "status": "error", "detail": f"Razorpay validation errored: {e}", "key_id_masked": masked}
+
+
+@api_router.get("/admin/payments/razorpay-status")
+async def admin_razorpay_status(user: User = Depends(get_current_user)):
+    """Live ping to Razorpay to confirm the keys in .env actually work."""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    return await validate_razorpay_keys()
+
+
 @api_router.post("/payments/order")
 async def create_payment_order(payload: CreateOrderRequest, user: User = Depends(get_current_user)):
     # Enforce completed profile (name, phone, address, photo)
@@ -2485,6 +2529,13 @@ async def on_startup():
         run_expiry_reminders=run_expiry_reminders,
     )
     logger.info(f"[STARTUP] empty-tiffin SMS stub_mode={_sms_stub_mode_status()} · expiry lead_days={EXPIRY_LEAD_DAYS}")
+    # Razorpay key validation — non-blocking, just informational.
+    try:
+        rzp_status = await validate_razorpay_keys()
+        emoji = "✅" if rzp_status["status"] == "live" else "⚠️"
+        logger.info(f"[STARTUP] {emoji} Razorpay status={rzp_status['status']} · {rzp_status['detail']}")
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[STARTUP] Razorpay status check failed: {e}")
 
 
 @app.on_event("shutdown")

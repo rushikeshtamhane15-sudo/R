@@ -6,9 +6,75 @@ import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
 import { Switch } from "../components/ui/switch";
-import { Plus, Pencil, Trash2, IndianRupee } from "lucide-react";
+import { Plus, Pencil, Trash2, IndianRupee, ShieldCheck, Loader2, AlertTriangle, CheckCircle2, KeyRound } from "lucide-react";
 
 const EMPTY = { plan_id: null, name: "", description: "", amount: 0, currency: "INR", duration_days: 30, meals: 60, active: true, sort_order: 100 };
+
+const STATUS_LOOKUP = {
+  live:        { tone: "ok",   icon: CheckCircle2,  label: "Live",          desc: "Real Razorpay payments enabled. Customers can check out via UPI/cards." },
+  mock:        { tone: "warn", icon: KeyRound,      label: "Mock mode",     desc: "RAZORPAY_KEY_ID and/or RAZORPAY_KEY_SECRET are blank in backend/.env. Payments will accept any signature without charging." },
+  auth_failed: { tone: "err",  icon: AlertTriangle, label: "Auth failed",   desc: "Razorpay rejected the keys. Likely rotated, revoked, or pasted with extra spaces." },
+  error:       { tone: "warn", icon: AlertTriangle, label: "Network error", desc: "Could not reach Razorpay. Check connectivity then retry." },
+};
+
+function RazorpayStatusCard() {
+  const [state, setState] = React.useState({ loading: true, status: null, detail: "", masked: "" });
+
+  const check = React.useCallback(async () => {
+    setState((s) => ({ ...s, loading: true }));
+    try {
+      const r = await api.get("/admin/payments/razorpay-status");
+      setState({ loading: false, status: r.data.status, detail: r.data.detail, masked: r.data.key_id_masked || "" });
+    } catch (e) {
+      setState({ loading: false, status: "error", detail: e?.response?.data?.detail || "Status check failed", masked: "" });
+    }
+  }, []);
+
+  React.useEffect(() => { check(); }, [check]);
+
+  const meta = STATUS_LOOKUP[state.status] || STATUS_LOOKUP.error;
+  const tone = meta.tone;
+  const Icon = meta.icon;
+  const toneCls = tone === "ok"
+    ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-100"
+    : tone === "warn"
+      ? "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100"
+      : "border-red-200 bg-red-50 text-red-900 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-100";
+
+  return (
+    <div className={`rounded-2xl border ${toneCls} p-5 mb-6`} data-testid="razorpay-status-card">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3 min-w-0">
+          {state.loading ? <Loader2 className="h-5 w-5 mt-0.5 animate-spin flex-shrink-0" /> : <Icon className="h-5 w-5 mt-0.5 flex-shrink-0" strokeWidth={2} />}
+          <div className="min-w-0">
+            <p className="font-display font-extrabold text-base leading-tight" data-testid="razorpay-status-label">
+              Razorpay · {state.loading ? "checking…" : meta.label}
+            </p>
+            <p className="text-sm opacity-90 mt-1" data-testid="razorpay-status-detail">
+              {state.loading ? "Pinging Razorpay to validate the live keys…" : (state.detail || meta.desc)}
+            </p>
+            {state.masked && (
+              <p className="text-xs opacity-70 mt-1 font-mono" data-testid="razorpay-key-masked">
+                Key: {state.masked}***
+              </p>
+            )}
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={check}
+          disabled={state.loading}
+          className="rounded-full"
+          data-testid="razorpay-revalidate-btn"
+        >
+          {state.loading ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />}
+          Re-test
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminPlans() {
   const [plans, setPlans] = useState([]);
@@ -72,6 +138,8 @@ export default function AdminPlans() {
           <Plus className="h-4 w-4 mr-2" /> New plan
         </Button>
       </div>
+
+      <RazorpayStatusCard />
 
       <div className="bg-card rounded-2xl border border-black/5 overflow-hidden">
         {loading ? (
