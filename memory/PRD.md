@@ -201,6 +201,13 @@ MSG91_STUB_MODE=true
 - **Checkout success state** — added "My orders" CTA next to "Track" and "Continue browsing".
 - **Login `?next=` redirect preservation (P0 fix)** — `RequireAuth` in `App.js` now forwards `location.pathname + location.search` via `?next=...`. `Login.jsx` reads `searchParams.get("next")` via a `computeNext()` helper used by both the already-logged-in bounce `useEffect` and `verifyOtp()`. Same `?next=` honoured on Google login redirect URL. **Verified 5/5 retest cases pass.**
 
+## Iteration 17 (Feb 8, 2026) — Cancel/Refund + Reorder banner + ChefHat + Horizontal categories + Responsive grid
+- **Customer order cancel + wallet refund** — `POST /api/restaurant/orders/{id}/cancel` (auth-gated, owner-only). Allowed only while `status='paid'` (kitchen hasn't started). Auto-credits the full order total back to `users.wallet_balance`, writes a `wallet_transactions` `credit` entry tagged "Restaurant order cancellation refund", flips order status to `cancelled` with `refund_amount` + `refund_mode='wallet'`. Idempotent — second call returns 400. **Cancel** buttons added on `/restaurant/orders` (per-card) and `/restaurant/track/:id` with `window.confirm` prompt + `checkAuth()` post-refund so the header wallet pill refreshes immediately.
+- **"Reorder in 1 tap" banner** on `/restaurant` — pulls the most recent delivered order for the logged-in user, shows item summary + total, single CTA restocks cart against the live menu and bounces to `/restaurant/checkout`. Dismissible per-session (`sessionStorage efc_reorder_dismissed_v1`).
+- **Horizontal categories chip rail** — replaced the vertical 88/140-px sticky left rail with a horizontally-scrollable sticky chip strip (`.no-scrollbar` utility added in `index.css`). Items grid is now responsive: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`.
+- **ChefHat icon swap** — Restaurant header, BottomNav (`Restaurant` tab), and AdminLayout sidebar `Restaurant menu` row now use lucide `ChefHat` instead of `UtensilsCrossed`.
+- **Mobile + PC polish** — verified at 390×844 (mobile) and 1440×900 (desktop). Backend 12/12 pytest pass; frontend full-flow validated.
+
 ## Backlog
 - P1: Per-IP rate limit on `/auth/send-otp` (SMS cost protection)
 - P1: Admin menu editor UI (backend ready)

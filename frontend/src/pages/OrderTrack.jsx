@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { toast } from "sonner";
 import { loadCart, saveCart, setQty } from "../lib/cart";
+import { useAuth } from "../context/AuthContext";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import {
@@ -44,6 +45,7 @@ function statusIndex(status) {
 export default function OrderTrack() {
   const { orderId } = useParams();
   const navigate = useNavigate();
+  const { checkAuth } = useAuth();
   const [order, setOrder] = useState(null);
   const [err, setErr] = useState("");
   const polling = useRef(null);
@@ -94,6 +96,7 @@ export default function OrderTrack() {
       const r = await api.post(`/restaurant/orders/${order.order_id}/cancel`);
       toast.success(`Order cancelled · ₹${Number(r.data.refund_amount).toFixed(0)} refunded to wallet`);
       load();
+      try { await checkAuth(); } catch {}
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Could not cancel order");
     }
