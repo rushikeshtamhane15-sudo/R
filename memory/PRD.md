@@ -84,6 +84,32 @@ MSG91_FLOW_TIFFIN=
 MSG91_STUB_MODE=true
 ```
 
+### Iteration 21 (Feb 8, 2026) — Rider mini-system + WhatsApp pipeline + admin refactor + real food images
+
+**Major: full rider role for restaurant deliveries**
+- New `rider` role (distinct from `delivery_boy`) with dedicated `/rider` dashboard.
+- Order lifecycle pipeline: `created → paid → preparing → ready_for_pickup → out_for_delivery → delivered` (admin/staff transition first three; rider transitions the rest).
+- **OTP-based delivery confirmation**: rider hits "I've arrived" → 4-digit OTP fires to customer via WhatsApp + SMS. Rider enters OTP → mark delivered + credit ₹50 to rider wallet.
+- **Live location tracking**: 30s pings during `out_for_delivery` from `navigator.geolocation`; written to `db.users.current_lat/lng` and `db.restaurant_orders.rider_lat/lng` for snappy customer-side reads.
+- **Customer tracking page** (`/restaurant/track/:orderId`): timeline of all 5 status steps, animated rider marker (pulsing red dot + bike SVG) on dark CARTO map, rider name + tap-to-call, ETA, full order summary, polls every 15s.
+- **Earnings + wallet**: ₹50 flat per delivery. Today/month tallies on rider dashboard. Withdraw flow STUBBED for RazorpayX (debits wallet, queues `db.rider_payouts`).
+- **Daily cash reconciliation OTP**: admin issues 6-digit OTP to rider's phone → rider enters OTP → all `payment_mode='cash' && cash_reconciled=False` orders flip to reconciled in one go. Pendency banner stays on rider dashboard until cleared.
+- **Sound notification**: WebAudio-generated "ding" tone on rider dashboard whenever a new `ready_for_pickup` order arrives (mute toggle in header, persisted to localStorage).
+
+**WhatsApp messaging pipeline** (`/app/backend/whatsapp.py`)
+- Branded HTML preview (logo + "eFoodCare" + "ghar se accha khana" tagline + body + optional CTA) used for admin audit + persisted in `db.whatsapp_outbox` (capped at 1000 rows).
+- 5 outbound templates wired: `registration`, `payment_success` (with Razorpay invoice URL), `expiry_reminder`, `restaurant_order` (with track URL), `delivery_otp`.
+- **STUB MODE ACTIVE** — every send logs + persists but doesn't hit MSG91. Flip to live by setting `MSG91_WA_AUTH_KEY` + `MSG91_WA_INTEGRATED_NUMBER` + 5 template ID env vars.
+- **Subscription expiry reminders** now follow user's spec: T-2 (2 days before) + T+1 (1 day after) — was `[3, 1, 0]`, now `[2, -1]`.
+
+**Admin refactor (Phase 1)**
+- `/admin/stats`, `/admin/attendance/today`, `/admin/users`, `/admin/role` extracted from server.py to `/app/backend/routes/admin.py`. Same late-binding pattern as previous extractions.
+
+**Restaurant menu polish**
+- Replaced `placehold.co` placeholder URLs with real curated Unsplash food photos in DEFAULT_MENU. One-shot migration in `_load_menu()` upgrades existing rows that still hold the old placeholders.
+
+**Backend tests**: 22/22 still green (test_iter12 updated for new lead-day spec [2, -1]).
+
 ### Iteration 20 (Feb 7, 2026) — Restaurant ordering + UX upgrades
 - **Restaurant ordering mini-app** (`/restaurant` public, `/restaurant/checkout` auth-gated, `/admin/restaurant` admin-only). Backend `/app/backend/routes/restaurant.py` (~340 LOC) handles menu CRUD + order creation/verification with same Razorpay account (tagged `notes.order_type='restaurant'` so admin dashboard can split flows). 15 default items seeded across 5 categories (Starters/Mains/Tiffin Specials/Beverages/Desserts). Frontend has separate localStorage cart (`efc_restaurant_cart_v1`) + sessionStorage buy-now (`efc_buynow_v1`) so the two flows can't pollute each other. Delivery: free over ₹400, ₹30 below. Server-computed totals so client can't smuggle a discount.
 - **Splash screen** — held back to **2s** + **3D digital logo treatment** (multi-layer drop shadow, inner highlight, faint orbit ring, radial-red gradient bg). Removed sessionStorage skip — splash now appears on every cold app launch as the user requested.

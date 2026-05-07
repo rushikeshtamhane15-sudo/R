@@ -146,10 +146,10 @@ export default function RestaurantCheckout() {
           </p>
           <div className="mt-7 flex flex-col gap-3">
             <Button asChild size="lg" className="rounded-full bg-primary hover:bg-primary/90">
-              <Link to="/restaurant" data-testid="success-keep-browsing">Continue browsing</Link>
+              <Link to={`/restaurant/track/${success.order_id}`} data-testid="success-track">Track your order</Link>
             </Button>
             <Button asChild variant="outline" className="rounded-full">
-              <Link to="/" data-testid="success-home">Back to home</Link>
+              <Link to="/restaurant" data-testid="success-keep-browsing">Continue browsing</Link>
             </Button>
           </div>
         </div>

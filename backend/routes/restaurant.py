@@ -72,28 +72,27 @@ def _ph(name: str) -> str:
 
 DEFAULT_MENU: list[dict] = [
     # Starters
-    {"id": "starter_paneer_tikka",   "name": "Paneer Tikka",        "category": "Starters",        "description": "Smoky tandoor paneer cubes marinated in yogurt and spices.", "price": 280, "discounted_price": 240, "sort_order": 10},
-    {"id": "starter_hara_bhara",     "name": "Hara Bhara Kebab",    "category": "Starters",        "description": "Spinach + green peas patties pan-fried until crisp.",        "price": 220, "discounted_price": 190, "sort_order": 20},
-    {"id": "starter_spring_rolls",   "name": "Veg Spring Rolls",    "category": "Starters",        "description": "Crispy rolls stuffed with shredded veggies and noodles.",     "price": 200, "discounted_price": 170, "sort_order": 30},
-    {"id": "starter_chicken_65",     "name": "Chicken 65",          "category": "Starters",        "description": "Spicy South-Indian fried chicken with curry leaves.",        "price": 320, "discounted_price": 280, "sort_order": 40},
+    {"id": "starter_paneer_tikka",   "name": "Paneer Tikka",        "category": "Starters",        "description": "Smoky tandoor paneer cubes marinated in yogurt and spices.", "price": 280, "discounted_price": 240, "sort_order": 10, "image_url": "https://images.unsplash.com/photo-1567188040759-fb8a883dc6d8?w=640&q=70&auto=format&fit=crop"},
+    {"id": "starter_hara_bhara",     "name": "Hara Bhara Kebab",    "category": "Starters",        "description": "Spinach + green peas patties pan-fried until crisp.",        "price": 220, "discounted_price": 190, "sort_order": 20, "image_url": "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=640&q=70&auto=format&fit=crop"},
+    {"id": "starter_spring_rolls",   "name": "Veg Spring Rolls",    "category": "Starters",        "description": "Crispy rolls stuffed with shredded veggies and noodles.",     "price": 200, "discounted_price": 170, "sort_order": 30, "image_url": "https://images.unsplash.com/photo-1606471191009-63994c53433b?w=640&q=70&auto=format&fit=crop"},
+    {"id": "starter_chicken_65",     "name": "Chicken 65",          "category": "Starters",        "description": "Spicy South-Indian fried chicken with curry leaves.",        "price": 320, "discounted_price": 280, "sort_order": 40, "image_url": "https://images.unsplash.com/photo-1626500155302-6f7d8a59a35c?w=640&q=70&auto=format&fit=crop"},
     # Mains
-    {"id": "main_paneer_butter",     "name": "Paneer Butter Masala","category": "Mains",           "description": "Rich tomato-cashew gravy with cottage cheese cubes.",        "price": 320, "discounted_price": 280, "sort_order": 110},
-    {"id": "main_dal_makhani",       "name": "Dal Makhani",         "category": "Mains",           "description": "Slow-cooked black urad with cream and butter.",              "price": 260, "discounted_price": 220, "sort_order": 120},
-    {"id": "main_veg_biryani",       "name": "Veg Biryani",         "category": "Mains",           "description": "Fragrant basmati layered with vegetables and saffron.",      "price": 280, "discounted_price": 240, "sort_order": 130},
-    {"id": "main_butter_chicken",    "name": "Butter Chicken",      "category": "Mains",           "description": "Boneless chicken in a velvety tomato-butter gravy.",         "price": 380, "discounted_price": 330, "sort_order": 140},
-    {"id": "main_tava_veg",          "name": "Tava Veg Special",    "category": "Mains",           "description": "Mixed vegetables sautéed on iron griddle with garam masala.","price": 260, "discounted_price": 220, "sort_order": 150},
-    # Tiffin Specials (the brand's bread-and-butter)
-    {"id": "tiffin_full",            "name": "Full Veg Tiffin",     "category": "Tiffin Specials", "description": "4 chapatis · 1 sabzi · dal · rice · pickle · sweet.",        "price": 110, "discounted_price": 99,  "sort_order": 210},
-    {"id": "tiffin_half",            "name": "Half Veg Tiffin",     "category": "Tiffin Specials", "description": "2 chapatis · 1 sabzi · dal · rice · pickle.",                "price": 65,  "discounted_price": 50,  "sort_order": 220},
-    {"id": "tiffin_thali",           "name": "Special Thali",       "category": "Tiffin Specials", "description": "5 chapatis · 2 sabzis · dal · rice · raita · sweet · papad.","price": 180, "discounted_price": 150, "sort_order": 230},
+    {"id": "main_paneer_butter",     "name": "Paneer Butter Masala","category": "Mains",           "description": "Rich tomato-cashew gravy with cottage cheese cubes.",        "price": 320, "discounted_price": 280, "sort_order": 110, "image_url": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?w=640&q=70&auto=format&fit=crop"},
+    {"id": "main_dal_makhani",       "name": "Dal Makhani",         "category": "Mains",           "description": "Slow-cooked black urad with cream and butter.",              "price": 260, "discounted_price": 220, "sort_order": 120, "image_url": "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=640&q=70&auto=format&fit=crop"},
+    {"id": "main_veg_biryani",       "name": "Veg Biryani",         "category": "Mains",           "description": "Fragrant basmati layered with vegetables and saffron.",      "price": 280, "discounted_price": 240, "sort_order": 130, "image_url": "https://images.unsplash.com/photo-1589302168068-964664d93dc0?w=640&q=70&auto=format&fit=crop"},
+    {"id": "main_butter_chicken",    "name": "Butter Chicken",      "category": "Mains",           "description": "Boneless chicken in a velvety tomato-butter gravy.",         "price": 380, "discounted_price": 330, "sort_order": 140, "image_url": "https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?w=640&q=70&auto=format&fit=crop"},
+    {"id": "main_tava_veg",          "name": "Tava Veg Special",    "category": "Mains",           "description": "Mixed vegetables sautéed on iron griddle with garam masala.","price": 260, "discounted_price": 220, "sort_order": 150, "image_url": "https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=640&q=70&auto=format&fit=crop"},
+    # Tiffin Specials
+    {"id": "tiffin_full",            "name": "Full Veg Tiffin",     "category": "Tiffin Specials", "description": "4 chapatis · 1 sabzi · dal · rice · pickle · sweet.",        "price": 110, "discounted_price": 99,  "sort_order": 210, "image_url": "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=640&q=70&auto=format&fit=crop"},
+    {"id": "tiffin_half",            "name": "Half Veg Tiffin",     "category": "Tiffin Specials", "description": "2 chapatis · 1 sabzi · dal · rice · pickle.",                "price": 65,  "discounted_price": 50,  "sort_order": 220, "image_url": "https://images.unsplash.com/photo-1567337710282-00832b415979?w=640&q=70&auto=format&fit=crop"},
+    {"id": "tiffin_thali",           "name": "Special Thali",       "category": "Tiffin Specials", "description": "5 chapatis · 2 sabzis · dal · rice · raita · sweet · papad.","price": 180, "discounted_price": 150, "sort_order": 230, "image_url": "https://images.unsplash.com/photo-1542367592-8849eb950fd8?w=640&q=70&auto=format&fit=crop"},
     # Beverages
-    {"id": "bev_masala_chai",        "name": "Masala Chai",         "category": "Beverages",       "description": "Cutting chai with cardamom, ginger and clove.",              "price": 35,  "discounted_price": 25,  "sort_order": 310},
-    {"id": "bev_mango_lassi",        "name": "Mango Lassi",         "category": "Beverages",       "description": "Thick yogurt smoothie with Alphonso mango pulp.",            "price": 90,  "discounted_price": 75,  "sort_order": 320},
+    {"id": "bev_masala_chai",        "name": "Masala Chai",         "category": "Beverages",       "description": "Cutting chai with cardamom, ginger and clove.",              "price": 35,  "discounted_price": 25,  "sort_order": 310, "image_url": "https://images.unsplash.com/photo-1571934811356-5cc061b6821f?w=640&q=70&auto=format&fit=crop"},
+    {"id": "bev_mango_lassi",        "name": "Mango Lassi",         "category": "Beverages",       "description": "Thick yogurt smoothie with Alphonso mango pulp.",            "price": 90,  "discounted_price": 75,  "sort_order": 320, "image_url": "https://images.unsplash.com/photo-1626128665085-483747621778?w=640&q=70&auto=format&fit=crop"},
     # Desserts
-    {"id": "dessert_gulab_jamun",    "name": "Gulab Jamun (2 pcs)", "category": "Desserts",        "description": "Khoya dumplings soaked in cardamom-rose syrup.",             "price": 80,  "discounted_price": 60,  "sort_order": 410},
+    {"id": "dessert_gulab_jamun",    "name": "Gulab Jamun (2 pcs)", "category": "Desserts",        "description": "Khoya dumplings soaked in cardamom-rose syrup.",             "price": 80,  "discounted_price": 60,  "sort_order": 410, "image_url": "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=640&q=70&auto=format&fit=crop"},
 ]
 for _it in DEFAULT_MENU:
-    _it.setdefault("image_url", _ph(_it["name"]))
     _it.setdefault("active", True)
 
 DELIVERY_FEE_FREE_OVER = 400  # ₹ — free delivery above this
@@ -112,6 +111,21 @@ async def _load_menu() -> list[dict]:
             upsert=True,
         )
         return DEFAULT_MENU
+    # One-shot migration: if existing items still use placehold.co (the old seed),
+    # upgrade those rows to the latest DEFAULT_MENU image URLs by id.
+    if any("placehold.co" in (it.get("image_url") or "") for it in doc["items"]):
+        defaults_by_id = {d["id"]: d for d in DEFAULT_MENU}
+        upgraded = []
+        for it in doc["items"]:
+            if "placehold.co" in (it.get("image_url") or "") and it.get("id") in defaults_by_id:
+                it = {**it, "image_url": defaults_by_id[it["id"]].get("image_url", it["image_url"])}
+            upgraded.append(it)
+        await server.db.restaurant_menu_items.update_one(
+            {"_id": "active"},
+            {"$set": {"items": upgraded, "updated_at": server.iso(server.now_utc())}},
+            upsert=True,
+        )
+        return upgraded
     return doc["items"]
 
 
@@ -312,6 +326,21 @@ async def verify_restaurant_payment(payload: VerifyRestaurantPayment, user: serv
         }},
     )
     fresh = await server.db.restaurant_orders.find_one({"order_id": payload.order_id}, {"_id": 0})
+    # Fire WhatsApp order confirmation (stub-mode safe)
+    try:
+        from whatsapp import send_restaurant_order_confirmation
+        import asyncio
+        if fresh.get("phone"):
+            asyncio.create_task(send_restaurant_order_confirmation(
+                server.db,
+                phone=fresh["phone"],
+                name=fresh.get("name") or "there",
+                order_id=fresh["order_id"],
+                total=float(fresh.get("total", 0)),
+                eta_minutes=40,
+            ))
+    except Exception as e:
+        server.logger.warning(f"[WA] restaurant order confirmation enqueue failed: {e}")
     return {"ok": True, "order": fresh}
 
 

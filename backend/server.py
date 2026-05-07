@@ -108,7 +108,7 @@ class User(BaseModel):
     address: Optional[str] = None
     photo_url: Optional[str] = None
     picture: Optional[str] = None
-    role: Literal["admin", "staff", "subscriber", "delivery_boy"] = "subscriber"
+    role: Literal["admin", "staff", "subscriber", "delivery_boy", "rider"] = "subscriber"
     qr_token: str
     created_at: datetime
     lat: Optional[float] = None
@@ -191,7 +191,7 @@ class SelfScanRequest(BaseModel):
 
 class SetRoleRequest(BaseModel):
     email: str
-    role: Literal["admin", "staff", "subscriber"]
+    role: Literal["admin", "staff", "subscriber", "delivery_boy", "rider"]
 
 
 class MenuUpdateRequest(BaseModel):
@@ -313,6 +313,14 @@ async def create_or_get_user(email: Optional[str], phone: Optional[str], name: s
         "created_at": iso(now_utc()),
     }
     await db.users.insert_one(user_doc.copy())
+    # Fire WhatsApp registration welcome (stub-mode safe — never raises)
+    if phone:
+        try:
+            from whatsapp import send_registration
+            import asyncio
+            asyncio.create_task(send_registration(db, phone=phone, name=name))
+        except Exception as e:
+            logger.warning(f"[WA] registration enqueue failed: {e}")
     return user_doc
 
 
@@ -611,6 +619,23 @@ async def _activate_subscription(order: dict):
     await db.payment_orders.update_one({"order_id": order["order_id"]}, {"$set": {"status": "paid", "sub_id": sub["sub_id"], "paid_at": iso(start)}})
     logger.info(f"[SUB ACTIVATED] user={user_id} plan={plan['plan_id']} amount={plan['amount']} per_day={per_day}")
 
+    # Fire WhatsApp payment-success confirmation (stub-mode safe)
+    try:
+        from whatsapp import send_payment_success
+        user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0, "name": 1, "phone": 1})
+        if user_doc and user_doc.get("phone"):
+            invoice_url = order.get("invoice_url")  # populated when Razorpay returns one
+            asyncio.create_task(send_payment_success(
+                db,
+                phone=user_doc["phone"],
+                name=user_doc.get("name") or "there",
+                amount=float(plan["amount"]),
+                plan_name=plan.get("name") or "Subscription",
+                invoice_url=invoice_url,
+            ))
+    except Exception as e:
+        logger.warning(f"[WA] payment_success enqueue failed: {e}")
+
 
 async def _persist_webhook_event(event_log: dict) -> None:
     """Insert + best-effort cap webhook_events collection at 500 rows (drops oldest)."""
@@ -878,9 +903,9 @@ async def run_empty_tiffin_reminders() -> dict:
 
 
 # ---------------------------
-# Subscription expiry reminders — SMS + email, 3d / 1d / 0d before end_date
+# Subscription expiry reminders — WhatsApp + SMS, T-2 (2 days before) and T+1 (1 day after)
 # ---------------------------
-EXPIRY_LEAD_DAYS = [3, 1, 0]
+EXPIRY_LEAD_DAYS = [2, -1]
 
 
 def _ist_today_iso() -> str:
@@ -888,12 +913,14 @@ def _ist_today_iso() -> str:
 
 
 async def run_expiry_reminders() -> dict:
-    """Find subs ending in {3, 1, 0} days. For each, fire SMS reminder if not already sent today.
+    """Find subs ending in {2, -1} days. For each, fire SMS + WhatsApp reminder if not already sent today.
     Idempotent via db.expiry_reminders_sent (compound: sub_id + days_left + sent_date).
 
-    NB: Email channel was removed Feb 7, 2026 per product decision — SMS-only now.
+    NB: Email channel was removed Feb 7, 2026 per product decision.
+        WhatsApp added Feb 8, 2026 per product spec (T-2 and T+1, then stop).
     """
     from sms import send_expiry_reminder  # local import — avoid loading deps at startup if disabled
+    from whatsapp import send_expiry_reminder as wa_send_expiry
 
     today = (now_utc() + timedelta(hours=5, minutes=30)).date()
     sent_sms = skipped = failed = 0
@@ -931,6 +958,14 @@ async def run_expiry_reminders() -> dict:
                     sent_sms += 1
                 else:
                     failed += 1
+
+            wa_res = {"status": "skipped"}
+            if user.get("phone"):
+                wa_res = await wa_send_expiry(
+                    db, phone=user["phone"], name=user.get("name") or "there",
+                    days_left=days_left, plan_name=sub.get("plan_name") or "Your plan",
+                    end_date=end_pretty,
+                )
 
             await db.expiry_reminders_sent.insert_one({
                 **dedupe_key,
@@ -1462,58 +1497,7 @@ async def set_menu(payload: MenuUpdateRequest, user: User = Depends(get_current_
 # ---------------------------
 # Admin
 # ---------------------------
-@api_router.get("/admin/stats")
-async def admin_stats(user: User = Depends(get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    total_users = await db.users.count_documents({})
-    total_subscribers = await db.users.count_documents({"role": "subscriber"})
-    active_subs = await db.subscriptions.count_documents({"status": "active"})
-    d = today_str()
-    today_att = await db.attendance.count_documents({"date_str": d})
-    paid = await db.payment_orders.find({"status": "paid"}, {"_id": 0}).to_list(10000)
-    revenue = sum(float(p.get("amount", 0)) for p in paid)
-    trend = []
-    for i in range(6, -1, -1):
-        day = (now_utc() - timedelta(days=i)).strftime("%Y-%m-%d")
-        cnt = await db.attendance.count_documents({"date_str": day})
-        trend.append({"date": day, "count": cnt})
-    return {
-        "total_users": total_users,
-        "total_subscribers": total_subscribers,
-        "active_subscriptions": active_subs,
-        "today_attendance": today_att,
-        "revenue": round(revenue, 2),
-        "currency": "INR",
-        "attendance_trend": trend,
-    }
-
-
-@api_router.get("/admin/attendance/today")
-async def admin_today_attendance(user: User = Depends(get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    d = today_str()
-    recs = await db.attendance.find({"date_str": d}, {"_id": 0}).sort("checked_at", -1).to_list(500)
-    return {"attendance": recs}
-
-
-@api_router.get("/admin/users")
-async def admin_users(user: User = Depends(get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    users = await db.users.find({}, {"_id": 0}).to_list(1000)
-    return {"users": users}
-
-
-@api_router.post("/admin/role")
-async def admin_set_role(payload: SetRoleRequest, user: User = Depends(get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    result = await db.users.update_one({"email": payload.email.lower()}, {"$set": {"role": payload.role}})
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="User not found")
-    return {"ok": True}
+# /admin/stats, /admin/attendance/today, /admin/users, /admin/role → routes/admin.py
 
 
 # ---------------------------
@@ -2232,9 +2216,13 @@ api_router.include_router(_make_boy_router(db))
 from routes.auth import router as _auth_router
 from routes.payments import router as _payments_router
 from routes.restaurant import router as _restaurant_router
+from routes.admin import router as _admin_router
+from routes.rider import router as _rider_router
 api_router.include_router(_auth_router)
 api_router.include_router(_payments_router)
 api_router.include_router(_restaurant_router)
+api_router.include_router(_admin_router)
+api_router.include_router(_rider_router)
 
 app.include_router(api_router)
 

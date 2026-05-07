@@ -41,6 +41,8 @@ import SelfScan from "./pages/SelfScan";
 import Contact from "./pages/Contact";
 import Restaurant from "./pages/Restaurant";
 import RestaurantCheckout from "./pages/RestaurantCheckout";
+import OrderTrack from "./pages/OrderTrack";
+import RiderDashboard from "./pages/RiderDashboard";
 import { Privacy, Refund } from "./pages/PolicyPage";
 
 function RequireAuth({ children, roles }) {
@@ -64,6 +66,7 @@ function PostLogin() {
   if (user.role === "admin") return <Navigate to="/admin" replace />;
   if (user.role === "staff") return <Navigate to="/admin/deliveries-today" replace />;
   if (user.role === "delivery_boy") return <Navigate to="/boy" replace />;
+  if (user.role === "rider") return <Navigate to="/rider" replace />;
   return <Dashboard />;
 }
 
@@ -90,6 +93,8 @@ function AppRoutes() {
           <Route path="/login" element={<Login />} />
           <Route path="/restaurant" element={<Restaurant />} />
           <Route path="/restaurant/checkout" element={<RequireAuth><RestaurantCheckout /></RequireAuth>} />
+          <Route path="/restaurant/track/:orderId" element={<RequireAuth><OrderTrack /></RequireAuth>} />
+          <Route path="/rider" element={<RequireAuth><RiderDashboard /></RequireAuth>} />
           <Route path="/dashboard" element={<RequireAuth><PostLogin /></RequireAuth>} />
           <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
           <Route path="/plans" element={<Plans />} />

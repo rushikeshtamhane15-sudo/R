@@ -191,8 +191,8 @@ class TestExpiryReminders:
     def test_run_with_seeded_subs_and_idempotent(self, admin):
         ist_today = self._ist_today()
         sub_ids = []
-        # Seed 3 active subs ending T+3, T+1, T+0
-        for offset in (3, 1, 0):
+        # Seed 2 active subs ending T+2 and T-1 (today's spec: T-2, T+1 → days_left = 2 and -1)
+        for offset in (2, -1):
             end_date = (ist_today + timedelta(days=offset))
             # Use ISO at midnight UTC; parse_dt handles ISO
             end_iso = datetime(end_date.year, end_date.month, end_date.day, 12, 0, 0, tzinfo=timezone.utc).isoformat()
@@ -230,9 +230,9 @@ class TestExpiryReminders:
             # Dedupe rows should now exist for our seeded subs (one per sub since each is unique day)
             ist_today_iso = ist_today.isoformat()
             rows = list(db.expiry_reminders_sent.find({"sub_id": {"$in": sub_ids}, "sent_date": ist_today_iso}))
-            assert len(rows) == 3, f"expected 3 dedupe rows, got {len(rows)}: {rows}"
+            assert len(rows) == 2, f"expected 2 dedupe rows, got {len(rows)}: {rows}"
             days_left_seen = sorted({row["days_left"] for row in rows})
-            assert days_left_seen == [0, 1, 3]
+            assert days_left_seen == [-1, 2]
 
             skipped_first = d["skipped"]
 
@@ -240,13 +240,13 @@ class TestExpiryReminders:
             r2 = requests.post(f"{BASE_URL}/api/admin/cron/run-expiry-reminders", headers=_h(admin["token"]))
             assert r2.status_code == 200
             d2 = r2.json()
-            assert d2["skipped"] >= skipped_first + 3, (
-                f"expected at least {skipped_first + 3} skipped on rerun, got {d2['skipped']}"
+            assert d2["skipped"] >= skipped_first + 2, (
+                f"expected at least {skipped_first + 2} skipped on rerun, got {d2['skipped']}"
             )
 
             # No new dedupe rows for our subs
             rows2 = list(db.expiry_reminders_sent.find({"sub_id": {"$in": sub_ids}, "sent_date": ist_today_iso}))
-            assert len(rows2) == 3
+            assert len(rows2) == 2
         finally:
             db.subscriptions.delete_many({"sub_id": {"$in": sub_ids}})
             db.expiry_reminders_sent.delete_many({"sub_id": {"$in": sub_ids}})
