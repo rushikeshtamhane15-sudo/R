@@ -84,6 +84,15 @@ MSG91_FLOW_TIFFIN=
 MSG91_STUB_MODE=true
 ```
 
+### Iteration 20 (Feb 7, 2026) — Restaurant ordering + UX upgrades
+- **Restaurant ordering mini-app** (`/restaurant` public, `/restaurant/checkout` auth-gated, `/admin/restaurant` admin-only). Backend `/app/backend/routes/restaurant.py` (~340 LOC) handles menu CRUD + order creation/verification with same Razorpay account (tagged `notes.order_type='restaurant'` so admin dashboard can split flows). 15 default items seeded across 5 categories (Starters/Mains/Tiffin Specials/Beverages/Desserts). Frontend has separate localStorage cart (`efc_restaurant_cart_v1`) + sessionStorage buy-now (`efc_buynow_v1`) so the two flows can't pollute each other. Delivery: free over ₹400, ₹30 below. Server-computed totals so client can't smuggle a discount.
+- **Splash screen** — held back to **2s** + **3D digital logo treatment** (multi-layer drop shadow, inner highlight, faint orbit ring, radial-red gradient bg). Removed sessionStorage skip — splash now appears on every cold app launch as the user requested.
+- **Login form** — added dark-blue rounded-square `KeyRound` icon badge above the OTP form (with 3D shadow stack), tightened all vertical spacing for a more compact look.
+- **Bottom nav for logged-out users** — now visible with 4 items (Home / Restaurant / Contact / Login). Logged-in subscribers keep their existing nav. Admin/staff/delivery-boy still hidden (they have the sidebar).
+- **Raw materials** — Cylinder added to defaults (₹100/person/month, amount-based, /60 = per-meal cost). Admins AND staff can now PUT `/admin/raw-materials` (broadened from admin-only). New "Add item" button on `/admin/raw-materials` lets admin/staff add custom rows (label + ₹/person/month) using the same formula → auto-prices into lunch/dinner/day cost on save.
+- **Tests**: 20/20 new backend tests in `test_iter15.py` green; frontend splash + bottom-nav + restaurant render/filter/cart/buy-now/auth-guards all verified by testing agent. **No regressions.**
+- 🟡 **Deferred to next iteration** (per scope cap): admin route refactor (move `/admin/users`, `/admin/role`, attendance, stats into `routes/admin.py`).
+
 ### Iteration 19 (Feb 7, 2026) — Email channel removed
 - **Email notifications fully removed** per product decision. Expiry reminders are now **SMS only** (T-3 / T-1 / T-0). The `db.expiry_reminders_sent` dedupe collection no longer carries `email_status`, and the admin trigger response no longer reports `email_stub` / `emails_sent`.
 - Deleted `/app/backend/email_send.py` (Resend integration). Removed `RESEND_API_KEY` and `SENDER_EMAIL` from `/app/backend/.env`. No frontend changes were needed — email was a backend-only path.
