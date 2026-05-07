@@ -2,20 +2,30 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import WalletPill from "./WalletPill";
-import { Home, LayoutDashboard, Wallet, User as UserIcon } from "lucide-react";
+import { Home, LayoutDashboard, Wallet, User as UserIcon, UtensilsCrossed, Phone, LogIn } from "lucide-react";
 
+/**
+ * Bottom nav — visible to BOTH logged-in subscribers and logged-out users.
+ * Hidden for staff / admin / delivery_boy (they get the admin sidebar).
+ */
 export default function BottomNav() {
   const location = useLocation();
   const { user } = useAuth();
-  if (!user) return null;
-  if (user.role === "admin" || user.role === "staff" || user.role === "delivery_boy") return null; // bottom nav is for subscribers
+  if (user && (user.role === "admin" || user.role === "staff" || user.role === "delivery_boy")) return null;
 
-  const items = [
-    { to: "/", label: "Home", icon: Home },
-    { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { wallet: true, label: "Wallet", icon: Wallet },
-    { to: "/profile", label: "Account", icon: UserIcon },
-  ];
+  const items = user
+    ? [
+        { to: "/",          label: "Home",      icon: Home },
+        { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+        { wallet: true,     label: "Wallet",    icon: Wallet },
+        { to: "/profile",   label: "Account",   icon: UserIcon },
+      ]
+    : [
+        { to: "/",           label: "Home",       icon: Home },
+        { to: "/restaurant", label: "Restaurant", icon: UtensilsCrossed },
+        { to: "/contact",    label: "Contact",    icon: Phone },
+        { to: "/login",      label: "Login",      icon: LogIn },
+      ];
 
   return (
     <nav

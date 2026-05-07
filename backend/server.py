@@ -1811,11 +1811,12 @@ async def reset_dashboard_config(user: User = Depends(get_current_user)):
 # Defaults are per person per MONTH (30 days · 60 meals); halves for half-tiffin subscribers.
 # A,B,C,D are quantity-based; vegetables (E) is rupee-based and has no quantity.
 RAW_MATERIAL_DEFAULTS = [
-    {"key": "toor_dal",   "label": "Toor dal",   "unit": "kg",  "qty_per_person_month": 2.1, "price_per_unit": 60.0,  "is_amount_based": False},
-    {"key": "rice",       "label": "Rice",       "unit": "kg",  "qty_per_person_month": 2.5, "price_per_unit": 90.0,  "is_amount_based": False},
-    {"key": "wheat",      "label": "Wheat",      "unit": "kg",  "qty_per_person_month": 8.0, "price_per_unit": 40.0,  "is_amount_based": False},
-    {"key": "oil",        "label": "Oil",        "unit": "ltr", "qty_per_person_month": 1.8, "price_per_unit": 190.0, "is_amount_based": False},
-    {"key": "vegetables", "label": "Vegetables", "unit": "₹",   "qty_per_person_month": None, "price_per_unit": None, "is_amount_based": True, "amount_per_person_month": 400.0},
+    {"key": "toor_dal",   "label": "Toor dal",       "unit": "kg",  "qty_per_person_month": 2.1, "price_per_unit": 60.0,  "is_amount_based": False},
+    {"key": "rice",       "label": "Rice",           "unit": "kg",  "qty_per_person_month": 2.5, "price_per_unit": 90.0,  "is_amount_based": False},
+    {"key": "wheat",      "label": "Wheat",          "unit": "kg",  "qty_per_person_month": 8.0, "price_per_unit": 40.0,  "is_amount_based": False},
+    {"key": "oil",        "label": "Oil",            "unit": "ltr", "qty_per_person_month": 1.8, "price_per_unit": 190.0, "is_amount_based": False},
+    {"key": "vegetables", "label": "Vegetables",     "unit": "₹",   "qty_per_person_month": None, "price_per_unit": None, "is_amount_based": True, "amount_per_person_month": 400.0},
+    {"key": "cylinder",   "label": "LPG Cylinder",   "unit": "₹",   "qty_per_person_month": None, "price_per_unit": None, "is_amount_based": True, "amount_per_person_month": 100.0},
 ]
 
 
@@ -1977,8 +1978,9 @@ class RawMaterialPatch(BaseModel):
 
 @api_router.put("/admin/raw-materials")
 async def update_raw_materials(payload: RawMaterialPatch, user: User = Depends(get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
+    # Admin + staff can both edit/add rows. Staff frequently knows current market rates.
+    if user.role not in ("admin", "staff"):
+        raise HTTPException(status_code=403, detail="Admin or staff only")
     items = [i.dict(exclude_none=True) for i in payload.items]
     if not items:
         raise HTTPException(status_code=400, detail="At least one item required")
@@ -2229,8 +2231,10 @@ api_router.include_router(_make_boy_router(db))
 # they have full access to all server-level helpers and pydantic models.
 from routes.auth import router as _auth_router
 from routes.payments import router as _payments_router
+from routes.restaurant import router as _restaurant_router
 api_router.include_router(_auth_router)
 api_router.include_router(_payments_router)
+api_router.include_router(_restaurant_router)
 
 app.include_router(api_router)
 

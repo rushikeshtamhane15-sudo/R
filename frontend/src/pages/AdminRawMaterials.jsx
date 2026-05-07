@@ -5,7 +5,7 @@ import { Input } from "../components/ui/input";
 import { toast } from "sonner";
 import {
   Wheat, Loader2, Save, RotateCcw, Sun, Moon, Calculator, Edit3, X,
-  TrendingUp, Users, IndianRupee, Sparkles, FileDown, History,
+  TrendingUp, Users, IndianRupee, Sparkles, FileDown, History, Plus, Trash2,
 } from "lucide-react";
 
 export default function AdminRawMaterials() {
@@ -35,14 +35,38 @@ export default function AdminRawMaterials() {
     setDraft((arr) => arr.map((it, i) => (i === idx ? { ...it, [k]: v } : it)));
   };
 
+  const addRow = () => {
+    // Same formula as Cylinder/Vegetables — "₹ X / person / month → /60 = per-meal cost"
+    const key = `custom_${Date.now().toString(36)}`;
+    const blank = {
+      key,
+      label: "",
+      unit: "₹",
+      is_amount_based: true,
+      amount_per_person_month: 0,
+    };
+    if (!editing) {
+      // Open edit mode and seed draft from existing items
+      setDraft([...(data?.items || []).map((i) => ({ ...i })), blank]);
+      setEditing(true);
+    } else {
+      setDraft((arr) => [...arr, blank]);
+    }
+  };
+
+  const removeRow = (idx) => {
+    setDraft((arr) => arr.filter((_, i) => i !== idx));
+  };
+
   const save = async () => {
     setSaving(true);
     try {
+      const cleaned = draft.filter((it) => (it.label || "").trim() !== "");
       const payload = {
-        items: draft.map((it) => ({
+        items: cleaned.map((it) => ({
           key: it.key,
-          label: it.label,
-          unit: it.unit,
+          label: it.label.trim(),
+          unit: it.unit || "₹",
           is_amount_based: !!it.is_amount_based,
           ...(it.is_amount_based
             ? { amount_per_person_month: Number(it.amount_per_person_month || 0) }
@@ -153,6 +177,9 @@ export default function AdminRawMaterials() {
               <Edit3 className="h-4 w-4 mr-2" /> Edit rates
             </Button>
           )}
+          <Button onClick={addRow} variant="outline" className="rounded-full" data-testid="add-raw-row">
+            <Plus className="h-4 w-4 mr-2" /> Add item
+          </Button>
           {editing && (
             <>
               <Button onClick={() => setEditing(false)} variant="outline" className="rounded-full" data-testid="cancel-edit">
@@ -255,6 +282,44 @@ export default function AdminRawMaterials() {
                 );
               })}
             </tbody>
+            {/* Newly-added draft rows (visible only while editing, before save) */}
+            {editing && draft.length > breakdown.length && (
+              <tbody className="divide-y divide-border bg-secondary/5" data-testid="draft-new-rows">
+                {draft.slice(breakdown.length).map((drow, j) => {
+                  const idx = breakdown.length + j;
+                  return (
+                    <tr key={drow.key} data-testid={`new-row-${drow.key}`}>
+                      <td className="px-4 py-3" colSpan={2}>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            placeholder="Item name (e.g. Sugar, Milk, Gas)"
+                            value={drow.label || ""}
+                            onChange={(e) => setField(idx, "label", e.target.value)}
+                            className="h-8 text-sm"
+                            data-testid={`new-row-label-${drow.key}`}
+                          />
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="₹/person/month"
+                            value={drow.amount_per_person_month ?? ""}
+                            onChange={(e) => setField(idx, "amount_per_person_month", e.target.value)}
+                            className="h-8 text-sm w-32"
+                            data-testid={`new-row-amount-${drow.key}`}
+                          />
+                          <Button size="icon" variant="ghost" onClick={() => removeRow(idx)} className="h-8 w-8" data-testid={`new-row-remove-${drow.key}`}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right text-xs text-muted-foreground" colSpan={6}>
+                        Save to compute lunch / dinner / day cost
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            )}
             <tfoot className="bg-muted/40 font-bold">
               <tr>
                 <td className="px-4 py-3" colSpan={4}>Total</td>

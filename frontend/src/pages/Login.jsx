@@ -135,7 +135,20 @@ export default function Login() {
 
       {/* FORM SHEET — pulls up over the hero */}
       <div className="bg-card flex-1 -mt-6 rounded-t-3xl shadow-[0_-12px_30px_-10px_rgba(0,0,0,0.18)] relative">
-        <div className="max-w-md mx-auto w-full px-6 py-9">
+        <div className="max-w-md mx-auto w-full px-6 py-7">
+          {/* Dark-blue 3D login icon — visual anchor above the form */}
+          <div
+            data-testid="login-icon-badge"
+            className="mx-auto -mt-12 mb-5 flex items-center justify-center h-16 w-16 rounded-2xl"
+            style={{
+              background: "linear-gradient(145deg, #2746a3 0%, #14266b 100%)",
+              boxShadow:
+                "0 12px 24px rgba(20,38,107,0.45), 0 4px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -2px 4px rgba(0,0,0,0.2)",
+            }}
+          >
+            <KeyRound className="h-7 w-7 text-white" strokeWidth={2} />
+          </div>
+
           <AnimatePresence mode="wait" initial={false}>
             {mode === "phone" && (
               <motion.div
@@ -148,15 +161,15 @@ export default function Login() {
               >
                 <div data-testid="otp-phone-form">
                   <p className="text-xs tracking-overline uppercase font-bold text-secondary">{c.form_overline}</p>
-                  <h2 className="font-display font-extrabold text-2xl tracking-tight mt-2 leading-tight">
+                  <h2 className="font-display font-extrabold text-xl tracking-tight mt-1.5 leading-tight">
                     {c.form_heading}
                   </h2>
-                  <p className="text-sm text-muted-foreground mt-1.5">{c.form_subheading}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{c.form_subheading}</p>
 
-                  <label className="block text-xs tracking-overline uppercase font-bold text-muted-foreground mt-7" htmlFor="phone-input">
+                  <label className="block text-xs tracking-overline uppercase font-bold text-muted-foreground mt-5" htmlFor="phone-input">
                     {c.phone_label}
                   </label>
-                  <div className="mt-2 flex items-stretch rounded-2xl border border-input bg-background overflow-hidden focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15 transition-colors">
+                  <div className="mt-1.5 flex items-stretch rounded-2xl border border-input bg-background overflow-hidden focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15 transition-colors">
                     <span className="flex items-center gap-1.5 pl-4 pr-3 text-sm font-semibold text-foreground border-r border-input bg-muted/40">
                       <span aria-hidden>🇮🇳</span> +91
                     </span>
@@ -165,7 +178,7 @@ export default function Login() {
                       value={phone}
                       onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, "").slice(0, 10))}
                       placeholder={c.phone_placeholder}
-                      className="border-0 focus-visible:ring-0 text-base h-12 px-3"
+                      className="border-0 focus-visible:ring-0 text-base h-11 px-3"
                       data-testid="phone-input"
                       inputMode="numeric"
                       autoFocus
@@ -173,7 +186,7 @@ export default function Login() {
                     />
                   </div>
 
-                  <label className="block text-xs tracking-overline uppercase font-bold text-muted-foreground mt-5" htmlFor="name-input">
+                  <label className="block text-xs tracking-overline uppercase font-bold text-muted-foreground mt-3.5" htmlFor="name-input">
                     {c.name_label} <span className="text-muted-foreground/70 normal-case tracking-normal font-normal">{c.name_optional_label}</span>
                   </label>
                   <Input
@@ -181,7 +194,7 @@ export default function Login() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder={c.name_placeholder}
-                    className="mt-2 rounded-2xl h-12 px-4"
+                    className="mt-1.5 rounded-2xl h-11 px-4"
                     data-testid="name-input"
                   />
 
@@ -189,7 +202,7 @@ export default function Login() {
                     onClick={sendOtp}
                     disabled={submitting || phone.length < 10}
                     data-testid="send-otp-button"
-                    className="w-full h-13 mt-7 rounded-2xl bg-primary hover:bg-primary/90 font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full h-12 mt-5 rounded-2xl bg-primary hover:bg-primary/90 font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {submitting ? "Sending OTP…" : (
                       <>
@@ -198,7 +211,7 @@ export default function Login() {
                     )}
                   </Button>
 
-                  <div className="flex items-center gap-3 my-6">
+                  <div className="flex items-center gap-3 my-4">
                     <span className="flex-1 h-px bg-border"></span>
                     <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">{c.or_divider}</span>
                     <span className="flex-1 h-px bg-border"></span>
@@ -208,12 +221,12 @@ export default function Login() {
                     onClick={handleGoogle}
                     variant="outline"
                     data-testid="google-login-button"
-                    className="w-full h-12 rounded-2xl border-input font-semibold text-sm bg-background hover:bg-muted/60"
+                    className="w-full h-11 rounded-2xl border-input font-semibold text-sm bg-background hover:bg-muted/60"
                   >
                     <GoogleIcon /> {c.google_label}
                   </Button>
 
-                  <p className="text-[11px] text-muted-foreground text-center mt-7 leading-relaxed">
+                  <p className="text-[11px] text-muted-foreground text-center mt-5 leading-relaxed">
                     {c.terms_prefix}{" "}
                     <Link to="/privacy" className="font-semibold text-foreground underline-offset-2 hover:underline">Privacy Policy</Link>{" "}
                     {c.terms_separator}{" "}

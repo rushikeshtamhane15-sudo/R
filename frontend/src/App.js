@@ -31,6 +31,7 @@ import AdminLanding from "./pages/AdminLanding";
 import AdminDashboardEditor from "./pages/AdminDashboardEditor";
 import AdminTestimonials from "./pages/AdminTestimonials";
 import AdminRawMaterials from "./pages/AdminRawMaterials";
+import AdminRestaurant from "./pages/AdminRestaurant";
 import StaffDeliveries from "./pages/StaffDeliveries";
 import Plans from "./pages/Plans";
 import Checkout from "./pages/Checkout";
@@ -38,6 +39,8 @@ import Profile from "./pages/Profile";
 import Kiosk from "./pages/Kiosk";
 import SelfScan from "./pages/SelfScan";
 import Contact from "./pages/Contact";
+import Restaurant from "./pages/Restaurant";
+import RestaurantCheckout from "./pages/RestaurantCheckout";
 import { Privacy, Refund } from "./pages/PolicyPage";
 
 function RequireAuth({ children, roles }) {
@@ -85,6 +88,8 @@ function AppRoutes() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/restaurant" element={<Restaurant />} />
+          <Route path="/restaurant/checkout" element={<RequireAuth><RestaurantCheckout /></RequireAuth>} />
           <Route path="/dashboard" element={<RequireAuth><PostLogin /></RequireAuth>} />
           <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
           <Route path="/plans" element={<Plans />} />
@@ -113,6 +118,7 @@ function AppRoutes() {
             <Route path="dashboard-editor" element={<AdminDashboardEditor />} />
             <Route path="testimonials" element={<AdminTestimonials />} />
             <Route path="raw-materials" element={<AdminRawMaterials />} />
+            <Route path="restaurant" element={<AdminRestaurant />} />
             <Route path="deliveries-today" element={<StaffDeliveries />} />
             <Route path="content/:contentKey" element={<AdminContent />} />
           </Route>

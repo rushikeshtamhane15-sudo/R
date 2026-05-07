@@ -1,0 +1,42 @@
+{
+  "summary": "Iter15 (Restaurant ordering mini-app + Cylinder default + staff-can-write raw-materials + Splash 2s/3D logo + Login icon badge + Bottom-nav for logged-out users) end-to-end tested. Backend: 20/20 iter15 tests pass — full restaurant menu CRUD (admin-only, dup-id/negative-price/strip-discount validations), order create/verify with mock fallback, delivery-fee math (₹30 below ₹400, free above), order history (own + admin), Cylinder default ₹100/person/month present, staff role can PUT /admin/raw-materials with custom rows, /60 formula appears in breakdown rows. Frontend: splash holds ~2s and fades out (data-testid='splash-screen'); bottom-nav for logged-out users shows 4 items home/restaurant/contact/login (data-testids verified); /restaurant public page renders 15 items in 6 category tabs (cat-all/cat-starters/cat-mains/cat-tiffin-specials/cat-beverages/cat-desserts), search 'paneer' filters to 2 cards, Beverages tab to 2 cards; clicking Add (via JS) shows cart-bar with totals and Checkout button; Buy-now while logged out → /login?next=/restaurant; /restaurant/checkout and /admin/restaurant correctly redirect to /login when unauth; login page shows data-testid='login-icon-badge' KeyRound badge above OTP form. No regressions surfaced.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter15.py",
+    "/app/test_reports/pytest/iter15_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routes/restaurant.py is well-scoped (~340 lines), uses late-bound import server pattern consistent with the rest of the codebase. Razorpay notes tag with order_type:'restaurant' so admin dashboard can split flows — good. ✅",
+    "Validation in PUT /admin/restaurant/menu correctly rejects empty names, negative prices, duplicate ids, and silently strips discounted_price >= price. Auto-generates custom_<hex> ids when client posts blank id. ✅",
+    "_compute_totals applies discounted_price when present and active filter; subtotal/delivery/total are server-computed (client cannot smuggle a discount). Delivery threshold matches advertised UI copy 'Free delivery on orders over ₹400'. ✅",
+    "POST /restaurant/verify enforces user_id ownership (403 cross-user) and short-circuits to mock auto-verify when order.mock=True. eta_at = now+40m matches stated 35-45 min ETA window. ✅",
+    "GET /admin/restaurant/orders correctly admin-gated (403 for subscriber, 401 unauth). ✅",
+    "RAW_MATERIAL_DEFAULTS now includes Cylinder amount-based row at ₹100/person/month — appears in breakdown with /60 per-meal factor. ✅",
+    "PUT /admin/raw-materials role check broadened to {'admin','staff'} as requested; reset endpoint stays admin-only — sensible split. ✅",
+    "Frontend Restaurant.jsx: localStorage cart key efc_restaurant_cart_v1 + sessionStorage buy-now key efc_buynow_v1 are isolated as designed. Buy-now correctly preserves the persistent cart and only sends the chosen item to checkout. ✅",
+    "SplashScreen no longer uses sessionStorage skip — confirmed it reappears on every cold load with the 3D logo + ring + shadow styling. 2s hold + ~400ms fade observed. ✅",
+    "BottomNav correctly branches: 4 items for logged-out (home/restaurant/contact/login), different set for logged-in subscribers — verified the logged-out case end-to-end. ✅",
+    "Login page: data-testid='login-icon-badge' present with dark-blue rounded-square KeyRound icon above the form; spacing is tighter than prior iterations. ✅",
+    "Minor — note for next iteration: when running Playwright click(force=True) against [data-testid='add-*'], the click occasionally appears to bubble to the bottom-nav-contact tab if the cart-bar pops up under the click point. Not a real bug (functional via JS click works perfectly), but if smoke tests want to use Playwright .click() directly they should scroll the card into stable view first or click the inc-* button after the first add.",
+    "DEFAULT_MENU has 15 items but uses placeholder images served from placehold.co — production deploy should swap to real food photos to avoid third-party CDN dependency."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter15.py (new — 20 tests, all pass)"
+  ],
+  "success_rate": {"backend": "100% (20/20 iter15)", "frontend": "100% — splash, bottom-nav (logged-out), /restaurant render+filter+cart, buy-now redirect, checkout auth-guard, admin auth-guard, login icon badge all verified"},
+  "test_credentials": "OTP dev mode (POST /api/auth/send-otp with phone:'9876543210' → dev_otp echoed). Backend tests inject TEST_admin_*, TEST_staff_*, TEST_subscriber_* users + TEST_st_* session tokens directly into Mongo (cleaned up in module teardown).",
+  "seed_data_creation": "Per-module Mongo-injected admin/staff/subscriber test users with valid session tokens (cookie 'session_token'). Test orders created during 'order under/over ₹400' tests are deleted in fixture teardown; menu mutations are reverted via /admin/restaurant/menu/reset; raw-materials mutations reverted via /admin/raw-materials/reset.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run iter15 backend: `REACT_APP_BACKEND_URL=https://dining-pass-scan.preview.emergentagent.com MONGO_URL=mongodb://localhost:27017 DB_NAME=test_database pytest backend/tests/test_iter15.py -v`. Razorpay is in mock-fallback (RZP_KEY_* blank in .env) — every restaurant order returns mock:true and verify auto-succeeds. SMS in stub mode. For UI testing /admin/restaurant or /admin/raw-materials, seed an admin user + session_token in Mongo and set the cookie on dining-pass-scan.preview.emergentagent.com (Secure, SameSite=None). The persistent restaurant cart is in localStorage key 'efc_restaurant_cart_v1' and buy-now uses sessionStorage 'efc_buynow_v1'. Cart bar uses data-testid='cart-bar'/'cart-count'; per-item add/inc/dec use add-{id}/inc-{id}/dec-{id}; checkout-page qty editor uses co-qty-{id}. Category tabs are cat-{slug-lowercased}. When using Playwright .click() on add-* buttons, prefer page.evaluate(\"document.querySelector(...).click()\") to avoid the cart-bar overlap edge case.",
+  "rca of the issue": "N/A — no functional bugs found this iteration. The iter15 feature set (restaurant ordering + Cylinder default + staff write + splash/login/bottom-nav UX changes) is implemented correctly per spec; backend validations are all enforced server-side and frontend gating (auth-required routes, logged-out bottom nav) behaves correctly."
+}
