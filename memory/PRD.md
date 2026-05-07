@@ -84,6 +84,13 @@ MSG91_FLOW_TIFFIN=
 MSG91_STUB_MODE=true
 ```
 
+### Iteration 18 (Feb 7, 2026) — Server.py refactor + Razorpay webhook event log
+- **Auth + Payments routes extracted** to `/app/backend/routes/auth.py` (173 LOC) and `/app/backend/routes/payments.py` (236 LOC). server.py shrank from 2645 → 2297 lines (~13%) with zero behavioural change. Pattern: route modules `import server` (late-binding) and call `server.<helper>` — works because server.py imports the routers at the BOTTOM of its module body so all helpers/models are populated before route decorators run. New `/app/backend/routes/__init__.py` documents the contract.
+- **Razorpay webhook signature verification logging** — every event posted to `/api/webhook/razorpay` is now persisted to `db.webhook_events` with: `{event_id, ts, event, signature_ok (T/F/None), signature_error, body_size, has_signature_header, order_id, payment_id, amount, processed, processing_error, ip}`. Three-state signature flag: `True`=verified, `False`=invalid (rejected, logged), `None`=no `RAZORPAY_WEBHOOK_SECRET` configured. Lazy cap at 500 rows (oldest pruned) so the collection never grows unbounded.
+- **New admin endpoint** `GET /api/admin/payments/webhook-events?limit=N` — returns last N events + roll-up counts (`total`, `signature_ok`, `signature_failed`, `no_secret`).
+- **Admin UI panel** on `/admin/plans` below the Razorpay status card: 4-tile stat row + last-20-events table with timestamp, event type, signature badge (green ✓ / red ✗ / amber ?), order id, processing status. "Refresh" button.
+- **Tests**: 7 new in `test_iter14.py` (route relocation + webhook logging + admin listing); cumulative 22/22 green (iter12 + iter13 + iter14).
+
 ### Iteration 17 (Feb 7, 2026) — OTP rate-limit + Razorpay live key validator
 - **Per-IP + per-phone rate limit on `/auth/send-otp`** (P1 — protects SMS bill from abuse loops). Tight defaults: 3/phone/10 min · 10/IP/hour · 50/IP/day. Cascade order is per-phone → per-IP-hour → per-IP-day. Returns HTTP 429 with `Retry-After` header (computed from the earliest hit in the window). Storage: new `db.rate_limit_hits` collection with TTL index on `expires_at` (Mongo auto-reaps stale rows). Generic implementation in `/app/backend/rate_limit.py` is reusable for any future endpoint. Client-IP extraction respects `CF-Connecting-IP` → `X-Forwarded-For` (first hop) → `X-Real-IP` → socket peer.
 - **Razorpay live key validation** — `validate_razorpay_keys()` pings Razorpay via `client.order.all({count:1})` (auth-checked, read-only). Returns `{ok, status: live|mock|auth_failed|error, detail, key_id_masked}`. Wired into:

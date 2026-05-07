@@ -6,7 +6,7 @@ import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
 import { Switch } from "../components/ui/switch";
-import { Plus, Pencil, Trash2, IndianRupee, ShieldCheck, Loader2, AlertTriangle, CheckCircle2, KeyRound } from "lucide-react";
+import { Plus, Pencil, Trash2, IndianRupee, ShieldCheck, Loader2, AlertTriangle, CheckCircle2, KeyRound, Webhook, RefreshCw, Ban, HelpCircle } from "lucide-react";
 
 const EMPTY = { plan_id: null, name: "", description: "", amount: 0, currency: "INR", duration_days: 30, meals: 60, active: true, sort_order: 100 };
 
@@ -76,6 +76,121 @@ function RazorpayStatusCard() {
   );
 }
 
+function SignatureBadge({ ok }) {
+  if (ok === true)  return <span className="inline-flex items-center gap-1 text-[10px] font-bold tracking-overline uppercase text-emerald-700 bg-emerald-50 dark:text-emerald-200 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full"><CheckCircle2 className="h-3 w-3" /> Verified</span>;
+  if (ok === false) return <span className="inline-flex items-center gap-1 text-[10px] font-bold tracking-overline uppercase text-red-700 bg-red-50 dark:text-red-200 dark:bg-red-950/50 px-2 py-0.5 rounded-full"><Ban className="h-3 w-3" /> Invalid</span>;
+  return <span className="inline-flex items-center gap-1 text-[10px] font-bold tracking-overline uppercase text-amber-700 bg-amber-50 dark:text-amber-200 dark:bg-amber-950/50 px-2 py-0.5 rounded-full"><HelpCircle className="h-3 w-3" /> No secret</span>;
+}
+
+function fmtTs(iso) {
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
+  } catch { return iso; }
+}
+
+function WebhookEventsPanel() {
+  const [data, setData] = React.useState({ loading: true, events: [], counts: null, err: "" });
+
+  const load = React.useCallback(async () => {
+    setData((d) => ({ ...d, loading: true, err: "" }));
+    try {
+      const r = await api.get("/admin/payments/webhook-events?limit=20");
+      setData({ loading: false, events: r.data.events || [], counts: r.data.counts || null, err: "" });
+    } catch (e) {
+      setData({ loading: false, events: [], counts: null, err: e?.response?.data?.detail || "Failed to load webhook events" });
+    }
+  }, []);
+
+  React.useEffect(() => { load(); }, [load]);
+
+  const counts = data.counts || { total: 0, signature_ok: 0, signature_failed: 0, no_secret: 0 };
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5 mb-6" data-testid="webhook-events-panel">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Webhook className="h-5 w-5 text-foreground/80" strokeWidth={2} />
+          <div className="min-w-0">
+            <p className="font-display font-extrabold text-base leading-tight">Razorpay webhook events</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Last 20 events Razorpay sent to <code className="font-mono">/api/webhook/razorpay</code>
+            </p>
+          </div>
+        </div>
+        <Button variant="outline" size="sm" onClick={load} disabled={data.loading} className="rounded-full" data-testid="webhook-refresh-btn">
+          {data.loading ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-1.5" />}
+          Refresh
+        </Button>
+      </div>
+
+      {/* Compact stat row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5" data-testid="webhook-counts">
+        <div className="rounded-xl bg-muted/40 px-3 py-2.5">
+          <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Total</p>
+          <p className="font-display font-extrabold text-xl mt-0.5" data-testid="webhook-count-total">{counts.total}</p>
+        </div>
+        <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2.5">
+          <p className="text-[10px] tracking-overline uppercase font-bold text-emerald-700 dark:text-emerald-300">Verified</p>
+          <p className="font-display font-extrabold text-xl mt-0.5 text-emerald-900 dark:text-emerald-100" data-testid="webhook-count-ok">{counts.signature_ok}</p>
+        </div>
+        <div className="rounded-xl bg-red-50 dark:bg-red-950/40 px-3 py-2.5">
+          <p className="text-[10px] tracking-overline uppercase font-bold text-red-700 dark:text-red-300">Invalid sig</p>
+          <p className="font-display font-extrabold text-xl mt-0.5 text-red-900 dark:text-red-100" data-testid="webhook-count-failed">{counts.signature_failed}</p>
+        </div>
+        <div className="rounded-xl bg-amber-50 dark:bg-amber-950/40 px-3 py-2.5">
+          <p className="text-[10px] tracking-overline uppercase font-bold text-amber-700 dark:text-amber-300">No secret</p>
+          <p className="font-display font-extrabold text-xl mt-0.5 text-amber-900 dark:text-amber-100" data-testid="webhook-count-no-secret">{counts.no_secret}</p>
+        </div>
+      </div>
+
+      {/* Event list */}
+      {data.err ? (
+        <p className="text-sm text-destructive" data-testid="webhook-error">{data.err}</p>
+      ) : data.loading ? (
+        <div className="text-sm text-muted-foreground text-center py-6"><Loader2 className="h-4 w-4 inline mr-2 animate-spin" /> Loading…</div>
+      ) : data.events.length === 0 ? (
+        <div className="text-sm text-muted-foreground text-center py-8" data-testid="webhook-empty">
+          <Webhook className="h-7 w-7 mx-auto mb-2 opacity-50" />
+          No webhook events recorded yet. Razorpay will start posting here once webhook URL is configured in dashboard.
+        </div>
+      ) : (
+        <div className="overflow-x-auto -mx-1">
+          <table className="min-w-full text-sm" data-testid="webhook-events-table">
+            <thead>
+              <tr className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground border-b border-border">
+                <th className="text-left py-2 px-2 font-bold">When</th>
+                <th className="text-left py-2 px-2 font-bold">Event</th>
+                <th className="text-left py-2 px-2 font-bold">Signature</th>
+                <th className="text-left py-2 px-2 font-bold">Order</th>
+                <th className="text-left py-2 px-2 font-bold">Processed</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.events.map((e) => (
+                <tr key={e.event_id} className="border-b border-border/50 hover:bg-muted/30" data-testid={`webhook-event-${e.event_id}`}>
+                  <td className="py-2 px-2 whitespace-nowrap text-muted-foreground">{fmtTs(e.ts)}</td>
+                  <td className="py-2 px-2 font-mono text-xs">{e.event || <span className="text-muted-foreground italic">—</span>}</td>
+                  <td className="py-2 px-2"><SignatureBadge ok={e.signature_ok} /></td>
+                  <td className="py-2 px-2 font-mono text-xs text-muted-foreground truncate max-w-[180px]">{e.order_id || "—"}</td>
+                  <td className="py-2 px-2">
+                    {e.processed
+                      ? <span className="text-emerald-700 dark:text-emerald-300 text-xs font-semibold">✓ Processed</span>
+                      : <span className="text-amber-700 dark:text-amber-300 text-xs font-semibold" title={e.processing_error || e.signature_error || ""}>
+                          ⚠ {(e.processing_error || e.signature_error || "skipped").slice(0, 40)}
+                        </span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminPlans() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -140,6 +255,7 @@ export default function AdminPlans() {
       </div>
 
       <RazorpayStatusCard />
+      <WebhookEventsPanel />
 
       <div className="bg-card rounded-2xl border border-black/5 overflow-hidden">
         {loading ? (

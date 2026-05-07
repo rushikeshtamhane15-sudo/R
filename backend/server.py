@@ -338,157 +338,9 @@ async def _create_user_for_phone(phone: str, name: str, role: str = "subscriber"
 
 
 # ---------------------------
-# Emergent Google Auth
+# Auth, OTP, profile, location → routes/auth.py
 # ---------------------------
-# REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-@api_router.post("/auth/session")
-async def auth_session(request: Request, response: Response):
-    body = await request.json()
-    session_id = body.get("session_id")
-    if not session_id:
-        raise HTTPException(status_code=400, detail="session_id required")
-    async with httpx.AsyncClient() as http:
-        r = await http.get(
-            "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
-            headers={"X-Session-ID": session_id},
-            timeout=10,
-        )
-        if r.status_code != 200:
-            raise HTTPException(status_code=401, detail="Invalid session_id")
-        data = r.json()
-    user = await create_or_get_user(email=data["email"], phone=None, name=data.get("name", data["email"]), picture=data.get("picture"))
-    # Use the provided session_token from Emergent as session
-    token = data.get("session_token") or f"sess_{uuid.uuid4().hex}"
-    expires_at = now_utc() + timedelta(days=7)
-    await db.user_sessions.insert_one({
-        "session_token": token,
-        "user_id": user["user_id"],
-        "expires_at": iso(expires_at),
-        "created_at": iso(now_utc()),
-    })
-    response.set_cookie(
-        key="session_token", value=token, httponly=True, secure=True, samesite="none",
-        path="/", max_age=7 * 24 * 60 * 60,
-    )
-    return {"user": {k: v for k, v in user.items() if k != "_id"}, "session_token": token}
-
-
-# ---------------------------
-# OTP Auth (DEV MOCKED)
-# ---------------------------
-@api_router.post("/auth/send-otp")
-async def send_otp(payload: SendOtpRequest, request: Request):
-    from rate_limit import check_and_record, client_ip, RateLimitExceeded
-    phone = payload.phone.strip()
-    if len(phone) < 6:
-        raise HTTPException(status_code=400, detail="Invalid phone number")
-
-    # Per-IP + per-phone tight limits — protects SMS bill from abuse / loops.
-    # NB: Order matters — phone limit first so a single bad actor can't burn
-    # one number's quota across multiple IPs without first hitting their IP cap.
-    ip = client_ip(request)
-    try:
-        await check_and_record(db, key=f"otp:phone:{phone}", max_count=3,  window_seconds=600,    label="OTP per phone (10 min)")
-        await check_and_record(db, key=f"otp:ip:{ip}:hour", max_count=10, window_seconds=3600,   label="OTP per IP (hour)")
-        await check_and_record(db, key=f"otp:ip:{ip}:day",  max_count=50, window_seconds=86400,  label="OTP per IP (day)")
-    except RateLimitExceeded as e:
-        logger.warning(f"[RATE LIMIT] /auth/send-otp blocked phone={phone} ip={ip} → {e}")
-        raise HTTPException(status_code=429, detail=str(e), headers={"Retry-After": str(e.retry_after)})
-
-    otp = f"{random.randint(100000, 999999)}"
-    expires_at = now_utc() + timedelta(minutes=10)
-    await db.otp_codes.update_one(
-        {"phone": phone},
-        {"$set": {
-            "phone": phone,
-            "otp": otp,
-            "expires_at": iso(expires_at),
-            "attempts": 0,
-            "created_at": iso(now_utc()),
-        }},
-        upsert=True,
-    )
-    logger.warning(f"[MOCKED OTP] Phone={phone} OTP={otp}")
-    response: dict = {"ok": True, "expires_in": 600}
-    if OTP_DEV_MODE:
-        response["dev_otp"] = otp
-        response["dev_mode"] = True
-    return response
-
-
-@api_router.post("/auth/verify-otp")
-async def verify_otp(payload: VerifyOtpRequest, response: Response):
-    phone = payload.phone.strip()
-    rec = await db.otp_codes.find_one({"phone": phone}, {"_id": 0})
-    if not rec:
-        raise HTTPException(status_code=400, detail="No OTP requested for this number")
-    if parse_dt(rec["expires_at"]) < now_utc():
-        raise HTTPException(status_code=400, detail="OTP expired")
-    if rec.get("attempts", 0) >= 5:
-        raise HTTPException(status_code=429, detail="Too many attempts")
-    if rec["otp"] != payload.otp.strip():
-        await db.otp_codes.update_one({"phone": phone}, {"$inc": {"attempts": 1}})
-        raise HTTPException(status_code=400, detail="Incorrect OTP")
-    await db.otp_codes.delete_one({"phone": phone})
-    name = (payload.name or f"User {phone[-4:]}").strip()
-    user = await create_or_get_user(email=None, phone=phone, name=name)
-    token = await issue_session(user["user_id"], response)
-    return {"user": {k: v for k, v in user.items() if k != "_id"}, "session_token": token}
-
-
-@api_router.get("/auth/me")
-async def auth_me(user: User = Depends(get_current_user)):
-    return user.model_dump()
-
-
-@api_router.post("/auth/logout")
-async def auth_logout(response: Response, request: Request, session_token: Optional[str] = Cookie(default=None)):
-    token = session_token
-    if not token:
-        auth = request.headers.get("Authorization", "")
-        if auth.startswith("Bearer "):
-            token = auth[7:]
-    if token:
-        await db.user_sessions.delete_one({"session_token": token})
-    response.delete_cookie("session_token", path="/")
-    return {"ok": True}
-
-
-@api_router.post("/auth/profile")
-async def update_profile(payload: ProfileUpdate, user: User = Depends(get_current_user)):
-    if not payload.name.strip() or not payload.phone.strip() or not payload.address.strip():
-        raise HTTPException(status_code=400, detail="Name, phone and address are required")
-    update = {
-        "name": payload.name.strip(),
-        "phone": payload.phone.strip(),
-        "address": payload.address.strip(),
-    }
-    if payload.photo_url is not None:
-        # Accept data: URLs (base64) up to ~800 KB after compression
-        if payload.photo_url and len(payload.photo_url) > 1_200_000:
-            raise HTTPException(status_code=413, detail="Photo too large; please use a smaller image")
-        update["photo_url"] = payload.photo_url
-    if payload.lat is not None and payload.lng is not None:
-        update["lat"] = float(payload.lat)
-        update["lng"] = float(payload.lng)
-    await db.users.update_one({"user_id": user.user_id}, {"$set": update})
-    updated = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
-    return {"ok": True, "user": updated}
-
-
-@api_router.post("/auth/location")
-async def update_location(payload: LocationUpdate, user: User = Depends(get_current_user)):
-    """Lightweight endpoint — customer pins their delivery location once.
-    Auto-reverse-geocodes via free OSM Nominatim (24h-cached) to extract pincode for delivery routing."""
-    update = {"lat": float(payload.lat), "lng": float(payload.lng), "location_set_at": iso(now_utc())}
-    pincode, geocode_status = await _reverse_geocode_pincode(payload.lat, payload.lng)
-    if pincode:
-        update["pincode"] = pincode
-    update["geocode_status"] = geocode_status
-    await db.users.update_one({"user_id": user.user_id}, {"$set": update})
-    return {"ok": True, "pincode": pincode, "geocode_status": geocode_status}
-
-
+# Reverse-geocode helper stays here (used by the location route via server._reverse_geocode_pincode)
 _GEOCODE_CACHE_TTL_HOURS = 24
 
 
@@ -609,78 +461,7 @@ async def validate_razorpay_keys() -> dict:
         return {"ok": False, "status": "error", "detail": f"Razorpay validation errored: {e}", "key_id_masked": masked}
 
 
-@api_router.get("/admin/payments/razorpay-status")
-async def admin_razorpay_status(user: User = Depends(get_current_user)):
-    """Live ping to Razorpay to confirm the keys in .env actually work."""
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    return await validate_razorpay_keys()
-
-
-@api_router.post("/payments/order")
-async def create_payment_order(payload: CreateOrderRequest, user: User = Depends(get_current_user)):
-    # Enforce completed profile (name, phone, address, photo)
-    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
-    missing = [f for f in ("name", "phone", "address", "photo_url") if not (user_doc.get(f) or "")]
-    if missing:
-        raise HTTPException(status_code=400, detail=f"Profile incomplete: missing {', '.join(missing)}")
-
-    plan = await db.plans.find_one({"plan_id": payload.plan_id, "active": True}, {"_id": 0})
-    if not plan:
-        raise HTTPException(status_code=400, detail="Invalid or inactive plan")
-
-    return await _create_order_record(
-        user=user, user_doc=user_doc,
-        plan_id=plan["plan_id"], plan_name=plan["name"],
-        amount=float(plan["amount"]), currency=plan["currency"],
-        duration_days=int(plan["duration_days"]), meals=int(plan["meals"]),
-        custom=False,
-    )
-
-
-@api_router.post("/payments/custom-order")
-async def create_custom_order(payload: CustomOrderRequest, user: User = Depends(get_current_user)):
-    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
-    missing = [f for f in ("name", "phone", "address", "photo_url") if not (user_doc.get(f) or "")]
-    if missing:
-        raise HTTPException(status_code=400, detail=f"Profile incomplete: missing {', '.join(missing)}")
-    days = int(payload.days)
-    if days < CUSTOM_MIN_DAYS or days > CUSTOM_MAX_DAYS:
-        raise HTTPException(status_code=400, detail=f"Days must be between {CUSTOM_MIN_DAYS} and {CUSTOM_MAX_DAYS}")
-    meals = days * MEALS_PER_DAY
-    service_type = payload.service_type or "dining"
-    tiffin_size = payload.tiffin_size if service_type == "tiffin" else None
-    meal_price = MEAL_PRICE_HALF_INR if (service_type == "tiffin" and tiffin_size == "half") else MEAL_PRICE_INR
-    amount = round(meals * meal_price, 2)
-    name_suffix = "Tiffin" if service_type == "tiffin" else "Dining"
-    if service_type == "tiffin" and tiffin_size:
-        name_suffix = f"{tiffin_size.capitalize()} Tiffin"
-    return await _create_order_record(
-        user=user, user_doc=user_doc,
-        plan_id=f"custom_{service_type}_{days}d",
-        plan_name=f"Custom {name_suffix} — {days} day{'s' if days > 1 else ''}",
-        amount=amount, currency="INR",
-        duration_days=days, meals=meals,
-        custom=True,
-        service_type=service_type,
-        tiffin_size=tiffin_size,
-        plan_type="delivery" if service_type == "tiffin" else "kiosk",
-    )
-
-
-@api_router.get("/plans/custom/preview")
-async def custom_plan_preview(days: int, service_type: str = "dining", tiffin_size: Optional[str] = None):
-    if days < CUSTOM_MIN_DAYS or days > CUSTOM_MAX_DAYS:
-        raise HTTPException(status_code=400, detail=f"Days must be between {CUSTOM_MIN_DAYS} and {CUSTOM_MAX_DAYS}")
-    meals = days * MEALS_PER_DAY
-    meal_price = MEAL_PRICE_HALF_INR if (service_type == "tiffin" and tiffin_size == "half") else MEAL_PRICE_INR
-    amount = round(meals * meal_price, 2)
-    return {
-        "days": days, "meals": meals, "meal_price": meal_price,
-        "amount": amount, "currency": "INR",
-        "per_day_amount": round(amount / days, 2),
-        "service_type": service_type, "tiffin_size": tiffin_size if service_type == "tiffin" else None,
-    }
+# Razorpay routes → routes/payments.py (admin status, order, custom-order, preview, verify, webhook)
 
 
 async def _create_order_record(*, user, user_doc, plan_id, plan_name, amount, currency, duration_days, meals, custom, service_type=None, tiffin_size=None, plan_type=None):
@@ -831,55 +612,20 @@ async def _activate_subscription(order: dict):
     logger.info(f"[SUB ACTIVATED] user={user_id} plan={plan['plan_id']} amount={plan['amount']} per_day={per_day}")
 
 
-@api_router.post("/payments/verify")
-async def verify_payment(payload: VerifyPaymentRequest, user: User = Depends(get_current_user)):
-    order = await db.payment_orders.find_one({"order_id": payload.order_id}, {"_id": 0})
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    if order["user_id"] != user.user_id:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    if order.get("mock"):
-        # [MOCKED] Razorpay stub — accept any signature in dev
-        logger.warning(f"[MOCKED] Auto-verifying mock order {payload.order_id}")
-    else:
-        try:
-            rzp_client.utility.verify_payment_signature({
-                "razorpay_order_id": payload.order_id,
-                "razorpay_payment_id": payload.razorpay_payment_id,
-                "razorpay_signature": payload.razorpay_signature,
-            })
-        except Exception as e:
-            logger.error(f"Signature verify failed: {e}")
-            raise HTTPException(status_code=400, detail="Invalid payment signature")
-
-    await _activate_subscription(order)
-    fresh = await db.payment_orders.find_one({"order_id": payload.order_id}, {"_id": 0})
-    return {"ok": True, "status": fresh["status"], "sub_id": fresh.get("sub_id")}
-
-
-@api_router.post("/webhook/razorpay")
-async def rzp_webhook(request: Request):
-    body = await request.body()
-    signature = request.headers.get("X-Razorpay-Signature", "")
-    secret = os.environ.get("RAZORPAY_WEBHOOK_SECRET", "")
-    if RZP_ENABLED and secret:
-        try:
-            rzp_client.utility.verify_webhook_signature(body.decode(), signature, secret)
-        except Exception as e:
-            logger.error(f"Webhook signature invalid: {e}")
-            return {"received": False}
+async def _persist_webhook_event(event_log: dict) -> None:
+    """Insert + best-effort cap webhook_events collection at 500 rows (drops oldest)."""
     try:
-        data = await request.json()
-    except Exception:
-        return {"received": False}
-    event = data.get("event", "")
-    if event in ("payment.captured", "order.paid"):
-        order_id = data.get("payload", {}).get("order", {}).get("entity", {}).get("id") or data.get("payload", {}).get("payment", {}).get("entity", {}).get("order_id")
-        if order_id:
-            order = await db.payment_orders.find_one({"order_id": order_id}, {"_id": 0})
-            if order and order.get("status") != "paid":
-                await _activate_subscription(order)
-    return {"received": True}
+        await db.webhook_events.insert_one(dict(event_log))
+        # Lazy cap — when the collection exceeds 500 rows, prune anything below the oldest 500.
+        if (await db.webhook_events.estimated_document_count()) > 500:
+            cutoff = await db.webhook_events.find({}, {"_id": 1}).sort("ts", -1).skip(500).limit(1).to_list(1)
+            if cutoff:
+                await db.webhook_events.delete_many({"_id": {"$lte": cutoff[0]["_id"]}})
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[WEBHOOK] failed to persist event log: {e}")
+
+
+# /payments/verify and /webhook/razorpay → routes/payments.py
 
 
 # ---------------------------
@@ -2506,6 +2252,14 @@ from delivery import make_router as _make_delivery_router, make_customer_router 
 api_router.include_router(_make_delivery_router(db))
 api_router.include_router(_make_customer_router(db))
 api_router.include_router(_make_boy_router(db))
+
+# Mount feature-scoped routers (defined in /app/backend/routes/) — IMPORT LAST so
+# they have full access to all server-level helpers and pydantic models.
+from routes.auth import router as _auth_router
+from routes.payments import router as _payments_router
+api_router.include_router(_auth_router)
+api_router.include_router(_payments_router)
+
 app.include_router(api_router)
 
 app.add_middleware(
