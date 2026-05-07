@@ -32,6 +32,8 @@ import AdminDashboardEditor from "./pages/AdminDashboardEditor";
 import AdminTestimonials from "./pages/AdminTestimonials";
 import AdminRawMaterials from "./pages/AdminRawMaterials";
 import AdminRestaurant from "./pages/AdminRestaurant";
+import AdminRestaurantOrders from "./pages/AdminRestaurantOrders";
+import AdminWhatsAppOutbox from "./pages/AdminWhatsAppOutbox";
 import StaffDeliveries from "./pages/StaffDeliveries";
 import Plans from "./pages/Plans";
 import Checkout from "./pages/Checkout";
@@ -124,6 +126,8 @@ function AppRoutes() {
             <Route path="testimonials" element={<AdminTestimonials />} />
             <Route path="raw-materials" element={<AdminRawMaterials />} />
             <Route path="restaurant" element={<AdminRestaurant />} />
+            <Route path="restaurant-orders" element={<AdminRestaurantOrders />} />
+            <Route path="whatsapp" element={<AdminWhatsAppOutbox />} />
             <Route path="deliveries-today" element={<StaffDeliveries />} />
             <Route path="content/:contentKey" element={<AdminContent />} />
           </Route>

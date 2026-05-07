@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
-import { LayoutDashboard, Package, Truck, ScanLine, QrCode, Utensils, Users, Palette, Home, Shield, FileText, MapPin, FootprintsIcon, LogIn, Megaphone, Radio, Layout, Wheat, ClipboardList, Menu, MessageSquareQuote, UtensilsCrossed } from "lucide-react";
+import { LayoutDashboard, Package, Truck, ScanLine, QrCode, Utensils, Users, Palette, Home, Shield, FileText, MapPin, FootprintsIcon, LogIn, Megaphone, Radio, Layout, Wheat, ClipboardList, Menu, MessageSquareQuote, UtensilsCrossed, MessageCircle, ChefHat } from "lucide-react";
 
 // `roles`: which roles can see the item. Default: admin only.
 const SECTIONS = [
@@ -20,6 +20,8 @@ const SECTIONS = [
       { to: "/admin/deliveries-today", label: "Today's deliveries", icon: ClipboardList, roles: ["admin", "staff"] },
       { to: "/admin/raw-materials", label: "Raw materials", icon: Wheat, roles: ["admin", "staff"] },
       { to: "/admin/restaurant", label: "Restaurant menu", icon: UtensilsCrossed, roles: ["admin"] },
+      { to: "/admin/restaurant-orders", label: "Restaurant orders", icon: ChefHat, roles: ["admin", "staff"] },
+      { to: "/admin/whatsapp", label: "WhatsApp outbox", icon: MessageCircle, roles: ["admin"] },
       { to: "/admin/delivery", label: "Tiffin delivery", icon: Truck, roles: ["admin"] },
       { to: "/admin/live", label: "Live tracking", icon: Radio, roles: ["admin"] },
       { to: "/admin/scanner", label: "QR Scanner", icon: ScanLine, roles: ["admin", "staff"] },

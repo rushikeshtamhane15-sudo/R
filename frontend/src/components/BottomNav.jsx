@@ -6,19 +6,21 @@ import { Home, LayoutDashboard, Wallet, User as UserIcon, UtensilsCrossed, Phone
 
 /**
  * Bottom nav — visible to BOTH logged-in subscribers and logged-out users.
- * Hidden for staff / admin / delivery_boy (they get the admin sidebar).
+ * Hidden for staff / admin / delivery_boy / rider (they get the admin sidebar
+ * / rider dashboard instead).
  */
 export default function BottomNav() {
   const location = useLocation();
   const { user } = useAuth();
-  if (user && (user.role === "admin" || user.role === "staff" || user.role === "delivery_boy")) return null;
+  if (user && (user.role === "admin" || user.role === "staff" || user.role === "delivery_boy" || user.role === "rider")) return null;
 
   const items = user
     ? [
-        { to: "/",          label: "Home",      icon: Home },
-        { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-        { wallet: true,     label: "Wallet",    icon: Wallet },
-        { to: "/profile",   label: "Account",   icon: UserIcon },
+        { to: "/",          label: "Home",       icon: Home },
+        { to: "/dashboard", label: "Dashboard",  icon: LayoutDashboard },
+        { to: "/restaurant", label: "Restaurant", icon: UtensilsCrossed },
+        { wallet: true,     label: "Wallet",     icon: Wallet },
+        { to: "/profile",   label: "Account",    icon: UserIcon },
       ]
     : [
         { to: "/",           label: "Home",       icon: Home },
@@ -27,12 +29,14 @@ export default function BottomNav() {
         { to: "/login",      label: "Login",      icon: LogIn },
       ];
 
+  const cols = items.length === 5 ? "grid-cols-5" : "grid-cols-4";
+
   return (
     <nav
       className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-background border-t border-border shadow-[0_-4px_12px_rgba(0,0,0,0.04)]"
       data-testid="bottom-nav"
     >
-      <ul className="grid grid-cols-4">
+      <ul className={`grid ${cols}`}>
         {items.map((it) => {
           const isActive = it.to && (it.to === "/" ? location.pathname === "/" : location.pathname.startsWith(it.to));
           if (it.wallet) {

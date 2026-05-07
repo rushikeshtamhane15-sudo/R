@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
-import { Trash2, Search, Wallet } from "lucide-react";
+import { Trash2, Search, Wallet, Bike } from "lucide-react";
 
 export default function AdminUsers() {
   const { user: me } = useAuth();
@@ -75,6 +75,22 @@ export default function AdminUsers() {
                   <span className={`text-[10px] tracking-overline uppercase font-bold px-2 py-1 rounded-full shrink-0 ${u.role === "admin" ? "bg-primary/10 text-primary" : u.role === "staff" ? "bg-secondary/15 text-secondary" : "bg-muted text-muted-foreground"}`}>{u.role}</span>
                   <Button
                     size="icon" variant="outline"
+                    className="h-8 w-8 rounded-full text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                    onClick={async () => {
+                      try {
+                        await api.post(`/admin/rider/${u.user_id}/promote`);
+                        toast.success(`${u.name || u.user_id} is now an eFoodCare rider`);
+                        load();
+                      } catch (e) { toast.error(e?.response?.data?.detail || "Could not promote"); }
+                    }}
+                    disabled={u.role === "rider" || u.role === "admin"}
+                    title={u.role === "rider" ? "Already a rider" : u.role === "admin" ? "Demote first" : "Promote to rider"}
+                    data-testid={`promote-rider-${u.user_id}`}
+                  >
+                    <Bike className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    size="icon" variant="outline"
                     className="h-8 w-8 rounded-full text-primary hover:bg-primary/5"
                     onClick={() => setWalletTarget(u)}
                     title="Adjust wallet · refund / extend / restore meals"
@@ -102,12 +118,17 @@ export default function AdminUsers() {
         <div className="bg-card rounded-2xl border border-border p-6">
           <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Assign role by email</p>
           <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="user@email.com" className="mt-3 rounded-xl" data-testid="role-email-input" />
-          <div className="mt-3 flex gap-2">
-            {["subscriber", "staff", "admin"].map((r) => (
-              <Button key={r} variant={role === r ? "default" : "outline"} size="sm" onClick={() => setRole(r)} className="rounded-full capitalize flex-1" data-testid={`role-option-${r}`}>{r}</Button>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {["subscriber", "staff", "admin", "rider", "delivery_boy"].map((r) => (
+              <Button key={r} variant={role === r ? "default" : "outline"} size="sm" onClick={() => setRole(r)} className="rounded-full capitalize text-xs" data-testid={`role-option-${r}`}>{r.replace("_", " ")}</Button>
             ))}
           </div>
           <Button onClick={setUserRole} className="mt-4 w-full rounded-full bg-primary hover:bg-primary/90" data-testid="save-role-button">Save role</Button>
+
+          <div className="border-t border-border mt-5 pt-4">
+            <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground mb-2">Quick: Promote to rider</p>
+            <p className="text-[11px] text-muted-foreground mb-2 leading-relaxed">Click the bike icon on any row to instantly mark them as an eFoodCare rider — they'll get rider-only login redirect + dashboard.</p>
+          </div>
         </div>
       </div>
 

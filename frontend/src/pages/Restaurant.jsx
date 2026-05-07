@@ -194,11 +194,15 @@ export default function Restaurant() {
                 <p className="font-bold leading-tight" data-testid="cart-count">
                   {totalCount} item{totalCount > 1 ? "s" : ""} · ₹{cartLines.subtotal.toLocaleString("en-IN")}
                 </p>
-                <p className="text-xs opacity-80 leading-tight">{cartLines.subtotal >= meta.delivery_free_over ? "Free delivery" : `+ ₹${meta.delivery_fee_flat} delivery`}</p>
+                <p className="text-xs opacity-80 leading-tight">
+                  {!user
+                    ? "Login required to checkout"
+                    : (cartLines.subtotal >= meta.delivery_free_over ? "Free delivery" : `+ ₹${meta.delivery_fee_flat} delivery`)}
+                </p>
               </div>
             </div>
             <Button onClick={goCheckout} className="rounded-full bg-primary hover:bg-primary/90" data-testid="go-checkout">
-              Checkout <ArrowRight className="h-4 w-4 ml-1.5" />
+              {!user ? "Login & checkout" : "Checkout"} <ArrowRight className="h-4 w-4 ml-1.5" />
             </Button>
           </div>
         </div>

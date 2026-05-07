@@ -84,6 +84,14 @@ MSG91_FLOW_TIFFIN=
 MSG91_STUB_MODE=true
 ```
 
+### Iteration 22 (Feb 8, 2026) — Admin restaurant ops + WhatsApp outbox + rider promotion + login-aware cart
+- **Admin Restaurant Orders** page (`/admin/restaurant-orders`) — kitchen-side ops view: every order with current status badge, customer name + tap-to-call, address, line items, action buttons gated by status (Mark preparing → Ready for pickup → admin hands off to rider). Reject button shows confirm prompt; status field accepts `preparing | ready_for_pickup | rejected`. Routes/admin sidebar nav added under Operations for both `admin` + `staff`.
+- **Admin WhatsApp Outbox** (`/admin/whatsapp`) — last 50 WA events with status badge (Sent / Stub / Error), 4-tile counts, eye toggle to inline-render the branded HTML preview, **Resend** button per row (calls new `POST /api/admin/whatsapp/resend`). Stub-mode banner reminds admin to set `MSG91_WA_AUTH_KEY` to flip live.
+- **"Promote to rider"** bike-icon button on every row of `/admin/users` — disabled for existing riders/admins. Wired to existing `POST /api/admin/rider/{user_id}/promote`. Role chooser also expanded from 3 → 5 options (subscriber/staff/admin/rider/delivery_boy).
+- **Logged-in subscribers can now order from restaurant** — bottom nav for subscribers expanded to 5 tabs: Home · Dashboard · **Restaurant** · Wallet · Account.
+- **Login-required hint on cart bar** — when a logged-out user has items in their cart, the sticky cart bar reads "Login required to checkout · Login & checkout" instead of just "Checkout".
+- **New backend module** `routes/whatsapp_admin.py` with `GET /api/admin/whatsapp/outbox` and `POST /api/admin/whatsapp/resend`.
+
 ### Iteration 21 (Feb 8, 2026) — Rider mini-system + WhatsApp pipeline + admin refactor + real food images
 
 **Major: full rider role for restaurant deliveries**
