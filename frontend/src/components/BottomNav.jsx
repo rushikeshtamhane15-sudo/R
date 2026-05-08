@@ -18,16 +18,16 @@ export default function BottomNav() {
 
   const items = user
     ? [
-        { to: "/",                   label: "Restaurant", icon: ChefHat },
+        { to: "/restaurant",         label: "Restaurant", icon: ChefHat },
         { to: "/restaurant/orders",  label: "Orders",     icon: Receipt },
         { to: "/dashboard",          label: "Dashboard",  icon: LayoutDashboard },
         { to: "/profile",            label: "Account",    icon: UserIcon },
       ]
     : [
-        { to: "/",        label: "Restaurant", icon: ChefHat },
-        { to: "/home",    label: "Tiffin",     icon: Home },
-        { to: "/contact", label: "Contact",    icon: Phone },
-        { to: "/login",   label: "Login",      icon: LogIn },
+        { to: "/restaurant", label: "Restaurant", icon: ChefHat },
+        { to: "/home",       label: "Tiffin",     icon: Home },
+        { to: "/contact",    label: "Contact",    icon: Phone },
+        { to: "/login",      label: "Login",      icon: LogIn },
       ];
 
   return (
@@ -37,10 +37,7 @@ export default function BottomNav() {
     >
       <ul className="flex items-stretch justify-around">
         {items.map((it) => {
-          const isActive =
-            it.to === "/"
-              ? location.pathname === "/"
-              : location.pathname.startsWith(it.to);
+          const isActive = location.pathname === it.to;
           return (
             <li key={it.to} className="flex-1 flex">
               <Link

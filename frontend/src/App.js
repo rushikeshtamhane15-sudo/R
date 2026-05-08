@@ -85,7 +85,7 @@ function AppRoutes() {
       <AnnouncementBar />
       <main className="flex-1">
         <Routes>
-          <Route path="/" element={<Restaurant />} />
+          <Route path="/" element={<Login />} />
           <Route path="/home" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/restaurant" element={<Restaurant />} />

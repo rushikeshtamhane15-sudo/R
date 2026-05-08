@@ -1,0 +1,40 @@
+{
+  "summary": "Iter19 — frontend-only verification of routing change: '/' now renders Login for anonymous users and auto-redirects logged-in subscribers to /restaurant; /restaurant remains public; BottomNav 'Restaurant' tab points to /restaurant with exact-match active highlighting. All 11 scenarios pass on mobile (390x844). Regression suite (?next=, /dashboard for subscriber, /restaurant/checkout Pay btn lift) also passes.",
+  "tests_executed": [
+    "TEST1 anon GET /  → login-page + phone-input visible, restaurant-page NOT in DOM. PASS",
+    "TEST2 anon GET /restaurant → restaurant-page renders with menu items, login-page NOT in DOM. PASS",
+    "TEST3 guest BottomNav data-testid=bottom-nav-restaurant has href='/restaurant'. PASS",
+    "TEST4 OTP login as fresh subscriber → after verify lands on /restaurant (computeNext default for role=subscriber). PASS",
+    "TEST5 logged-in subscriber visits /  → auto-redirect to /restaurant via Login useEffect+computeNext (no login form flash; restaurant-page rendered). PASS",
+    "TEST6 BottomNav active state on /restaurant/orders — exact-match: {restaurant:False, orders:True, dashboard:False, account:False}. Only Orders tab highlighted (was prefix-match before — fix verified). PASS",
+    "TEST7 logged-in BottomNav 'Restaurant' tab href='/restaurant' AND clicking from /restaurant/orders navigates to /restaurant. PASS",
+    "TEST8 active map on /restaurant: {restaurant:True, orders:False, dashboard:False, account:False}. PASS",
+    "TEST9 REGRESSION /login?next=/restaurant/orders → fresh OTP login lands on /restaurant/orders (not /restaurant). PASS",
+    "TEST10 REGRESSION /dashboard for subscriber → URL stays /dashboard, subscriber-dashboard testid renders (no PostLogin redirect-to-/restaurant regression). PASS",
+    "TEST11 REGRESSION /restaurant/checkout — checkout-pay-btn bottom y=762, BottomNav y=786, gap=24px (Pay button still lifted above BottomNav on mobile). PASS"
+  ],
+  "admin_redirect_note": "Logged-in admin visiting '/' → /admin redirect was not runtime-verified (no admin OTP user available without DB write). Code-verified: Login.jsx computeNext() L46 returns '/admin' for role==='admin'; the same useEffect that redirected subscribers to /restaurant in TEST5 will redirect admins to /admin. The subscriber path proves the redirect mechanism works; the role branch is a single-line literal mapping. Suggest main agent flip a test user's role to admin via /api/admin/role or Mongo to runtime-verify if needed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "App.js L88 — '/' route now renders <Login />. Catch-all L135 redirects unknown routes to '/' which (anon) lands on Login or (logged-in) bounces to role-home via Login useEffect — net effect is sane.",
+    "BottomNav.jsx L40 — `location.pathname === it.to` (exact match) replaces previous startsWith. Confirmed correct — sub-routes like /restaurant/orders no longer light up the parent /restaurant tab. Note: this means deep paths like /restaurant/track/:orderId won't highlight ANY of the four tabs (none match exactly). Acceptable for current 4-tab layout but flag if more sub-routes are added.",
+    "Login.jsx L42-51 computeNext() correctly prioritises ?next= → role-based fallback (admin→/admin, staff→/admin/deliveries-today, delivery_boy→/boy, rider→/rider, default→/restaurant). useEffect L54-59 fires on user change so already-logged-in users on '/' auto-redirect — no flash of login form observed in TEST5.",
+    "MINOR (testing-only, not a bug): Playwright `click(force=True)` on the BottomNav <Link> element does not always trigger React Router navigation — first run of TEST7/8 with force=True falsely failed; without force=True both pass. Future testing agents: do NOT use force=True on react-router Link clicks.",
+    "MINOR (testing-only, not a bug): Playwright `click(force=True)` on the shadcn <Button> for send-otp also caused the onClick handler to no-op silently in one run. Same recommendation — prefer plain .click() for Buttons in OTP flow."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only)", "frontend": "100% (11/11 scenarios)"},
+  "test_credentials": "Fresh phone per test (e.g. 98xxxxxxxx, 97xxxxxxxx); dev_otp surfaced via dev-otp-banner per /app/memory/test_credentials.md.",
+  "seed_data_creation": "None.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "1) Use plain page.locator(...).click() for shadcn <Button> and react-router <Link> in this app — force=True can cause silent click-no-op. Use force=True ONLY when an overlay is genuinely intercepting. 2) computeNext() in Login.jsx handles role-based redirect for already-authenticated users hitting '/' — admin→/admin, staff→/admin/deliveries-today, delivery_boy→/boy, rider→/rider, subscriber→/restaurant. Honours ?next=/path. 3) BottomNav active state is now exact-match (location.pathname === it.to), not prefix — deep restaurant sub-routes (track/:orderId) won't highlight any tab. 4) data-testids verified: login-page, phone-input, name-input, send-otp-button, dev-otp-banner, otp-input, verify-otp-button, restaurant-page, subscriber-dashboard, bottom-nav, bottom-nav-{restaurant,orders,dashboard,account,tiffin,contact,login}, checkout-pay-btn, menu-add-*. 5) Admin '/' → /admin redirect was not runtime-verified — only subscriber branch tested live; flag if main agent wants explicit admin runtime test.",
+  "rca of the issue": "Not a bug-fix iteration — feature change only. Flow: anonymous '/' shows Login; logged-in '/' uses Login.jsx useEffect→computeNext to bounce to role-home. BottomNav.jsx isActive switched from prefix to exact match (===) so /restaurant tab doesn't get highlighted on /restaurant/orders. All previously-fixed regressions (Pay-btn-above-BottomNav, /dashboard SubscriberDashboard, ?next= redirect) re-verified passing."
+}
