@@ -46,6 +46,7 @@ import RestaurantCheckout from "./pages/RestaurantCheckout";
 import OrderTrack from "./pages/OrderTrack";
 import RestaurantOrderHistory from "./pages/RestaurantOrderHistory";
 import RiderDashboard from "./pages/RiderDashboard";
+import RiderAccount from "./pages/RiderAccount";
 import { Privacy, Refund } from "./pages/PolicyPage";
 
 function RequireAuth({ children, roles }) {
@@ -93,6 +94,7 @@ function AppRoutes() {
           <Route path="/restaurant/orders" element={<RequireAuth><RestaurantOrderHistory /></RequireAuth>} />
           <Route path="/restaurant/track/:orderId" element={<RequireAuth><OrderTrack /></RequireAuth>} />
           <Route path="/rider" element={<RequireAuth><RiderDashboard /></RequireAuth>} />
+          <Route path="/rider/account" element={<RequireAuth><RiderAccount /></RequireAuth>} />
           <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
           <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
           <Route path="/plans" element={<Plans />} />

@@ -14,6 +14,9 @@ export default function Header() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
 
+  // Riders get their own bottom-nav-only chrome — no header / hamburger.
+  if (user?.role === "rider") return null;
+
   const brandName = theme?.brand_name || "efoodcare";
   const brandTagline = theme?.brand_tagline || "ghar se achha khana";
 

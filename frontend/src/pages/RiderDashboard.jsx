@@ -162,7 +162,7 @@ export default function RiderDashboard() {
   const onTheWay = orders.filter((o) => o.status === "out_for_delivery");
 
   return (
-    <div className="min-h-screen bg-background pb-12" data-testid="rider-dashboard">
+    <div className="min-h-screen bg-background pb-24 md:pb-28" data-testid="rider-dashboard">
       <header className="bg-foreground text-background">
         <div className="max-w-4xl mx-auto px-5 py-5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
