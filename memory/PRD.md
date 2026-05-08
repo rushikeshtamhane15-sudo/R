@@ -208,6 +208,17 @@ MSG91_STUB_MODE=true
 - **ChefHat icon swap** — Restaurant header, BottomNav (`Restaurant` tab), and AdminLayout sidebar `Restaurant menu` row now use lucide `ChefHat` instead of `UtensilsCrossed`.
 - **Mobile + PC polish** — verified at 390×844 (mobile) and 1440×900 (desktop). Backend 12/12 pytest pass; frontend full-flow validated.
 
+## Iteration 21 (Feb 9, 2026) — TrackMap3D + Rider Dashboard fix + Live tracking pill
+- **TrackMap3D component** (`/app/frontend/src/components/TrackMap3D.jsx`) — adaptive renderer:
+  - **Desktop (≥768px)**: MapLibre GL JS at 60° pitch, smooth `easeOutCubic` interpolation between rider pings, glowing pulse around the bike marker, dark CartoCDN raster tiles, navigation control with pitch indicator. Camera follows rider via `easeTo`.
+  - **Mobile (<768px)**: react-leaflet for battery + bundle savings, same visual language (dark theme + pulsing rider).
+  - Status badge `Live · 3D` (desktop) / `Live · smooth` (mobile) at top-right.
+- **OrderTrack.jsx** — replaced inline Leaflet map with `<TrackMap3D>`. Shows customer pin too when `customer_lat/lng` are available.
+- **Backend** — `/api/restaurant/orders/{id}/track` now returns `customer_lat/customer_lng` (with fallback to `users.lat/users.lng` from saved profile).
+- **Active-track pill** on `/restaurant` home — emerald-themed CTA appears for logged-in users with an in-flight order, deep-links to `/restaurant/track/<order_id>`.
+- **Rider Dashboard rendering fix** — `useAuth().refresh` was undefined (real key is `checkAuth`); silent error swallow on `/rider/me` 403 left page stuck on Loading forever. Added `loadErr` state with proper error UI + Retry button (`data-testid='rider-error'`).
+- **OTP delivery confirmation** (already wired backend) — verified rider flow: pickup → arrived (server fires WA delivery_otp, returns dev_otp in dev mode) → deliver (rider enters OTP, server verifies, marks delivered, credits ₹50 to rider wallet).
+
 ## Backlog
 - P1: Per-IP rate limit on `/auth/send-otp` (SMS cost protection)
 - P1: Admin menu editor UI (backend ready)
