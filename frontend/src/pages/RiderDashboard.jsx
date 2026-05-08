@@ -40,11 +40,12 @@ function playDing() {
 }
 
 export default function RiderDashboard() {
-  const { user, refresh } = useAuth();
+  const { user, checkAuth } = useAuth();
   const navigate = useNavigate();
   const [me, setMe] = useState(null);
   const [orders, setOrders] = useState([]);
   const [earnings, setEarnings] = useState(null);
+  const [loadErr, setLoadErr] = useState("");
   const [soundOn, setSoundOn] = useState(() => localStorage.getItem("efc_rider_sound") !== "off");
   const [withdrawing, setWithdrawing] = useState(false);
   const [withdrawAmt, setWithdrawAmt] = useState("");
@@ -62,7 +63,7 @@ export default function RiderDashboard() {
         api.get("/rider/orders/active"),
         api.get("/rider/earnings"),
       ]);
-      setMe(m.data); setEarnings(e.data);
+      setMe(m.data); setEarnings(e.data); setLoadErr("");
       const next = o.data?.orders || [];
       // Sound notification for NEW ready_for_pickup orders
       const newReady = next.filter((x) => x.status === "ready_for_pickup" && !lastReadyIds.current.has(x.order_id));
@@ -72,7 +73,10 @@ export default function RiderDashboard() {
       }
       lastReadyIds.current = new Set(next.filter((x) => x.status === "ready_for_pickup").map((x) => x.order_id));
       setOrders(next);
-    } catch (e) { /* ignore poll errors */ }
+    } catch (err) {
+      const msg = err?.response?.data?.detail || err?.message || "Could not load rider dashboard";
+      setLoadErr(msg);
+    }
   };
 
   useEffect(() => { load(); }, []);
@@ -115,7 +119,7 @@ export default function RiderDashboard() {
     try {
       const r = await api.post(`/rider/orders/${id}/deliver`, { otp: otp.trim(), payment_mode: mode });
       toast.success(`Delivered! +₹${r.data.rider_payout_inr} added to wallet`);
-      load(); refresh?.();
+      load(); checkAuth?.();
     } catch (e) { toast.error(e?.response?.data?.detail || "Delivery failed"); }
   };
   const submitWithdraw = async () => {
@@ -138,6 +142,18 @@ export default function RiderDashboard() {
     } catch (e) { toast.error(e?.response?.data?.detail || "OTP confirm failed"); }
   };
 
+  if (loadErr) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-6" data-testid="rider-error">
+        <div className="max-w-sm text-center">
+          <Bike className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
+          <p className="font-display font-extrabold text-lg">Couldn't load rider dashboard</p>
+          <p className="text-sm text-muted-foreground mt-2">{loadErr}</p>
+          <Button onClick={load} className="rounded-full mt-5"><RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Retry</Button>
+        </div>
+      </div>
+    );
+  }
   if (!me || !earnings) {
     return <div className="min-h-screen flex items-center justify-center text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading…</div>;
   }

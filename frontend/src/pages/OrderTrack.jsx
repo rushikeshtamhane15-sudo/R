@@ -4,28 +4,12 @@ import { api } from "../lib/api";
 import { toast } from "sonner";
 import { loadCart, saveCart, setQty } from "../lib/cart";
 import { useAuth } from "../context/AuthContext";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import L from "leaflet";
+import TrackMap3D from "../components/TrackMap3D";
 import {
   ChevronLeft, Phone, CheckCircle2, ChefHat, Bike, MapPin, PackageCheck, Hourglass, Clock, RefreshCw, Receipt, XCircle,
 } from "lucide-react";
 
 const POLL_MS = 15_000;
-
-// Animated rider marker — pulse + small bike SVG.
-const riderIcon = L.divIcon({
-  className: "rider-marker",
-  html: `
-    <div style="position:relative;width:42px;height:42px">
-      <span style="position:absolute;inset:0;border-radius:50%;background:#a02323;opacity:0.25;animation:rider-pulse 1.6s ease-out infinite"></span>
-      <span style="position:absolute;inset:6px;border-radius:50%;background:#a02323;display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 4px 10px rgba(0,0,0,0.25)">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6h-3l-3 9h3l3-6h2.5l-1.5-3z"/></svg>
-      </span>
-    </div>
-    <style>@keyframes rider-pulse{0%{transform:scale(0.8);opacity:0.6}100%{transform:scale(1.6);opacity:0}}</style>`,
-  iconSize: [42, 42],
-  iconAnchor: [21, 21],
-});
 
 const STATUSES = [
   { key: "paid",             label: "Order placed",     icon: CheckCircle2 },
@@ -163,16 +147,12 @@ export default function OrderTrack() {
                 </a>
               )}
             </div>
-            <div className="h-72 w-full">
-              <MapContainer center={[order.rider_lat, order.rider_lng]} zoom={15} className="h-full w-full">
-                <TileLayer
-                  url="https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png"
-                  attribution='&copy; OpenStreetMap · &copy; CARTO'
-                />
-                <Marker position={[order.rider_lat, order.rider_lng]} icon={riderIcon}>
-                  <Popup>{order.rider?.name || "Rider"} on the way</Popup>
-                </Marker>
-              </MapContainer>
+            <div className="h-80 md:h-96 w-full">
+              <TrackMap3D
+                rider={{ lat: order.rider_lat, lng: order.rider_lng, name: order.rider?.name, phone: order.rider?.phone }}
+                customer={order.customer_lat && order.customer_lng ? { lat: order.customer_lat, lng: order.customer_lng } : null}
+                className="h-full w-full"
+              />
             </div>
           </section>
         )}

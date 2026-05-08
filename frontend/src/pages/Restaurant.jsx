@@ -35,15 +35,20 @@ export default function Restaurant() {
   }, []);
 
   // Pull most recent delivered order for the "reorder in 1 tap" banner
+  // AND any in-flight (out_for_delivery / preparing / etc) for the live tracking pill.
+  const [activeOrder, setActiveOrder] = useState(null);
   useEffect(() => {
-    if (!user) { setLastOrder(null); return; }
+    if (!user) { setLastOrder(null); setActiveOrder(null); return; }
     try {
       if (sessionStorage.getItem("efc_reorder_dismissed_v1") === "1") setReorderDismissed(true);
     } catch {}
     api.get("/restaurant/orders?limit=10")
       .then((r) => {
-        const delivered = (r.data?.orders || []).find((o) => o.status === "delivered");
+        const rows = r.data?.orders || [];
+        const delivered = rows.find((o) => o.status === "delivered");
         if (delivered) setLastOrder(delivered);
+        const live = rows.find((o) => ["paid", "preparing", "ready_for_pickup", "out_for_delivery"].includes(o.status));
+        if (live) setActiveOrder(live);
       })
       .catch(() => {});
   }, [user]);
@@ -132,6 +137,29 @@ export default function Restaurant() {
       </header>
 
       <div className="max-w-6xl mx-auto px-3 sm:px-5">
+        {/* Live tracking pill — when a restaurant order is in-flight */}
+        {user && activeOrder && (
+          <Link
+            to={`/restaurant/track/${activeOrder.order_id}`}
+            className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-900/40 p-3.5 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/40 transition-colors group"
+            data-testid="active-track-pill"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="relative h-10 w-10 rounded-full bg-emerald-600 text-white flex items-center justify-center flex-shrink-0">
+                <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-60"></span>
+                <Truck className="h-5 w-5 relative z-10" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[10px] tracking-overline uppercase font-bold text-emerald-700 dark:text-emerald-300">Order in progress</p>
+                <p className="font-display font-extrabold text-sm leading-tight mt-0.5 truncate">
+                  {activeOrder.status === "out_for_delivery" ? "Rider on the way · Track live" : "Tap to track your order"}
+                </p>
+              </div>
+            </div>
+            <ArrowRight className="h-4 w-4 text-emerald-700 dark:text-emerald-300 group-hover:translate-x-1 transition-transform flex-shrink-0" />
+          </Link>
+        )}
+
         {/* Reorder banner — most recent delivered order, 1-tap CTA */}
         {user && lastOrder && !reorderDismissed && (
           <div

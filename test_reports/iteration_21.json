@@ -1,0 +1,53 @@
+{
+  "summary": "Iter21 — full backend + frontend regression on (1) Rider Dashboard rendering bug, (2) NEW TrackMap3D component (MapLibre on desktop ≥768px, Leaflet on mobile <768px), (3) OTP delivery flow, (4) /restaurant/orders/{id}/track customer_lat/lng fallback, (5) active-track-pill on /restaurant home. ALL CRITICAL SCENARIOS PASS. Backend 9/9 pytest, Frontend 4/4 visual+integration. MapLibre 3D map renders end-to-end with dark CartoCDN tiles + rider pulse marker + 'Live · 3D' badge — visually confirmed in screenshot. Mobile correctly downgrades to Leaflet ('Live · smooth' badge, no trackmap-3d node). Bypassed /api/auth/send-otp rate-limit by seeding session_token directly into Mongo user_sessions collection — clean technique for future iterations.",
+  "tests_executed": [
+    "BACKEND test_iter21::TestRiderDashboardEndpoints — /rider/me, /rider/orders/active, /rider/earnings all return 200 for rider session; 403 for non-rider; 401 unauthenticated. PASS 5/5",
+    "BACKEND test_iter21::TestTrackEndpointCustomerLatLng — GET /restaurant/orders/{id}/track returns customer_lat/customer_lng falling back to user.lat/user.lng when order doc lacks them (verified 12.98/77.60 from user profile). 403 for non-owner non-rider non-admin. PASS 2/2",
+    "BACKEND test_iter21::TestRiderOTPDeliveryFlow — pickup → arrived (returns dev_otp 4-digit) → deliver wrong OTP → 400 → deliver correct OTP → 200, status=delivered, rider_payout_inr=50.0, delivery_otp cleared, wallet incremented by ₹50. PASS",
+    "BACKEND test_iter21::TestCreateOrGetUserSelfHeal — verifies seeded user docs have user_id+phone+role+wallet_balance+qr_token (preconditions for create_or_get_user self-heal). PASS",
+    "FRONTEND /rider — rider-dashboard renders fully (rider-stats, rider-wallet, rider-refresh-btn). NOT stuck on Loading. NO 'refresh is not a function' console error. NO console errors at all. rider-refresh-btn click re-loads without errors. PASS",
+    "FRONTEND /restaurant/track/{id} on 1440x900 — trackmap-root + trackmap-3d (MapLibre) both present, badge='Live · 3D'. MapLibre raster tiles loaded, dark CartoCDN map renders with rider pulse marker visible. ZERO console errors. PASS",
+    "FRONTEND /restaurant/track/{id} on 390x844 — trackmap-root present, trackmap-3d ABSENT (Leaflet path), badge='Live · smooth'. PASS",
+    "FRONTEND /restaurant home — active-track-pill present for logged-in user with out_for_delivery order; href='/restaurant/track/<orderId>'; click navigates SPA correctly to track page. PASS"
+  ],
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter21.py",
+    "/app/test_reports/pytest/iter21_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "TrackMap3D.jsx L158 — initial isDesktop computed from window.matchMedia at mount; correctly re-evaluates on resize via mq.addEventListener('change'). Good.",
+    "TrackMap3D.jsx L132-151 — smooth marker animation uses easeOutCubic over 1200ms with cancellation of previous frame on new prop. Solid pattern; no animation leaks on unmount (cleanup at L124-128).",
+    "TrackMap3D.jsx L100-105 — map.setLight wrapped in try/catch (raster style may not support setLight). Defensive — good.",
+    "TrackMap3D.jsx L165 — early return when rider lat/lng falsy. OrderTrack.jsx L94 also gates on order.status==='out_for_delivery' && rider_lat && rider_lng before mounting. Double-gated correctly.",
+    "RiderDashboard.jsx L43 — useAuth() destructure now correctly pulls `checkAuth` (not the legacy `refresh` symbol). L122 calls checkAuth?.() with optional chaining — safe.",
+    "RiderDashboard.jsx L76-79 — load() catches errors and sets loadErr; L145-156 renders rider-error UI with Retry button. The blank-screen / infinite-loading bug is correctly mitigated.",
+    "RiderDashboard.jsx L82-83 — initial load() useEffect with empty deps + a separate setInterval(load) keyed on [soundOn]. Minor duplication concern — every soundOn toggle clears+reschedules the polling timer. Not a bug, but each toggle of the sound icon resets the 8s poll cadence. Low priority.",
+    "rider.py L338-369 (track endpoint) — fallback chain {order.customer_lat → user.lat} and {order.rider_lat → rider.current_lat} both correct. Returns null gracefully when no data.",
+    "rider.py L211-213 — dev_otp included in /arrived response only when server.OTP_DEV_MODE truthy. Production-safe.",
+    "rider.py L232 — 5 wrong-OTP attempts → 429. Good rate-limit on per-order OTP brute force.",
+    "Restaurant.jsx L141-161 — active-track-pill is a <Link> (SPA-aware). Routing works in real browser; in headless playwright, ensure regular click() rather than click(force=True) to allow React Router to intercept the anchor click."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter21.py (NEW)"
+  ],
+  "success_rate": {
+    "backend": "100% (9/9 pytest)",
+    "frontend": "100% (4/4 critical scenarios — rider dashboard, desktop trackmap, mobile trackmap, active-track-pill)"
+  },
+  "test_credentials": "Direct-Mongo seed pattern (bypasses OTP rate limit): users.replaceOne({phone}, {user_id:'user_TEST_<hex10>', phone, role, name:'TEST_*', wallet_balance:0, qr_token:'qr_<hex10>'}, upsert=True). Issue session by inserting {session_token:'sess_TEST_<hex32>', user_id, expires_at:+1d, created_at:now} into user_sessions. Pass token via Authorization: Bearer <token> header OR session_token cookie.",
+  "seed_data_creation": "All TEST_ prefixed users/sessions/orders cleaned up after run (verified). Test fixtures auto-teardown via teardown_module().",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "1) /api/auth/send-otp has aggressive per-IP-hour rate limit. ALWAYS bypass for E2E by seeding sessions in Mongo: insert into user_sessions with {session_token, user_id, expires_at}. Pass via Authorization: Bearer <token> header (server.py L246-249) or session_token cookie. 2) User pydantic model role enum is admin|staff|subscriber|delivery_boy|rider — 'user' is INVALID and causes 500 in get_current_user → doc_to_user. Use 'subscriber' for regular customers. 3) Iter21 test file at /app/backend/tests/test_iter21.py is reusable as a regression suite — all 9 tests pass cleanly. 4) MapLibre raster tiles do load in headless Playwright (verified — full dark map rendered with rider marker), so no need to mock. 5) When clicking React Router <Link> elements in Playwright, use plain click() not click(force=True) — force=True bypasses the SPA click handler and triggers full reload, breaking the navigation assertion. 6) The iter20 P0 bug (create_or_get_user KeyError on existing docs missing user_id) was fixed by main agent in /app/backend/server.py self-heal logic; we did not re-trigger the OTP path here (rate limit) but seeded users now contain canonical user_id field, so no regression observed.",
+  "rca of the issue": "All iter21 review-request scenarios verified working end-to-end. The original 'rider dashboard not appearing' bug had two layers (per iter20 RCA): (A) computeNext() role redirect — already passing in iter20; (B) RiderDashboard component itself hung on indefinite Loading because useAuth destructured a non-existent `refresh` field, and any error in load() was swallowed leaving me/earnings null forever. Iter21 fix at RiderDashboard.jsx L43 (refresh→checkAuth) and L48+L145-156 (loadErr state + rider-error UI) is correct and verified. Tracking visualisation NEW feature (TrackMap3D) verified working with both renderers."
+}

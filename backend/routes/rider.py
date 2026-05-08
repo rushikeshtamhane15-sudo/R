@@ -351,7 +351,14 @@ async def customer_track_order(order_id: str, user: server.User = Depends(server
         "delivered_at": order.get("delivered_at"), "eta_at": order.get("eta_at"),
         "rider_lat": order.get("rider_lat"), "rider_lng": order.get("rider_lng"),
         "rider_location_at": order.get("rider_location_at"),
+        "customer_lat": order.get("customer_lat"), "customer_lng": order.get("customer_lng"),
     }
+    # Fall back to user's saved profile location if order didn't snapshot it
+    if not out["customer_lat"] or not out["customer_lng"]:
+        cust = await server.db.users.find_one({"user_id": order["user_id"]}, {"_id": 0, "lat": 1, "lng": 1})
+        if cust:
+            out["customer_lat"] = out["customer_lat"] or cust.get("lat")
+            out["customer_lng"] = out["customer_lng"] or cust.get("lng")
     if order.get("rider_id"):
         rider = await server.db.users.find_one({"user_id": order["rider_id"]},
                                                {"_id": 0, "name": 1, "phone": 1, "current_lat": 1, "current_lng": 1, "location_updated_at": 1})
