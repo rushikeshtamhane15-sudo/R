@@ -295,9 +295,26 @@ async def create_or_get_user(email: Optional[str], phone: Optional[str], name: s
         # Auto-promote on every login if email/phone is in admin list
         if is_admin and existing.get("role") != "admin":
             updates["role"] = "admin"
+        # Resilience: heal seeded/migrated docs that may be missing user_id (some
+        # legacy seed scripts use 'id' instead). Otherwise downstream lookups
+        # (sessions, dashboards, etc.) will silently fail after login.
+        existing_uid = existing.get("user_id") or existing.get("id")
+        if not existing_uid:
+            existing_uid = f"user_{uuid.uuid4().hex[:12]}"
+            updates["user_id"] = existing_uid
+        elif not existing.get("user_id"):
+            updates["user_id"] = existing_uid
+        if not existing.get("qr_token"):
+            updates["qr_token"] = f"qr_{uuid.uuid4().hex}"
+        if existing.get("wallet_balance") is None:
+            updates["wallet_balance"] = 0.0
         if updates:
-            await db.users.update_one({"user_id": existing["user_id"]}, {"$set": updates})
+            await db.users.update_one(
+                {"_id": existing.get("_id")} if existing.get("_id") else {"phone": existing.get("phone"), "email": existing.get("email")},
+                {"$set": updates},
+            )
             existing.update(updates)
+            existing["user_id"] = existing_uid
         return existing
     role = "admin" if is_admin else "subscriber"
     user_doc = {
