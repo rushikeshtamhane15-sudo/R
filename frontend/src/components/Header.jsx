@@ -163,7 +163,7 @@ export default function Header() {
                     <LogOut className="h-4 w-4 mr-2" /> Logout
                   </Button>
                 ) : (
-                  <Link to="/login" onClick={close} data-testid="menu-login-link">
+                  <Link to={`/login?next=${encodeURIComponent(location.pathname + (location.search || ""))}`} onClick={close} data-testid="menu-login-link">
                     <Button className="w-full rounded-full bg-primary hover:bg-primary/90">Sign In</Button>
                   </Link>
                 )}

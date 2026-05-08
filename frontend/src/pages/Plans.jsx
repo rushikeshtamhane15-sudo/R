@@ -49,7 +49,7 @@ export default function Plans() {
   const profileIncomplete = (u) => !u || !u.name || !u.phone || !u.address || !u.photo_url;
 
   const startCheckout = (planId) => {
-    if (!user) return navigate(`/login`);
+    if (!user) return navigate(`/login?next=${encodeURIComponent(`/checkout/${planId}`)}`);
     if (profileIncomplete(user)) return navigate(`/profile?next=/checkout/${planId}`);
     navigate(`/checkout/${planId}`);
   };
@@ -58,7 +58,7 @@ export default function Plans() {
     const params = new URLSearchParams({ days: String(customPreview.days), service });
     if (service === "tiffin") params.set("tiffin_size", tiffinSize);
     const next = `/checkout/custom?${params.toString()}`;
-    if (!user) return navigate(`/login`);
+    if (!user) return navigate(`/login?next=${encodeURIComponent(next)}`);
     if (profileIncomplete(user)) return navigate(`/profile?next=${encodeURIComponent(next)}`);
     navigate(next);
   };

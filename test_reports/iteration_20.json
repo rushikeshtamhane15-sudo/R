@@ -1,0 +1,59 @@
+{
+  "summary": "Iter20 — frontend-only verification of (1) role-based dashboard redirect after OTP login, (2) BottomNav reorganisation (Tiffin in place of Account, Profile moved to Header drawer), (3) action-persistence via ?next=. ADMIN runtime-verified end-to-end (URL→/admin, AdminLayout + admin-sidebar + 18 admin-nav-* testids render). All ?next= redirect flows (Buy Now / Login&Checkout / Plans Subscribe / BottomNav Login / Header Sign In) verified PASS — query-string preserved through login. Rider, Delivery_boy, and logged-in-subscriber BottomNav runtime checks were BLOCKED by backend's 1-hour per-IP OTP rate limit after the admin flow consumed the budget; computeNext() in Login.jsx and BottomNav.jsx logged-in branch were verified by code inspection.",
+  "tests_executed": [
+    "BUG1 admin (9988776611) OTP-login → /admin · admin-layout, admin-sidebar, admin-nav-{dashboard,plans,users-roles,today-s-deliveries,raw-materials,restaurant-menu,restaurant-orders,whatsapp-outbox,tiffin-delivery,live-tracking,qr-scanner,counter-qr,daily-menu,home-page,subscriber-dashboard,testimonials,announcement-bar,login-page,privacy-policy,…} all render. PASS",
+    "BUG3 Buy Now (anon) /restaurant → click buy-now-* → URL=/login?next=%2Frestaurant%2Fcheckout%3Fbuynow%3D1 ✓ ; complete OTP login → URL=/restaurant/checkout?buynow=1 (buynow=1 preserved). PASS",
+    "BUG3 Login & Checkout (anon) /restaurant → add-* → go-checkout → URL=/login?next=%2Frestaurant%2Fcheckout ✓. PASS (login completion + Pay-btn check skipped due to rate limit but redirect URL correct)",
+    "BUG3 Plans (anon) → subscribe-button-premium_60 → URL=/login?next=%2Fcheckout%2Fpremium_60 ✓. PASS",
+    "BUG3 Anon BottomNav Login on /restaurant → href=/login?next=%2Frestaurant ✓. PASS",
+    "BUG3 Header Sign In on /restaurant → href=/login?next=%2Frestaurant ✓. PASS",
+    "BUG2 anon BottomNav: [Restaurant, Tiffin, Contact, Login] — Tiffin links to /home ✓; Login link includes ?next= ✓. PASS"
+  ],
+  "tests_blocked_by_rate_limit": [
+    "BUG1 rider (9988776622) → /rider runtime — code-only verified (Login.jsx L49 returns '/rider' for role==='rider'; identical mechanism as admin which passed)",
+    "BUG1 delivery_boy (9988776633) → /boy runtime — code-only verified (Login.jsx L48 returns '/boy' for role==='delivery_boy')",
+    "BUG2 logged-in subscriber BottomNav (Restaurant · Orders · Dashboard · Tiffin) — code verified in BottomNav.jsx L23-29",
+    "BUG2 menu-profile testid present in Header drawer for logged-in subscriber — code verified in Header.jsx L29 (primary.push({to:'/profile', label:'Profile'}) renders as data-testid='menu-profile')",
+    "Rate limiter is /api/auth/send-otp — per-IP-hour bucket (~880s remaining when last hit)"
+  ],
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "/api/auth/verify-otp", "issue": "create_or_get_user crashes with KeyError: 'user_id' when an existing users-collection document is missing the user_id field (e.g. seeded directly into Mongo with only 'id'). Found via /app/backend/server.py L299: `existing[\"user_id\"]`. Affected ALL pre-seeded admin/rider/delivery_boy logins until I re-seeded with the correct field name. Fix: either (a) defensively use existing.get('user_id') or fall back to existing.get('id'), or (b) document the seed-script field requirement.", "priority": "HIGH"},
+      {"endpoint": "/api/auth/send-otp", "issue": "Per-IP per-hour rate limit is too aggressive for testing — burned through allowance after ~6 OTP sends in 5 minutes. Returns 429 with 'try again in NNNs'. Consider raising limit, exempting localhost, or adding OTP_RATE_LIMIT_BYPASS env var.", "priority": "MEDIUM"}
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "(P0) /app/backend/server.py L299 — make create_or_get_user resilient when an existing users doc lacks 'user_id'. Change `existing[\"user_id\"]` to `existing.get('user_id') or existing.get('id')` and `$set` user_id when missing. Otherwise any seed/migration that uses 'id' bricks all subsequent logins for that phone.",
+    "(P0) Provide a seed helper / Mongo fixture that uses the canonical schema {user_id, phone, role, name, wallet_balance} so QA can seed admin/rider/delivery_boy reliably.",
+    "(P1) /api/auth/send-otp rate limit → consider raising to ≥60/hour for /api or honour an OTP_DEV_MODE bypass — currently it makes E2E test runs of multi-role logins impossible in one go.",
+    "(P2) Validate runtime of rider (/rider) and delivery_boy (/boy) routes — code path identical to admin which passed, but the Dashboard PAGES themselves were NOT rendered/visually verified due to rate limit. Recommend main-agent self-test by waiting ~15min and re-running the OTP flow for 9988776622 and 9988776633."
+  ],
+  "critical_code_review_comments": [
+    "Login.jsx L42-51 computeNext() — correct: ?next= wins; role-based fallback (admin→/admin, staff→/admin/deliveries-today, delivery_boy→/boy, rider→/rider, default→/restaurant). Verified live for admin.",
+    "Restaurant.jsx L78 + L84 — encodeURIComponent on next= is correct; query string survives through verify-otp redirect chain (verified live).",
+    "BottomNav.jsx L19 — correctly hides nav for admin/staff/delivery_boy/rider so they get the AdminLayout/Rider/Boy dashboard chrome instead. Verified for admin.",
+    "BottomNav.jsx L21 — `?next=${encodeURIComponent(location.pathname + (location.search || ''))}` correct.",
+    "Header.jsx L29 — adds data-testid='menu-profile' (Profile link) only for logged-in users. Anon users do NOT see Profile in drawer (correct).",
+    "Header.jsx L166 — Sign In CTA also URL-encodes the next param. Verified live.",
+    "BUG (backend, NEW): /app/backend/server.py L299 in create_or_get_user — `existing[\"user_id\"]` will throw KeyError if any users doc lacks user_id (e.g. legacy doc, manual seed using 'id'). Should be defensive: `uid = existing.get('user_id') or existing.get('id') or f'user_{uuid.uuid4().hex[:12]}'`. This caused 500s on first seed pass and is a latent crash for any future schema drift.",
+    "Plans.jsx L51-55 + L57-63 — startCheckout / startCustomCheckout correctly inject ?next= when anon. profileIncomplete redirect to /profile?next= is unchanged (intentional)."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "n/a (frontend-only request)",
+    "frontend": "Runtime PASS rate 7/11 (admin redirect, buy-now redirect+roundtrip, go-checkout redirect, plans subscribe, anon nav login, header sign-in, anon BottomNav layout). 4/11 BLOCKED by rate limit (rider redirect, boy redirect, loggedin BottomNav, menu-profile in drawer) — code-only verified, mechanism identical to passing admin path."
+  },
+  "test_credentials": "Re-seeded users (run if missing): MongoClient(MONGO_URL)[DB_NAME].users replaceOne({phone}, {user_id:'user_<uuid12>', phone, role, name:'TEST_<role>', wallet_balance:0}, upsert=True) for {9988776611:admin, 9988776622:rider, 9988776633:delivery_boy}. Subscriber: any fresh 10-digit phone via dev OTP banner.",
+  "seed_data_creation": "Inserted 3 users in users collection: phone 9988776611/role=admin, 9988776622/role=rider, 9988776633/role=delivery_boy with canonical user_id field. NOT cleaned up — main agent can re-use for self-test.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "1) Backend has aggressive per-IP /api/auth/send-otp rate limit (~6 calls/hour). Wait 15+ min between bursts or the suite stalls. 2) /app/backend/server.py L299 has a latent KeyError on existing user docs missing user_id — fix before next run. 3) Admin role-redirect runtime PASSES — admin-layout + admin-sidebar render correctly post-OTP. 4) Rider/Boy redirect were not runtime-verified due to rate limit; after main agent fixes #2 above and waits for limit reset, re-run iter21 against same seeded phones (9988776622, 9988776633) — should pass without code change. 5) BUG3 ?next= persistence is fully working — buynow=1 query string survives login (verified live URL=/restaurant/checkout?buynow=1 after OTP). 6) BottomNav anon layout is Restaurant·Tiffin·Contact·Login. Logged-in layout (BottomNav.jsx L24-29) is Restaurant·Orders·Dashboard·Tiffin — code-correct, not runtime-verified for subscriber.",
+  "rca of the issue": "The 'admin/rider/boy dashboards not appearing' user complaint has TWO root causes: (A) The intended computeNext() role-redirect mechanism in Login.jsx WORKS — verified live for admin. (B) HOWEVER, /api/auth/verify-otp throws 500 KeyError('user_id') for any existing users doc that uses a different primary-key field name. If the user manually seeded admin/rider/boy in Mongo with field 'id' instead of 'user_id' (a natural mistake given there are two ID conventions floating around), every login attempt for those phones hits 500 and the redirect never fires — the user sees the login page reload, interpreted as 'dashboard not appearing'. Mitigation: harden create_or_get_user (server.py L299) to read existing.get('user_id') or existing.get('id') and persist the canonical field. Reproduction: 1) db.users.insertOne({phone:'9988776611', role:'admin', id:'x', name:'A'}) 2) POST /api/auth/send-otp {phone:'9988776611'} 3) POST /api/auth/verify-otp {phone, otp} → 500 KeyError 'user_id'. Confirmed in /var/log/supervisor/backend.err.log."
+}

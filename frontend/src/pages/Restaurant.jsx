@@ -75,13 +75,13 @@ export default function Restaurant() {
   // Buy now: stash one-item cart in sessionStorage and jump to checkout (login wall handles redirect)
   const buyNow = (it) => {
     try { sessionStorage.setItem("efc_buynow_v1", JSON.stringify({ [it.id]: { id: it.id, qty: 1 } })); } catch {}
-    if (!user) { navigate(`/login?next=/restaurant/checkout?buynow=1`); return; }
+    if (!user) { navigate(`/login?next=${encodeURIComponent("/restaurant/checkout?buynow=1")}`); return; }
     navigate("/restaurant/checkout?buynow=1");
   };
 
   const goCheckout = () => {
     if (totalCount === 0) { toast.error("Your cart is empty"); return; }
-    if (!user) { navigate(`/login?next=/restaurant/checkout`); return; }
+    if (!user) { navigate(`/login?next=${encodeURIComponent("/restaurant/checkout")}`); return; }
     navigate("/restaurant/checkout");
   };
 

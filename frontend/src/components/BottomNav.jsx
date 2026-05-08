@@ -8,26 +8,30 @@ import { Home, ChefHat, LayoutDashboard, User as UserIcon, Phone, LogIn, Receipt
  * Hidden for staff / admin / delivery_boy / rider (they get the admin sidebar
  * / rider dashboard instead).
  *
- * Logged-in subscriber: Home (Restaurant) · Dashboard · Account
- * Logged-out: Home (Restaurant) · Tiffin Plans · Contact · Login
+ * Logged-in subscriber: Restaurant · Orders · Dashboard · Tiffin
+ *   (Account/Profile lives in the Header hamburger.)
+ * Logged-out: Restaurant · Tiffin · Contact · Login (Login preserves ?next=
+ *   so the user resumes whatever they were doing.)
  */
 export default function BottomNav() {
   const location = useLocation();
   const { user } = useAuth();
   if (user && (user.role === "admin" || user.role === "staff" || user.role === "delivery_boy" || user.role === "rider")) return null;
 
+  const nextParam = `?next=${encodeURIComponent(location.pathname + (location.search || ""))}`;
+
   const items = user
     ? [
         { to: "/restaurant",         label: "Restaurant", icon: ChefHat },
         { to: "/restaurant/orders",  label: "Orders",     icon: Receipt },
         { to: "/dashboard",          label: "Dashboard",  icon: LayoutDashboard },
-        { to: "/profile",            label: "Account",    icon: UserIcon },
+        { to: "/home",               label: "Tiffin",     icon: Home },
       ]
     : [
-        { to: "/restaurant", label: "Restaurant", icon: ChefHat },
-        { to: "/home",       label: "Tiffin",     icon: Home },
-        { to: "/contact",    label: "Contact",    icon: Phone },
-        { to: "/login",      label: "Login",      icon: LogIn },
+        { to: "/restaurant",      label: "Restaurant", icon: ChefHat },
+        { to: "/home",            label: "Tiffin",     icon: Home },
+        { to: "/contact",         label: "Contact",    icon: Phone },
+        { to: `/login${nextParam}`, label: "Login",    icon: LogIn, exactTo: "/login" },
       ];
 
   return (
@@ -37,7 +41,7 @@ export default function BottomNav() {
     >
       <ul className="flex items-stretch justify-around">
         {items.map((it) => {
-          const isActive = location.pathname === it.to;
+          const isActive = location.pathname === (it.exactTo || it.to);
           return (
             <li key={it.to} className="flex-1 flex">
               <Link
