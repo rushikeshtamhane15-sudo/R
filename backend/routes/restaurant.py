@@ -36,6 +36,10 @@ class MenuItem(BaseModel):
     category: str = "Mains"
     active: bool = True
     sort_order: int = 100
+    # Steel-tiffin / returnable packaging — when True, ordering this item creates
+    # a tiffin-pendency record on delivery and bumps the customer's tiffin_balance
+    # so the kitchen can call them back later for pickup.
+    is_returnable_tiffin: bool = False
 
 
 class MenuPatch(BaseModel):
@@ -97,6 +101,8 @@ DEFAULT_MENU: list[dict] = [
 ]
 for _it in DEFAULT_MENU:
     _it.setdefault("active", True)
+    # Default tiffin items to returnable steel containers; non-tiffin to disposable
+    _it.setdefault("is_returnable_tiffin", _it.get("category") == "Tiffin Specials")
 
 DELIVERY_FEE_FREE_OVER = 500  # ₹ — free delivery above this
 DELIVERY_FEE_FLAT = 50          # ₹ — flat below threshold
@@ -129,6 +135,18 @@ async def _load_menu() -> list[dict]:
             upsert=True,
         )
         return upgraded
+    # One-shot migration: ensure is_returnable_tiffin flag exists on every row
+    # (added in iter28). Default tiffin items to returnable, others to disposable.
+    needs_returnable_migration = any("is_returnable_tiffin" not in it for it in doc["items"])
+    if needs_returnable_migration:
+        for it in doc["items"]:
+            if "is_returnable_tiffin" not in it:
+                it["is_returnable_tiffin"] = it.get("category") == "Tiffin Specials"
+        await server.db.restaurant_menu_items.update_one(
+            {"_id": "active"},
+            {"$set": {"items": doc["items"], "updated_at": server.iso(server.now_utc())}},
+            upsert=True,
+        )
     return doc["items"]
 
 

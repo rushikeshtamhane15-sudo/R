@@ -23,6 +23,7 @@ export default function Header() {
   const primary = [];
   const info = [
     { to: "/contact", label: "Contact" },
+    { to: "/contact?subject=franchise", label: "Contact for Franchisee" },
     { to: "/privacy", label: "Privacy Policy" },
     { to: "/refund", label: "Refund Policy" },
   ];

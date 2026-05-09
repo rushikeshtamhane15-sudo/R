@@ -38,13 +38,22 @@ export default function Login() {
   const [searchParams] = useSearchParams();
   const { user, setUser } = useAuth();
 
-  // Decide post-login destination — `?next=/path` wins, else role-based default.
+  // Decide post-login destination — `?next=/path` wins, else session-stashed
+  // pending action (cart→checkout / buy-now), else role-based default.
   const computeNext = (u) => {
     const raw = searchParams.get("next");
     // Skip self-referential nexts ("/" and "/login*") — they would loop.
     const validNext = raw && raw.startsWith("/") && !raw.startsWith("//") &&
       raw !== "/" && !raw.startsWith("/login");
     if (validNext) return raw;
+    // Fallback: session-stashed pending action set by Restaurant.jsx
+    try {
+      const pending = sessionStorage.getItem("efc_pending_action_v1");
+      if (pending && pending.startsWith("/") && !pending.startsWith("//") && pending !== "/" && !pending.startsWith("/login")) {
+        sessionStorage.removeItem("efc_pending_action_v1");
+        return pending;
+      }
+    } catch {}
     if (!u) return "/dashboard";
     if (u.role === "admin") return "/admin";
     if (u.role === "staff") return "/admin/deliveries-today";
@@ -152,7 +161,7 @@ export default function Login() {
       {/* FORM SHEET — Zomato-clone style: floating white card with thick border + shadow */}
       <div className="bg-background flex-1 -mt-6 px-4 sm:px-6 relative pb-24 md:pb-12">
         <div
-          className="max-w-lg mx-auto w-full bg-card rounded-3xl px-6 py-5 sm:px-8 sm:py-6 mt-2"
+          className="max-w-sm mx-auto w-full bg-card rounded-3xl px-5 py-4 sm:px-6 sm:py-5 mt-2"
           style={{
             border: "3px solid #ffffff",
             boxShadow: "0 24px 60px -16px rgba(0,0,0,0.25), 0 8px 24px -6px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.06)",

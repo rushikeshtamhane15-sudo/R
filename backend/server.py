@@ -1920,6 +1920,8 @@ async def _compute_raw_materials_fresh() -> dict:
     total_lunch_cost = 0.0
     total_dinner_cost = 0.0
     total_day_cost = 0.0
+    low_stock_alerts: list[dict] = []
+    now_dt = now_utc()
     for it in items:
         factored = _per_meal_factor(it)
         per_meal_amount = float(factored.get("amount_per_person_meal") or 0)
@@ -1943,10 +1945,66 @@ async def _compute_raw_materials_fresh() -> dict:
                 "dinner_cost": meal_cost,
                 "day_cost": round(meal_cost * 2, 2),
             }
+        # Stock tracking — compute remaining after daily deduction since topup
+        if not factored.get("is_amount_based"):
+            stock_topup = float(it.get("current_stock") or 0)
+            topup_at = it.get("last_stock_topup_at")
+            day_qty = float(row.get("day_qty") or 0)
+            days = 0
+            if topup_at:
+                try:
+                    delta = now_dt - parse_dt(topup_at)
+                    days = max(0, int(delta.total_seconds() // 86400))
+                except Exception:
+                    days = 0
+            consumed = round(days * day_qty, 4)
+            stock_remaining = max(0.0, round(stock_topup - consumed, 4))
+            # Monthly need = qty_per_person_month * persons
+            monthly_need = float(factored.get("qty_per_person_month") or 0) * persons
+            threshold_pct = float(it.get("low_stock_threshold_pct") or 10.0)
+            pct_remaining = (stock_remaining / monthly_need * 100.0) if monthly_need > 0 else None
+            low_stock = (pct_remaining is not None and pct_remaining < threshold_pct)
+            row["current_stock"] = stock_topup
+            row["stock_topup_at"] = topup_at
+            row["stock_consumed"] = consumed
+            row["stock_remaining"] = stock_remaining
+            row["monthly_need"] = round(monthly_need, 4)
+            row["pct_remaining"] = round(pct_remaining, 1) if pct_remaining is not None else None
+            row["low_stock_threshold_pct"] = threshold_pct
+            row["low_stock"] = low_stock
+            if low_stock:
+                low_stock_alerts.append({
+                    "key": it["key"], "label": it.get("label") or it["key"],
+                    "stock_remaining": stock_remaining, "unit": it.get("unit") or "",
+                    "pct_remaining": row["pct_remaining"], "monthly_need": round(monthly_need, 4),
+                    "shortage": round(monthly_need - stock_remaining, 4),
+                })
         total_lunch_cost += row["lunch_cost"]
         total_dinner_cost += row["dinner_cost"]
         total_day_cost += row["day_cost"]
         breakdown.append(row)
+
+    # Auto-generate a PO when any item is low-stock — idempotent per UTC day so we
+    # don't spam. Stored alongside admin-generated POs so admin can review.
+    if low_stock_alerts:
+        try:
+            today_key = now_dt.date().isoformat()
+            already = await db.purchase_orders.find_one({"po_number": f"AUTO-{today_key}"})
+            if not already:
+                po_doc = {
+                    "po_number": f"AUTO-{today_key}",
+                    "kind": "auto_low_stock",
+                    "generated_at": iso(now_dt),
+                    "generated_by": "system",
+                    "items": [
+                        {"label": a["label"], "qty": a["shortage"], "unit": a["unit"], "reason": f"low stock {a['pct_remaining']}%"}
+                        for a in low_stock_alerts
+                    ],
+                    "notes": "Auto-generated · stock below 10% of monthly need",
+                }
+                await db.purchase_orders.insert_one(po_doc)
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"[RM] auto-PO failed · {e}")
 
     return {
         "items": items,
@@ -1957,11 +2015,13 @@ async def _compute_raw_materials_fresh() -> dict:
             "dinner_cost": round(total_dinner_cost, 2),
             "day_cost": round(total_day_cost, 2),
         },
+        "low_stock_alerts": low_stock_alerts,
         "computed_at": iso(now_utc()),
         "notes": [
             "Quantities: per person per month (toor dal, rice, wheat, oil). Vegetables track ₹ instead of kg.",
             "1 active subscriber = 1 person; half-tiffin subscriber = 0.5 person.",
             "Per-meal need = per-person-per-month ÷ 60. Lunch + dinner = 2 meals/day.",
+            "Stock remaining = current_stock - (days_since_topup × day_qty). Below 10% of monthly need triggers low-stock alert + auto-PO.",
         ],
     }
 
@@ -1974,10 +2034,18 @@ class RawMaterialItem(BaseModel):
     price_per_unit: Optional[float] = None
     amount_per_person_month: Optional[float] = None
     is_amount_based: Optional[bool] = None
+    current_stock: Optional[float] = None
+    last_stock_topup_at: Optional[str] = None
+    low_stock_threshold_pct: Optional[float] = None
 
 
 class RawMaterialPatch(BaseModel):
     items: List[RawMaterialItem]
+
+
+class RawMaterialStockTopup(BaseModel):
+    key: str
+    qty: float = Field(ge=0)
 
 
 @api_router.put("/admin/raw-materials")
@@ -1990,9 +2058,33 @@ async def update_raw_materials(payload: RawMaterialPatch, user: User = Depends(g
         raise HTTPException(status_code=400, detail="At least one item required")
     # Light validation — keep numbers non-negative
     for it in items:
-        for k in ("qty_per_person_month", "price_per_unit", "amount_per_person_month"):
+        for k in ("qty_per_person_month", "price_per_unit", "amount_per_person_month", "current_stock"):
             if k in it and it[k] is not None and float(it[k]) < 0:
                 raise HTTPException(status_code=400, detail=f"{k} cannot be negative")
+    await db.raw_materials_config.update_one({"_id": "active"}, {"$set": {"items": items, "updated_at": iso(now_utc())}}, upsert=True)
+    _invalidate_raw_materials_cache()
+    return await get_raw_materials(user)
+
+
+@api_router.post("/admin/raw-materials/stock-topup")
+async def topup_raw_materials_stock(payload: RawMaterialStockTopup, user: User = Depends(get_current_user)):
+    """Admin/staff add a partial or full month's stock for a single item.
+    Resets the consumption clock to now."""
+    if user.role not in ("admin", "staff"):
+        raise HTTPException(status_code=403, detail="Admin or staff only")
+    items = await _load_raw_materials()
+    found = False
+    for it in items:
+        if it["key"] == payload.key:
+            existing = float(it.get("current_stock") or 0)
+            it["current_stock"] = round(existing + payload.qty, 4) if it.get("last_stock_topup_at") else round(payload.qty, 4)
+            # Each topup resets the clock — daily deduction starts from now
+            it["current_stock"] = round(payload.qty, 4)  # admin enters total fresh stock
+            it["last_stock_topup_at"] = iso(now_utc())
+            found = True
+            break
+    if not found:
+        raise HTTPException(404, f"Item not found: {payload.key}")
     await db.raw_materials_config.update_one({"_id": "active"}, {"$set": {"items": items, "updated_at": iso(now_utc())}}, upsert=True)
     _invalidate_raw_materials_cache()
     return await get_raw_materials(user)

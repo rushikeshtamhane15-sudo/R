@@ -1,0 +1,44 @@
+{
+  "summary": "iter28 — 14-item batch tested. BACKEND 18/20 PASS (90%) on test_iter28.py. CRITICAL BUG in feature #1: PUT /api/admin/restaurant/theme silently strips ALL 14 new fields (pure_veg_label, bad_stuff_chip_text, hero_delivery_badge, hero_overline, item_promise_label, search_placeholder, cart_login_hint, cart_free_delivery_label, cart_delivery_fee_template, checkout_btn_label, checkout_login_btn_label, no_items_label, reorder_overline, reorder_cta_label) because the Pydantic RestaurantTheme model at /app/backend/routes/restaurant.py:200-209 still only declares the 9 ORIGINAL fields. The files_of_reference claimed 'lines 178-225 expanded RestaurantTheme model' but the model was NOT actually expanded. This blocks feature #1 (Top-container CMS) and feature #9 (whole restaurant page text editable). All other backend features VERIFIED PASS: is_returnable_tiffin migration on /restaurant/menu (Tiffin Specials default True, others False); takeaway-pendency GET admin OK + subscriber 403 + collect 404; raw-materials breakdown has stock_remaining/pct_remaining/low_stock fields + low_stock_alerts[]; stock-topup endpoint sets current_stock + last_stock_topup_at + triggers alert when qty=0.01 + 404 for unknown key + 403 for subscriber. FRONTEND SMOKE ALL PASS on /restaurant: pure-veg-badge ✓, ninety-min-banner ✓, 9 trust chips, 15 item-90min badges, fssai-mark ✓, fssai-license-no='Lic. No. 21521243000086' ✓ exact. Login form max-w-sm = 384px verified (was 512px lg). Did not test rider→deliver→tiffin-pendency flow end-to-end (requires multi-role choreography); endpoint surface verified.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "PUT /api/admin/restaurant/theme", "issue": "Pydantic RestaurantTheme model at /app/backend/routes/restaurant.py lines 200-209 only has 9 original fields (hero_title, hero_tagline, hero_promise_line1/2, hero_bg_color, hero_text_color, accent_color, show_zero_bad_stuff_chip, show_delivery_promise). All 14 new iter28 fields are silently stripped on PUT — they NEVER persist. This breaks feature #1 (Top-container CMS) and feature #9 (whole restaurant page text editable). FIX: add 14 Optional[str] fields to RestaurantTheme model: pure_veg_label, bad_stuff_chip_text, hero_delivery_badge, hero_overline, item_promise_label, search_placeholder, cart_login_hint, cart_free_delivery_label, cart_delivery_fee_template, checkout_btn_label, checkout_login_btn_label, no_items_label, reorder_overline, reorder_cta_label.", "priority": "CRITICAL"}
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "AdminRestaurantTheme save flow", "issue": "Even if AdminRestaurantTheme.jsx form sends all 14 new fields, backend will discard them due to the Pydantic model gap above. Once backend is fixed, theme-driven strings on /restaurant should override correctly (frontend fallback chain looks correct in screenshot — Pure Veg badge + 90-min banner + chips render with hardcoded defaults today).", "affected_selectors": ["theme-save", "pure-veg-badge"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter28.py",
+    "/app/test_reports/pytest/iter28_results.xml"
+  ],
+  "action_items": [
+    "CRITICAL — extend the Pydantic RestaurantTheme model in /app/backend/routes/restaurant.py (lines 200-209) with the 14 new Optional[str] fields. Without this, AdminRestaurantTheme save is a no-op for every new field and feature #1 + #9 are non-functional.",
+    "Optional — also consider switching RestaurantTheme to model_config = ConfigDict(extra='allow') so future field additions persist even before the model is updated; this would have prevented this iter28 silent regression.",
+    "Re-test after fix: run `pytest /app/backend/tests/test_iter28.py::TestRestaurantTheme -v` (currently 1/3, should be 3/3)."
+  ],
+  "critical_code_review_comments": [
+    "restaurant.py:200-209 — RestaurantTheme Pydantic model defines 9 fields, but iter28 spec adds 14 new fields. payload.model_dump(exclude_none=True) silently drops everything not declared. Cause: model wasn't actually expanded despite review_request claiming so.",
+    "server.py:2080-2082 — topup_raw_materials_stock has dead code: line 2080 conditionally adds to existing stock, then line 2082 unconditionally overwrites with payload.qty. Lines 2080 (`+ payload.qty if last_stock_topup_at else round(payload.qty,4)`) is redundant — only line 2082 takes effect. Either drop the conditional or fix logic. Functionally OK because spec says 'admin enters total fresh stock' but is confusing.",
+    "app_cms.py:142 — list_takeaway_pendency uses Optional[bool] query param; FastAPI accepts collected=true/false/1/0/yes/no. Fine, but worth documenting in the OpenAPI doc.",
+    "rider.py:254-280 — tiffin pendency creation on deliver flow could not be exercised in this test session without a full subscriber→cart→checkout→admin→rider→deliver choreography. Code path looked correct on inspection (only inserts when items[].is_returnable_tiffin is True)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter28.py"
+  ],
+  "success_rate": {
+    "backend": "90% (18/20 iter28; 2 failures both pinned to single missing-Pydantic-fields root cause)",
+    "frontend": "100% on smoke-tested items (pure-veg-badge, ninety-min-banner, 9 trust chips, 15 item-90min badges, fssai-mark, fssai-license-no exact text, login max-w-sm=384px). Theme-override frontend test deferred until backend fix."
+  },
+  "test_credentials": "OTP DEV — POST /api/auth/send-otp returns dev_otp; admin phone 9970705391 auto-promoted via ADMIN_PHONES.",
+  "seed_data_creation": "Created TEST_iter28_admin admin session + TEST_iter28_sub subscriber session. Modified raw_materials_config (toor_dal/equivalent topup with 10000 then 0.01) — reseed via POST /admin/raw-materials/reset if needed. Auto-PO row 'AUTO-{today}' created in db.purchase_orders.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Theme model fix is a 14-line change to /app/backend/routes/restaurant.py:200-209 — add Optional[str]=None for each of: pure_veg_label, bad_stuff_chip_text, hero_delivery_badge, hero_overline, item_promise_label, search_placeholder, cart_login_hint, cart_free_delivery_label, cart_delivery_fee_template, checkout_btn_label, checkout_login_btn_label, no_items_label, reorder_overline, reorder_cta_label. After fix, re-run test_iter28.py — should be 20/20. Tiffin-pendency rider-deliver flow should be tested end-to-end if main agent wants full coverage of feature #8 — needs admin to assign rider, rider arrives + collects pickup, marks delivered. Existing /admin/restaurant-takeaway page list endpoint already validated.",
+  "rca of the issue": "ROOT CAUSE — In iter28, the Pydantic model `RestaurantTheme` in /app/backend/routes/restaurant.py was supposed to be expanded with 14 new optional string fields per feature #1 + #9. The review_request claims the model was extended at lines 178-225, but the actual file shows the model unchanged at lines 200-209 with only 9 original fields. FastAPI uses Pydantic to validate incoming payloads; `payload.model_dump(exclude_none=True)` only emits keys declared on the model, so all 14 new fields are silently dropped before MongoDB persistence. REPRODUCTION — `curl -X PUT $BASE/api/admin/restaurant/theme -H 'Authorization: Bearer <admin>' -d '{\"pure_veg_label\":\"Test\"}'` returns the existing theme with no `pure_veg_label` key. MITIGATION — add the 14 Optional[str] fields to RestaurantTheme. RETEST — pytest test_iter28.py::TestRestaurantTheme should go from 1/3 → 3/3."
+}

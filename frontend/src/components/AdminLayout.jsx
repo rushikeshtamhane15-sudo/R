@@ -14,6 +14,7 @@ const SECTIONS = [
       { to: "/admin/users", label: "Users & Roles", icon: Users, roles: ["admin"] },
       { to: "/admin/rider-applications", label: "Rider applications", icon: Bike, roles: ["admin"] },
       { to: "/admin/restaurant-tracking", label: "Restaurant tracking", icon: Truck, roles: ["admin"] },
+      { to: "/admin/restaurant-takeaway", label: "Take-away tiffins", icon: Package, roles: ["admin", "staff"] },
       { to: "/admin/restaurant-theme", label: "Restaurant page editor", icon: Palette, roles: ["admin"] },
     ],
   },

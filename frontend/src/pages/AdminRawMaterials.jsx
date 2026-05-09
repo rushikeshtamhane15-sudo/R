@@ -205,6 +205,26 @@ export default function AdminRawMaterials() {
         <Stat label="Dinner cost" value={`₹${Math.round(totals.dinner_cost || 0).toLocaleString("en-IN")}`} icon={Moon} accent />
       </div>
 
+      {/* Low-stock alert popup — flashes red when any item is below threshold */}
+      {data?.low_stock_alerts?.length > 0 && (
+        <div className="rounded-2xl border-2 border-rose-500 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-700 p-4 sm:p-5 animate-pulse" data-testid="low-stock-alert">
+          <div className="flex items-start gap-3">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-rose-600 text-white font-extrabold flex-shrink-0">!</span>
+            <div className="flex-1">
+              <p className="font-display font-extrabold text-rose-800 dark:text-rose-200">⚠️ Stock low — {data.low_stock_alerts.length} item(s) below 10%</p>
+              <p className="text-xs text-rose-700 dark:text-rose-300 mt-1">An auto-PO has been generated. Top up stock below or check Purchase Orders.</p>
+              <ul className="mt-2 text-xs space-y-1 font-mono">
+                {data.low_stock_alerts.map((a) => (
+                  <li key={a.key} className="text-rose-900 dark:text-rose-100" data-testid={`alert-${a.key}`}>
+                    <b>{a.label}</b> — only {a.stock_remaining}{a.unit} left ({a.pct_remaining}% of monthly need)
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="rounded-2xl bg-primary text-primary-foreground p-5 flex items-center gap-4" data-testid="day-cost-banner">
         <Calculator className="h-7 w-7" />
         <div className="flex-1">
@@ -238,6 +258,7 @@ export default function AdminRawMaterials() {
                 <th className="text-right px-4 py-3">Dinner qty</th>
                 <th className="text-right px-4 py-3">Dinner ₹</th>
                 <th className="text-right px-4 py-3">Day ₹</th>
+                <th className="text-right px-4 py-3">Stock</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -278,6 +299,12 @@ export default function AdminRawMaterials() {
                     <td className="px-4 py-3 text-right whitespace-nowrap font-mono">{row.dinner_qty == null ? "—" : `${row.dinner_qty.toFixed(3)} ${row.unit}`}</td>
                     <td className="px-4 py-3 text-right whitespace-nowrap font-mono">₹{(row.dinner_cost || 0).toFixed(2)}</td>
                     <td className="px-4 py-3 text-right whitespace-nowrap font-mono font-bold">₹{(row.day_cost || 0).toFixed(2)}</td>
+                    {/* Stock tracking column: physical qty available + topup CTA */}
+                    <td className="px-4 py-3 text-right whitespace-nowrap" data-testid={`stock-cell-${row.key}`}>
+                      {row.is_amount_based ? <span className="text-muted-foreground text-xs">—</span> : (
+                        <StockTopupCell row={row} onSaved={load} />
+                      )}
+                    </td>
                   </tr>
                 );
               })}
@@ -327,6 +354,7 @@ export default function AdminRawMaterials() {
                 <td className="px-4 py-3" />
                 <td className="px-4 py-3 text-right whitespace-nowrap font-mono">₹{(totals.dinner_cost || 0).toFixed(2)}</td>
                 <td className="px-4 py-3 text-right whitespace-nowrap font-mono">₹{(totals.day_cost || 0).toFixed(2)}</td>
+                <td className="px-4 py-3" />
               </tr>
             </tfoot>
           </table>
@@ -382,6 +410,51 @@ function Stat({ label, value, hint, icon: Icon, accent }) {
       </div>
       <p className="font-display font-extrabold text-2xl sm:text-3xl mt-2">{value}</p>
       {hint && <p className="text-[11px] text-muted-foreground mt-1">{hint}</p>}
+    </div>
+  );
+}
+
+function StockTopupCell({ row, onSaved }) {
+  const [open, setOpen] = useState(false);
+  const [qty, setQty] = useState("");
+  const [saving, setSaving] = useState(false);
+  const submit = async () => {
+    const n = Number(qty);
+    if (!n || n <= 0) return toast.error("Enter a positive quantity");
+    setSaving(true);
+    try {
+      await api.post("/admin/raw-materials/stock-topup", { key: row.key, qty: n });
+      toast.success(`Topped up ${row.label}: ${n} ${row.unit}`);
+      setOpen(false); setQty("");
+      onSaved?.();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Topup failed"); }
+    finally { setSaving(false); }
+  };
+  const pct = row.pct_remaining;
+  const tone = row.low_stock ? "text-rose-700 font-extrabold" : (pct != null && pct < 30 ? "text-amber-700 font-bold" : "text-emerald-700 font-bold");
+  return (
+    <div className="flex flex-col items-end gap-1.5">
+      <div className="text-right">
+        <p className={`text-xs tabular-nums ${tone}`} data-testid={`stock-remain-${row.key}`}>
+          {row.stock_remaining ?? 0} {row.unit}
+        </p>
+        {pct != null && <p className="text-[10px] text-muted-foreground tabular-nums">{pct}% left</p>}
+      </div>
+      {open ? (
+        <div className="flex items-center gap-1">
+          <Input type="number" step="0.01" value={qty} onChange={(e) => setQty(e.target.value)} placeholder={`+${row.unit}`} className="h-7 w-20 text-xs" autoFocus data-testid={`topup-input-${row.key}`} />
+          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={submit} disabled={saving} data-testid={`topup-save-${row.key}`}>
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5 text-primary" />}
+          </Button>
+          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setOpen(false); setQty(""); }}>
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      ) : (
+        <Button size="sm" variant="outline" className="rounded-full h-7 text-[11px] px-3" onClick={() => setOpen(true)} data-testid={`topup-btn-${row.key}`}>
+          <Plus className="h-3 w-3 mr-1" /> Top up
+        </Button>
+      )}
     </div>
   );
 }

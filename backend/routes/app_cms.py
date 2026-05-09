@@ -132,3 +132,48 @@ async def reset_notify_sound(user: server.User = Depends(server.get_current_user
         raise HTTPException(403, "Admin only")
     await server.db.app_config.delete_one({"_id": "notify_sound"})
     return {"sound_url": ""}
+
+
+# ---------------------------------------------------------------------------
+# Take-away (returnable) tiffin pendency — restaurant orders that delivered with
+# steel-tiffin items. Admin needs name + phone + address to call back later.
+# ---------------------------------------------------------------------------
+@router.get("/admin/restaurant/takeaway-pendency")
+async def list_takeaway_pendency(user: server.User = Depends(server.get_current_user), collected: Optional[bool] = None):
+    if user.role not in ("admin", "staff"):
+        raise HTTPException(403, "Admin or staff only")
+    q = {}
+    if collected is not None:
+        q["collected"] = collected
+    rows = await server.db.restaurant_tiffin_pendency.find(q, {"_id": 0}).sort("delivered_at", -1).to_list(500)
+    pending = sum(r.get("tiffin_count", 0) for r in rows if not r.get("collected"))
+    return {"rows": rows, "pending_count": pending}
+
+
+class CollectTakeaway(BaseModel):
+    pendency_id: str
+    notes: Optional[str] = None
+
+
+@router.post("/admin/restaurant/takeaway-pendency/collect")
+async def collect_takeaway(payload: CollectTakeaway, user: server.User = Depends(server.get_current_user)):
+    if user.role not in ("admin", "staff"):
+        raise HTTPException(403, "Admin or staff only")
+    rec = await server.db.restaurant_tiffin_pendency.find_one({"pendency_id": payload.pendency_id}, {"_id": 0})
+    if not rec:
+        raise HTTPException(404, "Pendency not found")
+    if rec.get("collected"):
+        raise HTTPException(400, "Already collected")
+    n = int(rec.get("tiffin_count") or 0)
+    await server.db.restaurant_tiffin_pendency.update_one(
+        {"pendency_id": payload.pendency_id},
+        {"$set": {"collected": True, "collected_at": server.iso(server.now_utc()),
+                  "collected_by": user.user_id, "collection_notes": (payload.notes or "")[:240]}},
+    )
+    # Decrement user.tiffin_balance — but not below 0
+    if rec.get("user_id") and n > 0:
+        await server.db.users.update_one(
+            {"user_id": rec["user_id"], "tiffin_balance": {"$gte": n}},
+            {"$inc": {"tiffin_balance": -n}},
+        )
+    return {"ok": True}

@@ -249,6 +249,38 @@ async def rider_deliver(order_id: str, payload: DeliverPayload, user: server.Use
             "delivery_otp": None,
         }},
     )
+
+    # Take-away returnable-tiffin pendency tracking. Sum the qty of any
+    # menu items flagged is_returnable_tiffin, increment user.tiffin_balance,
+    # and append a row to db.restaurant_tiffin_pendency for admin follow-up.
+    try:
+        menu_doc = await server.db.restaurant_menu_items.find_one({"_id": "active"}, {"_id": 0})
+        menu_by_id = {m["id"]: m for m in (menu_doc or {}).get("items", [])}
+        returnable_count = 0
+        for line in order.get("items", []):
+            m = menu_by_id.get(line.get("id"))
+            if m and m.get("is_returnable_tiffin"):
+                returnable_count += int(line.get("qty") or 0)
+        if returnable_count > 0:
+            cust = await server.db.users.find_one({"user_id": order["user_id"]}, {"_id": 0})
+            await server.db.users.update_one(
+                {"user_id": order["user_id"]},
+                {"$inc": {"tiffin_balance": returnable_count}},
+            )
+            await server.db.restaurant_tiffin_pendency.insert_one({
+                "pendency_id": f"rtp_{order_id}",
+                "order_id": order_id,
+                "user_id": order["user_id"],
+                "name": order.get("name") or (cust or {}).get("name") or "",
+                "phone": order.get("phone") or (cust or {}).get("phone") or "",
+                "address": order.get("address") or (cust or {}).get("address") or "",
+                "tiffin_count": returnable_count,
+                "delivered_at": _now_iso(),
+                "collected": False,
+            })
+    except Exception as e:  # noqa: BLE001
+        server.logger.warning(f"[RIDER] take-away tiffin pendency failed for {order_id} · {e}")
+
     return {"ok": True, "status": "delivered", "rider_payout_inr": RIDER_PER_DELIVERY_INR}
 
 
