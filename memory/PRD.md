@@ -248,18 +248,28 @@ MSG91_STUB_MODE=true
 - **Restaurant CMS** — deferred per user (B=a). Will scope separately when ready.
 
 ## Iteration 24 (Feb 9, 2026) — Server-backed notification prefs + Distance/ETA estimation
-
-### Features delivered
 - **Server-backed notification prefs** — new `GET /api/auth/prefs` + `POST /api/auth/prefs` endpoints (auth-required). Stored on `users.notify_prefs` (`{sound, voice}`). Defaults: both true. Frontend hook `useNotifyPrefs()` replaces the localStorage-based pattern in `AdminRestaurantOrders` and `RiderDashboard`. Preference now syncs across devices for the same user.
 - **Distance/ETA estimation** — pure-frontend math via `lib/geo.js` (`haversineKm`, `etaMinutes`, `distEtaLabel`). Naive traffic factor: 0.65× during 8–10am, 12–2pm, 6–9pm rush windows; 1.0× otherwise. Min ETA clamped to 4 min.
   - **Customer-facing**: `/restaurant/track/:id` now shows a `track-eta` emerald chip in the live map header — "🛵 1.5 km · ~4 min" — when status is `out_for_delivery`.
   - **Admin-facing**: `/admin/live` map popup on each restaurant-order pin shows the rider→customer distance + ETA, plus a dashed polyline from rider to customer. If no rider is assigned yet, picks the nearest live rider.
 - **Backend 12/12 + frontend full E2E** validated by testing agent.
 
-## Backlog
+## Iteration 26 (Feb 10, 2026) — Pay-button ETA + splash session-gating + BottomNav fix + OSRM road-snap
+
+### Features delivered
+- **ETA chip on /restaurant/checkout Pay button** — kitchen→customer-pin distance + ETA shown above sticky pay bar (`data-testid='checkout-eta'`); when no pin yet, shows amber "Drop a pin above to see live ETA" prompt (`data-testid='checkout-eta-prompt'`). Desktop-only inline `~Nm` badge inside Pay button (`data-testid='pay-btn-eta'`). Sources kitchen coords from existing `db.delivery_settings.dispatch_lat/dispatch_lng` (admin-editable in `/admin/delivery → settings`); falls back to Pune (18.5204, 73.8567). Adds 15-min kitchen prep buffer to driving ETA.
+- **Backend** — `/api/restaurant/menu` now returns `kitchen_lat` + `kitchen_lng` numerics so the frontend doesn't need a separate config call.
+- **SplashScreen now once-per-session** — `efc_splash_seen_v2` sessionStorage flag gates the splash. First cold load only — in-app navigation skips it. Hold reduced from 5s → 1.5s. Logo size shrunk from 112px → 84px (with text scaled down accordingly) for a less screen-dominating intro. PWA install splash (OS-rendered) untouched.
+- **BottomNav overlap fix (P1, recurring)** — root-cause was `<main className='flex-1'>` in `App.js` not accounting for the fixed BottomNav. Added `pb-16 md:pb-0` globally so every page gets 64px clearance on mobile. No per-page padding workarounds needed anymore.
+- **OSRM road-snapped ETA** — `/lib/geo.js` adds `osrmRoute(from, to)` calling `https://router.project-osrm.org/route/v1/driving/...` with a 30-s in-memory cache, plus rush-hour multiplier (1.45× rush, 1.05× otherwise) on top of OSRM's free-flow duration. `OrderTrack.jsx` rider→customer chip now prefers OSRM (`'· road'` suffix shown) and falls back to haversine when OSRM rate-limits.
+- **Backend regression** — 41/41 tests pass (test_iter12+13+14+23+24+25+26). New tests in `test_iter26_menu_geo.py`.
 - P1: Per-IP rate limit on `/auth/send-otp` (SMS cost protection)
 - P1: Admin menu editor UI (backend ready)
 - P1: Admin wallet/subscription overrides (refunds, manual extensions)
+- P1: Gate `delivery_otp` in `/restaurant/orders/{id}/track` to only `ready_for_pickup`/`out_for_delivery` statuses (flagged in iter25 review)
+- P2: Live WhatsApp Business API integration (currently stub)
+- P2: Tele-calling integration (AI voice for expiry reminders)
+- P2: Self-hosted OSRM or Mapbox Directions (production reliability)
 - P2: Email/SMS reminder for unused daily meal
 - P2: Referral credit system (+5 meals on each side)
 - P2: Monthly report PDF export
