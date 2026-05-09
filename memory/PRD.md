@@ -237,6 +237,16 @@ MSG91_STUB_MODE=true
 ### Bug fixes during this iteration
 - `User` Pydantic model + `doc_to_user` were dropping `wallet_balance` from `/auth/me` payload — added field + populated from doc. This was silently breaking the checkout wallet toggle (always rendered `walletBalance=0`).
 
+## Iteration 23 (Feb 9, 2026) — Sound unlock + Location picker + BottomNav fix + Combined live map
+
+### Features delivered
+- **Sound auto-unlock** (`lib/notify.js`) — added `unlockAudio()` that resumes the suspended `AudioContext` and warms `speechSynthesis` via a silent utterance. Called from the first user-gesture click on Admin/Rider sound toggles. Browsers gate audio behind a user gesture; this fixes the "silent" admin-orders/rider-pickup alerts the user reported.
+- **Location-pin picker on checkout** — new `components/LocationPicker.jsx` (Leaflet + draggable pin + geolocation auto-detect with Pune fallback). Wired into `/restaurant/checkout`. Backend `CreateRestaurantOrder` now accepts `customer_lat/customer_lng`; saves to order doc and auto-promotes to `users.lat/lng` on first checkout. `/restaurant/orders/{id}/track` already returns `customer_lat/lng` so TrackMap3D shows the customer pin too. Rider sees customer pin via the same endpoint.
+- **BottomNav overlap fix** — Restaurant cart-bar bumped to `bottom-20 z-40` (above BottomNav at `bottom-0 z-30`). Page padding now `pb-40 md:pb-32` so content isn't covered by either bar.
+- **Admin login redirect** — already routes admin → `/admin` via `Login.jsx` `computeNext()`. Verified.
+- **Admin combined live map** (`/admin/live`) — single screen now shows tiffin delivery boys (green), restaurant riders (red pulse, `🛵`), tiffin customer pins, and restaurant order pins (`🍽️`). New backend endpoint `GET /api/admin/live/restaurant` returns `{orders, riders}`. Stats grid: Tiffin boys · Restaurant riders · Restaurant orders · Tiffin pending.
+- **Restaurant CMS** — deferred per user (B=a). Will scope separately when ready.
+
 ## Backlog
 - P1: Per-IP rate limit on `/auth/send-otp` (SMS cost protection)
 - P1: Admin menu editor UI (backend ready)
