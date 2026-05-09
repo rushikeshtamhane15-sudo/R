@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowRight, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight, ShieldCheck, KeyRound } from "lucide-react";
 
 const HERO_FOOD_IMG = "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?crop=entropy&cs=srgb&fm=jpg&q=85&w=1400";
 
@@ -41,7 +41,10 @@ export default function Login() {
   // Decide post-login destination — `?next=/path` wins, else role-based default.
   const computeNext = (u) => {
     const raw = searchParams.get("next");
-    if (raw && raw.startsWith("/") && !raw.startsWith("//")) return raw;
+    // Skip self-referential nexts ("/" and "/login*") — they would loop.
+    const validNext = raw && raw.startsWith("/") && !raw.startsWith("//") &&
+      raw !== "/" && !raw.startsWith("/login");
+    if (validNext) return raw;
     if (!u) return "/dashboard";
     if (u.role === "admin") return "/admin";
     if (u.role === "staff") return "/admin/deliveries-today";

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
-import { alertWithVoice, unlockAudio } from "../lib/notify";
+import { alertWithVoice, unlockAudio, setCustomSoundUrl } from "../lib/notify";
 import { useNotifyPrefs } from "../lib/useNotifyPrefs";
 import {
   UtensilsCrossed, Loader2, RefreshCw, ChefHat, PackageCheck, Bike, CheckCircle2, XCircle, Phone, MapPin, Clock, Volume2, VolumeX,
@@ -41,9 +41,13 @@ export default function AdminRestaurantOrders() {
   };
 
   useEffect(() => { load(); }, []);
-  // Auto-poll every 12s for new orders
+  // Load admin-uploaded custom sound (if set) so the polling alerts use it.
   useEffect(() => {
-    const t = setInterval(load, 12_000);
+    api.get("/notify-sound").then((r) => setCustomSoundUrl(r.data?.sound_url || null)).catch(() => {});
+  }, []);
+  // Auto-poll every 2s for new orders — feels real-time without overloading backend
+  useEffect(() => {
+    const t = setInterval(load, 2_000);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [soundOn]);

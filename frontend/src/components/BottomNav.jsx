@@ -1,30 +1,40 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
 import { toast } from "sonner";
-import { Home, ChefHat, LayoutDashboard, Bike, User as UserIcon, Phone, LogIn, LogOut, Receipt } from "lucide-react";
+import {
+  Home, ChefHat, LayoutDashboard, Bike, User, Phone, LogIn, LogOut, Receipt,
+  ShoppingBag, Wallet, Heart, Settings, Bell, MapPin, Clock, Star, ScanLine,
+} from "lucide-react";
+
+// Icons admin can pick from (mapped from lucide-react names sent by backend).
+const ICON_MAP = {
+  Home, ChefHat, LayoutDashboard, Bike, User, Phone, LogIn, LogOut, Receipt,
+  ShoppingBag, Wallet, Heart, Settings, Bell, MapPin, Clock, Star, ScanLine,
+};
 
 /**
- * Bottom nav — 4 tabs.
+ * Bottom navigation — items, labels, icons, order all driven by GET /bottom-nav
+ * (admin-editable in /admin/bottom-nav). Falls back gracefully on API failure.
+ *
  * Hidden for staff / admin / delivery_boy (they get the admin sidebar).
- *
- * Roles:
- *  • subscriber: Restaurant · Orders · Dashboard · Tiffin
- *  • rider:      Dashboard · Contact · Logout · Account
- *  • guest:      Restaurant · Tiffin · Contact · Login
- *
- * Always visible on mobile (md:hidden) — desktop has Header / sidebar nav.
- * For riders, also shown on desktop (md:visible) since Header is hidden.
  */
 export default function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, setUser } = useAuth();
-  const isRider = user?.role === "rider";
+  const [config, setConfig] = useState(null);
+
+  // Pull CMS config once. Errors silently fall back to defaults below.
+  useEffect(() => {
+    api.get("/bottom-nav").then((r) => setConfig(r.data)).catch(() => {});
+  }, []);
+
   if (user && (user.role === "admin" || user.role === "staff" || user.role === "delivery_boy")) return null;
 
-  const nextParam = `?next=${encodeURIComponent(location.pathname + (location.search || ""))}`;
+  const isRider = user?.role === "rider";
+  const role = isRider ? "rider" : (user ? "subscriber" : "guest");
 
   const handleLogout = async () => {
     try { await api.post("/auth/logout"); } catch {}
@@ -33,52 +43,40 @@ export default function BottomNav() {
     navigate("/login", { replace: true });
   };
 
-  let items;
-  if (isRider) {
-    items = [
-      { to: "/rider",          label: "Dashboard", icon: Bike },
-      { to: "/contact",        label: "Contact",   icon: Phone },
-      { onClick: handleLogout, label: "Logout",    icon: LogOut, testId: "logout" },
-      { to: "/rider/account",  label: "Account",   icon: UserIcon },
-    ];
-  } else if (user) {
-    items = [
-      { to: "/restaurant",         label: "Restaurant",   icon: ChefHat },
-      { to: "/restaurant/orders",  label: "Orders",       icon: Receipt },
-      { to: "/dashboard",          label: "Dashboard",    icon: LayoutDashboard },
-      { to: "/home",               label: "Subscription", icon: Home },
-    ];
-  } else {
-    items = [
-      { to: "/restaurant",        label: "Restaurant",   icon: ChefHat },
-      { to: "/home",              label: "Subscription", icon: Home },
-      { to: "/contact",           label: "Contact",      icon: Phone },
-      { to: `/login${nextParam}`, label: "Login",        icon: LogIn, exactTo: "/login" },
-    ];
-  }
+  const nextParam = `?next=${encodeURIComponent(location.pathname + (location.search || ""))}`;
+
+  // Resolve the live items list (CMS or fallback)
+  const items = (config?.[role] || []).filter((it) => it.visible !== false);
+  if (items.length === 0) return null;
 
   return (
     <nav
       className={`${isRider ? "md:flex md:max-w-2xl md:mx-auto md:rounded-t-2xl" : "md:hidden"} fixed bottom-0 inset-x-0 z-30 bg-background border-t border-border shadow-[0_-4px_12px_rgba(0,0,0,0.04)]`}
       data-testid="bottom-nav"
     >
-      <ul className="grid grid-cols-4 w-full">
-        {items.map((it, idx) => {
-          const isActive = it.to && location.pathname === (it.exactTo || it.to);
-          const className = `flex flex-col items-center justify-center gap-1 py-2.5 transition-colors ${isActive ? "text-primary" : "text-muted-foreground hover:text-primary"}`;
-          const tid = `bottom-nav-${it.testId || it.label.toLowerCase()}`;
+      <ul className="flex w-full">
+        {items.map((it) => {
+          const Icon = ICON_MAP[it.icon] || ChefHat;
+          // Special routes
+          let href = it.to;
+          let onClick = null;
+          if (it.to === "__logout__") { onClick = handleLogout; href = null; }
+          else if (it.to === "__login__") { href = `/login${nextParam}`; }
+          const isActive = href && location.pathname === href.split("?")[0];
+          const className = `flex flex-col items-center justify-center gap-1 py-2.5 px-1 w-full transition-colors min-w-0 ${isActive ? "text-primary" : "text-muted-foreground hover:text-primary"}`;
+          const tid = `bottom-nav-${it.id}`;
+          const inner = (
+            <>
+              <Icon className="h-5 w-5 flex-shrink-0" strokeWidth={1.75} />
+              <span className="text-[10px] font-bold leading-tight truncate max-w-full block text-center">{it.label}</span>
+            </>
+          );
           return (
-            <li key={it.to || `btn-${idx}`} className="flex">
-              {it.onClick ? (
-                <button type="button" onClick={it.onClick} data-testid={tid} className={`${className} w-full`}>
-                  <it.icon className="h-5 w-5" strokeWidth={1.75} />
-                  <span className="text-[10px] tracking-overline uppercase font-bold">{it.label}</span>
-                </button>
+            <li key={it.id} className="flex-1 min-w-0">
+              {onClick ? (
+                <button type="button" onClick={onClick} data-testid={tid} className={className}>{inner}</button>
               ) : (
-                <Link to={it.to} data-testid={tid} className={`${className} w-full`}>
-                  <it.icon className="h-5 w-5" strokeWidth={1.75} />
-                  <span className="text-[10px] tracking-overline uppercase font-bold">{it.label}</span>
-                </Link>
+                <Link to={href} data-testid={tid} className={className}>{inner}</Link>
               )}
             </li>
           );

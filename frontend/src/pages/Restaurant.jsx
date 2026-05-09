@@ -7,8 +7,21 @@ import { toast } from "sonner";
 import { loadCart, saveCart, setQty, bumpQty, cartCount, priceCart } from "../lib/cart";
 import { useAuth } from "../context/AuthContext";
 import {
-  ShoppingBag, Plus, Minus, Search, ChefHat, ArrowRight, Tag, Truck, ChevronLeft, Star, RefreshCw, X,
+  ShoppingBag, Plus, Minus, Search, ChefHat, ArrowRight, Tag, Truck, ChevronLeft, Star, RefreshCw, X, Leaf,
 } from "lucide-react";
+
+// 8 trust chips — what we promise (and don't) about the food. Editable via PRD;
+// kept here in code (not in CMS) since they're a brand-defining commitment.
+const TRUST_CHIPS = [
+  "0% Ajinomoto",
+  "0% Maida",
+  "No Artificial Flavours",
+  "No Artificial Colour",
+  "No Refined & Palm Oil",
+  "0% Polished Grains",
+  "100% Fresh Vegetables",
+  "No Pre Made Gravy",
+];
 
 /**
  * Restaurant browse — Zomato-style:
@@ -130,9 +143,10 @@ export default function Restaurant() {
       >
         <div className="max-w-6xl mx-auto px-5 py-5">
           <div className="flex items-center justify-between gap-3">
-            <Link to="/home" className="inline-flex items-center text-primary-foreground/85 hover:text-primary-foreground text-xs font-bold uppercase tracking-overline" data-testid="back-home">
-              <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Subscription
-            </Link>
+            {/* Pure Veg badge — top-left, signals our kitchen ethic */}
+            <span className="inline-flex items-center gap-1 rounded-md border-2 border-green-700 bg-white text-green-700 px-1.5 py-0.5 text-[10px] font-extrabold tracking-wide uppercase shadow-sm" data-testid="pure-veg-badge">
+              <span className="h-2 w-2 rounded-full bg-green-700" /> Pure Veg
+            </span>
             {(theme?.show_zero_bad_stuff_chip !== false) && (
               <span className="text-[9px] sm:text-[10px] tracking-overline uppercase font-bold bg-emerald-600/95 text-white px-2 py-0.5 rounded-full whitespace-nowrap" data-testid="zero-bad-stuff">
                 0% the bad stuff
@@ -160,6 +174,20 @@ export default function Restaurant() {
       </header>
 
       <div className="max-w-6xl mx-auto px-3 sm:px-5">
+        {/* Trust chips — what's in our food (and what's NOT). 8 micro-blocks. */}
+        <section className="mt-3 -mb-1 flex items-center gap-2 overflow-x-auto no-scrollbar pb-1" data-testid="trust-chips">
+          <Leaf className="h-4 w-4 text-emerald-700 flex-shrink-0" aria-hidden />
+          {TRUST_CHIPS.map((label) => (
+            <span
+              key={label}
+              className="flex-shrink-0 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wide rounded-full px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 whitespace-nowrap dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900/40"
+              data-testid={`trust-chip-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`}
+            >
+              {label}
+            </span>
+          ))}
+        </section>
+
         {/* Live tracking pill — when a restaurant order is in-flight */}
         {user && activeOrder && (
           <Link

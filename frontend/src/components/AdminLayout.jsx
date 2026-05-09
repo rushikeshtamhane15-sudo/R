@@ -37,6 +37,7 @@ const SECTIONS = [
     items: [
       { to: "/admin/landing", label: "Home page", icon: Home, roles: ["admin"] },
       { to: "/admin/dashboard-editor", label: "Subscriber dashboard", icon: Layout, roles: ["admin"] },
+      { to: "/admin/bottom-nav", label: "Bottom nav & sound", icon: Megaphone, roles: ["admin"] },
       { to: "/admin/testimonials", label: "Testimonials", icon: MessageSquareQuote, roles: ["admin"] },
       { to: "/admin/content/announcement", label: "Announcement bar", icon: Megaphone, roles: ["admin"] },
       { to: "/admin/content/login", label: "Login page", icon: LogIn, roles: ["admin"] },

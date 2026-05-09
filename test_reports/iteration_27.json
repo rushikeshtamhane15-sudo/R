@@ -1,0 +1,42 @@
+{
+  "summary": "iter27 — Backend 14/14 (test_iter27_app_cms.py: bottom-nav GET/PUT/RESET, notify-sound GET/PUT/DELETE with prefix validation, delivery_otp gating on /restaurant/orders/{id}/track for paid+preparing+ready_for_pickup statuses) all pass. Regression iter12-26 = 110/114 (4 intermittent network timeouts in iter15/iter17, not bug-related). FRONTEND: All 8 trust chips (data-testid='trust-chip-0-ajinomoto'…'no-pre-made-gravy') visible on /restaurant; pure-veg-badge top-left present; old back-home Subscription link confirmed REMOVED; BottomNav renders 4 items evenly distributed (97.5px each at 390px viewport) for guest (Restaurant/Plans/Contact/Login) and subscriber (Restaurant/Orders/Dashboard/Account); AdminBottomNavEditor at /admin/bottom-nav: 3 nav-section-{role} cards + sound section, edit subscriber[0].label='EatTest'→nav-save→GET reflects; sound-url-input + sound-save-btn persists https URL via GET /api/notify-sound; nav-reset restores 'Restaurant'. Login redirect (computeNext fix) verified: from / and from /login both land on /restaurant after OTP verify. FOUND + FIXED 1 critical bug: Login.jsx line 326 used <KeyRound> without importing it from lucide-react → 'KeyRound is not defined' Uncaught runtime error completely blocked OTP verification screen; added KeyRound to the lucide-react import on line 9.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter27_app_cms.py",
+    "/app/test_reports/pytest/iter27_results.xml",
+    "/app/test_reports/pytest/iter27_regression.xml"
+  ],
+  "action_items": [
+    "DONE in this iter: added KeyRound to /app/frontend/src/pages/Login.jsx import (line 9) — was the root cause of 'KeyRound is not defined' that broke the OTP screen and made the login redirect bug-fix test impossible to verify.",
+    "AdminRestaurantOrders 2s polling — could not validate live network counts in this session (admin login rate-limit interfered after prior tests); code path looks correct (setInterval 2000 ms in /app/frontend/src/pages/AdminRestaurantOrders.jsx lines 43-54). Recommend a quick manual smoke or a dedicated test session."
+  ],
+  "critical_code_review_comments": [
+    "Login.jsx — KeyRound used at line 326 without import (FIXED). Rule of thumb: every lucide-react icon used in JSX must appear in the named import on line 9.",
+    "app_cms.py — DEFAULT_BOTTOM_NAV.guest uses id='subscription' but to='/home'. The data-testid pattern then becomes 'bottom-nav-subscription' for a link that goes to /home — slightly confusing. Consider id='plans' or to='/subscription'.",
+    "app_cms.py — NotifySoundPatch max_length=2_000_000 is generous; combined with FastAPI's default request size, a 2MB base64 data URL is fine, but consider explicit 413 handling for oversize bodies (spec mentions UI caps at 800KB so unlikely in practice).",
+    "app_cms.py PUT /admin/bottom-nav — when payload contains all-None roles, function silently no-ops and returns current state. Acceptable, but a 400 with 'no roles supplied' would be friendlier.",
+    "rider.py /restaurant/orders/{id}/track — the gating logic (lines 358-363) is correct, but the delivery_otp_expires field is also gated; ensure frontend shows expired vs not-yet-issued differently."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter27_app_cms.py",
+    "/app/frontend/src/pages/Login.jsx"
+  ],
+  "success_rate": {
+    "backend": "100% (14/14 iter27) · 96.5% regression (110/114, 4 network timeouts not real failures)",
+    "frontend": "100% on tested priority items (trust chips 8/8, pure-veg-badge, removed back-home, BottomNav distribution, AdminBottomNavEditor save+sound+reset, Login redirect from / and /login). 1 blocker bug (KeyRound import) found + fixed."
+  },
+  "test_credentials": "OTP DEV — POST /api/auth/send-otp returns dev_otp; admin phone 9970705391 auto-promoted via ADMIN_PHONES.",
+  "seed_data_creation": "Created TEST_iter27_admin admin session + TEST_iter27_sub subscriber session + 1 restaurant order via /api/restaurant/order to verify delivery_otp gating across status transitions (paid → preparing → ready_for_pickup). No persistent destructive data.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Tests at /app/backend/tests/test_iter27_app_cms.py — must export REACT_APP_BACKEND_URL before pytest (the .env is in /app/frontend/.env, not backend). DELIVERY_OTP gating test creates a real order via /api/restaurant/order with body {items:[{id, qty}]} (NOT item_id/quantity). Login.jsx now correctly imports KeyRound; if a future change adds another lucide icon, double-check the line-9 import.",
+  "rca of the issue": "ROOT CAUSE — Login.jsx line 326 uses <KeyRound className=…/> inside the OTP-verify form's helper text, but the lucide-react import on line 9 only had {ArrowLeft, ArrowRight, ShieldCheck}. As soon as the user pressed 'Send OTP' the second screen tried to render, ReferenceError fired before any redirect logic ran, so computeNext could never run. REPRODUCTION — visit /, fill any 9XXXXXXXXX phone, click 'Continue' → red error overlay 'KeyRound is not defined'. MITIGATION — added KeyRound to the named import. RETEST — login from / and /login both correctly redirect to /restaurant after OTP."
+}

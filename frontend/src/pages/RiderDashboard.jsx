@@ -23,7 +23,7 @@ import {
 const POLL_INTERVAL_MS = 8_000;
 const PING_INTERVAL_MS = 30_000;
 
-import { playPing, alertWithVoice, unlockAudio } from "../lib/notify";
+import { playPing, alertWithVoice, unlockAudio, setCustomSoundUrl } from "../lib/notify";
 import { useNotifyPrefs } from "../lib/useNotifyPrefs";
 
 // Backwards-compat shim — older calls referenced playDing.
@@ -71,6 +71,10 @@ export default function RiderDashboard() {
   };
 
   useEffect(() => { load(); }, []);
+  // Load admin-uploaded custom sound (if any) so rider's pickup pings use it.
+  useEffect(() => {
+    api.get("/notify-sound").then((r) => setCustomSoundUrl(r.data?.sound_url || null)).catch(() => {});
+  }, []);
   useEffect(() => { const t = setInterval(load, POLL_INTERVAL_MS); return () => clearInterval(t); }, [soundOn]);
 
   // Geolocation pings while there's an active out_for_delivery order

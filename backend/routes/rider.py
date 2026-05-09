@@ -352,11 +352,15 @@ async def customer_track_order(order_id: str, user: server.User = Depends(server
         "rider_lat": order.get("rider_lat"), "rider_lng": order.get("rider_lng"),
         "rider_location_at": order.get("rider_location_at"),
         "customer_lat": order.get("customer_lat"), "customer_lng": order.get("customer_lng"),
-        # Delivery OTP — only exposed to the order owner (auth check above) so the
-        # customer can read it to the rider on the doorstep. Rider does NOT see this.
-        "delivery_otp": order.get("delivery_otp"),
-        "delivery_otp_expires": order.get("delivery_otp_expires"),
     }
+    # Gate delivery_otp — only expose when rider is actively heading to / at the
+    # door. Pre-pickup statuses don't need it visible (security hygiene).
+    if order["status"] in ("ready_for_pickup", "out_for_delivery"):
+        out["delivery_otp"] = order.get("delivery_otp")
+        out["delivery_otp_expires"] = order.get("delivery_otp_expires")
+    else:
+        out["delivery_otp"] = None
+        out["delivery_otp_expires"] = None
     # Fall back to user's saved profile location if order didn't snapshot it
     if not out["customer_lat"] or not out["customer_lng"]:
         cust = await server.db.users.find_one({"user_id": order["user_id"]}, {"_id": 0, "lat": 1, "lng": 1})

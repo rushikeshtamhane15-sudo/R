@@ -108,7 +108,37 @@ export function speak(text, opts = {}) {
  * before relying on auto-fire from polling.
  */
 export function alertWithVoice(text) {
-  playAlarm();
+  if (!playCustomSound()) playAlarm();
   // small delay so the chime doesn't clobber TTS on some engines
   setTimeout(() => speak(text), 250);
+}
+
+// ---------------------------------------------------------------------------
+// Admin-uploaded custom notification sound.
+// Set via `setCustomSoundUrl(url)` once after fetching from /api/notify-sound.
+// playCustomSound() returns true on successful play, false to fall back to
+// the generated WebAudio alarm.
+// ---------------------------------------------------------------------------
+let _customSoundUrl = null;
+let _audioEl = null;
+
+export function setCustomSoundUrl(url) {
+  _customSoundUrl = url || null;
+  if (_audioEl) { try { _audioEl.pause(); } catch {} _audioEl = null; }
+}
+
+export function playCustomSound() {
+  if (!_customSoundUrl) return false;
+  try {
+    if (!_audioEl) {
+      _audioEl = new Audio(_customSoundUrl);
+      _audioEl.preload = "auto";
+    }
+    _audioEl.currentTime = 0;
+    const p = _audioEl.play();
+    if (p && typeof p.then === "function") p.catch(() => {});
+    return true;
+  } catch {
+    return false;
+  }
 }
