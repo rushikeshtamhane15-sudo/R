@@ -170,6 +170,46 @@ async def public_menu():
 
 
 # ---------------------------------------------------------------------------
+# Restaurant page CMS — admin can edit hero copy/colors. Single doc per app
+# stored at restaurant_theme/{singleton: 1}. Public GET, admin-only PUT.
+# ---------------------------------------------------------------------------
+class RestaurantTheme(BaseModel):
+    hero_title: Optional[str] = None
+    hero_tagline: Optional[str] = None
+    hero_promise_line1: Optional[str] = None
+    hero_promise_line2: Optional[str] = None
+    hero_bg_color: Optional[str] = None
+    hero_text_color: Optional[str] = None
+    accent_color: Optional[str] = None
+    show_zero_bad_stuff_chip: Optional[bool] = True
+    show_delivery_promise: Optional[bool] = True
+
+
+@router.get("/restaurant/theme")
+async def get_restaurant_theme():
+    doc = await server.db.restaurant_theme.find_one({"singleton": 1}, {"_id": 0}) or {}
+    doc.pop("singleton", None)
+    return doc
+
+
+@router.put("/admin/restaurant/theme")
+async def put_restaurant_theme(payload: RestaurantTheme, user: server.User = Depends(server.get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    update = {k: v for k, v in payload.model_dump(exclude_none=True).items()}
+    update["updated_at"] = server.iso(server.now_utc())
+    update["updated_by"] = user.user_id
+    await server.db.restaurant_theme.update_one(
+        {"singleton": 1},
+        {"$set": update, "$setOnInsert": {"singleton": 1}},
+        upsert=True,
+    )
+    fresh = await server.db.restaurant_theme.find_one({"singleton": 1}, {"_id": 0})
+    fresh.pop("singleton", None)
+    return fresh
+
+
+# ---------------------------------------------------------------------------
 # Admin — full menu CRUD
 # ---------------------------------------------------------------------------
 @router.get("/admin/restaurant/menu")

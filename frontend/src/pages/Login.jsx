@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowRight, KeyRound } from "lucide-react";
+import { ArrowLeft, ArrowRight, ShieldCheck } from "lucide-react";
 
 const HERO_FOOD_IMG = "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?crop=entropy&cs=srgb&fm=jpg&q=85&w=1400";
 
@@ -134,9 +134,9 @@ export default function Login() {
             <img src={HERO_FOOD_IMG} alt="" className="w-full h-full object-cover opacity-25" />
             <div className="absolute inset-0 bg-gradient-to-b from-primary/95 via-primary/90 to-primary"></div>
           </div>
-          <div className="max-w-md mx-auto w-full px-6 pt-8 pb-10 md:pt-10 md:pb-12 text-primary-foreground text-center">
+          <div className="max-w-md mx-auto w-full px-6 pt-6 pb-7 md:pt-8 md:pb-9 text-primary-foreground text-center">
             <h1
-              className="font-display font-extrabold text-3xl md:text-4xl tracking-tight leading-[1.05]"
+              className="font-display font-extrabold text-2xl md:text-3xl tracking-tight leading-[1.05]"
               data-testid="login-title"
             >
               {c.title_line1 && <span className="block">{c.title_line1}</span>}
@@ -147,28 +147,26 @@ export default function Login() {
       )}
 
       {/* FORM SHEET — Zomato-clone style: floating white card with thick border + shadow */}
-      <div className="bg-background flex-1 -mt-8 px-4 sm:px-6 relative pb-8">
+      <div className="bg-background flex-1 -mt-6 px-4 sm:px-6 relative pb-24 md:pb-12">
         <div
-          className="max-w-lg mx-auto w-full bg-card rounded-3xl px-6 py-7 sm:px-8 sm:py-8 mt-2"
+          className="max-w-lg mx-auto w-full bg-card rounded-3xl px-6 py-5 sm:px-8 sm:py-6 mt-2"
           style={{
             border: "3px solid #ffffff",
             boxShadow: "0 24px 60px -16px rgba(0,0,0,0.25), 0 8px 24px -6px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.06)",
           }}
           data-testid="login-form-card"
         >
-          {/* 10mm spacer above the login icon */}
-          <div className="h-10 sm:h-10" data-testid="login-spacer" />
-          {/* Dark-blue 3D login icon — visual anchor above the form */}
+          {/* Compact admin-style icon badge above the form */}
           <div
             data-testid="login-icon-badge"
-            className="mx-auto mb-5 flex items-center justify-center h-16 w-16 rounded-2xl"
+            className="mx-auto mb-4 flex items-center justify-center h-14 w-14 rounded-2xl"
             style={{
               background: "linear-gradient(145deg, #2746a3 0%, #14266b 100%)",
               boxShadow:
-                "0 12px 24px rgba(20,38,107,0.45), 0 4px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -2px 4px rgba(0,0,0,0.2)",
+                "0 10px 20px rgba(20,38,107,0.42), 0 3px 6px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -2px 4px rgba(0,0,0,0.2)",
             }}
           >
-            <KeyRound className="h-7 w-7 text-white" strokeWidth={2} />
+            <ShieldCheck className="h-7 w-7 text-white" strokeWidth={2.2} />
           </div>
 
           <AnimatePresence mode="wait" initial={false}>

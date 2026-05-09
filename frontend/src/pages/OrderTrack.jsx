@@ -139,6 +139,17 @@ export default function OrderTrack() {
       </header>
 
       <main className="max-w-3xl mx-auto px-5 py-6 space-y-6">
+        {/* Delivery OTP card — show prominently when rider is on the way */}
+        {order.delivery_otp && ["out_for_delivery", "ready_for_pickup"].includes(order.status) && (
+          <section className="rounded-2xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/40 dark:to-emerald-900/40 dark:border-emerald-800 p-5 text-center" data-testid="track-delivery-otp">
+            <p className="text-[10px] tracking-overline uppercase font-bold text-emerald-700 dark:text-emerald-300">Share this code with your rider</p>
+            <p className="font-mono text-5xl sm:text-6xl tracking-[0.4em] text-emerald-700 dark:text-emerald-100 font-bold mt-2 mb-1" data-testid="otp-code">
+              {order.delivery_otp}
+            </p>
+            <p className="text-xs text-emerald-800 dark:text-emerald-200/90">Rider will ask for this 4-digit code before marking your order delivered.</p>
+          </section>
+        )}
+
         {/* Multi-order switcher — only when user has >1 in-flight orders */}
         {activeOrders.length > 1 && (
           <section className="rounded-2xl border border-border bg-card p-3 sm:p-4 overflow-x-auto no-scrollbar" data-testid="track-multi-switcher">

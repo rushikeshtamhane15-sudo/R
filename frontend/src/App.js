@@ -49,6 +49,8 @@ import RiderDashboard from "./pages/RiderDashboard";
 import RiderAccount from "./pages/RiderAccount";
 import BecomeARider from "./pages/BecomeARider";
 import AdminRiderApplications from "./pages/AdminRiderApplications";
+import AdminRestaurantTheme from "./pages/AdminRestaurantTheme";
+import AdminRestaurantTracking from "./pages/AdminRestaurantTracking";
 import { Privacy, Refund } from "./pages/PolicyPage";
 
 function RequireAuth({ children, roles }) {
@@ -122,6 +124,8 @@ function AppRoutes() {
             <Route path="menu" element={<AdminMenu />} />
             <Route path="users" element={<AdminUsers />} />
             <Route path="rider-applications" element={<AdminRiderApplications />} />
+            <Route path="restaurant-theme" element={<AdminRestaurantTheme />} />
+            <Route path="restaurant-tracking" element={<AdminRestaurantTracking />} />
             <Route path="theme" element={<AdminTheme />} />
             <Route path="landing" element={<AdminLanding />} />
             <Route path="dashboard-editor" element={<AdminDashboardEditor />} />

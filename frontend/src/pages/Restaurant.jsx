@@ -27,11 +27,16 @@ export default function Restaurant() {
   const [activeCat, setActiveCat] = useState("All");
   const [lastOrder, setLastOrder] = useState(null); // most recent delivered order for reorder banner
   const [reorderDismissed, setReorderDismissed] = useState(false);
+  const [theme, setTheme] = useState(null);
 
   useEffect(() => {
     api.get("/restaurant/menu")
       .then((r) => { setMenu(r.data.items || []); setMeta({ delivery_fee_flat: r.data.delivery_fee_flat, delivery_free_over: r.data.delivery_free_over }); })
       .catch(() => toast.error("Could not load menu"));
+    // CMS-managed restaurant page theme (admin can edit hero copy/colors)
+    api.get("/restaurant/theme")
+      .then((r) => setTheme(r.data || null))
+      .catch(() => {});
   }, []);
 
   // Pull most recent delivered order for the "reorder in 1 tap" banner
@@ -118,19 +123,37 @@ export default function Restaurant() {
   return (
     <div className="min-h-screen bg-background pb-40 md:pb-32" data-testid="restaurant-page">
       {/* Hero */}
-      <header className="bg-primary text-primary-foreground">
+      <header
+        className="bg-primary text-primary-foreground"
+        style={(theme?.hero_bg_color || theme?.hero_text_color) ? { backgroundColor: theme?.hero_bg_color || undefined, color: theme?.hero_text_color || undefined } : undefined}
+        data-testid="restaurant-hero"
+      >
         <div className="max-w-6xl mx-auto px-5 py-5">
-          <Link to="/home" className="inline-flex items-center text-primary-foreground/85 hover:text-primary-foreground text-xs font-bold uppercase tracking-overline" data-testid="back-home">
-            <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Subscription
-          </Link>
+          <div className="flex items-center justify-between gap-3">
+            <Link to="/home" className="inline-flex items-center text-primary-foreground/85 hover:text-primary-foreground text-xs font-bold uppercase tracking-overline" data-testid="back-home">
+              <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Subscription
+            </Link>
+            {(theme?.show_zero_bad_stuff_chip !== false) && (
+              <span className="text-[9px] sm:text-[10px] tracking-overline uppercase font-bold bg-emerald-600/95 text-white px-2 py-0.5 rounded-full whitespace-nowrap" data-testid="zero-bad-stuff">
+                0% the bad stuff
+              </span>
+            )}
+          </div>
           <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <p className="text-xs tracking-overline uppercase font-bold opacity-80 flex items-center gap-1.5"><ChefHat className="h-3.5 w-3.5" /> efoodcare restaurant</p>
-              <h1 className="font-display font-extrabold text-2xl sm:text-3xl tracking-tight mt-1.5 lowercase">order online · ghar se accha khana</h1>
+              <h1 className="font-display font-extrabold text-2xl sm:text-3xl tracking-tight mt-1.5 lowercase">{theme?.hero_title || "order online · ghar se accha khana"}</h1>
               <p className="opacity-90 text-sm mt-1.5 flex items-center gap-2">
                 <Truck className="h-4 w-4" />
-                Free delivery on orders over ₹{meta.delivery_free_over} · ₹{meta.delivery_fee_flat} otherwise
+                {theme?.hero_tagline || `Free delivery on orders over ₹${meta.delivery_free_over} · ₹${meta.delivery_fee_flat} otherwise`}
               </p>
+              {(theme?.show_delivery_promise !== false) && (
+                <div className="mt-3 inline-flex flex-col gap-0.5 rounded-xl bg-foreground/15 backdrop-blur px-3 py-2" data-testid="delivery-promise">
+                  <p className="text-[10px] tracking-overline uppercase font-bold opacity-90">⏱ 90-minute fresh delivery</p>
+                  <p className="text-xs italic opacity-95">{theme?.hero_promise_line1 || "\"Hum late aate hai par fresh late hai\""}</p>
+                  <p className="text-[11px] opacity-85">{theme?.hero_promise_line2 || "Toh apna khana thoda pre-plan kare 🍱"}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -240,49 +263,48 @@ export default function Restaurant() {
             <p className="text-center text-muted-foreground py-12" data-testid="restaurant-no-items">No items match your search.</p>
           ) : (
             <ul
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3"
+              className="grid grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3"
               data-testid="restaurant-items"
             >
               {filtered.map((it) => {
                 const qty = cart[it.id]?.qty || 0;
                 const hasDiscount = it.discounted_price != null && it.discounted_price < it.price;
                 return (
-                  <li key={it.id} className="rounded-xl border border-border bg-card overflow-hidden flex items-stretch" data-testid={`item-${it.id}`}>
-                    <div className="relative w-24 sm:w-28 flex-shrink-0 bg-muted">
-                      <img src={it.image_url} alt={it.name} className="w-full h-full object-cover" loading="lazy" />
+                  <li key={it.id} className="rounded-xl border border-border bg-card overflow-hidden flex flex-col" data-testid={`item-${it.id}`}>
+                    {/* Image on top — square aspect, full width */}
+                    <div className="relative aspect-square w-full bg-muted">
+                      <img src={it.image_url} alt={it.name} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
                       {hasDiscount && (
                         <span className="absolute top-1.5 left-1.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-bold tracking-overline uppercase">
                           <Tag className="h-2.5 w-2.5" /> {Math.round(((it.price - it.discounted_price) / it.price) * 100)}%
                         </span>
                       )}
                     </div>
-                    <div className="p-2.5 sm:p-3 flex-1 min-w-0 flex flex-col">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-[9px] tracking-overline uppercase font-bold text-secondary leading-none">{it.category}</p>
-                          <h3 className="font-display font-extrabold text-sm sm:text-base mt-1 leading-tight truncate" data-testid={`item-name-${it.id}`}>{it.name}</h3>
-                          <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 line-clamp-2">{it.description}</p>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          {hasDiscount && <p className="text-[10px] line-through text-muted-foreground">₹{it.price}</p>}
-                          <p className="font-display font-extrabold text-sm sm:text-base text-primary tabular-nums" data-testid={`item-price-${it.id}`}>
-                            ₹{it.discounted_price ?? it.price}
-                          </p>
-                        </div>
+                    {/* Details + price BELOW image */}
+                    <div className="p-2.5 sm:p-3 flex flex-col gap-1.5">
+                      <p className="text-[9px] tracking-overline uppercase font-bold text-secondary leading-none">{it.category}</p>
+                      <h3 className="font-display font-extrabold text-sm sm:text-base leading-tight line-clamp-1" data-testid={`item-name-${it.id}`}>{it.name}</h3>
+                      <p className="text-[11px] text-muted-foreground line-clamp-2 min-h-[2lh]">{it.description}</p>
+
+                      <div className="flex items-end justify-between gap-2 mt-1">
+                        {hasDiscount && <p className="text-[10px] line-through text-muted-foreground tabular-nums">₹{it.price}</p>}
+                        <p className="font-display font-extrabold text-base text-primary tabular-nums ml-auto" data-testid={`item-price-${it.id}`}>
+                          ₹{it.discounted_price ?? it.price}
+                        </p>
                       </div>
 
-                      <div className="mt-2 flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 mt-1.5">
                         {qty === 0 ? (
                           <>
-                            <Button variant="outline" size="sm" onClick={() => onAdd(it)} data-testid={`add-${it.id}`} className="rounded-full h-7 text-xs flex-1">
-                              <Plus className="h-3 w-3 mr-1" /> Add
+                            <Button variant="outline" size="sm" onClick={() => onAdd(it)} data-testid={`add-${it.id}`} className="rounded-full h-7 text-[11px] sm:text-xs flex-1 px-2">
+                              <Plus className="h-3 w-3 mr-0.5" /> Add
                             </Button>
-                            <Button size="sm" onClick={() => buyNow(it)} data-testid={`buy-now-${it.id}`} className="rounded-full h-7 text-xs flex-1 bg-primary hover:bg-primary/90">
-                              Buy <ArrowRight className="h-3 w-3 ml-1" />
+                            <Button size="sm" onClick={() => buyNow(it)} data-testid={`buy-now-${it.id}`} className="rounded-full h-7 text-[11px] sm:text-xs flex-1 px-2 bg-primary hover:bg-primary/90">
+                              Buy <ArrowRight className="h-3 w-3 ml-0.5" />
                             </Button>
                           </>
                         ) : (
-                          <div className="inline-flex items-center gap-1 rounded-full border border-border bg-background overflow-hidden ml-auto" data-testid={`qty-controls-${it.id}`}>
+                          <div className="inline-flex items-center gap-1 rounded-full border border-border bg-background overflow-hidden mx-auto" data-testid={`qty-controls-${it.id}`}>
                             <button type="button" className="h-7 w-7 flex items-center justify-center hover:bg-muted" onClick={() => onSub(it)} aria-label="Decrease" data-testid={`dec-${it.id}`}><Minus className="h-3.5 w-3.5" /></button>
                             <input
                               type="number"
