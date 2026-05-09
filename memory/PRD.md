@@ -254,7 +254,27 @@ MSG91_STUB_MODE=true
   - **Admin-facing**: `/admin/live` map popup on each restaurant-order pin shows the rider→customer distance + ETA, plus a dashed polyline from rider to customer. If no rider is assigned yet, picks the nearest live rider.
 - **Backend 12/12 + frontend full E2E** validated by testing agent.
 
-## Iteration 26 (Feb 10, 2026) — Pay-button ETA + splash session-gating + BottomNav fix + OSRM road-snap
+## Iteration 27 (Feb 10, 2026) — Trust chips · Bottom-nav CMS · Custom alert sound · OTP gating · Login redirect fix
+
+### Features delivered
+- **8 trust chips on /restaurant** — horizontal strip below hero: "0% Ajinomoto · 0% Maida · No Artificial Flavours · No Artificial Colour · No Refined & Palm Oil · 0% Polished Grains · 100% Fresh Vegetables · No Pre Made Gravy". Each chip has its own `data-testid='trust-chip-…'` for QA.
+- **Pure Veg badge top-left of /restaurant hero** (`data-testid='pure-veg-badge'`) — green-bordered white pill, India-FSSAI-style.
+- **Removed "Subscription" back-link** from /restaurant hero (replaced by pure-veg badge in same slot).
+- **Login redirect fix (P0 recurring)** — `computeNext()` in `Login.jsx` now skips `?next=/` and `?next=/login*` as self-loops; subscribers now reliably land on `/restaurant` after OTP. Previously caused a redirect loop because `/` IS the Login page route.
+- **`KeyRound` icon missing import bug fixed** — Login.jsx OTP screen was crashing with "KeyRound is not defined"; testing agent caught and patched.
+- **BottomNav refactor** — now driven by `GET /api/bottom-nav` (admin-editable). Even-distribution flex layout (`flex-1 min-w-0`), truncating labels for long names, icon-by-name resolver. Default items configurable per role (subscriber / rider / guest).
+- **Admin Bottom-Nav & Sound editor** at `/admin/bottom-nav` — new sidebar entry under Content & design. Per-role item editor: edit label / icon (18 lucide-react icons) / route / visibility, reorder via up/down arrows, add (max 6 items) / delete (min 1), save & live-publish, factory reset.
+- **Custom alert sound upload** — same admin page accepts mp3/wav/ogg ≤800 KB. Uploaded as base64 data URL OR external https URL. Backend stores in `db.app_config{_id:'notify_sound'}`. Frontend admin restaurant orders + rider dashboard fetch on mount and `setCustomSoundUrl()` so `alertWithVoice()` plays the custom file before falling back to the WebAudio chime.
+- **AdminRestaurantOrders polling 12s → 2s** — feels real-time without overloading backend.
+- **`delivery_otp` gated** in `/restaurant/orders/{id}/track` — only exposed when status is `ready_for_pickup` or `out_for_delivery`. Pre-pickup statuses return `delivery_otp: null`. Security hygiene flagged in iter25.
+
+### New backend module
+- `/app/backend/routes/app_cms.py` — `GET /bottom-nav` (public), `PUT /admin/bottom-nav` (admin), `POST /admin/bottom-nav/reset`, `GET /notify-sound` (public), `PUT /admin/notify-sound`, `DELETE /admin/notify-sound`.
+
+### Tests
+Backend: 14/14 new (test_iter27_app_cms.py) + 110/114 regression (4 timeouts unrelated). Frontend: trust chips 8/8, pure-veg-badge, BottomNav distribution, AdminBottomNavEditor save/reset/sound persistence, Login redirect from `/` and `/login` — all green.
+
+
 
 ### Features delivered
 - **ETA chip on /restaurant/checkout Pay button** — kitchen→customer-pin distance + ETA shown above sticky pay bar (`data-testid='checkout-eta'`); when no pin yet, shows amber "Drop a pin above to see live ETA" prompt (`data-testid='checkout-eta-prompt'`). Desktop-only inline `~Nm` badge inside Pay button (`data-testid='pay-btn-eta'`). Sources kitchen coords from existing `db.delivery_settings.dispatch_lat/dispatch_lng` (admin-editable in `/admin/delivery → settings`); falls back to Pune (18.5204, 73.8567). Adds 15-min kitchen prep buffer to driving ETA.
