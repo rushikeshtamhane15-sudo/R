@@ -247,6 +247,15 @@ MSG91_STUB_MODE=true
 - **Admin combined live map** (`/admin/live`) — single screen now shows tiffin delivery boys (green), restaurant riders (red pulse, `🛵`), tiffin customer pins, and restaurant order pins (`🍽️`). New backend endpoint `GET /api/admin/live/restaurant` returns `{orders, riders}`. Stats grid: Tiffin boys · Restaurant riders · Restaurant orders · Tiffin pending.
 - **Restaurant CMS** — deferred per user (B=a). Will scope separately when ready.
 
+## Iteration 24 (Feb 9, 2026) — Server-backed notification prefs + Distance/ETA estimation
+
+### Features delivered
+- **Server-backed notification prefs** — new `GET /api/auth/prefs` + `POST /api/auth/prefs` endpoints (auth-required). Stored on `users.notify_prefs` (`{sound, voice}`). Defaults: both true. Frontend hook `useNotifyPrefs()` replaces the localStorage-based pattern in `AdminRestaurantOrders` and `RiderDashboard`. Preference now syncs across devices for the same user.
+- **Distance/ETA estimation** — pure-frontend math via `lib/geo.js` (`haversineKm`, `etaMinutes`, `distEtaLabel`). Naive traffic factor: 0.65× during 8–10am, 12–2pm, 6–9pm rush windows; 1.0× otherwise. Min ETA clamped to 4 min.
+  - **Customer-facing**: `/restaurant/track/:id` now shows a `track-eta` emerald chip in the live map header — "🛵 1.5 km · ~4 min" — when status is `out_for_delivery`.
+  - **Admin-facing**: `/admin/live` map popup on each restaurant-order pin shows the rider→customer distance + ETA, plus a dashed polyline from rider to customer. If no rider is assigned yet, picks the nearest live rider.
+- **Backend 12/12 + frontend full E2E** validated by testing agent.
+
 ## Backlog
 - P1: Per-IP rate limit on `/auth/send-otp` (SMS cost protection)
 - P1: Admin menu editor UI (backend ready)
