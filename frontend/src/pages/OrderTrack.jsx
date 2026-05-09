@@ -6,7 +6,7 @@ import { loadCart, saveCart, setQty } from "../lib/cart";
 import { useAuth } from "../context/AuthContext";
 import TrackMap3D from "../components/TrackMap3D";
 import { alertWithVoice } from "../lib/notify";
-import { haversineKm, etaMinutes } from "../lib/geo";
+import { haversineKm, etaMinutes, osrmRoute } from "../lib/geo";
 import {
   ChevronLeft, Phone, CheckCircle2, ChefHat, Bike, MapPin, PackageCheck, Hourglass, Clock, RefreshCw, Receipt, XCircle,
 } from "lucide-react";
@@ -114,16 +114,30 @@ export default function OrderTrack() {
 
   const idx = useMemo(() => order ? statusIndex(order.status) : 0, [order]);
 
+  // OSRM road-snapped ETA — must be a top-level hook (no early-return above).
+  const showMap = !!(order && order.status === "out_for_delivery" && order.rider_lat && order.rider_lng);
+  const [snappedEta, setSnappedEta] = useState(null);
+  useEffect(() => {
+    if (!showMap || !order?.customer_lat || !order?.customer_lng) { setSnappedEta(null); return; }
+    const abort = new AbortController();
+    osrmRoute(
+      { lat: order.rider_lat, lng: order.rider_lng },
+      { lat: order.customer_lat, lng: order.customer_lng },
+      { signal: abort.signal },
+    ).then((d) => { if (d) setSnappedEta(d); });
+    return () => abort.abort();
+  }, [showMap, order?.rider_lat, order?.rider_lng, order?.customer_lat, order?.customer_lng]);
+
   if (err) return <div className="min-h-screen flex items-center justify-center text-destructive p-8 text-center">{err}</div>;
   if (!order) return <div className="min-h-screen flex items-center justify-center text-muted-foreground"><Hourglass className="h-5 w-5 mr-2 animate-spin" /> Loading order…</div>;
 
-  const showMap = order.status === "out_for_delivery" && order.rider_lat && order.rider_lng;
   const liveEta = (showMap && order.customer_lat && order.customer_lng)
     ? (() => {
         const km = haversineKm({ lat: order.rider_lat, lng: order.rider_lng }, { lat: order.customer_lat, lng: order.customer_lng });
-        return km != null ? { km, min: etaMinutes(km) } : null;
+        return km != null ? { km, min: etaMinutes(km), source: "haversine" } : null;
       })()
     : null;
+  const displayEta = snappedEta || liveEta;
   const eta = order.eta_at ? new Date(order.eta_at) : null;
 
   return (
@@ -213,9 +227,10 @@ export default function OrderTrack() {
               <Bike className="h-4 w-4 text-primary" />
               <p className="font-display font-extrabold text-sm">Rider live location</p>
               {order.rider?.name && <span className="text-xs text-muted-foreground">· {order.rider.name}</span>}
-              {liveEta && (
+              {displayEta && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold uppercase tracking-overline" data-testid="track-eta">
-                  🛵 {liveEta.km?.toFixed(1)} km · ~{liveEta.min} min
+                  🛵 {displayEta.km?.toFixed(1)} km · ~{displayEta.min} min
+                  {displayEta.source === "osrm" && <span className="opacity-60">· road</span>}
                 </span>
               )}
               {order.rider?.phone && (

@@ -15,18 +15,29 @@ import React, { useEffect, useState } from "react";
 const LOGO_URL =
   "https://customer-assets.emergentagent.com/job_dining-pass-scan/artifacts/uzs344m6_9a705f5a-b3a0-4286-b51d-b9bd6f55b7bb_20260504_011957_0000.png";
 
-const HOLD_MS = 5000;
-const FADE_MS = 380;
+const HOLD_MS = 1500;
+const FADE_MS = 350;
+const SS_KEY = "efc_splash_seen_v2";
 
 export default function SplashScreen() {
-  const [show, setShow] = useState(true);
+  // Show only on first cold app launch per session — once dismissed, route
+  // changes / hot reloads / soft navigations skip it. PWA install splash is
+  // separately rendered by the OS.
+  const alreadySeen = (() => {
+    try { return sessionStorage.getItem(SS_KEY) === "1"; } catch { return false; }
+  })();
+  const [show, setShow] = useState(!alreadySeen);
   const [fading, setFading] = useState(false);
 
   useEffect(() => {
+    if (!show) return;
     const t1 = setTimeout(() => setFading(true), HOLD_MS);
-    const t2 = setTimeout(() => setShow(false), HOLD_MS + FADE_MS);
+    const t2 = setTimeout(() => {
+      setShow(false);
+      try { sessionStorage.setItem(SS_KEY, "1"); } catch {}
+    }, HOLD_MS + FADE_MS);
     return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, []);
+  }, [show]);
 
   if (!show) return null;
 
@@ -55,16 +66,16 @@ export default function SplashScreen() {
         className="efc-logo-3d"
         style={{
           position: "relative",
-          width: 112,
-          height: 112,
-          borderRadius: 26,
+          width: 84,
+          height: 84,
+          borderRadius: 22,
           background:
             "linear-gradient(145deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.04) 45%, rgba(0,0,0,0.18) 100%)",
-          padding: 8,
+          padding: 6,
           // Stack of shadows: outer glow + lift shadow + inner highlight + inner darker line
           boxShadow:
-            "0 18px 36px rgba(0,0,0,0.45)," +
-            " 0 6px 14px rgba(0,0,0,0.3)," +
+            "0 14px 28px rgba(0,0,0,0.45)," +
+            " 0 4px 10px rgba(0,0,0,0.3)," +
             " inset 0 1px 0 rgba(255,255,255,0.35)," +
             " inset 0 -2px 4px rgba(0,0,0,0.25)",
           animation: "efc-pop 700ms cubic-bezier(.2,.9,.3,1.2) both",
@@ -75,8 +86,8 @@ export default function SplashScreen() {
           aria-hidden
           style={{
             position: "absolute",
-            inset: -6,
-            borderRadius: 32,
+            inset: -5,
+            borderRadius: 28,
             border: "1.5px solid rgba(255,255,255,0.22)",
             opacity: 0.55,
             pointerEvents: "none",
@@ -86,13 +97,13 @@ export default function SplashScreen() {
         <img
           src={LOGO_URL}
           alt="eFoodCare"
-          width={96}
-          height={96}
+          width={72}
+          height={72}
           style={{
             width: "100%",
             height: "100%",
             objectFit: "contain",
-            borderRadius: 18,
+            borderRadius: 16,
             background: "rgba(255,255,255,0.06)",
             // Crisp digital edge — 1px highlight + drop shadow
             filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.35))",
@@ -105,9 +116,9 @@ export default function SplashScreen() {
           color: "#ffffff",
           fontFamily: '"Cabinet Grotesk", "Manrope", system-ui, sans-serif',
           fontWeight: 800,
-          fontSize: "clamp(2rem, 7vw, 3rem)",
+          fontSize: "clamp(1.6rem, 5.5vw, 2.4rem)",
           letterSpacing: "-0.02em",
-          margin: "26px 0 0",
+          margin: "20px 0 0",
           lineHeight: 1.05,
           textTransform: "lowercase",
           textShadow: "0 2px 12px rgba(0,0,0,0.35)",
@@ -123,10 +134,10 @@ export default function SplashScreen() {
           opacity: 0.95,
           fontFamily: '"Manrope", system-ui, sans-serif',
           fontStyle: "italic",
-          fontSize: "clamp(1.5rem, 5vw, 2rem)",
+          fontSize: "clamp(1rem, 3.6vw, 1.4rem)",
           fontWeight: 600,
           letterSpacing: "0.005em",
-          margin: "32px 0 0",
+          margin: "12px 0 0",
           textShadow: "0 1px 8px rgba(0,0,0,0.3)",
           animation: "efc-rise 700ms ease-out 240ms both",
         }}

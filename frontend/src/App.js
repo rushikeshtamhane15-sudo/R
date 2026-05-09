@@ -88,7 +88,7 @@ function AppRoutes() {
     <div className="min-h-screen flex flex-col">
       <Header />
       <AnnouncementBar />
-      <main className="flex-1">
+      <main className="flex-1 pb-16 md:pb-0">
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/home" element={<Landing />} />

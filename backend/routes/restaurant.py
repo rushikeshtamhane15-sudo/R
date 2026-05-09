@@ -162,10 +162,16 @@ async def public_menu():
     items = await _load_menu()
     visible = [i for i in items if i.get("active", True)]
     visible.sort(key=lambda x: (x.get("sort_order", 100), x.get("name", "")))
+    # Kitchen / dispatch coords — read from delivery_settings (admin-editable in
+    # /admin/delivery → settings). Fallback to Pune city centre so the
+    # ETA-on-Pay-button feature works even before admin sets it.
+    settings = await server.db.delivery_settings.find_one({"_id": "active"}, {"_id": 0}) or {}
     return {
         "items": visible,
         "delivery_fee_flat": DELIVERY_FEE_FLAT,
         "delivery_free_over": DELIVERY_FEE_FREE_OVER,
+        "kitchen_lat": settings.get("dispatch_lat") or 18.5204,
+        "kitchen_lng": settings.get("dispatch_lng") or 73.8567,
     }
 
 

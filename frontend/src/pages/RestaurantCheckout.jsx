@@ -14,6 +14,7 @@ import {
   Loader2, ShieldCheck, CheckCircle2, Trash2, Truck, Wallet,
 } from "lucide-react";
 import LocationPicker from "../components/LocationPicker";
+import { haversineKm, etaMinutes } from "../lib/geo";
 
 const BUYNOW_KEY = "efc_buynow_v1";
 
@@ -42,7 +43,7 @@ export default function RestaurantCheckout() {
     }
     return loadCart();
   });
-  const [meta, setMeta] = useState({ delivery_fee_flat: 30, delivery_free_over: 400 });
+  const [meta, setMeta] = useState({ delivery_fee_flat: 30, delivery_free_over: 400, kitchen_lat: null, kitchen_lng: null });
   const [name, setName] = useState(user?.name || "");
   const [phone, setPhone] = useState(user?.phone || "");
   const [address, setAddress] = useState(user?.address || "");
@@ -59,7 +60,15 @@ export default function RestaurantCheckout() {
     if (!user) { navigate("/login?next=/restaurant/checkout"); return; }
     setWalletBalance(Number(user.wallet_balance || 0));
     api.get("/restaurant/menu")
-      .then((r) => { setMenu(r.data.items || []); setMeta({ delivery_fee_flat: r.data.delivery_fee_flat, delivery_free_over: r.data.delivery_free_over }); })
+      .then((r) => {
+        setMenu(r.data.items || []);
+        setMeta({
+          delivery_fee_flat: r.data.delivery_fee_flat,
+          delivery_free_over: r.data.delivery_free_over,
+          kitchen_lat: r.data.kitchen_lat ?? null,
+          kitchen_lng: r.data.kitchen_lng ?? null,
+        });
+      })
       .catch(() => toast.error("Could not load menu"));
   }, [user, navigate]);
 
@@ -72,6 +81,17 @@ export default function RestaurantCheckout() {
   const total = +(subtotal + deliveryFee).toFixed(2);
   const walletApplied = applyWallet ? Math.min(walletBalance, total) : 0;
   const payable = +(total - walletApplied).toFixed(2);
+
+  // ETA — kitchen → customer pin. Falls back to "Pin location" hint if no pin yet.
+  const etaInfo = useMemo(() => {
+    if (!meta.kitchen_lat || !meta.kitchen_lng || !pinLoc?.lat || !pinLoc?.lng) return null;
+    const km = haversineKm({ lat: meta.kitchen_lat, lng: meta.kitchen_lng }, pinLoc);
+    if (km == null) return null;
+    const min = etaMinutes(km);
+    // Add a 15-min kitchen prep buffer for total customer-facing ETA.
+    const total = (min || 0) + 15;
+    return { km, min, total };
+  }, [meta.kitchen_lat, meta.kitchen_lng, pinLoc]);
 
   const onAdd = (id) => setCart((c) => bumpQty(c, id, 1));
   const onSub = (id) => setCart((c) => bumpQty(c, id, -1));
@@ -316,26 +336,48 @@ export default function RestaurantCheckout() {
 
       {/* Sticky pay button — sits above BottomNav on mobile (bottom-16) */}
       <div className="fixed bottom-16 md:bottom-0 inset-x-0 z-40 bg-background border-t border-border px-5 py-3.5 md:py-4">
-        <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
-          <div className="text-sm">
-            <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">{walletApplied > 0 ? "Payable" : "Total"}</p>
-            <p className="font-display font-extrabold text-xl tabular-nums">₹{payable.toFixed(0)}</p>
-            {walletApplied > 0 && (
-              <p className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold mt-0.5">
-                ₹{walletApplied.toFixed(0)} from wallet
-              </p>
+        <div className="max-w-3xl mx-auto">
+          {/* ETA chip — kitchen → customer pin */}
+          <div className="mb-2 flex items-center justify-between gap-2">
+            {etaInfo ? (
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 px-2.5 py-1 text-[11px] font-bold border border-emerald-300 dark:border-emerald-900/50" data-testid="checkout-eta">
+                <Truck className="h-3 w-3" />
+                <span className="tabular-nums">{etaInfo.km.toFixed(1)} km</span>
+                <span className="opacity-50">·</span>
+                <span className="tabular-nums">~{etaInfo.total} min to your door</span>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 px-2.5 py-1 text-[11px] font-bold border border-amber-300 dark:border-amber-900/50" data-testid="checkout-eta-prompt">
+                <MapPin className="h-3 w-3" /> Drop a pin above to see live ETA
+              </div>
             )}
           </div>
-          <Button
-            size="lg"
-            onClick={placeOrder}
-            disabled={submitting || priced.lines.length === 0}
-            className="rounded-full bg-primary hover:bg-primary/90 px-7"
-            data-testid="checkout-pay-btn"
-          >
-            {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
-            {payable <= 0 ? `Place order` : `Pay ₹${payable.toFixed(0)}`}
-          </Button>
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm">
+              <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">{walletApplied > 0 ? "Payable" : "Total"}</p>
+              <p className="font-display font-extrabold text-xl tabular-nums">₹{payable.toFixed(0)}</p>
+              {walletApplied > 0 && (
+                <p className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold mt-0.5">
+                  ₹{walletApplied.toFixed(0)} from wallet
+                </p>
+              )}
+            </div>
+            <Button
+              size="lg"
+              onClick={placeOrder}
+              disabled={submitting || priced.lines.length === 0}
+              className="rounded-full bg-primary hover:bg-primary/90 px-7"
+              data-testid="checkout-pay-btn"
+            >
+              {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
+              {payable <= 0 ? `Place order` : `Pay ₹${payable.toFixed(0)}`}
+              {etaInfo && (
+                <span className="ml-2 hidden sm:inline-flex items-center text-[10px] font-bold opacity-90 bg-white/15 rounded-full px-1.5 py-0.5 tabular-nums" data-testid="pay-btn-eta">
+                  ~{etaInfo.total}m
+                </span>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

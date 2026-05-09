@@ -1,0 +1,30 @@
+{
+  "summary": "iter26 — Verified the 4 user-priority items: (1) /api/restaurant/menu now returns kitchen_lat/kitchen_lng numerics with Pune fallback (18.5204, 73.8567) and reflects admin PATCH /admin/delivery/settings dispatch_lat/lng. (2) /restaurant/checkout: data-testid='checkout-eta-prompt' shows 'Drop a pin above to see live ETA' before pin-drop, then data-testid='checkout-eta' renders '7.5 km · ~46 min to your door' after geolocation pin (haversine + 15min kitchen prep), and desktop-only data-testid='pay-btn-eta' '~46m' badge visible at 1440px width. (3) SplashScreen — first cold load shows ~1.5s with 84px logo (pop animation; bounding box ~89.7px including padding ring), sessionStorage 'efc_splash_seen_v2'='1' set after dismiss, splash does NOT reappear on /login or back to /restaurant. (4) BottomNav overlap fix — <main> has class='flex-1 pb-16 md:pb-0' giving 64px bottom padding on mobile, BottomNav is fixed at bottom and content does not visually clash. Backend regression: 41/41 pass (iter12+13+14+23+24+25+26).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter26_menu_geo.py",
+    "/app/test_reports/pytest/iter26_results.xml",
+    "/app/test_reports/pytest/iter26_regression.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "RestaurantCheckout.jsx line 92 reuses local var name 'total' inside etaInfo memo, which shadows the outer 'total' from line 81. No bug today (the inner is scoped), but it makes the memo harder to read — rename to etaTotalMin or sum.",
+    "OrderTrack.jsx OSRM road-snap: the live haversine fallback (line 134-139) recomputes on every render even when snappedEta is set. Consider gating it behind !snappedEta to avoid wasted work; minor perf nit.",
+    "geo.js osrmRoute uses public router.project-osrm.org which the spec acknowledges may rate-limit; long-term consider a self-hosted OSRM or Mapbox Directions for production reliability."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter26_menu_geo.py"
+  ],
+  "success_rate": {"backend": "100% (41/41 incl. regression)", "frontend": "100% (4/4 priority items: menu kitchen coords, checkout ETA chip + pay-btn-eta, splash session-gating, bottom-nav padding)"},
+  "test_credentials": "OTP DEV — POST /api/auth/send-otp returns dev_otp; admin phone 9970705391 auto-promoted via ADMIN_PHONES.",
+  "seed_data_creation": "Created 1 TEST_iter26_admin admin login session and 1 TEST_iter26d customer subscriber session (random 9XXXXXXXXX phone). No persistent test data beyond user records.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter26 backend tests at /app/backend/tests/test_iter26_menu_geo.py — uses PATCH /api/admin/delivery/settings (NOT PUT). Frontend ETA chip test pattern: (a) login via API, copy session_token cookie into Playwright context, (b) grant geolocation + setGeolocation BEFORE navigation, (c) click [data-testid=location-redetect] to trigger pin drop. OSRM is only used in OrderTrack.jsx (not RestaurantCheckout — checkout uses haversine only); to test the '· road' badge, create an order in out_for_delivery status with rider_lat/lng populated.",
+  "rca of the issue": "n/a — all 4 priority items behave per spec."
+}
