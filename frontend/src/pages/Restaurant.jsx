@@ -116,7 +116,7 @@ export default function Restaurant() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-32" data-testid="restaurant-page">
+    <div className="min-h-screen bg-background pb-40 md:pb-32" data-testid="restaurant-page">
       {/* Hero */}
       <header className="bg-primary text-primary-foreground">
         <div className="max-w-6xl mx-auto px-5 py-5">
@@ -306,9 +306,9 @@ export default function Restaurant() {
         </div>
       </div>
 
-      {/* Sticky cart bar */}
+      {/* Sticky cart bar — sits ABOVE BottomNav (bottom-20 = 80px = above the 64px nav + 16px breathing room) */}
       {totalCount > 0 && (
-        <div className="fixed bottom-16 md:bottom-4 inset-x-0 z-30 px-4" data-testid="cart-bar">
+        <div className="fixed bottom-20 md:bottom-6 inset-x-0 z-40 px-4" data-testid="cart-bar">
           <div className="max-w-2xl mx-auto rounded-full bg-foreground text-background shadow-2xl flex items-center justify-between gap-3 px-5 py-3">
             <div className="flex items-center gap-3 min-w-0">
               <ShoppingBag className="h-5 w-5 flex-shrink-0" />

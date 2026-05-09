@@ -13,6 +13,7 @@ import {
   ChevronLeft, Plus, Minus, ShoppingBag, MapPin, Phone, User as UserIcon,
   Loader2, ShieldCheck, CheckCircle2, Trash2, Truck, Wallet,
 } from "lucide-react";
+import LocationPicker from "../components/LocationPicker";
 
 const BUYNOW_KEY = "efc_buynow_v1";
 
@@ -50,6 +51,9 @@ export default function RestaurantCheckout() {
   const [success, setSuccess] = useState(null);
   const [walletBalance, setWalletBalance] = useState(0);
   const [applyWallet, setApplyWallet] = useState(false);
+  const [pinLoc, setPinLoc] = useState(
+    user?.lat && user?.lng ? { lat: user.lat, lng: user.lng } : null
+  );
 
   useEffect(() => {
     if (!user) { navigate("/login?next=/restaurant/checkout"); return; }
@@ -89,6 +93,8 @@ export default function RestaurantCheckout() {
         items: priced.lines.map((l) => ({ id: l.id, qty: l.qty })),
         name, phone, address, notes,
         apply_wallet: applyWallet && walletBalance > 0,
+        customer_lat: pinLoc?.lat,
+        customer_lng: pinLoc?.lng,
       });
       const { order_id, razorpay, mock } = r.data;
 
@@ -245,6 +251,11 @@ export default function RestaurantCheckout() {
           <div>
             <label className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground flex items-center gap-1.5"><MapPin className="h-3 w-3" /> Address</label>
             <Textarea value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Building, street, area, pincode" rows={2} className="mt-1.5" data-testid="co-address" />
+          </div>
+          <div>
+            <label className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground flex items-center gap-1.5"><MapPin className="h-3 w-3" /> Pin delivery location</label>
+            <p className="text-[11px] text-muted-foreground mt-0.5 mb-2">Drop a pin so your rider can find you instantly. Drag to adjust.</p>
+            <LocationPicker value={pinLoc} onChange={setPinLoc} />
           </div>
           <div>
             <label className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Special instructions (optional)</label>

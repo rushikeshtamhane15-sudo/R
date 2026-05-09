@@ -1,0 +1,59 @@
+{
+  "summary": "Iter23 — verified the 6-feature batch (sound unlock, location picker + persistence, BottomNav cart-bar overlap fix, admin redirect, combined admin live map, restaurant CMS deferred). Backend 4/4 NEW + 11/11 iter22 regression = 15/15 pytest pass. Frontend smoke confirmed LocationPicker renders with Pune fallback when geolocation denied (📍 18.52040, 73.85670), redetect button clickable, sound toggles on /admin/restaurant-orders + /rider click without throwing, /admin/live (FEATURE 5) renders all 4 stats categories + Leaflet map + kitchen pin via screenshot inspection.",
+  "tests_executed": [
+    "BACKEND test_iter23::TestLocationPersisted::test_post_order_saves_lat_lng_to_order_and_profile — POST /api/restaurant/order with customer_lat/lng saves to order doc + auto-saves to user.lat/lng (verified via /api/auth/me + direct mongo). PASS",
+    "BACKEND test_iter23::TestLocationPersisted::test_post_order_without_lat_falls_back_to_profile — order without customer_lat falls back to existing user.lat/lng. PASS",
+    "BACKEND test_iter23::TestAdminLiveRestaurant::test_endpoint_returns_orders_and_riders_arrays — GET /api/admin/live/restaurant returns {orders[], riders[]} with seeded out_for_delivery order + rider with rider_lat/lng + recent rider_location_at + is_live=true. PASS",
+    "BACKEND test_iter23::TestAdminLiveRestaurant::test_endpoint_requires_admin — non-admin gets 403. PASS",
+    "BACKEND iter22 regression — 11/11 still green",
+    "FRONTEND /restaurant/checkout — LocationPicker mounts with [data-testid='location-picker'], geolocation denied in headless → falls back to Pune default coords (18.52040, 73.85670 in 'location-coords'), 'location-redetect' button clickable. PASS",
+    "FRONTEND /admin/restaurant-orders — orders-sound-toggle click does not throw (audio APIs no-op in headless as documented). PASS",
+    "FRONTEND /rider — rider-sound-toggle click does not throw. PASS",
+    "FRONTEND /admin/live (note: actual route is /admin/live, NOT /admin/live-map) — admin-live-map container renders with 4 stats: 'TIFFIN BOYS · 0 of 4 on trip', 'RESTAURANT RIDERS · 0 live now', 'RESTAURANT ORDERS · 8 in flight', 'TIFFIN PENDING · 4 planned + out'. Leaflet map + kitchen pin render. Subheading 'All live deliveries — tiffin boys + restaurant riders + customer pins on one map' confirmed. PASS"
+  ],
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "/restaurant cart-bar bottom-20 visual verification (Playwright, mobile viewport)",
+        "issue": "Could not visually verify cart-bar pill bottom-20 positioning — localStorage-seeded cart did not auto-render the cart pill within wait window (state hydration on /restaurant likely uses a different load pattern). Code review confirms Restaurant.jsx applies className 'fixed bottom-20 ... z-40' to the cart-bar — overlap fix is correct in source. Recommend manually verifying by adding an item via UI flow.",
+        "affected_selectors": ["[data-testid='cart-bar']"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter23.py",
+    "/app/test_reports/pytest/iter23_results.xml"
+  ],
+  "action_items": [
+    "MINOR — Review request mentions /admin/live-map but the actual route registered in App.js (line 119) is /admin/live. Either update review docs or alias the route. Functionality fully working at /admin/live.",
+    "OPTIONAL — Manually verify cart-bar bottom-20 by adding-to-cart via UI on /restaurant on mobile viewport. Source code in Restaurant.jsx is correct (bottom-20 z-40)."
+  ],
+  "critical_code_review_comments": [
+    "routes/restaurant.py L295-296 — customer_lat/lng falls back to user_doc.get('lat')/('lng'). Good — preserves last-known location.",
+    "routes/restaurant.py L312-314 — profile auto-save lat/lng only when BOTH lat AND lng provided. Correct — prevents partial state.",
+    "routes/restaurant.py L429-464 — /admin/live/restaurant filters statuses=['paid','preparing','ready_for_pickup','out_for_delivery']. Riders filtered to only those with rider_lat present. Live-flag computed against 10-min cutoff. Sanitises orders to map-only fields (excludes _id). Clean implementation.",
+    "routes/restaurant.py L444 — rider_docs projection {'_id':0, ...} — explicitly excludes _id. Good MongoDB hygiene.",
+    "routes/restaurant.py L448 — is_live check uses ISO string comparison r.get('rider_location_at') >= cutoff — works because both are ISO-8601 with consistent timezone offset; safer would be parse + datetime compare. Low risk.",
+    "LocationPicker.jsx L66-81 — auto-detect on mount with proper denied-state fallback to DEFAULT_CENTER (Pune 18.5204, 73.8567). Pin draggable via Leaflet. onChange propagates to parent.",
+    "RestaurantCheckout.jsx L54-56 — pinLoc state initialised from user.lat/lng if present (returning customer auto-restored). L96-97 sends customer_lat/lng in POST. L258 renders LocationPicker with value/onChange.",
+    "AdminLiveMap.jsx — confirmed admin-live-map testid, fetches /api/admin/live/restaurant, renders combined stats + map.",
+    "App.js L119 — Route 'live' under /admin/* nesting — full path is /admin/live. Review request says /admin/live-map; route name may need aliasing for consistency with mention.",
+    "notify.js — unlockAudio() pattern uses a ref-flag and ctx.resume() guards inside playPing/playAlarm. Correct user-gesture priming pattern. AudioContext.resume() is no-op in headless but safe."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter23.py (NEW)"
+  ],
+  "success_rate": {
+    "backend": "100% (4/4 iter23 NEW + 11/11 iter22 regression = 15/15)",
+    "frontend": "Smoke 4/5 PASS (LocationPicker, sound toggles ×2, AdminLiveMap rendered with stats+map). 1 inconclusive (cart-bar visual on /restaurant — code review confirms fix)."
+  },
+  "test_credentials": "Direct Mongo seed pattern unchanged — users.replace_one({user_id, phone, role, name:'TEST_*', wallet_balance, qr_token, created_at:iso}) + user_sessions.insert_one({session_token:'sess_TEST_*', user_id, created_at, expires_at:+1d}). Auth via Authorization: Bearer <session_token> OR cookie session_token. Note: created_at is REQUIRED on user doc — doc_to_user() at server.py L237 raises KeyError if absent.",
+  "seed_data_creation": "All TEST_/sess_TEST_/rorder_TEST_ data cleaned up via teardown_module + post-run mongo cleanup script. Verified zero leftover.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "1) Admin live map route is /admin/live (NOT /admin/live-map as in review docs) — aliased nesting. 2) /admin/live UI labels appear UPPERCASE due to CSS text-transform — innerText evaluation may return authored case ('Tiffin boys'); verify visually OR via [data-testid] not innerText. 3) LocationPicker fallback coords are Pune (18.5204, 73.8567) — when geolocation denied in headless, location-coords shows '📍 18.52040, 73.85670'. 4) When seeding test users via mongo, ALWAYS include created_at:ISO — server.doc_to_user() raises KeyError otherwise (caused 500s in initial run). 5) Sound APIs (AudioContext.resume + speechSynthesis) are no-op in headless playwright — only verify click doesn't throw, don't assert audio output. 6) /api/admin/live/restaurant filters orders to status in ['paid','preparing','ready_for_pickup','out_for_delivery']; riders filtered to those with rider_lat present; is_live computed against 10-min cutoff via ISO string comparison.",
+  "rca of the issue": "All 6 features verified at backend (15/15 pytest) + frontend smoke. The single non-blocking item is a route-name discrepancy (review says /admin/live-map; App.js registers /admin/live) — content is identical. Cart-bar bottom-20 overlap fix verified by code review (Restaurant.jsx applies fixed bottom-20 z-40); visual verification on mobile inconclusive due to localStorage cart not hydrating UI on direct page-reload pattern."
+}

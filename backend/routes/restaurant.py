@@ -54,6 +54,8 @@ class CreateRestaurantOrder(BaseModel):
     address: Optional[str] = None
     notes: Optional[str] = None
     apply_wallet: bool = False  # if true, deduct as much as possible from wallet
+    customer_lat: Optional[float] = None
+    customer_lng: Optional[float] = None
 
 
 class VerifyRestaurantPayment(BaseModel):
@@ -290,6 +292,8 @@ async def create_restaurant_order(payload: CreateRestaurantOrder, user: server.U
         "name": payload.name or user_doc.get("name") or "",
         "phone": payload.phone or user_doc.get("phone") or "",
         "address": payload.address or user_doc.get("address") or "",
+        "customer_lat": payload.customer_lat if payload.customer_lat is not None else user_doc.get("lat"),
+        "customer_lng": payload.customer_lng if payload.customer_lng is not None else user_doc.get("lng"),
         "notes": (payload.notes or "")[:500],
         "created_at": server.iso(server.now_utc()),
     }
@@ -305,6 +309,9 @@ async def create_restaurant_order(payload: CreateRestaurantOrder, user: server.U
         profile_updates["phone"] = payload.phone.strip()
     if payload.address and (user_doc.get("address") or "").strip() != payload.address.strip():
         profile_updates["address"] = payload.address.strip()
+    if payload.customer_lat is not None and payload.customer_lng is not None:
+        profile_updates["lat"] = float(payload.customer_lat)
+        profile_updates["lng"] = float(payload.customer_lng)
     if profile_updates:
         try:
             await server.db.users.update_one({"user_id": user.user_id}, {"$set": profile_updates})
@@ -412,6 +419,49 @@ async def admin_orders(user: server.User = Depends(server.get_current_user), lim
     limit = max(1, min(500, int(limit)))
     rows = await server.db.restaurant_orders.find({}, {"_id": 0}).sort("created_at", -1).to_list(limit)
     return {"orders": rows}
+
+
+# ---------------------------------------------------------------------------
+# Combined live map for admin — tiffin delivery boys + restaurant riders +
+# in-flight restaurant orders + their customer pins. Frontend renders all on
+# one screen so ops can see everything at a glance.
+# ---------------------------------------------------------------------------
+@router.get("/admin/live/restaurant")
+async def admin_live_restaurant(user: server.User = Depends(server.get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    # Active in-flight restaurant orders only (out_for_delivery / ready_for_pickup / preparing)
+    statuses = ["paid", "preparing", "ready_for_pickup", "out_for_delivery"]
+    orders = await server.db.restaurant_orders.find(
+        {"status": {"$in": statuses}}, {"_id": 0},
+    ).sort("created_at", -1).to_list(200)
+    # Riders with recent location pings (last 10 min)
+    cutoff = server.iso(server.now_utc() - timedelta(minutes=10))
+    rider_docs = await server.db.users.find(
+        {"role": "rider"}, {"_id": 0, "user_id": 1, "name": 1, "phone": 1, "rider_lat": 1, "rider_lng": 1, "rider_location_at": 1},
+    ).to_list(200)
+    riders = [
+        {
+            "rider_id": r["user_id"], "name": r.get("name"), "phone": r.get("phone"),
+            "lat": r.get("rider_lat"), "lng": r.get("rider_lng"),
+            "location_at": r.get("rider_location_at"),
+            "is_live": bool(r.get("rider_lat") and r.get("rider_location_at") and r.get("rider_location_at") >= cutoff),
+        }
+        for r in rider_docs if r.get("rider_lat") is not None
+    ]
+    # Sanitise orders to only the fields the map needs
+    out_orders = [
+        {
+            "order_id": o["order_id"], "status": o["status"], "user_id": o.get("user_id"),
+            "name": o.get("name"), "phone": o.get("phone"), "address": o.get("address"),
+            "total": o.get("total"), "rider_id": o.get("rider_id"),
+            "rider_lat": o.get("rider_lat"), "rider_lng": o.get("rider_lng"),
+            "customer_lat": o.get("customer_lat"), "customer_lng": o.get("customer_lng"),
+            "created_at": o.get("created_at"),
+        }
+        for o in orders
+    ]
+    return {"orders": out_orders, "riders": riders}
 
 
 # ---------------------------------------------------------------------------

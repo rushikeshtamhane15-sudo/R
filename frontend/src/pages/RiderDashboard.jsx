@@ -23,7 +23,7 @@ import {
 const POLL_INTERVAL_MS = 8_000;
 const PING_INTERVAL_MS = 30_000;
 
-import { playPing, alertWithVoice } from "../lib/notify";
+import { playPing, alertWithVoice, unlockAudio } from "../lib/notify";
 
 // Backwards-compat shim — older calls referenced playDing.
 function playDing() { playPing(); }
@@ -87,7 +87,10 @@ export default function RiderDashboard() {
   const toggleSound = () => {
     const next = !soundOn; setSoundOn(next);
     localStorage.setItem("efc_rider_sound", next ? "on" : "off");
-    if (next) playDing();
+    if (next) {
+      unlockAudio();
+      setTimeout(() => alertWithVoice("Sound alerts enabled"), 80);
+    }
   };
 
   const pickUp = async (id) => {

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
-import { alertWithVoice } from "../lib/notify";
+import { alertWithVoice, unlockAudio } from "../lib/notify";
 import {
   UtensilsCrossed, Loader2, RefreshCw, ChefHat, PackageCheck, Bike, CheckCircle2, XCircle, Phone, MapPin, Clock, Volume2, VolumeX,
 } from "lucide-react";
@@ -50,7 +50,12 @@ export default function AdminRestaurantOrders() {
     const next = !soundOn;
     setSoundOn(next);
     localStorage.setItem("efc_admin_orders_sound", next ? "on" : "off");
-    if (next) { alertWithVoice("Sound notifications enabled"); }
+    if (next) {
+      // User gesture: unlock the AudioContext + warm speechSynthesis,
+      // then play a confirmation.
+      unlockAudio();
+      setTimeout(() => alertWithVoice("Sound notifications enabled"), 80);
+    }
   };
 
   const setStatus = async (orderId, status) => {

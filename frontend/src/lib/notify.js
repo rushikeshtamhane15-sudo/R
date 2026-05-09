@@ -1,8 +1,15 @@
 /* Lightweight sound + voice notifications (Web Audio + speechSynthesis).
  * No external deps. Falls back gracefully where APIs are missing.
+ *
+ * Browser autoplay policy: the AudioContext can only emit sound AFTER a
+ * user gesture. Call `unlockAudio()` from a click/tap handler at least once
+ * (we surface "Enable alerts" toggles in admin/rider/customer UIs that do
+ * this automatically). Subsequent programmatic calls then work.
  */
 
 let _ctx = null;
+let _unlocked = false;
+
 function ctx() {
   if (typeof window === "undefined") return null;
   if (_ctx) return _ctx;
@@ -13,9 +20,33 @@ function ctx() {
   return _ctx;
 }
 
+/** MUST be called from a user-gesture handler (click/tap) at least once.
+ *  Resumes the AudioContext + primes the speechSynthesis engine.
+ *  Idempotent. */
+export function unlockAudio() {
+  const ac = ctx();
+  if (ac && ac.state === "suspended") {
+    try { ac.resume(); } catch { /* noop */ }
+  }
+  // Trigger an inaudible TTS so the engine is "warm" and won't block later.
+  try {
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      const u = new SpeechSynthesisUtterance(" ");
+      u.volume = 0;
+      u.rate = 1;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(u);
+    }
+  } catch { /* noop */ }
+  _unlocked = true;
+}
+
+export function isAudioUnlocked() { return _unlocked; }
+
 /** Sharp 2-tone "ping" — for new orders, ready alerts. */
 export function playPing() {
   const ac = ctx(); if (!ac) return;
+  if (ac.state === "suspended") { try { ac.resume(); } catch { /* noop */ } }
   try {
     const t = ac.currentTime;
     [880, 1320].forEach((freq, i) => {
@@ -36,6 +67,7 @@ export function playPing() {
 /** Dramatic 3-tone alarm — for OUT-FOR-DELIVERY, RIDER ARRIVED. */
 export function playAlarm() {
   const ac = ctx(); if (!ac) return;
+  if (ac.state === "suspended") { try { ac.resume(); } catch { /* noop */ } }
   try {
     const t = ac.currentTime;
     [659, 880, 1175].forEach((freq, i) => {
