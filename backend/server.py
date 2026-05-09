@@ -113,6 +113,7 @@ class User(BaseModel):
     created_at: datetime
     lat: Optional[float] = None
     lng: Optional[float] = None
+    wallet_balance: Optional[float] = 0.0
 
 
 class Plan(BaseModel):
@@ -236,6 +237,7 @@ def doc_to_user(doc) -> User:
         created_at=parse_dt(doc["created_at"]),
         lat=doc.get("lat"),
         lng=doc.get("lng"),
+        wallet_balance=float(doc.get("wallet_balance") or 0),
     )
 
 

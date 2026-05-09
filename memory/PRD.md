@@ -219,6 +219,24 @@ MSG91_STUB_MODE=true
 - **Rider Dashboard rendering fix** — `useAuth().refresh` was undefined (real key is `checkAuth`); silent error swallow on `/rider/me` 403 left page stuck on Loading forever. Added `loadErr` state with proper error UI + Retry button (`data-testid='rider-error'`).
 - **OTP delivery confirmation** (already wired backend) — verified rider flow: pickup → arrived (server fires WA delivery_otp, returns dev_otp in dev mode) → deliver (rider enters OTP, server verifies, marks delivered, credits ₹50 to rider wallet).
 
+## Iteration 22 (Feb 9, 2026) — 8-feature batch (multi-order + sounds + wallet + rider apply + 3D buildings + rename + admin tools)
+
+### Features delivered
+- **Multi-order tracking switcher** on `/restaurant/track/:orderId` — appears when user has ≥2 in-flight orders. Horizontal pills (data-testid `track-multi-switcher` + `switch-<orderId>`) deep-link between concurrent orders.
+- **Auto-save profile from checkout** — first-time customer details (name/phone/address) typed at restaurant checkout are saved to `users` profile. Subsequent checkouts pre-fill from profile.
+- **Sound + voice notifications** — new `lib/notify.js` module (Web Audio + `speechSynthesis`). Wired:
+  - Admin `/admin/restaurant-orders` — auto-poll every 12s, plays alarm + says "N new restaurant orders" on new paid orders. Sound toggle (`orders-sound-toggle`) persists via localStorage.
+  - Rider `/rider` — alertWithVoice replaces basic ding for new ready_for_pickup orders.
+  - Customer `/restaurant/track/:id` — alertWithVoice("Your rider is on the way…") fires when status flips to `out_for_delivery`.
+- **Wallet on checkout** — `/restaurant/checkout` now shows `checkout-wallet` panel for users with `wallet_balance > 0`. Toggle (`apply-wallet-toggle`) flips backend `apply_wallet` flag. Bill summary breaks out wallet credit. Pay button text adapts ("Pay ₹X" / "Place order" if fully covered). Backend `/restaurant/order` returns `{wallet_used, payable}`. Wallet debit is logged to `wallet_transactions` on `/restaurant/verify` success.
+- **Self-service rider application** — new `/become-a-rider` page with full form (name, phone, licence, bike #, bank a/c last-4, city). Backend POST `/api/rider/apply` creates a `rider_applications` doc (status=pending). New admin page `/admin/rider-applications` lists pending/approved/rejected with one-click approve (auto-promotes to rider) or reject. Header hamburger surfaces "Become a rider" link for non-rider users.
+- **3D buildings on TrackMap3D** — desktop map switched to OpenFreeMap "liberty" vector tiles + adds a `fill-extrusion` layer with zoom-interpolated extrusion height (renders building masses on tilt). Badge text now reads "Live · 3D Buildings".
+- **Tiffin → Subscription rename** + **BottomNav grid-cols-4 equal spacing** for visual polish.
+- **Admin role assign by phone** — `/admin/role` accepts `phone` OR `email` (or both, matched by `$or`). UI updated with phone field + helper copy.
+
+### Bug fixes during this iteration
+- `User` Pydantic model + `doc_to_user` were dropping `wallet_balance` from `/auth/me` payload — added field + populated from doc. This was silently breaking the checkout wallet toggle (always rendered `walletBalance=0`).
+
 ## Backlog
 - P1: Per-IP rate limit on `/auth/send-otp` (SMS cost protection)
 - P1: Admin menu editor UI (backend ready)
