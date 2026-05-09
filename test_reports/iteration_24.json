@@ -1,0 +1,52 @@
+{
+  "summary": "iter24 — Verified P1 features: (1) Server-backed notification prefs sync across devices via GET/POST /api/auth/prefs, (2) ETA chip on /restaurant/track/:id and AdminLiveMap popup using haversineKm + naive traffic-factor etaMinutes. Backend 8/8 NEW pytest pass + 4/4 iter23 regression pass. Frontend: rider sound toggle reads from server on mount, POSTs on click, persists across reload (verified end-to-end via network capture). Track-eta chip rendered '🛵 1.5 KM · ~4 MIN' on /restaurant/track with TrackMap3D 3D buildings.",
+  "tests_executed": [
+    "BACKEND iter24::TestPrefsDefaults::test_unauth_get_returns_401_or_403 — PASS (returns 403)",
+    "BACKEND iter24::TestPrefsDefaults::test_unauth_post_returns_401_or_403 — PASS (returns 403)",
+    "BACKEND iter24::TestPrefsDefaults::test_default_prefs_for_new_user — PASS ({sound:true, voice:true})",
+    "BACKEND iter24::TestPrefsPersistence::test_post_sound_false_persists — PASS (POST returns ok+persisted state, GET reflects it)",
+    "BACKEND iter24::TestPrefsPersistence::test_post_voice_false_only_updates_voice — PASS (partial update preserves other field)",
+    "BACKEND iter24::TestPrefsPersistence::test_idempotent_setting_same_value_twice — PASS",
+    "BACKEND iter24::TestPrefsPersistence::test_toggle_back_to_true — PASS",
+    "BACKEND iter24::TestPrefsPersistence::test_per_user_isolation — PASS (two users have independent prefs)",
+    "BACKEND iter23 regression — 4/4 still green (location persistence + admin live restaurant)",
+    "FRONTEND /rider sound toggle — useNotifyPrefs hook fires GET /auth/prefs ×2 on mount (StrictMode), title='Mute' (sound on default). Click → POST /auth/prefs body='{\"sound\":false}'. Backend GET reflects {sound:false}. Page reload → title='Unmute' (server-state hydrated, NOT localStorage). FULLY PASS — proves cross-device sync.",
+    "FRONTEND /restaurant/track/:id — track-eta chip renders '🛵 1.5 KM · ~4 MIN' for out_for_delivery order with rider_lat/lng + customer_lat/lng. data-testid='track-eta' present. TrackMap3D renders with 3D buildings + rider pin + Pune map. PASS.",
+    "CODE REVIEW /admin/live popup ETA — AdminLiveMap.jsx L306-311 renders the rose-50 ETA badge inside <Popup> when orderEta[order_id] resolves; orderEta useMemo (L125-148) computes nearest live rider via haversineKm fallback to assigned rider_lat/lng. Polyline (L294-298) drawn from rider→customer. Wiring is correct."
+  ],
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter24_prefs.py",
+    "/app/test_reports/pytest/iter24_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "auth.py L186-205 — clean implementation: GET returns defaults via .get('sound', True), POST partial-updates only fields present in payload. Idempotent. Both gated by get_current_user. ",
+    "useNotifyPrefs.js — optimistic update + silent error swallow. Reasonable for non-critical UX. One minor consideration: dependency array on update useCallback is [prefs] which causes new fn ref each prefs change — fine for current usage but could re-trigger child memos. Low priority.",
+    "geo.js — pure functions, well-documented. etaMinutes correctly clamps to min 4 to avoid '0 min' display. Rush-hour windows (8-10/12-14/18-21) hard-coded — acceptable for naive estimate. baseKmh=22 default is reasonable urban delivery speed.",
+    "AdminLiveMap.jsx L125-148 — orderEta useMemo iterates orders × riders to find nearest live rider, falls back to assigned rider_lat/lng. O(N×M) but bounded by visible orders. Returns {km, min, sourceLabel, nearestRider}.",
+    "OrderTrack.jsx L121-125 — liveEta computed only when showMap && customer_lat && customer_lng && rider_lat && rider_lng. data-testid='track-eta' present. text-[11px] uppercase chip styled emerald.",
+    "AdminRestaurantOrders.jsx L51-58 — toggleSound calls updateNotifyPrefs({sound:next}) which POSTs server, then unlocks audio gesture. Old localStorage code removed.",
+    "RiderDashboard.jsx L89 — same pattern as admin. Both hooks resolve consistent server state.",
+    "MINOR — useNotifyPrefs makes 2× GET /auth/prefs on mount under React StrictMode (development only). In prod build that drops to 1×. Not a bug, but worth noting if future log noise."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter24_prefs.py (NEW)",
+    "/tmp/seed_iter24.py (transient seed script for FE testing — already executed + cleaned)"
+  ],
+  "success_rate": {
+    "backend": "100% (8/8 iter24 NEW + 4/4 iter23 regression = 12/12)",
+    "frontend": "100% (rider sound toggle full E2E + track-eta chip render + AdminLiveMap popup-ETA wiring confirmed via code review)"
+  },
+  "test_credentials": "Same as iter23: direct mongo seed pattern users.replace_one({user_id, phone, role, name:'TEST_*', wallet_balance, qr_token, created_at:iso}) + user_sessions.insert_one. Auth via Authorization: Bearer <session_token>. OTP dev-mode also works (POST /api/auth/send-otp → dev_otp in response).",
+  "seed_data_creation": "All TEST_/sess_TEST_/rorder_TEST_ data cleaned up post-run (3 users, 1 session, 1 order deleted). Zero leftover.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "1) /api/auth/prefs requires authentication via session_token cookie OR Authorization Bearer header. 2) Default prefs are {sound:true, voice:true}; partial POST preserves unspecified fields. 3) FE useNotifyPrefs is server-source-of-truth — localStorage has been removed from sound toggles. 4) /restaurant/track/:id requires user_id of order to match logged-in user (so order was seeded with user_id=session-user). 5) data-testid='track-eta' is the chip selector. 6) For AdminLiveMap popup ETA testing, would need admin role + opened popup on customer pin (Leaflet popups are brittle in Playwright — code review preferred). 7) Note: useNotifyPrefs fires 2× GET on mount in dev (StrictMode) — single in prod build. 8) Naive ETA: 22 km/h base × 0.65 rush factor (8-10am, 12-2pm, 6-9pm), min 4 min clamp.",
+  "rca of the issue": "N/A — both P1 features (server-backed prefs + ETA estimation) implemented and verified end-to-end. No issues found. The ETA value can vary by hour of day due to traffic-factor design; tested at non-rush hour got ~4min for 1.5km which is correct (1.5/22*60 ≈ 4.1 min, clamped to 4)."
+}

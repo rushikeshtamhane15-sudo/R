@@ -7,6 +7,7 @@ import { api } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Loader2, RefreshCw, Truck, MapPin, Settings as SettingsIcon, Bike, ChefHat } from "lucide-react";
 import { Link } from "react-router-dom";
+import { haversineKm, etaMinutes } from "../lib/geo";
 
 const REFRESH_MS = 10000;
 const TILE_URL = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
@@ -118,6 +119,33 @@ export default function AdminLiveMap() {
 
   const liveRiders = useMemo(() => restaurantData.riders.filter((r) => r.is_live && r.lat && r.lng), [restaurantData.riders]);
   const restaurantOrders = useMemo(() => restaurantData.orders || [], [restaurantData]);
+
+  // For each in-flight order with a customer pin, compute the closest live rider
+  // (or its already-assigned rider) and the projected ETA.
+  const orderEta = useMemo(() => {
+    const map = {};
+    restaurantOrders.forEach((o) => {
+      if (!o.customer_lat || !o.customer_lng) return;
+      // Prefer the rider currently assigned + on the order doc
+      let from = null;
+      let nearestRider = null;
+      if (o.rider_lat && o.rider_lng) {
+        from = { lat: o.rider_lat, lng: o.rider_lng };
+      } else if (liveRiders.length > 0) {
+        // Pick nearest live rider by haversine
+        let bestKm = Infinity;
+        for (const r of liveRiders) {
+          const km = haversineKm({ lat: r.lat, lng: r.lng }, { lat: o.customer_lat, lng: o.customer_lng });
+          if (km != null && km < bestKm) { bestKm = km; nearestRider = r; from = { lat: r.lat, lng: r.lng }; }
+        }
+      }
+      if (!from) return;
+      const km = haversineKm(from, { lat: o.customer_lat, lng: o.customer_lng });
+      const min = etaMinutes(km);
+      map[o.order_id] = { km, min, nearestRider, sourceLabel: o.rider_lat ? "assigned" : "nearest" };
+    });
+    return map;
+  }, [restaurantOrders, liveRiders]);
 
   const points = useMemo(() => {
     const arr = [];
@@ -254,17 +282,38 @@ export default function AdminLiveMap() {
                   </Popup>
                 </Marker>
               ))}
-              {/* Restaurant order customer pins */}
-              {restaurantOrders.map((o) => o.customer_lat && o.customer_lng ? (
-                <Marker key={`rorder-${o.order_id}`} position={[o.customer_lat, o.customer_lng]} icon={ICON_RESTAURANT_CUSTOMER}>
-                  <Popup>
-                    <div className="font-display font-bold text-sm">{o.name || "Customer"}</div>
-                    <div className="text-xs text-gray-600 capitalize">🍽️ Restaurant · {o.status.replace(/_/g, " ")}</div>
-                    {o.address && <div className="text-xs text-gray-500 mt-1 truncate" style={{maxWidth:"180px"}}>{o.address}</div>}
-                    <div className="text-xs mt-1 font-semibold">₹{Number(o.total||0).toFixed(0)}</div>
-                  </Popup>
-                </Marker>
-              ) : null)}
+              {/* Restaurant order customer pins + rider route polyline */}
+              {restaurantOrders.map((o) => {
+                if (!o.customer_lat || !o.customer_lng) return null;
+                const eta = orderEta[o.order_id];
+                const from = eta?.nearestRider
+                  ? [eta.nearestRider.lat, eta.nearestRider.lng]
+                  : (o.rider_lat && o.rider_lng ? [o.rider_lat, o.rider_lng] : null);
+                return (
+                  <React.Fragment key={`rorder-${o.order_id}`}>
+                    {from && (
+                      <Polyline
+                        positions={[from, [o.customer_lat, o.customer_lng]]}
+                        pathOptions={{ color: "#a02323", weight: 3, opacity: 0.55, dashArray: "4,6" }}
+                      />
+                    )}
+                    <Marker position={[o.customer_lat, o.customer_lng]} icon={ICON_RESTAURANT_CUSTOMER}>
+                      <Popup>
+                        <div className="font-display font-bold text-sm">{o.name || "Customer"}</div>
+                        <div className="text-xs text-gray-600 capitalize">🍽️ Restaurant · {o.status.replace(/_/g, " ")}</div>
+                        {o.address && <div className="text-xs text-gray-500 mt-1 truncate" style={{maxWidth:"180px"}}>{o.address}</div>}
+                        <div className="text-xs mt-1 font-semibold">₹{Number(o.total||0).toFixed(0)}</div>
+                        {eta && (
+                          <div className="text-xs mt-1.5 px-2 py-1 rounded-md bg-rose-50 text-rose-800 font-bold">
+                            🛵 {eta.km?.toFixed(1)} km · ~{eta.min} min
+                            <span className="text-[10px] font-normal block text-rose-700 mt-0.5">{eta.sourceLabel} rider{eta.nearestRider?.name ? ` · ${eta.nearestRider.name}` : ""}</span>
+                          </div>
+                        )}
+                      </Popup>
+                    </Marker>
+                  </React.Fragment>
+                );
+              })}
             </MapContainer>
           )}
         </div>

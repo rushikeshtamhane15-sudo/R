@@ -24,6 +24,7 @@ const POLL_INTERVAL_MS = 8_000;
 const PING_INTERVAL_MS = 30_000;
 
 import { playPing, alertWithVoice, unlockAudio } from "../lib/notify";
+import { useNotifyPrefs } from "../lib/useNotifyPrefs";
 
 // Backwards-compat shim — older calls referenced playDing.
 function playDing() { playPing(); }
@@ -35,7 +36,8 @@ export default function RiderDashboard() {
   const [orders, setOrders] = useState([]);
   const [earnings, setEarnings] = useState(null);
   const [loadErr, setLoadErr] = useState("");
-  const [soundOn, setSoundOn] = useState(() => localStorage.getItem("efc_rider_sound") !== "off");
+  const { prefs: notifyPrefs, update: updateNotifyPrefs } = useNotifyPrefs();
+  const soundOn = notifyPrefs.sound;
   const [withdrawing, setWithdrawing] = useState(false);
   const [withdrawAmt, setWithdrawAmt] = useState("");
   const [bank4, setBank4] = useState("");
@@ -85,8 +87,8 @@ export default function RiderDashboard() {
   }, [orders]);
 
   const toggleSound = () => {
-    const next = !soundOn; setSoundOn(next);
-    localStorage.setItem("efc_rider_sound", next ? "on" : "off");
+    const next = !soundOn;
+    updateNotifyPrefs({ sound: next });
     if (next) {
       unlockAudio();
       setTimeout(() => alertWithVoice("Sound alerts enabled"), 80);

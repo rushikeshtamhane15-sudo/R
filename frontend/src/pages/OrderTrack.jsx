@@ -6,6 +6,7 @@ import { loadCart, saveCart, setQty } from "../lib/cart";
 import { useAuth } from "../context/AuthContext";
 import TrackMap3D from "../components/TrackMap3D";
 import { alertWithVoice } from "../lib/notify";
+import { haversineKm, etaMinutes } from "../lib/geo";
 import {
   ChevronLeft, Phone, CheckCircle2, ChefHat, Bike, MapPin, PackageCheck, Hourglass, Clock, RefreshCw, Receipt, XCircle,
 } from "lucide-react";
@@ -117,6 +118,12 @@ export default function OrderTrack() {
   if (!order) return <div className="min-h-screen flex items-center justify-center text-muted-foreground"><Hourglass className="h-5 w-5 mr-2 animate-spin" /> Loading order…</div>;
 
   const showMap = order.status === "out_for_delivery" && order.rider_lat && order.rider_lng;
+  const liveEta = (showMap && order.customer_lat && order.customer_lng)
+    ? (() => {
+        const km = haversineKm({ lat: order.rider_lat, lng: order.rider_lng }, { lat: order.customer_lat, lng: order.customer_lng });
+        return km != null ? { km, min: etaMinutes(km) } : null;
+      })()
+    : null;
   const eta = order.eta_at ? new Date(order.eta_at) : null;
 
   return (
@@ -191,10 +198,15 @@ export default function OrderTrack() {
         {/* Live map (when rider is out for delivery) */}
         {showMap && (
           <section className="rounded-2xl border border-border bg-card overflow-hidden" data-testid="track-map">
-            <div className="px-5 py-3 border-b border-border flex items-center gap-2">
+            <div className="px-5 py-3 border-b border-border flex items-center gap-2 flex-wrap">
               <Bike className="h-4 w-4 text-primary" />
               <p className="font-display font-extrabold text-sm">Rider live location</p>
-              {order.rider?.name && <span className="text-xs text-muted-foreground ml-2">· {order.rider.name}</span>}
+              {order.rider?.name && <span className="text-xs text-muted-foreground">· {order.rider.name}</span>}
+              {liveEta && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold uppercase tracking-overline" data-testid="track-eta">
+                  🛵 {liveEta.km?.toFixed(1)} km · ~{liveEta.min} min
+                </span>
+              )}
               {order.rider?.phone && (
                 <a href={`tel:${order.rider.phone}`} className="ml-auto text-xs font-bold text-primary hover:underline flex items-center gap-1" data-testid="track-call-rider">
                   <Phone className="h-3 w-3" /> Call

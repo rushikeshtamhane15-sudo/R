@@ -15,6 +15,7 @@ from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
+from pydantic import BaseModel
 
 import server  # safe late-binding reference
 
@@ -171,3 +172,34 @@ async def update_location(payload: server.LocationUpdate, user: server.User = De
     update["geocode_status"] = geocode_status
     await server.db.users.update_one({"user_id": user.user_id}, {"$set": update})
     return {"ok": True, "pincode": pincode, "geocode_status": geocode_status}
+
+
+# ---------------------------------------------------------------------------
+# Per-user notification preferences (sound on/off). Lives on the user doc so
+# preferences sync across devices.
+# ---------------------------------------------------------------------------
+class NotificationPrefs(BaseModel):
+    sound: Optional[bool] = None
+    voice: Optional[bool] = None
+
+
+@router.get("/auth/prefs")
+async def get_prefs(user: server.User = Depends(server.get_current_user)):
+    doc = await server.db.users.find_one({"user_id": user.user_id}, {"_id": 0, "notify_prefs": 1}) or {}
+    prefs = doc.get("notify_prefs") or {}
+    return {
+        "sound": prefs.get("sound", True),
+        "voice": prefs.get("voice", True),
+    }
+
+
+@router.post("/auth/prefs")
+async def update_prefs(payload: NotificationPrefs, user: server.User = Depends(server.get_current_user)):
+    doc = await server.db.users.find_one({"user_id": user.user_id}, {"_id": 0, "notify_prefs": 1}) or {}
+    cur = doc.get("notify_prefs") or {}
+    if payload.sound is not None:
+        cur["sound"] = bool(payload.sound)
+    if payload.voice is not None:
+        cur["voice"] = bool(payload.voice)
+    await server.db.users.update_one({"user_id": user.user_id}, {"$set": {"notify_prefs": cur}})
+    return {"ok": True, "sound": cur.get("sound", True), "voice": cur.get("voice", True)}

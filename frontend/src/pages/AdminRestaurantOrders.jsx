@@ -3,6 +3,7 @@ import { api } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
 import { alertWithVoice, unlockAudio } from "../lib/notify";
+import { useNotifyPrefs } from "../lib/useNotifyPrefs";
 import {
   UtensilsCrossed, Loader2, RefreshCw, ChefHat, PackageCheck, Bike, CheckCircle2, XCircle, Phone, MapPin, Clock, Volume2, VolumeX,
 } from "lucide-react";
@@ -20,7 +21,8 @@ const STATUS_TONE = {
 export default function AdminRestaurantOrders() {
   const [orders, setOrders] = useState(null);
   const [loadingId, setLoadingId] = useState(null);
-  const [soundOn, setSoundOn] = useState(() => localStorage.getItem("efc_admin_orders_sound") !== "off");
+  const { prefs: notifyPrefs, update: updateNotifyPrefs } = useNotifyPrefs();
+  const soundOn = notifyPrefs.sound;
   const knownPaidIds = useRef(new Set());
 
   const load = async () => {
@@ -48,11 +50,8 @@ export default function AdminRestaurantOrders() {
 
   const toggleSound = () => {
     const next = !soundOn;
-    setSoundOn(next);
-    localStorage.setItem("efc_admin_orders_sound", next ? "on" : "off");
+    updateNotifyPrefs({ sound: next });
     if (next) {
-      // User gesture: unlock the AudioContext + warm speechSynthesis,
-      // then play a confirmation.
       unlockAudio();
       setTimeout(() => alertWithVoice("Sound notifications enabled"), 80);
     }
