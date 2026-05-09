@@ -26,6 +26,10 @@ export default function Header() {
     { to: "/privacy", label: "Privacy Policy" },
     { to: "/refund", label: "Refund Policy" },
   ];
+  // Surface "Become a rider" CTA in info section for non-rider, non-admin users
+  if (!user || (user.role !== "rider" && user.role !== "admin" && user.role !== "staff")) {
+    info.unshift({ to: "/become-a-rider", label: "Become a rider" });
+  }
   if (user) {
     primary.push({ to: "/dashboard", label: "Dashboard" });
     primary.push({ to: "/plans", label: "Plans" });

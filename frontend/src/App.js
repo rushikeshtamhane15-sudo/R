@@ -47,6 +47,8 @@ import OrderTrack from "./pages/OrderTrack";
 import RestaurantOrderHistory from "./pages/RestaurantOrderHistory";
 import RiderDashboard from "./pages/RiderDashboard";
 import RiderAccount from "./pages/RiderAccount";
+import BecomeARider from "./pages/BecomeARider";
+import AdminRiderApplications from "./pages/AdminRiderApplications";
 import { Privacy, Refund } from "./pages/PolicyPage";
 
 function RequireAuth({ children, roles }) {
@@ -95,6 +97,7 @@ function AppRoutes() {
           <Route path="/restaurant/track/:orderId" element={<RequireAuth><OrderTrack /></RequireAuth>} />
           <Route path="/rider" element={<RequireAuth><RiderDashboard /></RequireAuth>} />
           <Route path="/rider/account" element={<RequireAuth><RiderAccount /></RequireAuth>} />
+          <Route path="/become-a-rider" element={<RequireAuth><BecomeARider /></RequireAuth>} />
           <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
           <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
           <Route path="/plans" element={<Plans />} />
@@ -118,6 +121,7 @@ function AppRoutes() {
             <Route path="counter" element={<AdminCounter />} />
             <Route path="menu" element={<AdminMenu />} />
             <Route path="users" element={<AdminUsers />} />
+            <Route path="rider-applications" element={<AdminRiderApplications />} />
             <Route path="theme" element={<AdminTheme />} />
             <Route path="landing" element={<AdminLanding />} />
             <Route path="dashboard-editor" element={<AdminDashboardEditor />} />

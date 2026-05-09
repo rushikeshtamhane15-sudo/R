@@ -190,7 +190,8 @@ class SelfScanRequest(BaseModel):
 
 
 class SetRoleRequest(BaseModel):
-    email: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
     role: Literal["admin", "staff", "subscriber", "delivery_boy", "rider"]
 
 

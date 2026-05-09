@@ -10,6 +10,7 @@ export default function AdminUsers() {
   const { user: me } = useAuth();
   const [users, setUsers] = useState([]);
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [role, setRole] = useState("staff");
   const [q, setQ] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -23,10 +24,14 @@ export default function AdminUsers() {
   useEffect(() => { load(); }, []);
 
   const setUserRole = async () => {
+    if (!email.trim() && !phone.trim()) { toast.error("Enter email or phone"); return; }
     try {
-      await api.post("/admin/role", { email, role });
+      const body = { role };
+      if (email.trim()) body.email = email.trim();
+      if (phone.trim()) body.phone = phone.trim();
+      await api.post("/admin/role", body);
       toast.success(`Role updated to ${role}`);
-      setEmail("");
+      setEmail(""); setPhone("");
       load();
     } catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
   };
@@ -116,8 +121,10 @@ export default function AdminUsers() {
         </div>
 
         <div className="bg-card rounded-2xl border border-border p-6">
-          <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Assign role by email</p>
+          <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Assign role</p>
+          <p className="text-[11px] text-muted-foreground mt-1">Provide email or phone (or both) — we match either field.</p>
           <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="user@email.com" className="mt-3 rounded-xl" data-testid="role-email-input" />
+          <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="10-digit mobile" className="mt-2 rounded-xl" inputMode="numeric" data-testid="role-phone-input" />
           <div className="mt-3 flex flex-wrap gap-2">
             {["subscriber", "staff", "admin", "rider", "delivery_boy"].map((r) => (
               <Button key={r} variant={role === r ? "default" : "outline"} size="sm" onClick={() => setRole(r)} className="rounded-full capitalize text-xs" data-testid={`role-option-${r}`}>{r.replace("_", " ")}</Button>

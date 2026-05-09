@@ -6,13 +6,30 @@ since they touch many internals. Future iterations can move more here.
 """
 from __future__ import annotations
 
+import uuid
 from datetime import timedelta
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 
 import server  # late-binding access
 
 router = APIRouter()
+
+
+class RiderApplyRequest(BaseModel):
+    full_name: str = Field(min_length=2, max_length=80)
+    phone: str = Field(min_length=10, max_length=15)
+    licence_no: str = Field(min_length=4, max_length=30)
+    bike_number: str = Field(min_length=4, max_length=20)
+    bank_acc_last4: str = Field(min_length=4, max_length=4)
+    city: str = Field(min_length=2, max_length=60)
+
+
+class RiderApplyDecision(BaseModel):
+    decision: Literal["approve", "reject"]
+    notes: Optional[str] = None
 
 
 @router.get("/admin/stats")
@@ -63,9 +80,96 @@ async def admin_users(user: server.User = Depends(server.get_current_user)):
 async def admin_set_role(payload: server.SetRoleRequest, user: server.User = Depends(server.get_current_user)):
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
-    result = await server.db.users.update_one(
-        {"email": payload.email.lower()}, {"$set": {"role": payload.role}}
-    )
+    if not payload.email and not payload.phone:
+        raise HTTPException(status_code=400, detail="email or phone required")
+    query = {}
+    if payload.email:
+        query["email"] = payload.email.strip().lower()
+    if payload.phone:
+        query["phone"] = payload.phone.strip()
+    # Match user by EITHER email OR phone (using $or so admins can pass just one)
+    if payload.email and payload.phone:
+        match = {"$or": [{"email": query["email"]}, {"phone": query["phone"]}]}
+    else:
+        match = query
+    result = await server.db.users.update_one(match, {"$set": {"role": payload.role}})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
     return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Self-service rider application — any logged-in user can submit
+# ---------------------------------------------------------------------------
+@router.post("/rider/apply")
+async def rider_apply(payload: RiderApplyRequest, user: server.User = Depends(server.get_current_user)):
+    # Block duplicates — only one PENDING application per user at a time
+    existing = await server.db.rider_applications.find_one(
+        {"user_id": user.user_id, "status": "pending"}, {"_id": 0}
+    )
+    if existing:
+        raise HTTPException(status_code=400, detail="Application already pending. Please wait for admin review.")
+    doc = {
+        "application_id": f"rapp_{uuid.uuid4().hex[:14]}",
+        "user_id": user.user_id,
+        "full_name": payload.full_name.strip(),
+        "phone": payload.phone.strip(),
+        "licence_no": payload.licence_no.strip(),
+        "bike_number": payload.bike_number.strip().upper(),
+        "bank_acc_last4": payload.bank_acc_last4.strip(),
+        "city": payload.city.strip(),
+        "status": "pending",
+        "created_at": server.iso(server.now_utc()),
+    }
+    await server.db.rider_applications.insert_one(dict(doc))
+    return {"ok": True, "application": doc}
+
+
+@router.get("/rider/apply/me")
+async def rider_apply_me(user: server.User = Depends(server.get_current_user)):
+    doc = await server.db.rider_applications.find_one(
+        {"user_id": user.user_id}, {"_id": 0}, sort=[("created_at", -1)],
+    )
+    return {"application": doc}
+
+
+@router.get("/admin/rider-applications")
+async def admin_list_rider_applications(user: server.User = Depends(server.get_current_user), status: str = "pending"):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    q = {} if status == "all" else {"status": status}
+    rows = await server.db.rider_applications.find(q, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return {"applications": rows}
+
+
+@router.post("/admin/rider-applications/{application_id}/decide")
+async def admin_decide_rider_application(application_id: str, payload: RiderApplyDecision, user: server.User = Depends(server.get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    app_doc = await server.db.rider_applications.find_one({"application_id": application_id}, {"_id": 0})
+    if not app_doc:
+        raise HTTPException(status_code=404, detail="Application not found")
+    if app_doc["status"] != "pending":
+        raise HTTPException(status_code=400, detail=f"Already {app_doc['status']}")
+    new_status = "approved" if payload.decision == "approve" else "rejected"
+    updates = {
+        "status": new_status,
+        "decided_by": user.user_id,
+        "decided_at": server.iso(server.now_utc()),
+        "decision_notes": (payload.notes or "")[:500],
+    }
+    await server.db.rider_applications.update_one({"application_id": application_id}, {"$set": updates})
+    if payload.decision == "approve":
+        # Promote the user; carry over their bike + payout details onto the user doc
+        await server.db.users.update_one(
+            {"user_id": app_doc["user_id"]},
+            {"$set": {
+                "role": "rider",
+                "rider_bike_number": app_doc.get("bike_number"),
+                "rider_licence_no": app_doc.get("licence_no"),
+                "rider_bank_acc_last4": app_doc.get("bank_acc_last4"),
+                "rider_city": app_doc.get("city"),
+            }},
+        )
+    fresh = await server.db.rider_applications.find_one({"application_id": application_id}, {"_id": 0})
+    return {"ok": True, "application": fresh}

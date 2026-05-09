@@ -53,6 +53,7 @@ class CreateRestaurantOrder(BaseModel):
     phone: Optional[str] = None
     address: Optional[str] = None
     notes: Optional[str] = None
+    apply_wallet: bool = False  # if true, deduct as much as possible from wallet
 
 
 class VerifyRestaurantPayment(BaseModel):
@@ -232,16 +233,25 @@ async def create_restaurant_order(payload: CreateRestaurantOrder, user: server.U
 
     user_doc = await server.db.users.find_one({"user_id": user.user_id}, {"_id": 0})
 
+    # Wallet redemption: cap at wallet_balance, applied BEFORE Razorpay so
+    # the gateway only ever charges the remaining amount.
+    wallet_avail = round(float((user_doc or {}).get("wallet_balance") or 0), 2)
+    wallet_used = 0.0
+    if payload.apply_wallet and wallet_avail > 0:
+        wallet_used = min(wallet_avail, total)
+    payable = round(total - wallet_used, 2)
+
     order_id = f"rorder_{uuid.uuid4().hex[:18]}"
     rzp_order_id = order_id  # default to our id (mock mode)
     mock = True
     razorpay_options = None
+    full_wallet_payment = wallet_used > 0 and payable <= 0
 
     # Try real Razorpay; fall back to mock if disabled / errors.
-    if server.RZP_ENABLED and server.rzp_client:
+    if server.RZP_ENABLED and server.rzp_client and not full_wallet_payment:
         try:
             rzp = server.rzp_client.order.create(dict(
-                amount=int(round(total * 100)),
+                amount=int(round(payable * 100)),
                 currency="INR",
                 receipt=order_id[:40],
                 payment_capture=1,
@@ -273,6 +283,8 @@ async def create_restaurant_order(payload: CreateRestaurantOrder, user: server.U
         "subtotal": subtotal,
         "delivery_fee": delivery_fee,
         "total": total,
+        "wallet_used": wallet_used,
+        "payable": payable,
         "status": "created",
         "mock": mock,
         "name": payload.name or user_doc.get("name") or "",
@@ -283,13 +295,31 @@ async def create_restaurant_order(payload: CreateRestaurantOrder, user: server.U
     }
     await server.db.restaurant_orders.insert_one(dict(doc))
 
+    # Auto-save delivery details to the user's profile so future checkouts
+    # are pre-filled. Only update fields the user actually typed in this checkout
+    # AND that are missing/different on their profile.
+    profile_updates = {}
+    if payload.name and (user_doc.get("name") or "").strip() != payload.name.strip():
+        profile_updates["name"] = payload.name.strip()
+    if payload.phone and (user_doc.get("phone") or "").strip() != payload.phone.strip():
+        profile_updates["phone"] = payload.phone.strip()
+    if payload.address and (user_doc.get("address") or "").strip() != payload.address.strip():
+        profile_updates["address"] = payload.address.strip()
+    if profile_updates:
+        try:
+            await server.db.users.update_one({"user_id": user.user_id}, {"$set": profile_updates})
+        except Exception as e:  # noqa: BLE001
+            server.logger.warning(f"[RESTAURANT] profile auto-save skipped · {e}")
+
     return {
         "order_id": order_id,
         "razorpay": razorpay_options,  # null in mock mode → frontend auto-verifies
-        "mock": mock,
+        "mock": mock or full_wallet_payment,
         "subtotal": subtotal,
         "delivery_fee": delivery_fee,
         "total": total,
+        "wallet_used": wallet_used,
+        "payable": payable,
         "items": priced,
     }
 
@@ -325,6 +355,25 @@ async def verify_restaurant_payment(payload: VerifyRestaurantPayment, user: serv
             "eta_at": server.iso(server.now_utc() + timedelta(minutes=40)),
         }},
     )
+    # Deduct wallet AFTER order is confirmed paid (debit and ledger entry)
+    wallet_used = round(float(order.get("wallet_used") or 0), 2)
+    if wallet_used > 0:
+        u = await server.db.users.find_one({"user_id": user.user_id}, {"_id": 0}) or {}
+        new_bal = round(float(u.get("wallet_balance") or 0) - wallet_used, 2)
+        if new_bal < 0:
+            server.logger.warning(f"[RESTAURANT] wallet went negative on {payload.order_id} — clamping to 0")
+            new_bal = 0.0
+        await server.db.users.update_one(
+            {"user_id": user.user_id},
+            {"$inc": {"wallet_balance": -wallet_used}},
+        )
+        try:
+            await server._log_wallet_txn(
+                user.user_id, None, "debit", wallet_used, new_bal,
+                f"Restaurant order payment · {payload.order_id}",
+            )
+        except Exception as e:  # noqa: BLE001
+            server.logger.warning(f"[RESTAURANT] wallet txn log failed: {e}")
     fresh = await server.db.restaurant_orders.find_one({"order_id": payload.order_id}, {"_id": 0})
     # Fire WhatsApp order confirmation (stub-mode safe)
     try:

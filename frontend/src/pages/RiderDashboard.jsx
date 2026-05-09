@@ -23,21 +23,10 @@ import {
 const POLL_INTERVAL_MS = 8_000;
 const PING_INTERVAL_MS = 30_000;
 
-// Embedded "ding" tone (short oscillator-generated beep, kept in JS so we ship without an audio asset).
-function playDing() {
-  try {
-    // eslint-disable-next-line no-undef
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.type = "triangle"; o.frequency.value = 880;
-    g.gain.setValueAtTime(0.001, ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime + 0.05);
-    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
-    o.connect(g); g.connect(ctx.destination);
-    o.start(); o.stop(ctx.currentTime + 0.65);
-  } catch {}
-}
+import { playPing, alertWithVoice } from "../lib/notify";
+
+// Backwards-compat shim — older calls referenced playDing.
+function playDing() { playPing(); }
 
 export default function RiderDashboard() {
   const { user, checkAuth } = useAuth();
@@ -68,7 +57,7 @@ export default function RiderDashboard() {
       // Sound notification for NEW ready_for_pickup orders
       const newReady = next.filter((x) => x.status === "ready_for_pickup" && !lastReadyIds.current.has(x.order_id));
       if (newReady.length > 0 && soundOn && lastReadyIds.current.size > 0) {
-        playDing();
+        alertWithVoice(`${newReady.length} new order ready for pickup`);
         toast.message(`🔔 ${newReady.length} new order ready for pickup`);
       }
       lastReadyIds.current = new Set(next.filter((x) => x.status === "ready_for_pickup").map((x) => x.order_id));

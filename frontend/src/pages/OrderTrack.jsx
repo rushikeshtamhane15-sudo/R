@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { loadCart, saveCart, setQty } from "../lib/cart";
 import { useAuth } from "../context/AuthContext";
 import TrackMap3D from "../components/TrackMap3D";
+import { alertWithVoice } from "../lib/notify";
 import {
   ChevronLeft, Phone, CheckCircle2, ChefHat, Bike, MapPin, PackageCheck, Hourglass, Clock, RefreshCw, Receipt, XCircle,
 } from "lucide-react";
@@ -32,12 +33,36 @@ export default function OrderTrack() {
   const { checkAuth } = useAuth();
   const [order, setOrder] = useState(null);
   const [err, setErr] = useState("");
+  const [activeOrders, setActiveOrders] = useState([]);
   const polling = useRef(null);
+  const lastStatus = useRef(null);
+
+  // Pull other in-flight orders for the multi-order switcher rail
+  useEffect(() => {
+    api.get("/restaurant/orders?limit=20")
+      .then((r) => {
+        const live = (r.data?.orders || []).filter((o) =>
+          ["paid", "preparing", "ready_for_pickup", "out_for_delivery"].includes(o.status)
+        );
+        setActiveOrders(live);
+      })
+      .catch(() => {});
+  }, [orderId, order?.status]);
 
   const load = async () => {
     try {
       const r = await api.get(`/restaurant/orders/${orderId}/track`);
-      setOrder(r.data); setErr("");
+      const next = r.data;
+      // Voice + sound when status flips to "out_for_delivery"
+      if (
+        lastStatus.current && lastStatus.current !== "out_for_delivery" &&
+        next.status === "out_for_delivery"
+      ) {
+        try { alertWithVoice("Your rider is on the way. Please be ready."); } catch {}
+        toast.message("🛵 Your rider is on the way!");
+      }
+      lastStatus.current = next.status;
+      setOrder(next); setErr("");
     } catch (e) { setErr(e?.response?.data?.detail || "Could not load order"); }
   };
 
@@ -107,6 +132,35 @@ export default function OrderTrack() {
       </header>
 
       <main className="max-w-3xl mx-auto px-5 py-6 space-y-6">
+        {/* Multi-order switcher — only when user has >1 in-flight orders */}
+        {activeOrders.length > 1 && (
+          <section className="rounded-2xl border border-border bg-card p-3 sm:p-4 overflow-x-auto no-scrollbar" data-testid="track-multi-switcher">
+            <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground px-2 mb-2">
+              You have {activeOrders.length} active orders — switch between them
+            </p>
+            <ul className="flex gap-2 min-w-max">
+              {activeOrders.map((o) => {
+                const isActive = o.order_id === orderId;
+                return (
+                  <li key={o.order_id}>
+                    <Link
+                      to={`/restaurant/track/${o.order_id}`}
+                      data-testid={`switch-${o.order_id}`}
+                      className={`flex flex-col items-start gap-0.5 px-3 py-2 rounded-xl border text-left transition-colors min-w-[150px] ${
+                        isActive ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-muted border-border"
+                      }`}
+                    >
+                      <span className="text-[10px] tracking-overline uppercase font-bold opacity-80">{o.status.replace(/_/g, " ")}</span>
+                      <span className="font-mono text-[10px] truncate w-full">{o.order_id}</span>
+                      <span className="font-display font-extrabold text-sm tabular-nums">₹{Number(o.total).toFixed(0)} · {o.items?.length || 0} item(s)</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
         {/* Status timeline */}
         <section className="rounded-2xl border border-border bg-card p-5" data-testid="track-timeline">
           <ol className="space-y-3.5">

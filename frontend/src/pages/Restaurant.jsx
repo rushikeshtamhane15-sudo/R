@@ -121,7 +121,7 @@ export default function Restaurant() {
       <header className="bg-primary text-primary-foreground">
         <div className="max-w-6xl mx-auto px-5 py-5">
           <Link to="/home" className="inline-flex items-center text-primary-foreground/85 hover:text-primary-foreground text-xs font-bold uppercase tracking-overline" data-testid="back-home">
-            <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Tiffin
+            <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Subscription
           </Link>
           <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
             <div>

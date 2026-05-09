@@ -63,7 +63,10 @@ function LeafletTrackMap({ rider, customer }) {
   );
 }
 
-/* --------- MapLibre (desktop) --------- */
+/* MapLibre (desktop) — uses OpenFreeMap "Liberty" vector tiles for free 3D buildings.
+ * Style URL: https://tiles.openfreemap.org/styles/liberty (no API key needed). */
+const OPENFREEMAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
+
 function MapLibreTrackMap({ rider, customer }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
@@ -77,31 +80,53 @@ function MapLibreTrackMap({ rider, customer }) {
     if (!containerRef.current || mapRef.current) return;
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: {
-        version: 8,
-        sources: {
-          osm: {
-            type: "raster",
-            tiles: ["https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png"],
-            tileSize: 256,
-            attribution: "&copy; OpenStreetMap · CARTO",
-          },
-        },
-        layers: [{ id: "osm", type: "raster", source: "osm", minzoom: 0, maxzoom: 22 }],
-      },
+      style: OPENFREEMAP_STYLE,
       center: [rider.lng, rider.lat],
-      zoom: 16,
+      zoom: 16.5,
       pitch: PITCH,
       bearing: BEARING,
       antialias: true,
       attributionControl: true,
     });
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+
     map.on("load", () => {
-      // Sky gradient effect using a layer (looks 3D-ish)
+      // Add 3D building extrusion layer (uses OpenMapTiles "building" source)
       try {
-        map.setLight({ anchor: "viewport", color: "#a02323", intensity: 0.35 });
-      } catch {}
+        const layers = map.getStyle().layers || [];
+        let labelLayerId = null;
+        for (const l of layers) {
+          if (l.type === "symbol" && l.layout?.["text-field"]) { labelLayerId = l.id; break; }
+        }
+        if (!map.getLayer("3d-buildings") && map.getSource("openmaptiles")) {
+          map.addLayer({
+            id: "3d-buildings",
+            source: "openmaptiles",
+            "source-layer": "building",
+            type: "fill-extrusion",
+            minzoom: 14,
+            paint: {
+              "fill-extrusion-color": [
+                "interpolate", ["linear"], ["get", "render_height"],
+                0, "#dadce0",
+                30, "#b8bcc1",
+                80, "#7d8b97",
+              ],
+              "fill-extrusion-height": [
+                "interpolate", ["linear"], ["zoom"],
+                14, 0,
+                15.5, ["get", "render_height"],
+              ],
+              "fill-extrusion-base": ["get", "render_min_height"],
+              "fill-extrusion-opacity": 0.85,
+            },
+          }, labelLayerId || undefined);
+        }
+      } catch (e) {
+        // OpenFreeMap occasionally rate-limits or downs — fail silent, keep 2D map
+        // eslint-disable-next-line no-console
+        console.warn("[TrackMap3D] 3D buildings layer skipped:", e?.message);
+      }
     });
 
     // Rider marker
@@ -176,7 +201,7 @@ export default function TrackMap3D({ rider, customer, className = "" }) {
         className="absolute top-2 right-2 z-10 inline-flex items-center gap-1 rounded-full bg-foreground/80 backdrop-blur text-background text-[10px] tracking-overline uppercase font-bold px-2.5 py-1 pointer-events-none"
         data-testid="trackmap-badge"
       >
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Live · {isDesktop ? "3D" : "smooth"}
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Live · {isDesktop ? "3D Buildings" : "smooth"}
       </span>
     </div>
   );

@@ -43,17 +43,17 @@ export default function BottomNav() {
     ];
   } else if (user) {
     items = [
-      { to: "/restaurant",         label: "Restaurant", icon: ChefHat },
-      { to: "/restaurant/orders",  label: "Orders",     icon: Receipt },
-      { to: "/dashboard",          label: "Dashboard",  icon: LayoutDashboard },
-      { to: "/home",               label: "Tiffin",     icon: Home },
+      { to: "/restaurant",         label: "Restaurant",   icon: ChefHat },
+      { to: "/restaurant/orders",  label: "Orders",       icon: Receipt },
+      { to: "/dashboard",          label: "Dashboard",    icon: LayoutDashboard },
+      { to: "/home",               label: "Subscription", icon: Home },
     ];
   } else {
     items = [
-      { to: "/restaurant",       label: "Restaurant", icon: ChefHat },
-      { to: "/home",             label: "Tiffin",     icon: Home },
-      { to: "/contact",          label: "Contact",    icon: Phone },
-      { to: `/login${nextParam}`, label: "Login",     icon: LogIn, exactTo: "/login" },
+      { to: "/restaurant",        label: "Restaurant",   icon: ChefHat },
+      { to: "/home",              label: "Subscription", icon: Home },
+      { to: "/contact",           label: "Contact",      icon: Phone },
+      { to: `/login${nextParam}`, label: "Login",        icon: LogIn, exactTo: "/login" },
     ];
   }
 
@@ -62,20 +62,20 @@ export default function BottomNav() {
       className={`${isRider ? "md:flex md:max-w-2xl md:mx-auto md:rounded-t-2xl" : "md:hidden"} fixed bottom-0 inset-x-0 z-30 bg-background border-t border-border shadow-[0_-4px_12px_rgba(0,0,0,0.04)]`}
       data-testid="bottom-nav"
     >
-      <ul className="flex items-stretch justify-around w-full">
+      <ul className="grid grid-cols-4 w-full">
         {items.map((it, idx) => {
           const isActive = it.to && location.pathname === (it.exactTo || it.to);
-          const className = `flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 transition-colors ${isActive ? "text-primary" : "text-muted-foreground hover:text-primary"}`;
+          const className = `flex flex-col items-center justify-center gap-1 py-2.5 transition-colors ${isActive ? "text-primary" : "text-muted-foreground hover:text-primary"}`;
           const tid = `bottom-nav-${it.testId || it.label.toLowerCase()}`;
           return (
-            <li key={it.to || `btn-${idx}`} className="flex-1 flex">
+            <li key={it.to || `btn-${idx}`} className="flex">
               {it.onClick ? (
-                <button type="button" onClick={it.onClick} data-testid={tid} className={className}>
+                <button type="button" onClick={it.onClick} data-testid={tid} className={`${className} w-full`}>
                   <it.icon className="h-5 w-5" strokeWidth={1.75} />
                   <span className="text-[10px] tracking-overline uppercase font-bold">{it.label}</span>
                 </button>
               ) : (
-                <Link to={it.to} data-testid={tid} className={className}>
+                <Link to={it.to} data-testid={tid} className={`${className} w-full`}>
                   <it.icon className="h-5 w-5" strokeWidth={1.75} />
                   <span className="text-[10px] tracking-overline uppercase font-bold">{it.label}</span>
                 </Link>

@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
+import { alertWithVoice } from "../lib/notify";
 import {
-  UtensilsCrossed, Loader2, RefreshCw, ChefHat, PackageCheck, Bike, CheckCircle2, XCircle, Phone, MapPin, Clock,
+  UtensilsCrossed, Loader2, RefreshCw, ChefHat, PackageCheck, Bike, CheckCircle2, XCircle, Phone, MapPin, Clock, Volume2, VolumeX,
 } from "lucide-react";
 
 const STATUS_TONE = {
@@ -19,15 +20,38 @@ const STATUS_TONE = {
 export default function AdminRestaurantOrders() {
   const [orders, setOrders] = useState(null);
   const [loadingId, setLoadingId] = useState(null);
+  const [soundOn, setSoundOn] = useState(() => localStorage.getItem("efc_admin_orders_sound") !== "off");
+  const knownPaidIds = useRef(new Set());
 
   const load = async () => {
     try {
       const r = await api.get("/admin/restaurant/orders?limit=200");
-      setOrders(r.data?.orders || []);
+      const next = r.data?.orders || [];
+      // Sound + voice on NEW paid orders (skip on first load)
+      const fresh = next.filter((o) => o.status === "paid" && !knownPaidIds.current.has(o.order_id));
+      if (fresh.length > 0 && soundOn && knownPaidIds.current.size > 0) {
+        alertWithVoice(`${fresh.length} new restaurant order${fresh.length > 1 ? "s" : ""}`);
+        toast.message(`🔔 ${fresh.length} new paid order(s)`);
+      }
+      knownPaidIds.current = new Set(next.filter((o) => o.status === "paid").map((o) => o.order_id));
+      setOrders(next);
     } catch { toast.error("Could not load orders"); setOrders([]); }
   };
 
   useEffect(() => { load(); }, []);
+  // Auto-poll every 12s for new orders
+  useEffect(() => {
+    const t = setInterval(load, 12_000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [soundOn]);
+
+  const toggleSound = () => {
+    const next = !soundOn;
+    setSoundOn(next);
+    localStorage.setItem("efc_admin_orders_sound", next ? "on" : "off");
+    if (next) { alertWithVoice("Sound notifications enabled"); }
+  };
 
   const setStatus = async (orderId, status) => {
     if (status === "rejected" && !window.confirm("Reject this order? Customer will be refunded if already paid (manual via wallet).")) return;
@@ -54,6 +78,16 @@ export default function AdminRestaurantOrders() {
         </div>
         <Button variant="outline" onClick={load} className="rounded-full" data-testid="orders-refresh-btn">
           <RefreshCw className="h-4 w-4 mr-1.5" /> Refresh
+        </Button>
+        <Button
+          variant="outline"
+          onClick={toggleSound}
+          className="rounded-full"
+          data-testid="orders-sound-toggle"
+          title={soundOn ? "Mute new-order alerts" : "Enable sound alerts"}
+        >
+          {soundOn ? <Volume2 className="h-4 w-4 mr-1.5 text-emerald-600" /> : <VolumeX className="h-4 w-4 mr-1.5 text-muted-foreground" />}
+          {soundOn ? "Sound on" : "Sound off"}
         </Button>
       </div>
 

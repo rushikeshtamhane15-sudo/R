@@ -11,7 +11,7 @@ import {
 } from "../lib/cart";
 import {
   ChevronLeft, Plus, Minus, ShoppingBag, MapPin, Phone, User as UserIcon,
-  Loader2, ShieldCheck, CheckCircle2, Trash2, Truck,
+  Loader2, ShieldCheck, CheckCircle2, Trash2, Truck, Wallet,
 } from "lucide-react";
 
 const BUYNOW_KEY = "efc_buynow_v1";
@@ -29,7 +29,7 @@ function loadRazorpayScript() {
 
 export default function RestaurantCheckout() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, checkAuth } = useAuth();
   const [params] = useSearchParams();
   const isBuyNow = params.get("buynow") === "1";
 
@@ -48,9 +48,12 @@ export default function RestaurantCheckout() {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(null);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [applyWallet, setApplyWallet] = useState(false);
 
   useEffect(() => {
     if (!user) { navigate("/login?next=/restaurant/checkout"); return; }
+    setWalletBalance(Number(user.wallet_balance || 0));
     api.get("/restaurant/menu")
       .then((r) => { setMenu(r.data.items || []); setMeta({ delivery_fee_flat: r.data.delivery_fee_flat, delivery_free_over: r.data.delivery_free_over }); })
       .catch(() => toast.error("Could not load menu"));
@@ -63,6 +66,8 @@ export default function RestaurantCheckout() {
   const subtotal = priced.subtotal;
   const deliveryFee = subtotal === 0 ? 0 : (subtotal >= meta.delivery_free_over ? 0 : meta.delivery_fee_flat);
   const total = +(subtotal + deliveryFee).toFixed(2);
+  const walletApplied = applyWallet ? Math.min(walletBalance, total) : 0;
+  const payable = +(total - walletApplied).toFixed(2);
 
   const onAdd = (id) => setCart((c) => bumpQty(c, id, 1));
   const onSub = (id) => setCart((c) => bumpQty(c, id, -1));
@@ -83,6 +88,7 @@ export default function RestaurantCheckout() {
       const r = await api.post("/restaurant/order", {
         items: priced.lines.map((l) => ({ id: l.id, qty: l.qty })),
         name, phone, address, notes,
+        apply_wallet: applyWallet && walletBalance > 0,
       });
       const { order_id, razorpay, mock } = r.data;
 
@@ -127,6 +133,7 @@ export default function RestaurantCheckout() {
     if (isBuyNow) { try { sessionStorage.removeItem(BUYNOW_KEY); } catch {} }
     else clearCart();
     setSubmitting(false);
+    try { checkAuth?.(); } catch {}
     toast.success("Order placed · enjoy your meal!");
   };
 
@@ -245,6 +252,30 @@ export default function RestaurantCheckout() {
           </div>
         </section>
 
+        {/* Wallet credit toggle */}
+        {walletBalance > 0 && (
+          <section className="rounded-2xl border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-900/40 p-4 sm:p-5" data-testid="checkout-wallet">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={applyWallet}
+                onChange={(e) => setApplyWallet(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded text-primary focus:ring-primary border-emerald-400"
+                data-testid="apply-wallet-toggle"
+              />
+              <span className="flex-1 min-w-0">
+                <span className="flex items-center gap-1.5 font-display font-extrabold text-base">
+                  <Wallet className="h-4 w-4 text-emerald-700" />
+                  You have ₹{walletBalance.toFixed(0)} in wallet
+                </span>
+                <span className="block text-xs text-muted-foreground mt-0.5">
+                  Apply at checkout — pay only ₹{Math.max(0, total - Math.min(walletBalance, total)).toFixed(0)} via Razorpay
+                </span>
+              </span>
+            </label>
+          </section>
+        )}
+
         {/* Bill summary */}
         <section className="rounded-2xl border border-border bg-card p-5" data-testid="checkout-summary">
           <p className="font-display font-extrabold mb-3">Bill summary</p>
@@ -259,8 +290,14 @@ export default function RestaurantCheckout() {
                 Add ₹{(meta.delivery_free_over - subtotal).toFixed(0)} more for free delivery
               </p>
             )}
+            {walletApplied > 0 && (
+              <div className="flex justify-between text-emerald-700 dark:text-emerald-300" data-testid="sum-wallet-applied">
+                <dt className="flex items-center gap-1.5"><Wallet className="h-3.5 w-3.5" /> Wallet credit</dt>
+                <dd className="tabular-nums">− ₹{walletApplied.toFixed(0)}</dd>
+              </div>
+            )}
             <div className="border-t border-border pt-2 mt-2 flex justify-between font-display font-extrabold text-lg">
-              <dt>Total</dt><dd className="tabular-nums text-primary" data-testid="sum-total">₹{total.toFixed(0)}</dd>
+              <dt>{walletApplied > 0 ? "Payable" : "Total"}</dt><dd className="tabular-nums text-primary" data-testid="sum-total">₹{payable.toFixed(0)}</dd>
             </div>
           </dl>
         </section>
@@ -270,8 +307,13 @@ export default function RestaurantCheckout() {
       <div className="fixed bottom-16 md:bottom-0 inset-x-0 z-40 bg-background border-t border-border px-5 py-3.5 md:py-4">
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
           <div className="text-sm">
-            <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Total</p>
-            <p className="font-display font-extrabold text-xl tabular-nums">₹{total.toFixed(0)}</p>
+            <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">{walletApplied > 0 ? "Payable" : "Total"}</p>
+            <p className="font-display font-extrabold text-xl tabular-nums">₹{payable.toFixed(0)}</p>
+            {walletApplied > 0 && (
+              <p className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold mt-0.5">
+                ₹{walletApplied.toFixed(0)} from wallet
+              </p>
+            )}
           </div>
           <Button
             size="lg"
@@ -281,7 +323,7 @@ export default function RestaurantCheckout() {
             data-testid="checkout-pay-btn"
           >
             {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
-            Pay ₹{total.toFixed(0)}
+            {payable <= 0 ? `Place order` : `Pay ₹${payable.toFixed(0)}`}
           </Button>
         </div>
       </div>
