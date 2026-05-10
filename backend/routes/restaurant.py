@@ -198,13 +198,33 @@ async def public_menu():
 # stored at restaurant_theme/{singleton: 1}. Public GET, admin-only PUT.
 # ---------------------------------------------------------------------------
 class RestaurantTheme(BaseModel):
+    # Hero copy
     hero_title: Optional[str] = None
     hero_tagline: Optional[str] = None
     hero_promise_line1: Optional[str] = None
     hero_promise_line2: Optional[str] = None
+    hero_overline: Optional[str] = None
+    hero_delivery_badge: Optional[str] = None
+    # Top-container badges
+    pure_veg_label: Optional[str] = None
+    bad_stuff_chip_text: Optional[str] = None
+    # Per-item card
+    item_promise_label: Optional[str] = None
+    # UI strings
+    search_placeholder: Optional[str] = None
+    cart_login_hint: Optional[str] = None
+    cart_free_delivery_label: Optional[str] = None
+    cart_delivery_fee_template: Optional[str] = None
+    checkout_btn_label: Optional[str] = None
+    checkout_login_btn_label: Optional[str] = None
+    no_items_label: Optional[str] = None
+    reorder_overline: Optional[str] = None
+    reorder_cta_label: Optional[str] = None
+    # Colors
     hero_bg_color: Optional[str] = None
     hero_text_color: Optional[str] = None
     accent_color: Optional[str] = None
+    # Visibility — kept for migration; admin UI no longer surfaces these
     show_zero_bad_stuff_chip: Optional[bool] = True
     show_delivery_promise: Optional[bool] = True
 

@@ -1,0 +1,33 @@
+{
+  "summary": "iter28 RETEST after Pydantic RestaurantTheme model fix. CONFIRMED: all 20/20 tests in /app/backend/tests/test_iter28.py PASS (was 18/20 in iter28). The 14 new Optional[str] fields (pure_veg_label, bad_stuff_chip_text, hero_delivery_badge, hero_overline, item_promise_label, search_placeholder, cart_login_hint, cart_free_delivery_label, cart_delivery_fee_template, checkout_btn_label, checkout_login_btn_label, no_items_label, reorder_overline, reorder_cta_label) are now declared on the RestaurantTheme Pydantic model at /app/backend/routes/restaurant.py:200-230 and PUT /api/admin/restaurant/theme persists them; GET /api/restaurant/theme returns them. The 2 previously-failing TestRestaurantTheme tests (test_put_theme_accepts_all_new_fields, test_get_theme_returns_persisted_new_fields) now PASS. Regression: iter12 (testimonials, expiry-reminders), iter25 (theme PUT, order geo), iter27 (bottom-nav, notify-sound, delivery OTP gating) — all 29/29 PASS. No new regressions detected.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter28.py",
+    "/app/test_reports/pytest/iter28_retest_results.xml",
+    "/app/test_reports/pytest/iter28_retest_regression.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "RestaurantTheme model now correctly extended at /app/backend/routes/restaurant.py:200-230 with all 14 Optional[str] fields. Suggest adding model_config = ConfigDict(extra='allow') as future-proofing so subsequent CMS field additions don't silently drop until model is updated (low priority — current fix is correct and explicit).",
+    "Note retained from iter28: server.py:2080-2082 topup_raw_materials_stock has a redundant conditional on line 2080 that is unconditionally overwritten on line 2082. Functionally OK per spec ('admin enters total fresh stock'), but cleanup recommended."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (20/20 iter28 + 29/29 regression iter12/25/27)",
+    "frontend": "not retested (per review_request — frontend smoke 100% in prior iteration)"
+  },
+  "test_credentials": "OTP DEV — POST /api/auth/send-otp returns dev_otp; admin phone 9970705391 auto-promoted via ADMIN_PHONES.",
+  "seed_data_creation": "TEST_iter28_admin + TEST_iter28_sub user sessions reused. Theme doc updated with TEST_iter28_* values for all 14 new fields + pure_veg_label='Test Veg iter28'. Stock topup applied to first non-amount-based raw material (qty=10000 then 0.01).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter28 closed at 100% (20/20). RestaurantTheme Pydantic model fix verified. Theme doc currently has TEST_iter28_* placeholder strings for all 14 new fields and pure_veg_label='Test Veg iter28' — main agent may want to PUT real production strings or call DELETE/reset before user demo. Raw materials stock for first non-amount-based key is at 0.01 (low_stock=True) and an AUTO-{today} purchase order row exists in db.purchase_orders.",
+  "rca of the issue": "iter28 root cause was that 14 new Optional[str] fields were missing from the Pydantic RestaurantTheme model, so payload.model_dump(exclude_none=True) silently dropped them before MongoDB persistence. Main agent applied the fix (model now has all 14 fields at lines 206-222 of /app/backend/routes/restaurant.py). Verified via PUT→GET round trip in test_put_theme_accepts_all_new_fields and test_get_theme_returns_persisted_new_fields. Issue fully closed."
+}
