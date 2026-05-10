@@ -39,7 +39,8 @@ export default function Login() {
   const { user, setUser } = useAuth();
 
   // Decide post-login destination — `?next=/path` wins, else session-stashed
-  // pending action (cart→checkout / buy-now), else role-based default.
+  // pending action (cart→checkout / buy-now), else cart-aware default
+  // (if cart has items → /restaurant), else role-based default.
   const computeNext = (u) => {
     const raw = searchParams.get("next");
     // Skip self-referential nexts ("/" and "/login*") — they would loop.
@@ -59,6 +60,17 @@ export default function Login() {
     if (u.role === "staff") return "/admin/deliveries-today";
     if (u.role === "delivery_boy") return "/boy";
     if (u.role === "rider") return "/rider";
+    // Cart-aware fallback for regular subscribers — if they have items in
+    // their restaurant cart, they were almost certainly mid-ordering when
+    // they hit the login wall. Send them to /restaurant/checkout to finish.
+    try {
+      const cartRaw = localStorage.getItem("efc_restaurant_cart_v1");
+      if (cartRaw) {
+        const cart = JSON.parse(cartRaw) || {};
+        const totalQty = Object.values(cart).reduce((s, l) => s + (Number(l?.qty) || 0), 0);
+        if (totalQty > 0) return "/restaurant/checkout";
+      }
+    } catch {}
     return "/restaurant";
   };
 

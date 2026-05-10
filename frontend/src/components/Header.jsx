@@ -175,7 +175,22 @@ export default function Header() {
                     <LogOut className="h-4 w-4 mr-2" /> Logout
                   </Button>
                 ) : (
-                  <Link to={`/login?next=${encodeURIComponent(location.pathname + (location.search || ""))}`} onClick={close} data-testid="menu-login-link">
+                  <Link
+                    to={`/login?next=${encodeURIComponent(location.pathname + (location.search || ""))}`}
+                    onClick={() => {
+                      // Stash pending action so post-login redirect honours
+                      // wherever the user came from (cart-bearing /restaurant,
+                      // /restaurant/checkout, etc.) even if they hit /login fresh.
+                      try {
+                        const here = location.pathname + (location.search || "");
+                        if (here && here !== "/" && !here.startsWith("/login")) {
+                          sessionStorage.setItem("efc_pending_action_v1", here);
+                        }
+                      } catch {}
+                      close();
+                    }}
+                    data-testid="menu-login-link"
+                  >
                     <Button className="w-full rounded-full bg-primary hover:bg-primary/90">Sign In</Button>
                   </Link>
                 )}

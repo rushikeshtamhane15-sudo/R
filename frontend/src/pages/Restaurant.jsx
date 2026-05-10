@@ -6,6 +6,7 @@ import { Input } from "../components/ui/input";
 import { toast } from "sonner";
 import { loadCart, saveCart, setQty, bumpQty, cartCount, priceCart } from "../lib/cart";
 import { useAuth } from "../context/AuthContext";
+import { BRAND_LOGO_URL } from "../lib/brand";
 import {
   ShoppingBag, Plus, Minus, Search, ChefHat, ArrowRight, Tag, Truck, ChevronLeft, Star, RefreshCw, X,
 } from "lucide-react";
@@ -143,47 +144,50 @@ export default function Restaurant() {
 
   return (
     <div className="min-h-screen bg-background pb-40 md:pb-32" data-testid="restaurant-page">
-      {/* Hero */}
+      {/* Hero — compact mobile-first layout. Top row: Pure Veg (left) + 0% bad stuff (right).
+          Title row: brand line + dish title. Bottom strip: 90-min delivery banner. */}
       <header
         className="bg-primary text-primary-foreground"
         style={(theme?.hero_bg_color || theme?.hero_text_color) ? { backgroundColor: theme?.hero_bg_color || undefined, color: theme?.hero_text_color || undefined } : undefined}
         data-testid="restaurant-hero"
       >
-        <div className="max-w-6xl mx-auto px-5 py-5">
+        <div className="max-w-6xl mx-auto px-4 sm:px-5 py-3 sm:py-4">
+          {/* Row 1 — Pure Veg badge LEFT (with logo) ↔ 0% bad stuff RIGHT */}
           <div className="flex items-center justify-between gap-3">
-            {/* Pure Veg badge — top-LEFT, signals our kitchen ethic */}
-            <span className="inline-flex items-center gap-1 rounded-md border-2 border-green-700 bg-white text-green-700 px-1.5 py-0.5 text-[10px] font-extrabold tracking-wide uppercase shadow-sm" data-testid="pure-veg-badge">
-              <span className="h-2 w-2 rounded-full bg-green-700" /> {theme?.pure_veg_label || "Pure Veg"}
+            <span className="inline-flex items-center gap-1.5 rounded-md border-[1.5px] border-green-700 bg-white text-green-700 px-1.5 py-0.5 text-[10px] font-extrabold tracking-wide uppercase shadow-sm" data-testid="pure-veg-badge">
+              <img src={BRAND_LOGO_URL} alt="" className="h-3.5 w-3.5 rounded-sm" />
+              <span className="h-1.5 w-1.5 rounded-full bg-green-700" /> {theme?.pure_veg_label || "Pure Veg"}
             </span>
             <span className="text-[9px] sm:text-[10px] tracking-overline uppercase font-bold bg-emerald-600/95 text-white px-2 py-0.5 rounded-full whitespace-nowrap" data-testid="zero-bad-stuff">
               {theme?.bad_stuff_chip_text || "0% the bad stuff"}
             </span>
           </div>
-          {/* Prominent 90-min delivery banner — emerald default; admin-configurable */}
+
+          {/* Row 2 — Compact title + tagline */}
+          <div className="mt-2.5">
+            <p className="text-[10px] sm:text-xs tracking-overline uppercase font-bold opacity-80 flex items-center gap-1.5">
+              <ChefHat className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> {theme?.hero_overline || "efoodcare restaurant"}
+            </p>
+            <h1 className="font-display font-extrabold text-lg sm:text-2xl tracking-tight mt-0.5 lowercase leading-tight">
+              {theme?.hero_title || "order online · ghar se accha khana"}
+            </h1>
+            <p className="opacity-90 text-[11px] sm:text-sm mt-1 flex items-center gap-1.5 leading-snug">
+              <Truck className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+              <span className="truncate">{theme?.hero_tagline || `Free delivery on orders over ₹${meta.delivery_free_over} · ₹${meta.delivery_fee_flat} otherwise`}</span>
+            </p>
+          </div>
+
+          {/* Row 3 — 90-min banner at the BOTTOM of the hero container */}
           <div
-            className="mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1.5 shadow-md"
+            className="mt-2.5 inline-flex items-center gap-2 rounded-full px-2.5 py-1 shadow-md"
             style={{
               backgroundColor: theme?.ninety_min_bg_color || "#059669",
               color: theme?.ninety_min_text_color || "#ffffff",
             }}
             data-testid="ninety-min-banner"
           >
-            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/95 text-emerald-700 text-[11px] font-extrabold">⏱</span>
-            <span className="text-xs sm:text-sm font-extrabold tracking-tight">{theme?.hero_delivery_badge || "90 minutes Fresh Meal Delivery"}</span>
-          </div>
-          <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-xs tracking-overline uppercase font-bold opacity-80 flex items-center gap-1.5"><ChefHat className="h-3.5 w-3.5" /> {theme?.hero_overline || "efoodcare restaurant"}</p>
-              <h1 className="font-display font-extrabold text-2xl sm:text-3xl tracking-tight mt-1.5 lowercase">{theme?.hero_title || "order online · ghar se accha khana"}</h1>
-              <p className="opacity-90 text-sm mt-1.5 flex items-center gap-2">
-                <Truck className="h-4 w-4" />
-                {theme?.hero_tagline || `Free delivery on orders over ₹${meta.delivery_free_over} · ₹${meta.delivery_fee_flat} otherwise`}
-              </p>
-              <div className="mt-3 inline-flex flex-col gap-0.5 rounded-xl bg-foreground/15 backdrop-blur px-3 py-2" data-testid="delivery-promise">
-                <p className="text-xs italic opacity-95">{theme?.hero_promise_line1 || "\"Hum late aate hai par fresh late hai\""}</p>
-                <p className="text-[11px] opacity-85">{theme?.hero_promise_line2 || "Toh apna khana thoda pre-plan kare 🍱"}</p>
-              </div>
-            </div>
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/95 text-emerald-700 text-[10px] font-extrabold">⏱</span>
+            <span className="text-[11px] sm:text-sm font-extrabold tracking-tight">{theme?.hero_delivery_badge || "90 minutes Fresh Meal Delivery"}</span>
           </div>
         </div>
       </header>

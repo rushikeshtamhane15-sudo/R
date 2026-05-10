@@ -1,0 +1,42 @@
+{
+  "summary": "iter32 — All 8 functional acceptance criteria PASS. (1) Restaurant hero compaction on 390x844 verified: pure-veg-badge on LEFT with embedded <img> (eFoodCare logo) at x=16, zero-bad-stuff on RIGHT same row at x=132, ninety-min-banner BELOW title (y=232 vs title y=181), delivery-promise testid completely removed, hero height = 166.6px (well under the 220px target — was ~330px). (2) Cart-aware computeNext fallback verified: with cart={starter_paneer_tikka:qty2} in localStorage.efc_restaurant_cart_v1 → after OTP verify → URL=/restaurant/checkout. (3) Without cart → URL=/restaurant (default subscriber). (4) Hamburger menu Login link stashes sessionStorage.efc_pending_action_v1='/restaurant' on click — confirmed read-back. (5) Backend run_subscription_tick wallet-zero auto-expiry confirmed in code (server.py:790-841) — sets zero_wallet_grace_until on first 0-wallet detection, transitions to status='expired' + expired_reason='wallet_zero' after 24h grace; clears grace if wallet recovers. (6) Backend regression: 43/43 PASS on test_iter28.py + test_iter29.py. ⚠️ HOWEVER — CRITICAL VISUAL REGRESSION: Despite the user complaint and main agent's claim that 'TEST_iter28_* placeholder values were already wiped', GET /api/restaurant/theme STILL returns 13 polluted TEST_iter28_* strings (item_promise_label, bad_stuff_chip_text, cart_delivery_fee_template, cart_free_delivery_label, cart_login_hint, checkout_btn_label, checkout_login_btn_label, hero_delivery_badge, hero_overline, no_items_label, reorder_cta_label, reorder_overline, search_placeholder) AND pure_veg_label='TEST VEG ITER 28'. These ARE rendered visibly on /restaurant — the user's screenshot complaint will reproduce as-is. data-testid acceptance passes but the human-readable copy is broken.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Restaurant theme content", "issue": "13 theme fields + pure_veg_label still contain TEST_iter28_* placeholder strings in DB (main agent claimed wiped — they are NOT). Visible on /restaurant hero badges, chip, search, item cards, checkout button, reorder CTA, etc.", "selector": "[data-testid=pure-veg-badge], [data-testid=zero-bad-stuff], [data-testid=ninety-min-banner], plus search & item cards", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/restaurant hero (mobile 390x844)", "issues": ["Pure-veg-badge text 'TEST VEG ITER 28' is too long and its width (104px) plus zero-bad-stuff (TEST_iter28_bad_stuff_chip_text) wraps awkwardly. Once theme is reset to defaults (Pure Veg / 0% the bad stuff), this likely resolves; revalidate after wipe."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/test_reports/pytest/iter32_regression.xml",
+    "/app/backend/tests/test_iter28.py",
+    "/app/backend/tests/test_iter29.py"
+  ],
+  "action_items": [
+    "RESET /api/restaurant/theme — call PUT /api/admin/restaurant/theme with all TEST_iter28_* fields set to null (or to their proper production strings). 13 fields polluted: item_promise_label, bad_stuff_chip_text, cart_delivery_fee_template, cart_free_delivery_label, cart_login_hint, checkout_btn_label, checkout_login_btn_label, hero_delivery_badge, hero_overline, no_items_label, reorder_cta_label, reorder_overline, search_placeholder + pure_veg_label='TEST VEG ITER 28'. The user has complained 3+ times and previous testing agent flagged this in iter31 seed_data_creation note — it was NOT addressed. Easiest fix: a one-shot mongo update or POST /api/admin/restaurant/theme/reset if such endpoint exists.",
+    "After wipe, re-screenshot /restaurant on 390x844 to confirm hero copy reads cleanly: 'Pure Veg' badge + '0% the bad stuff' chip + '90 minutes Fresh Meal Delivery' banner."
+  ],
+  "critical_code_review_comments": [
+    "Login.jsx computeNext (lines 44-75): solid layered-fallback design (?next= → sessionStorage pending → role-default → cart-aware /restaurant/checkout → /restaurant). All 3 paths exercised and pass. Good defensive try/catch around storage access.",
+    "Header.jsx hamburger Login link (lines 178-194): sessionStorage stash happens on the wrapper Link's onClick, which fires even when navigating; verified the value is set BEFORE the navigation completes. Good.",
+    "server.py:790-841 run_subscription_tick: Logic for 24h wallet=0 grace + auto-expire is sound. One minor robustness suggestion (LOW priority): the floor `<= 0.005` for wallet zero is fine, but consider adding an explicit `paid_subscription` check before starting grace so trial subs don't enter grace prematurely — N/A if subs are uniform. No fix needed in this iter.",
+    "Restaurant.jsx hero (lines 145-193): clean three-row compact layout, 166px height achieved. data-testid coverage is excellent."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (43/43 on regression suite)",
+    "frontend": "100% functional (4/4 acceptance flows pass), but 1 HIGH-priority data-pollution bug visible to end users"
+  },
+  "test_credentials": "OTP DEV — fresh subscriber phones 9876543210 and 9876500001 used; dev_otp returned in /api/auth/send-otp body.",
+  "seed_data_creation": "Created 2 fresh subscriber accounts (phones 9876543210, 9876500001) via OTP verify. No theme/menu mutations performed in this iter.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Acceptance for iter32 functional changes is complete and stable — DO NOT re-run those Playwright steps unless code changes. The remaining work is a one-shot DB cleanup of TEST_iter28_* theme strings (NOT a code change, NOT a logic bug). Main agent should fire a single PUT /api/admin/restaurant/theme with the 14 polluted fields set to null/defaults, then visually re-verify /restaurant on mobile. If the polluted seed reappears after wipe, look for a startup seeder in server.py that re-injects TEST_iter28_* defaults — that would be the deeper bug. Otherwise just a stale DB state from iter28 testing that was never cleaned up.",
+  "rca of the issue": "RCA — User's repeated complaint about TEST_iter28_* placeholder text rendering on /restaurant is NOT a code bug. Functional code paths (hero rebuild, computeNext, sessionStorage stash, run_subscription_tick) are all correct and pass automated tests. Root cause is stale theme DB state: iter28's test agent wrote 13 placeholder strings into /api/restaurant/theme via PUT and never reverted them. iter31 testing agent flagged this in their seed_data_creation note. iter30/31 main agents apparently did NOT execute the cleanup. Mitigation = single PUT /api/admin/restaurant/theme with the listed fields nulled, takes <30 seconds. No code change required."
+}
