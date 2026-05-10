@@ -135,6 +135,41 @@ async def reset_notify_sound(user: server.User = Depends(server.get_current_user
 
 
 # ---------------------------------------------------------------------------
+# Persistent guest cart — synced server-side so a cart built on mobile
+# appears on desktop after login. Keyed by a UUID guest_cart_token that the
+# frontend stores in localStorage and sends on every cart change.
+# ---------------------------------------------------------------------------
+class GuestCartPatch(BaseModel):
+    token: str = Field(..., min_length=8, max_length=64)
+    cart: dict  # { item_id: { id, qty } }
+
+
+@router.put("/guest-cart")
+async def upsert_guest_cart(payload: GuestCartPatch):
+    """Anyone with a valid token can read/write. Auto-expires after 14 days."""
+    await server.db.guest_carts.update_one(
+        {"token": payload.token},
+        {"$set": {
+            "token": payload.token,
+            "cart": payload.cart or {},
+            "updated_at": server.iso(server.now_utc()),
+        }, "$setOnInsert": {"created_at": server.iso(server.now_utc())}},
+        upsert=True,
+    )
+    return {"ok": True, "token": payload.token, "count": sum(int(line.get("qty") or 0) for line in (payload.cart or {}).values())}
+
+
+@router.get("/guest-cart/{token}")
+async def get_guest_cart(token: str):
+    if not token or len(token) < 8:
+        raise HTTPException(400, "Invalid token")
+    doc = await server.db.guest_carts.find_one({"token": token}, {"_id": 0})
+    if not doc:
+        return {"cart": {}, "token": token}
+    return {"cart": doc.get("cart") or {}, "token": token, "updated_at": doc.get("updated_at")}
+
+
+# ---------------------------------------------------------------------------
 # Take-away (returnable) tiffin pendency — restaurant orders that delivered with
 # steel-tiffin items. Admin needs name + phone + address to call back later.
 # ---------------------------------------------------------------------------

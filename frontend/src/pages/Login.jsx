@@ -173,24 +173,24 @@ export default function Login() {
       {/* FORM SHEET — Zomato-clone style: floating white card with thick border + shadow */}
       <div className="bg-background flex-1 -mt-6 px-3 sm:px-6 relative pb-24 md:pb-12">
         <div
-          className="max-w-xs sm:max-w-sm mx-auto w-full bg-card rounded-2xl px-4 py-3.5 sm:px-6 sm:py-5 mt-2"
+          className="max-w-[280px] sm:max-w-sm mx-auto w-full bg-card rounded-2xl px-3.5 py-3 sm:px-6 sm:py-5 mt-2"
           style={{
-            border: "2.5px solid #ffffff",
-            boxShadow: "0 20px 50px -16px rgba(0,0,0,0.22), 0 6px 18px -6px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.06)",
+            border: "2px solid #ffffff",
+            boxShadow: "0 14px 36px -10px rgba(0,0,0,0.18), 0 4px 12px -4px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.05)",
           }}
           data-testid="login-form-card"
         >
           {/* Compact admin-style icon badge above the form */}
           <div
             data-testid="login-icon-badge"
-            className="mx-auto mb-3 flex items-center justify-center h-11 w-11 sm:h-12 sm:w-12 rounded-xl"
+            className="mx-auto mb-2.5 flex items-center justify-center h-9 w-9 sm:h-12 sm:w-12 rounded-xl"
             style={{
               background: "linear-gradient(145deg, #2746a3 0%, #14266b 100%)",
               boxShadow:
-                "0 8px 16px rgba(20,38,107,0.4), 0 2px 4px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -2px 3px rgba(0,0,0,0.2)",
+                "0 6px 14px rgba(20,38,107,0.35), 0 2px 4px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -2px 3px rgba(0,0,0,0.2)",
             }}
           >
-            <ShieldCheck className="h-5 w-5 sm:h-6 sm:w-6 text-white" strokeWidth={2.2} />
+            <ShieldCheck className="h-4 w-4 sm:h-6 sm:w-6 text-white" strokeWidth={2.2} />
           </div>
 
           <AnimatePresence mode="wait" initial={false}>

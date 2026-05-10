@@ -9,7 +9,7 @@
     to   { transform: translateX(-50%); }
 }
 .animate-trust-marquee {
-    animation: trust-marquee 28s linear infinite;
+    animation: trust-marquee 16s linear infinite;
 }
 .animate-trust-marquee:hover {
     animation-play-state: paused;

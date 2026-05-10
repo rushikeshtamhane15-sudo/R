@@ -1,0 +1,47 @@
+{
+  "summary": "iter33 — Mixed pass/fail. Backend 100% green after fixing 4 incorrect endpoint URLs in the new E2E test file. Frontend drag-drop, FSSAI footer, login form sizing, trust-marquee speed, hero h1 size, and image asset (li3dreby_images.jpeg) all PASS. CRITICAL VISUAL REGRESSION still present: TEST_iter28_* placeholder strings remain in restaurant_theme DB — the '100% Pure Veg' chip requirement FAILS because zero-bad-stuff renders 'TEST_iter28_bad_stuff_chip_text' and pure-veg-badge label is 'TEST VEG ITER 28'. Same finding as iter32; not addressed by main agent.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/auth/send-otp", "issue": "Per-IP 10/hour rate-limit blocks repeated test re-runs from the same IP. Workaround: db.rate_limit_hits.delete_many({}) between runs. Consider exempting localhost or DEV_OTP=on from the IP cap."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Restaurant hero chip data-testid='zero-bad-stuff'", "issue": "Renders 'TEST_iter28_bad_stuff_chip_text' instead of required '100% Pure Veg'. The IMG asset is correct (li3dreby_images.jpeg) but the visible text is wrong. Theme field bad_stuff_chip_text in restaurant_theme is still set to the iter28 placeholder.", "selector": "[data-testid='zero-bad-stuff']", "priority": "HIGH"},
+      {"component": "Restaurant hero pure-veg-badge", "issue": "Inline label reads 'TEST VEG ITER 28' (theme.pure_veg_label) instead of 'Pure Veg'.", "selector": "[data-testid='pure-veg-badge']", "priority": "HIGH"},
+      {"component": "Restaurant hero overline", "issue": "Renders 'TEST_iter28_hero_overline' — text 'efoodcare restaurant' is therefore absent and the iter31 a11y assertion (font-size>=13, weight===800 on that string) cannot be evaluated.", "selector": "(text-based)", "priority": "HIGH"},
+      {"component": "Restaurant search/promise/delivery badge/checkout/reorder copy", "issue": "Same TEST_iter28_* pollution affects search_placeholder, item_promise_label, hero_delivery_badge, cart_*, checkout_*, no_items_label, reorder_* — 13 fields total.", "selector": "(theme-driven)", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter31_takeaway_e2e.py",
+    "/app/backend/tests/test_iter31_guest_cart.py",
+    "/app/test_reports/pytest/iter33_regression.xml"
+  ],
+  "action_items": [
+    "RESET restaurant_theme — call PUT /api/admin/restaurant/theme with all TEST_iter28_* fields nulled OR set to proper production strings (Pure Veg, 100% Pure Veg / 0% the bad stuff, eFoodCare Restaurant, etc.). This is the SAME action item that iter31 and iter32 flagged and main agent has NOT executed. Suggest running: `await db.restaurant_theme.delete_one({'_id': 'default'})` to force the API to fall back to compiled defaults — verify hero shows 'eFoodCare Restaurant / 100% Pure Veg / Pure Veg' after wipe.",
+    "Optional: rewrite test_iter31_takeaway_e2e.py to use the correct production endpoints from the start (already fixed by testing agent — keep going forward)."
+  ],
+  "critical_code_review_comments": [
+    "test_iter31_takeaway_e2e.py shipped with 4 incorrect endpoint paths (verify-payment vs verify, admin/restaurant/order vs orders, rider/restaurant/{id}/claim+pickup+deliver vs rider/orders/{id}/pickup+arrived+deliver, payload field delivery_otp vs otp). Test was never executed before commit. Fixed by testing agent — but main agent should add a pre-commit smoke that at least imports + collects each new test_*.py against live backend.",
+    "Persistent theme pollution from iter28 indicates an absence of test-data cleanup contracts. Recommend: every test_*.py that mutates restaurant_theme MUST register an autouse module-scoped teardown that restores prior state.",
+    "Rate-limit on /auth/send-otp at 10/IP/hour is sound for prod but breaks dev/test loops. Suggest a DEV_OTP=on bypass of the IP cap (phone cap still enforced)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter31_takeaway_e2e.py (fixed 4 endpoint URLs + 1 payload field name)",
+    "/app/backend/tests/test_iter31_guest_cart.py (NEW — covers PUT/GET roundtrip, invalid token, unknown token)"
+  ],
+  "success_rate": {
+    "backend": "100% (62/62) — test_iter31_takeaway_e2e + test_iter31_guest_cart + test_iter27_app_cms + test_iter28 + test_iter29 all green after rate-limit reset",
+    "frontend": "85% — drag-drop, footer FSSAI, login form 280px, trust-marquee 16s, hero h1 20px, asset li3dreby_images.jpeg, menu descriptions all pass. 4 hero/UX strings fail because of stale theme DB (NOT a code bug)."
+  },
+  "test_credentials": "OTP DEV — phone 9970705391 is auto-promoted to admin via ADMIN_PHONES. send-otp returns dev_otp in body.",
+  "seed_data_creation": "test_iter31_guest_cart.py creates a guest_carts doc keyed by a uuid token and deletes it in the same test. test_iter31_takeaway_e2e.py creates one restaurant order + one pendency row and cleans up via /takeaway-pendency/collect. No leftover test data after run.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend E2E now stable — re-run with: cd /app/backend && REACT_APP_BACKEND_URL=https://dining-pass-scan.preview.emergentagent.com BACKEND_URL=http://localhost:8001 pytest tests/test_iter31_*.py tests/test_iter27_*.py tests/test_iter28.py tests/test_iter29.py --asyncio-mode=auto -v. If 429s appear, first run db.rate_limit_hits.delete_many({}). For frontend, the ONLY remaining gap is theme DB pollution — once main agent wipes/resets, re-screenshot /restaurant on 390x844 and verify pure-veg-badge contains 'Pure Veg' and zero-bad-stuff contains '100% Pure Veg'.",
+  "rca of the issue": "RCA: (1) Test-shipped-broken — main agent committed test_iter31_takeaway_e2e.py without ever running it; 4 endpoint paths and 1 payload field were guessed wrong. Fixed in-place. (2) Theme pollution: iter28's PUT-theme tests wrote TEST_iter28_* placeholder strings and never restored. iter31 + iter32 testing agents both flagged it; main agent has not executed the one-shot cleanup. Mitigation = delete the restaurant_theme document or PUT defaults; <30 sec."
+}

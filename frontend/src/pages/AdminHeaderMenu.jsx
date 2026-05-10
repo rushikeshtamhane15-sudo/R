@@ -31,6 +31,24 @@ export default function AdminHeaderMenu() {
     setItems(items.filter((_, k) => k !== i));
   };
 
+  // Drag-and-drop reorder
+  const [dragIdx, setDragIdx] = useState(null);
+  const onDragStart = (idx) => (e) => {
+    setDragIdx(idx);
+    e.dataTransfer.effectAllowed = "move";
+    try { e.dataTransfer.setData("text/plain", String(idx)); } catch {}
+  };
+  const onDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; };
+  const onDrop = (idx) => (e) => {
+    e.preventDefault();
+    if (dragIdx == null || dragIdx === idx) { setDragIdx(null); return; }
+    const next = [...items];
+    const [moved] = next.splice(dragIdx, 1);
+    next.splice(idx, 0, moved);
+    setItems(next);
+    setDragIdx(null);
+  };
+
   const save = async () => {
     setSaving(true);
     try {
@@ -76,8 +94,20 @@ export default function AdminHeaderMenu() {
         </div>
         <ul className="divide-y divide-border">
           {items.map((it, idx) => (
-            <li key={it.id + idx} className="p-3 flex items-center gap-2 sm:gap-3 flex-wrap" data-testid={`hm-row-${idx}`}>
-              <div className="flex flex-col">
+            <li
+              key={it.id + idx}
+              className={`p-3 flex items-center gap-2 sm:gap-3 flex-wrap transition-all ${dragIdx === idx ? "opacity-40" : ""}`}
+              data-testid={`hm-row-${idx}`}
+              onDragOver={onDragOver}
+              onDrop={onDrop(idx)}
+            >
+              <div
+                className="flex flex-col cursor-grab active:cursor-grabbing select-none"
+                draggable
+                onDragStart={onDragStart(idx)}
+                title="Drag to reorder"
+                data-testid={`hm-drag-${idx}`}
+              >
                 <button onClick={() => move(idx, -1)} disabled={idx === 0} className="p-0.5 disabled:opacity-30 hover:text-primary" data-testid={`hm-up-${idx}`}><ArrowUp className="h-3.5 w-3.5" /></button>
                 <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
                 <button onClick={() => move(idx, +1)} disabled={idx === items.length - 1} className="p-0.5 disabled:opacity-30 hover:text-primary" data-testid={`hm-dn-${idx}`}><ArrowDown className="h-3.5 w-3.5" /></button>

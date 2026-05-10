@@ -51,6 +51,24 @@ export default function AdminBottomNavEditor() {
     updateRole(role, items);
   };
 
+  // Drag-and-drop reorder — HTML5 native API. Drag handle is the GripVertical icon.
+  const [dragState, setDragState] = useState(null); // {role, idx} | null
+  const onDragStart = (role, idx) => (e) => {
+    setDragState({ role, idx });
+    e.dataTransfer.effectAllowed = "move";
+    try { e.dataTransfer.setData("text/plain", `${role}:${idx}`); } catch {}
+  };
+  const onDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; };
+  const onDrop = (role, idx) => (e) => {
+    e.preventDefault();
+    if (!dragState || dragState.role !== role || dragState.idx === idx) { setDragState(null); return; }
+    const items = [...config[role]];
+    const [moved] = items.splice(dragState.idx, 1);
+    items.splice(idx, 0, moved);
+    updateRole(role, items);
+    setDragState(null);
+  };
+
   const updateItem = (role, idx, patch) => {
     const items = config[role].map((it, i) => i === idx ? { ...it, ...patch } : it);
     updateRole(role, items);
@@ -161,8 +179,20 @@ export default function AdminBottomNavEditor() {
           </div>
           <ul className="divide-y divide-border">
             {(config[key] || []).map((it, idx) => (
-              <li key={it.id + idx} className="p-3 flex items-center gap-2 sm:gap-3 flex-wrap" data-testid={`nav-row-${key}-${idx}`}>
-                <div className="flex flex-col">
+              <li
+                key={it.id + idx}
+                className={`p-3 flex items-center gap-2 sm:gap-3 flex-wrap transition-all ${dragState?.role === key && dragState?.idx === idx ? "opacity-40" : ""}`}
+                data-testid={`nav-row-${key}-${idx}`}
+                onDragOver={onDragOver}
+                onDrop={onDrop(key, idx)}
+              >
+                <div
+                  className="flex flex-col cursor-grab active:cursor-grabbing select-none"
+                  draggable
+                  onDragStart={onDragStart(key, idx)}
+                  title="Drag to reorder"
+                  data-testid={`nav-drag-${key}-${idx}`}
+                >
                   <button onClick={() => moveItem(key, idx, -1)} disabled={idx === 0} className="p-0.5 disabled:opacity-30 hover:text-primary" data-testid={`nav-up-${key}-${idx}`}><ArrowUp className="h-3.5 w-3.5" /></button>
                   <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
                   <button onClick={() => moveItem(key, idx, +1)} disabled={idx === config[key].length - 1} className="p-0.5 disabled:opacity-30 hover:text-primary" data-testid={`nav-dn-${key}-${idx}`}><ArrowDown className="h-3.5 w-3.5" /></button>
