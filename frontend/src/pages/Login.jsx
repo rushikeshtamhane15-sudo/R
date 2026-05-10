@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../lib/api";
@@ -40,18 +40,52 @@ export default function Login() {
 
   // Decide post-login destination — `?next=/path` wins, else session-stashed
   // pending action (cart→checkout / buy-now), else cart-aware default
-  // (if cart has items → /restaurant), else role-based default.
+  // (if cart has items → /restaurant/checkout), else role-based default.
   const computeNext = (u) => {
+    // Detect "cart has items" once and reuse for the entire decision.
+    let hasCartItems = false;
+    try {
+      const cartRaw = localStorage.getItem("efc_restaurant_cart_v1");
+      if (cartRaw) {
+        const cart = JSON.parse(cartRaw) || {};
+        hasCartItems = Object.values(cart).some((l) => (Number(l?.qty) || 0) > 0);
+      }
+    } catch {}
+
     const raw = searchParams.get("next");
     // Skip self-referential nexts ("/" and "/login*") — they would loop.
     const validNext = raw && raw.startsWith("/") && !raw.startsWith("//") &&
       raw !== "/" && !raw.startsWith("/login");
-    if (validNext) return raw;
-    // Fallback: session-stashed pending action set by Restaurant.jsx
+
+    // Role-based overrides — admin/staff/rider should always land on their
+    // role home unless they were specifically deep-linking into a role-scoped
+    // page (e.g. /admin/users → keep, /restaurant → upgrade to /admin).
+    const role = u?.role;
+    const isAdminScoped = (p) => p && (p.startsWith("/admin") || p.startsWith("/boy") || p.startsWith("/rider"));
+    if (validNext && role === "admin" && !isAdminScoped(raw)) return "/admin";
+    if (validNext && role === "staff" && !raw.startsWith("/admin")) return "/admin/deliveries-today";
+    if (validNext && role === "rider" && !raw.startsWith("/rider")) return "/rider";
+
+    if (validNext) {
+      // Upgrade: user was on /restaurant (just menu) but has items in cart —
+      // they almost certainly want to finish ordering, not browse again.
+      if ((raw === "/restaurant" || raw.startsWith("/restaurant?")) && hasCartItems) {
+        return "/restaurant/checkout";
+      }
+      return raw;
+    }
+    // Fallback: session-stashed pending action set by Restaurant.jsx / Header
     try {
       const pending = sessionStorage.getItem("efc_pending_action_v1");
       if (pending && pending.startsWith("/") && !pending.startsWith("//") && pending !== "/" && !pending.startsWith("/login")) {
         sessionStorage.removeItem("efc_pending_action_v1");
+        // Same role-override rules as the `?next=` branch above
+        if (role === "admin" && !isAdminScoped(pending)) return "/admin";
+        if (role === "staff" && !pending.startsWith("/admin")) return "/admin/deliveries-today";
+        if (role === "rider" && !pending.startsWith("/rider")) return "/rider";
+        if ((pending === "/restaurant" || pending.startsWith("/restaurant?")) && hasCartItems) {
+          return "/restaurant/checkout";
+        }
         return pending;
       }
     } catch {}
@@ -60,22 +94,19 @@ export default function Login() {
     if (u.role === "staff") return "/admin/deliveries-today";
     if (u.role === "delivery_boy") return "/boy";
     if (u.role === "rider") return "/rider";
-    // Cart-aware fallback for regular subscribers — if they have items in
-    // their restaurant cart, they were almost certainly mid-ordering when
-    // they hit the login wall. Send them to /restaurant/checkout to finish.
-    try {
-      const cartRaw = localStorage.getItem("efc_restaurant_cart_v1");
-      if (cartRaw) {
-        const cart = JSON.parse(cartRaw) || {};
-        const totalQty = Object.values(cart).reduce((s, l) => s + (Number(l?.qty) || 0), 0);
-        if (totalQty > 0) return "/restaurant/checkout";
-      }
-    } catch {}
+    // Cart-aware fallback for regular subscribers — items in cart → checkout
+    if (hasCartItems) return "/restaurant/checkout";
     return "/restaurant";
   };
 
   // If already logged in, bounce — honour ?next= when present.
+  // Ref guard — set to true when verifyOtp / handleGoogle navigates here.
+  // Prevents the useEffect below from firing a second (stale) navigate that
+  // would overwrite the carefully-computed destination from verifyOtp.
+  const verifiedHereRef = useRef(false);
+
   useEffect(() => {
+    if (verifiedHereRef.current) return; // verifyOtp already handled it
     if (user) {
       navigate(computeNext(user), { replace: true });
     }
