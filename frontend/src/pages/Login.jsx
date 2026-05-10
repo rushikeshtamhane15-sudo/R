@@ -133,6 +133,7 @@ export default function Login() {
 
   const handleGoogle = () => {
     // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
+    verifiedHereRef.current = true; // prevent useEffect re-fire before window.location swap
     const next = searchParams.get("next");
     const dest = (next && next.startsWith("/") && !next.startsWith("//")) ? next : "/dashboard";
     const redirectUrl = window.location.origin + dest;
@@ -170,9 +171,14 @@ export default function Login() {
         otp: otp.trim(),
         name: name.trim() || undefined,
       });
+      // CRITICAL — mark BEFORE setUser so the useEffect ([user] dep)
+      // re-fire bails out, and capture dest BEFORE the state update
+      // batches a re-render.
+      verifiedHereRef.current = true;
+      const dest = computeNext(r.data.user);
       setUser(r.data.user);
       toast.success("Welcome to efoodcare");
-      navigate(computeNext(r.data.user), { replace: true, state: { user: r.data.user } });
+      navigate(dest, { replace: true, state: { user: r.data.user } });
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Verification failed");
     } finally {

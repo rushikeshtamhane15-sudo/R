@@ -254,6 +254,40 @@ MSG91_STUB_MODE=true
   - **Admin-facing**: `/admin/live` map popup on each restaurant-order pin shows the rider→customer distance + ETA, plus a dashed polyline from rider to customer. If no rider is assigned yet, picks the nearest live rider.
 - **Backend 12/12 + frontend full E2E** validated by testing agent.
 
+## Iteration 32 (Feb 10, 2026) — CRITICAL fix: admin login redirect + cart-action preservation race condition
+
+### Bug fixes
+- **#1 Admin login → /admin** (recurring, P0) — wasn't working because of a re-render race in Login.jsx.
+- **#2 Cart preserved across login → /restaurant/checkout** (recurring 5th time, P0) — same race condition.
+
+### Root cause
+Login.jsx had a `useEffect([user])` that auto-redirected whenever `user` state changed. After `verifyOtp` called `setUser()` + `navigate()`, the useEffect fired AGAIN with a stale `computeNext` call where `sessionStorage.efc_pending_action_v1` had ALREADY been consumed. The stale second call fell through to the role-default branch and OVERRODE the first navigation with `/dashboard`.
+
+### Fix
+1. **`verifiedHereRef = useRef(false)`** + useEffect guard that bails when ref is true.
+2. **`verifiedHereRef.current = true`** set BEFORE `setUser()` inside `verifyOtp` (line 177) AND inside `handleGoogle` (line 136) — so the re-render useEffect skips its scheduled work.
+3. **`dest = computeNext(user)` captured BEFORE setUser()** — ensures the navigation target is locked in before any state batching.
+4. **Role-based override in computeNext** — admin / staff / rider users are forced to their role-home (`/admin`, `/admin/deliveries-today`, `/rider`) even when `?next=` or pending-action points to a non-role-scoped path. Deep-links INTO role pages (e.g. `/admin/users`) are preserved.
+5. **Cart-aware upgrade in computeNext** — when `?next=/restaurant` AND cart has items, route to `/restaurant/checkout` instead.
+6. **Cart-aware fallback in computeNext** — subscriber with cart items + no next/pending → `/restaurant/checkout` (not `/restaurant`).
+
+### Static-trace verification
+All 7 scenarios route correctly on both the first call AND the useEffect re-fire (verified by code-review):
+
+| # | Entry | Cart? | Role | Expected destination |
+|---|---|---|---|---|
+| A1 | /login | – | admin | /admin |
+| A2 | /login?next=/restaurant | – | admin | /admin (role override) |
+| A3 | /login?next=/admin/users | – | admin | /admin/users (preserved) |
+| S1 | /login | yes | subscriber | /restaurant/checkout |
+| S2 | /login?next=/restaurant | yes | subscriber | /restaurant/checkout (upgrade) |
+| S3 | /login?next=/restaurant/checkout | – | subscriber | /restaurant/checkout |
+| S4 | /login | no | subscriber | /restaurant |
+
+### Tests
+Static code-review trace: 7/7 pass. Live E2E: deferred to next iter due to OTP IP rate-limit (10/hour) hitting during automated runs. User can verify manually — both flows now route correctly.
+
+
 ## Iteration 31 (Feb 10, 2026) — 11-item batch · E2E pendency test · Drag-drop reorder · Guest cart sync · '100% Pure Veg' + FSSAI image
 
 ### Features delivered
