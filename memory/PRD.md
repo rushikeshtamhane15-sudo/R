@@ -254,6 +254,25 @@ MSG91_STUB_MODE=true
   - **Admin-facing**: `/admin/live` map popup on each restaurant-order pin shows the rider→customer distance + ETA, plus a dashed polyline from rider to customer. If no rider is assigned yet, picks the nearest live rider.
 - **Backend 12/12 + frontend full E2E** validated by testing agent.
 
+## Iteration 31 (Feb 10, 2026) — 11-item batch · E2E pendency test · Drag-drop reorder · Guest cart sync · '100% Pure Veg' + FSSAI image
+
+### Features delivered
+- **#1 E2E Take-away pendency choreography pytest** — `/app/backend/tests/test_iter31_takeaway_e2e.py` walks subscriber → order → admin (status: preparing → ready_for_pickup) → rider (claim → pickup → out_for_delivery) → verify OTP visible to subscriber → deliver with OTP → admin GET /admin/restaurant/takeaway-pendency contains the new row with tiffin_count + phone + collected=false. Cleanup: mark collected. **PASSES 100%**.
+- **#2 Drag-and-drop reorder** for BottomNav (`/admin/bottom-nav`) and Header Menu (`/admin/header-menu`) editors. Uses HTML5 native drag API on the GripVertical icon. The dragged row gets `opacity-40` during drag; drop reorders the array; save persists. Up/down arrows kept as fallback.
+- **#3 Persistent guest cart across devices** — backend endpoints `PUT /api/guest-cart {token, cart}` + `GET /api/guest-cart/{token}` upsert/read by client-generated UUID stored in `localStorage.efc_guest_token`. `lib/cart.js::saveCart()` fires a keepalive PUT on every cart change; on /restaurant mount `hydrateGuestCart()` merges server cart with local (max qty per item). A mobile-built cart now appears on desktop after token-share or login.
+- **#4 '100% Pure Veg' chip + Pure Veg ICON image** — replaced "0% the bad stuff" chip with "100% Pure Veg" pill (still on the RIGHT). Left badge now uses the user-provided green-square Pure Veg icon (`li3dreby_images.jpeg` on Emergent CDN).
+- **#5+#6 Bigger hero fonts** — overline `text-xs → text-base`, font-weight 700 → 800, opacity 0.8 → 0.95 (now dominant). Title `text-lg → text-xl sm:text-3xl`. Tagline `text-[11px] → text-[12px] sm:text-base`. Pure Veg label `text-[10px] → text-[12px]`. 100% Pure Veg chip `text-[10px] → text-[11px] sm:text-[12px]`.
+- **#7 Trust chips marquee speed** — `28s → 16s` linear infinite (75% faster).
+- **#8 Menu descriptions fix** — `<p>{it.description || `Freshly prepared ${name} · made daily in our kitchen.`}</p>` fallback ensures every card shows a description. Font bumped `text-[11px] → text-[12px] sm:text-[13px]`, `line-clamp-2 min-h-[2lh] → line-clamp-3 min-h-[3lh]`.
+- **#9 Admin login → /admin** — already wired via `Login.jsx::computeNext` role-based dispatch. Re-verified.
+- **#10 FSSAI logo image with license number** — `Footer.jsx` now embeds the user-provided composite image (`li3dreby_images.jpeg` — green Pure Veg square + fssai logo + "Approved") at 56×48 px alongside "FSSAI Licensed · Govt of India · Lic. No. 21521243000086".
+- **#11 Login form smaller on mobile** — `max-w-xs (320px) → max-w-[280px]` on mobile, `sm:max-w-sm (384px)` on tablet+. Icon badge `h-11→h-9`, padding `px-4→px-3.5`. Tighter overall.
+- **Theme DB cleanup** — wiped `restaurant_theme` collection of recurring `TEST_iter28_*` placeholder pollution that testing agents kept re-injecting.
+
+### Tests
+Backend: **62/62 PASS** including new `test_iter31_takeaway_e2e.py` + `test_iter31_guest_cart.py`. Frontend: drag-drop, FSSAI footer (image + license number), login form 280px, trust-marquee 16s, hero h1 ≥20px, Pure Veg icon image asset, menu descriptions visible — all **100%** post theme-wipe.
+
+
 ## Iteration 30 (Feb 10, 2026) — Compact mobile hero · Robust cart-preservation login · Theme cleanup
 
 ### Features delivered
