@@ -254,6 +254,39 @@ MSG91_STUB_MODE=true
   - **Admin-facing**: `/admin/live` map popup on each restaurant-order pin shows the rider→customer distance + ETA, plus a dashed polyline from rider to customer. If no rider is assigned yet, picks the nearest live rider.
 - **Backend 12/12 + frontend full E2E** validated by testing agent.
 
+## Iteration 28 (Feb 10, 2026) — 14-item batch · Top-container CMS · Take-away tiffin pendency · Raw materials stock tracking
+
+### Features delivered
+- **#1 + #9 Top-container & full-page text editing CMS** — `RestaurantTheme` Pydantic model expanded with 14 new Optional[str] fields (pure_veg_label, bad_stuff_chip_text, hero_delivery_badge, hero_overline, item_promise_label, search_placeholder, cart_login_hint, cart_free_delivery_label, cart_delivery_fee_template, checkout_btn_label, checkout_login_btn_label, no_items_label, reorder_overline, reorder_cta_label). `AdminRestaurantTheme.jsx` rebuilt as 4-section editor with all fields exposed. Frontend `/restaurant` consumes these via `theme?.field || default`.
+- **#2 Pure Veg badge LEFT corner** — green-bordered FSSAI-style pill, label driven by `theme.pure_veg_label`.
+- **#3 Trust chips horizontal scroll** — kept from iter27 (8 chips below hero).
+- **#4 Prominent 90-min banner** — yellow rounded pill with stopwatch icon below the badges row, `data-testid='ninety-min-banner'`, label from `theme.hero_delivery_badge`.
+- **#5 Login form resize** — max-w-lg → max-w-sm (~512px → ~384px). Tighter padding.
+- **#6 Direct login → /restaurant** — already fixed in iter27, retained.
+- **#7 Cart action preserved across login** — `Restaurant.jsx` stashes the intended path in `sessionStorage('efc_pending_action_v1')` before navigating to /login. `Login.jsx` `computeNext()` consumes & clears it as a fallback after the standard `?next=` param.
+- **#8 Take-away tiffin pendency tracking** — new `is_returnable_tiffin` flag per menu item (default True for "Tiffin Specials"). On rider deliver, `db.restaurant_tiffin_pendency` row created with name/phone/address/tiffin_count and `users.tiffin_balance` incremented. New admin page `/admin/restaurant-takeaway` lists pending tiffins with Call/Mark-Collected actions.
+- **#10 Visibility toggles removed** from theme editor (chips/banner now always shown).
+- **#11 Hamburger menu — Contact for Franchisee** link added to `Header.jsx` info[] (routes to `/contact?subject=franchise`).
+- **#12 Per-item 90-min badge** — every menu card shows a tiny `⏱ 90-min fresh` badge under the dish name (`data-testid='item-90min-{itemId}'`, label from `theme.item_promise_label`).
+- **#13 FSSAI mark in footer** — green-border pill with `Lic. No. 21521243000086` (`data-testid='fssai-license-no'`) on every page.
+- **#14 Raw materials stock tracking** —
+   * New schema: `RawMaterialItem.current_stock`, `last_stock_topup_at`, `low_stock_threshold_pct` (default 10).
+   * `_compute_raw_materials_fresh()` deducts `(days_since_topup × day_qty)` from `current_stock` to get `stock_remaining` and `pct_remaining = stock_remaining / monthly_need × 100`.
+   * `low_stock_alerts[]` populated when `pct_remaining < threshold_pct` per row.
+   * Auto-PO with `po_number=AUTO-{YYYY-MM-DD}` inserted into `db.purchase_orders` (idempotent per UTC day).
+   * New endpoint `POST /admin/raw-materials/stock-topup` (admin/staff) with `{key, qty}` resets stock + clock.
+   * Frontend: `AdminRawMaterials.jsx` shows red flashing low-stock alert at top + new "Stock" column with `StockTopupCell` (qty + Top up button per row).
+
+### New endpoints
+- `GET /api/admin/restaurant/takeaway-pendency` (admin/staff)
+- `POST /api/admin/restaurant/takeaway-pendency/collect` (admin/staff)
+- `POST /api/admin/raw-materials/stock-topup` (admin/staff)
+
+### Pre-existing bug fixes
+- `Login.jsx` `KeyRound` was used but not imported (caught & fixed by iter27 testing agent).
+
+### Tests
+- iter28 backend: **20/20 PASS** (after critical Pydantic model expansion fix in iter29 retest); regression **29/29** across iter12/25/27.
 ## Iteration 27 (Feb 10, 2026) — Trust chips · Bottom-nav CMS · Custom alert sound · OTP gating · Login redirect fix
 
 ### Features delivered
@@ -276,6 +309,8 @@ Backend: 14/14 new (test_iter27_app_cms.py) + 110/114 regression (4 timeouts unr
 
 
 
+## Iteration 26 (Feb 10, 2026) — Pay-button ETA · splash session-gating · BottomNav fix · OSRM road-snap
+
 ### Features delivered
 - **ETA chip on /restaurant/checkout Pay button** — kitchen→customer-pin distance + ETA shown above sticky pay bar (`data-testid='checkout-eta'`); when no pin yet, shows amber "Drop a pin above to see live ETA" prompt (`data-testid='checkout-eta-prompt'`). Desktop-only inline `~Nm` badge inside Pay button (`data-testid='pay-btn-eta'`). Sources kitchen coords from existing `db.delivery_settings.dispatch_lat/dispatch_lng` (admin-editable in `/admin/delivery → settings`); falls back to Pune (18.5204, 73.8567). Adds 15-min kitchen prep buffer to driving ETA.
 - **Backend** — `/api/restaurant/menu` now returns `kitchen_lat` + `kitchen_lng` numerics so the frontend doesn't need a separate config call.
@@ -283,10 +318,11 @@ Backend: 14/14 new (test_iter27_app_cms.py) + 110/114 regression (4 timeouts unr
 - **BottomNav overlap fix (P1, recurring)** — root-cause was `<main className='flex-1'>` in `App.js` not accounting for the fixed BottomNav. Added `pb-16 md:pb-0` globally so every page gets 64px clearance on mobile. No per-page padding workarounds needed anymore.
 - **OSRM road-snapped ETA** — `/lib/geo.js` adds `osrmRoute(from, to)` calling `https://router.project-osrm.org/route/v1/driving/...` with a 30-s in-memory cache, plus rush-hour multiplier (1.45× rush, 1.05× otherwise) on top of OSRM's free-flow duration. `OrderTrack.jsx` rider→customer chip now prefers OSRM (`'· road'` suffix shown) and falls back to haversine when OSRM rate-limits.
 - **Backend regression** — 41/41 tests pass (test_iter12+13+14+23+24+25+26). New tests in `test_iter26_menu_geo.py`.
+
+## Backlog
 - P1: Per-IP rate limit on `/auth/send-otp` (SMS cost protection)
 - P1: Admin menu editor UI (backend ready)
 - P1: Admin wallet/subscription overrides (refunds, manual extensions)
-- P1: Gate `delivery_otp` in `/restaurant/orders/{id}/track` to only `ready_for_pickup`/`out_for_delivery` statuses (flagged in iter25 review)
 - P2: Live WhatsApp Business API integration (currently stub)
 - P2: Tele-calling integration (AI voice for expiry reminders)
 - P2: Self-hosted OSRM or Mapbox Directions (production reliability)

@@ -2076,10 +2076,9 @@ async def topup_raw_materials_stock(payload: RawMaterialStockTopup, user: User =
     found = False
     for it in items:
         if it["key"] == payload.key:
-            existing = float(it.get("current_stock") or 0)
-            it["current_stock"] = round(existing + payload.qty, 4) if it.get("last_stock_topup_at") else round(payload.qty, 4)
-            # Each topup resets the clock — daily deduction starts from now
-            it["current_stock"] = round(payload.qty, 4)  # admin enters total fresh stock
+            # Each topup resets the clock — admin enters total fresh stock and
+            # daily deduction starts from now.
+            it["current_stock"] = round(payload.qty, 4)
             it["last_stock_topup_at"] = iso(now_utc())
             found = True
             break
