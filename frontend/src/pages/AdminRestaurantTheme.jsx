@@ -54,9 +54,13 @@ const SECTIONS = [
 ];
 
 const COLORS = [
-  { key: "hero_bg_color",   label: "Hero background" },
-  { key: "hero_text_color", label: "Hero text" },
-  { key: "accent_color",    label: "Accent / button" },
+  { key: "hero_bg_color",            label: "Hero background" },
+  { key: "hero_text_color",          label: "Hero text" },
+  { key: "accent_color",             label: "Accent / button" },
+  { key: "ninety_min_bg_color",      label: "90-min banner background" },
+  { key: "ninety_min_text_color",    label: "90-min banner text" },
+  { key: "item_promise_bg_color",    label: "Per-item 90-min badge background" },
+  { key: "item_promise_text_color",  label: "Per-item 90-min badge text" },
 ];
 
 const ALL_TEXT_KEYS = SECTIONS.flatMap((s) => s.fields.map((f) => f.key));

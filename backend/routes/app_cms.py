@@ -177,3 +177,210 @@ async def collect_takeaway(payload: CollectTakeaway, user: server.User = Depends
             {"$inc": {"tiffin_balance": -n}},
         )
     return {"ok": True}
+
+
+class ManualTakeaway(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+    phone: str = Field(..., min_length=4, max_length=20)
+    address: Optional[str] = Field("", max_length=400)
+    tiffin_count: int = Field(..., ge=1, le=20)
+    notes: Optional[str] = Field("", max_length=240)
+
+
+# ---------------------------------------------------------------------------
+# Hamburger header menu — admin-editable list of links shown in the drawer.
+# Stored at db.app_config{_id:'header_menu'} alongside bottom_nav.
+# ---------------------------------------------------------------------------
+DEFAULT_HEADER_MENU: list[dict] = [
+    {"id": "contact",     "label": "Contact",                "to": "/contact",                  "visible": True},
+    {"id": "franchise",   "label": "Contact for Franchisee", "to": "/contact?subject=franchise", "visible": True},
+    {"id": "privacy",     "label": "Privacy Policy",         "to": "/privacy",                  "visible": True},
+    {"id": "refund",      "label": "Refund Policy",          "to": "/refund",                   "visible": True},
+]
+
+
+class HeaderMenuItem(BaseModel):
+    id: str
+    label: str
+    to: str
+    visible: bool = True
+
+
+class HeaderMenuPatch(BaseModel):
+    items: List[HeaderMenuItem]
+
+
+@router.get("/header-menu")
+async def get_header_menu():
+    doc = await server.db.app_config.find_one({"_id": "header_menu"}, {"_id": 0}) or {}
+    return {"items": doc.get("items") or DEFAULT_HEADER_MENU}
+
+
+@router.put("/admin/header-menu")
+async def put_header_menu(payload: HeaderMenuPatch, user: server.User = Depends(server.get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(403, "Admin only")
+    if len(payload.items) < 1 or len(payload.items) > 12:
+        raise HTTPException(400, "1–12 items required")
+    items = [it.model_dump() for it in payload.items]
+    await server.db.app_config.update_one(
+        {"_id": "header_menu"},
+        {"$set": {"items": items, "updated_at": server.iso(server.now_utc()), "updated_by": user.user_id},
+         "$setOnInsert": {"_id": "header_menu"}},
+        upsert=True,
+    )
+    return {"items": items}
+
+
+@router.post("/admin/header-menu/reset")
+async def reset_header_menu(user: server.User = Depends(server.get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(403, "Admin only")
+    await server.db.app_config.delete_one({"_id": "header_menu"})
+    return {"items": DEFAULT_HEADER_MENU}
+
+
+# ---------------------------------------------------------------------------
+# Profit & Loss tracker — daily P&L computed from revenues - expenses.
+# Stored expenses at db.expenses{kind, amount, monthly}, revenues from
+# subscriptions + restaurant orders.
+# ---------------------------------------------------------------------------
+class ExpenseConfig(BaseModel):
+    salary: float = Field(0, ge=0)
+    rent: float = Field(0, ge=0)
+    electricity: float = Field(0, ge=0)
+    loan_emi: float = Field(0, ge=0)
+    other: float = Field(0, ge=0)
+
+
+@router.get("/admin/pnl/expenses")
+async def get_expenses(user: server.User = Depends(server.get_current_user)):
+    if user.role not in ("admin", "staff"):
+        raise HTTPException(403, "Admin or staff only")
+    doc = await server.db.app_config.find_one({"_id": "monthly_expenses"}, {"_id": 0}) or {}
+    return {
+        "salary": doc.get("salary", 0),
+        "rent": doc.get("rent", 0),
+        "electricity": doc.get("electricity", 0),
+        "loan_emi": doc.get("loan_emi", 0),
+        "other": doc.get("other", 0),
+    }
+
+
+@router.put("/admin/pnl/expenses")
+async def put_expenses(payload: ExpenseConfig, user: server.User = Depends(server.get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(403, "Admin only")
+    await server.db.app_config.update_one(
+        {"_id": "monthly_expenses"},
+        {"$set": {**payload.model_dump(), "updated_at": server.iso(server.now_utc()), "updated_by": user.user_id},
+         "$setOnInsert": {"_id": "monthly_expenses"}},
+        upsert=True,
+    )
+    return {"ok": True}
+
+
+@router.get("/admin/pnl/daily")
+async def get_pnl_daily(days: int = 30, user: server.User = Depends(server.get_current_user)):
+    """Per-day P&L for the last N days. Each row has {date, sub_revenue,
+    rest_revenue, raw_material_cost, fixed_cost, total_revenue, total_expense,
+    net}."""
+    if user.role not in ("admin", "staff"):
+        raise HTTPException(403, "Admin or staff only")
+    days = max(1, min(int(days), 90))
+
+    from datetime import datetime, timedelta, timezone
+    today = server.now_utc().date()
+    start = today - timedelta(days=days - 1)
+
+    # Monthly fixed expenses → daily fixed cost (÷ 30)
+    exp = await server.db.app_config.find_one({"_id": "monthly_expenses"}, {"_id": 0}) or {}
+    monthly_fixed = float(exp.get("salary", 0)) + float(exp.get("rent", 0)) + float(exp.get("electricity", 0)) + float(exp.get("loan_emi", 0)) + float(exp.get("other", 0))
+    daily_fixed = round(monthly_fixed / 30.0, 2)
+
+    # Daily raw material cost — read from current persons & raw_materials
+    try:
+        rm = await server.get_raw_materials(user)  # type: ignore
+        daily_raw = float(rm.get("totals", {}).get("day_cost", 0))
+    except Exception:
+        daily_raw = 0.0
+
+    # Subscription revenue: sum payments {paid_at} in window
+    sub_rev_pipe = [
+        {"$match": {"paid_at": {"$ne": None}, "status": {"$in": ["paid", "completed"]}}},
+        {"$project": {"day": {"$substr": ["$paid_at", 0, 10]}, "amount": "$amount"}},
+        {"$match": {"day": {"$gte": start.isoformat(), "$lte": today.isoformat()}}},
+        {"$group": {"_id": "$day", "total": {"$sum": "$amount"}}},
+    ]
+    sub_rows = {r["_id"]: float(r.get("total") or 0) async for r in server.db.payments.aggregate(sub_rev_pipe)}
+
+    # Restaurant order revenue: sum of total when paid
+    rest_rev_pipe = [
+        {"$match": {"paid_at": {"$ne": None}, "status": {"$nin": ["cancelled", "rejected"]}}},
+        {"$project": {"day": {"$substr": ["$paid_at", 0, 10]}, "total": "$total"}},
+        {"$match": {"day": {"$gte": start.isoformat(), "$lte": today.isoformat()}}},
+        {"$group": {"_id": "$day", "total": {"$sum": "$total"}}},
+    ]
+    rest_rows = {r["_id"]: float(r.get("total") or 0) async for r in server.db.restaurant_orders.aggregate(rest_rev_pipe)}
+
+    rows = []
+    cum_net = 0.0
+    for i in range(days):
+        d = (start + timedelta(days=i)).isoformat()
+        sub = sub_rows.get(d, 0.0)
+        rest = rest_rows.get(d, 0.0)
+        rev = sub + rest
+        exp_total = daily_raw + daily_fixed
+        net = rev - exp_total
+        cum_net += net
+        rows.append({
+            "date": d,
+            "sub_revenue": round(sub, 2),
+            "rest_revenue": round(rest, 2),
+            "total_revenue": round(rev, 2),
+            "raw_material_cost": round(daily_raw, 2),
+            "fixed_cost": daily_fixed,
+            "total_expense": round(exp_total, 2),
+            "net": round(net, 2),
+        })
+
+    return {
+        "rows": rows,
+        "summary": {
+            "days": days,
+            "total_revenue": round(sum(r["total_revenue"] for r in rows), 2),
+            "total_expense": round(sum(r["total_expense"] for r in rows), 2),
+            "net": round(cum_net, 2),
+            "is_profit": cum_net >= 0,
+        },
+        "config": {
+            "monthly_fixed": monthly_fixed,
+            "daily_fixed": daily_fixed,
+            "daily_raw_material": round(daily_raw, 2),
+        },
+        "expenses": exp,
+        "computed_at": server.iso(server.now_utc()),
+    }
+async def add_manual_takeaway(payload: ManualTakeaway, user: server.User = Depends(server.get_current_user)):
+    """Walk-in / unknown user took a steel tiffin (no order in our system).
+    Admin captures their details so we can call them back."""
+    if user.role not in ("admin", "staff"):
+        raise HTTPException(403, "Admin or staff only")
+    import uuid
+    pid = f"rtp_manual_{uuid.uuid4().hex[:10]}"
+    doc = {
+        "pendency_id": pid,
+        "order_id": None,
+        "user_id": None,
+        "name": payload.name.strip(),
+        "phone": payload.phone.strip(),
+        "address": (payload.address or "").strip(),
+        "tiffin_count": payload.tiffin_count,
+        "delivered_at": server.iso(server.now_utc()),
+        "collected": False,
+        "kind": "manual",
+        "manual_notes": payload.notes or "",
+        "added_by": user.user_id,
+    }
+    await server.db.restaurant_tiffin_pendency.insert_one(doc)
+    return {"ok": True, "pendency_id": pid}

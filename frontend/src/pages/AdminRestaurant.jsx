@@ -93,6 +93,7 @@ export default function AdminRestaurant() {
           image_url: it.image_url || "",
           active: it.active !== false,
           sort_order: Number(it.sort_order) || (i + 1) * 10,
+          is_returnable_tiffin: it.is_returnable_tiffin === true,
         })),
       };
       const r = await api.put("/admin/restaurant/menu", payload);
@@ -235,6 +236,16 @@ export default function AdminRestaurant() {
                     <Input type="number" value={it.sort_order} onChange={(e) => update(idx, { sort_order: e.target.value })} data-testid={`menu-sort-${idx}`} />
                   </div>
                 </div>
+                <label className="flex items-center gap-2 mt-3 text-xs font-semibold cursor-pointer select-none" data-testid={`menu-returnable-label-${idx}`}>
+                  <input
+                    type="checkbox"
+                    checked={it.is_returnable_tiffin === true}
+                    onChange={(e) => update(idx, { is_returnable_tiffin: e.target.checked })}
+                    className="h-4 w-4 rounded border-border accent-primary"
+                    data-testid={`menu-returnable-${idx}`}
+                  />
+                  <span>🍱 Returnable steel tiffin · adds to take-away pendency</span>
+                </label>
               </div>
             </div>
           </article>

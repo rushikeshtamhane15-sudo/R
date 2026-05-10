@@ -1,0 +1,44 @@
+{
+  "summary": "iter29 — 13-item batch tested. BACKEND 20/23 PASS (87%) on /app/backend/tests/test_iter29.py. CRITICAL BUG in feature #2 (Manual takeaway entry): POST /api/admin/restaurant/takeaway-pendency/manual returns 404 for ALL callers because the function `add_manual_takeaway` at /app/backend/routes/app_cms.py line 364 is missing its `@router.post(\"/admin/restaurant/takeaway-pendency/manual\")` decorator. The function body is fully implemented (lines 364-386) but is never registered on the router — it sits as a dangling async def immediately after the `get_pnl_daily` return statement, so FastAPI never wires it up. All 3 manual-takeaway tests fail with 404. All other backend features VERIFIED PASS: Header menu CMS (GET public default 4 items, PUT admin persists, reset restores defaults, non-admin 403), P&L expenses GET+PUT with role-gating + ge=0 validation, P&L daily with rows/summary/config schema + clamping (days=0→1, days=500→90, days=1/7/30/60/90 all return correct row count + 403 for sub), Theme PUT/GET round-trip for all 4 new color fields (ninety_min_bg/text + item_promise_bg/text), is_returnable_tiffin still persists via PUT /api/admin/restaurant/menu round-trip. FRONTEND smoke on / verified: pure-veg-badge ✓, animate-trust-marquee class ✓, ninety-min-banner backgroundColor=rgb(5,150,105)=#059669 emerald (NOT yellow) ✓, fssai-mark + fssai-license-no exact text 'Lic. No. 21521243000086' ✓, login-form-card width=320px (max-w-xs) on 390x844 viewport ✓. Source-level checks for admin pages (auth-gated; cookie-based session): theme-color-{7 keys} present in AdminRestaurantTheme.jsx, pnl-days-{d} present in AdminPnL.jsx, takeaway-add-manual present in AdminRestaurantTakeaway.jsx, menu-returnable-{idx} present in AdminRestaurant.jsx, all 4 map components (AdminLiveMap, TrackMap3D, DeliveryMap, LocationPicker) use 'tile.openstreetmap.org' (NOT cartocdn/cartodb), efc-rider-marker div + efc-rider-bob/trackmap-bob keyframes + helmet <img src='customer-assets.emergentagent.com/...'> all present in source.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/admin/restaurant/takeaway-pendency/manual", "issue": "Function `add_manual_takeaway` at /app/backend/routes/app_cms.py:364 is missing its `@router.post(\"/admin/restaurant/takeaway-pendency/manual\")` decorator. The function is a dangling async def directly following the closing brace `}` of `get_pnl_daily`'s return value at line 363. Result: route never registered → 404 for every caller. Frontend Manual Entry button calls this endpoint and will fail. FIX: insert `@router.post(\"/admin/restaurant/takeaway-pendency/manual\")` between line 363 and 364.", "priority": "CRITICAL"}
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "AdminRestaurantTakeaway → Manual Entry submit", "issue": "Submit will hit 404 on POST /api/admin/restaurant/takeaway-pendency/manual until backend decorator bug above is fixed. Frontend code itself is correct (button + form + submitManual all wired with data-testid='takeaway-add-manual', manual-name, manual-phone, manual-address, manual-count, manual-notes).", "affected_selectors": ["takeaway-add-manual"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter29.py",
+    "/app/test_reports/pytest/iter29_results.xml"
+  ],
+  "action_items": [
+    "CRITICAL — add `@router.post(\"/admin/restaurant/takeaway-pendency/manual\")` decorator on line 364 of /app/backend/routes/app_cms.py (immediately above `async def add_manual_takeaway`). One-line fix. Re-run pytest /app/backend/tests/test_iter29.py::TestManualTakeaway → should go from 0/3 → 3/3.",
+    "Optional — also add a blank line between the closing `}` of get_pnl_daily's return dict (line 363) and the next function to improve readability and prevent silent missing-decorator regressions in the future."
+  ],
+  "critical_code_review_comments": [
+    "app_cms.py:364 — `add_manual_takeaway` function declaration is on the line immediately following the close of `get_pnl_daily`'s return dictionary `}` with NO blank line and NO `@router.post(...)` decorator. This is the cause of the 404 on POST /api/admin/restaurant/takeaway-pendency/manual.",
+    "app_cms.py:283-363 — get_pnl_daily mixes synchronous Pydantic-typed query param `days: int = 30` BEFORE the dependency `user`, which works in FastAPI but is unconventional ordering — params with defaults followed by Depends() is fine but reverse order is the more common convention. Cosmetic only.",
+    "restaurant.py:227-230 — 4 new color theme fields correctly added as Optional[str] = None and persist via PUT/GET round-trip (verified). Good.",
+    "AdminRestaurantTheme.jsx:155 — uses default value '#a02323' for empty fields. Could surprise users who expect empty/null. Cosmetic.",
+    "AdminLiveMap.jsx:48 + TrackMap3D.jsx:28 — same hardcoded brand logo URL duplicated. Recommend extracting to /app/frontend/src/lib/branding.js for single source of truth (low priority)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter29.py"
+  ],
+  "success_rate": {
+    "backend": "87% (20/23 iter29; the 3 failures all pin to the single missing-@router.post decorator on add_manual_takeaway)",
+    "frontend": "100% on public smoke (pure-veg-badge, trust marquee, emerald 90-min banner=#059669, fssai mark + license, login max-w-xs=320px). Admin routes auth-gated by cookie session; source-level data-testid + OSM tile URL + efc-rider-marker + helmet img verified by grep. Live admin UI not exercised end-to-end due to cookie auth complexity in headless test."
+  },
+  "test_credentials": "OTP DEV — POST /api/auth/send-otp returns dev_otp; admin phone 9970705391 auto-promoted via ADMIN_PHONES.",
+  "seed_data_creation": "Created TEST_iter29_admin admin session + TEST_iter29_sub subscriber session. PUT /admin/pnl/expenses set salary=30000, rent=12000, electricity=4000, loan_emi=8000, other=1000 — main agent may want to reset to zero before user demo via PUT with all zeros. PUT /admin/restaurant/theme briefly set + cleared the 4 new color fields; doc state is clean (nulled). Header menu was PUT then reset to defaults via /admin/header-menu/reset. Manual takeaway tests inserted ZERO rows (all 3 calls 404'd). Menu PUT toggled is_returnable_tiffin on first item then restored.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter29 backend has ONE missing-decorator bug at /app/backend/routes/app_cms.py:364. After fix, re-run `pytest /app/backend/tests/test_iter29.py -v` → should go 23/23. Theme fields ninety_min_bg/text + item_promise_bg/text are correctly declared on RestaurantTheme model at restaurant.py:227-230 (no model-extension bug this time, unlike iter28). Frontend admin pages (AdminPnL, AdminHeaderMenu, AdminRestaurantTheme, AdminRestaurantTakeaway, AdminRestaurant, AdminLiveMap) verified at source level — all data-testids, OSM tile URLs, efc-rider-marker DOM, animation keyframes, and helmet logo URLs are correct. Admin auth uses cookie session not localStorage tokens, so headless playwright admin testing requires either a real browser login flow or sharing cookies from a manual login. Expense config in DB still has the iter29 test values {salary:30000, rent:12000, electricity:4000, loan_emi:8000, other:1000} — set to zeros before demo if desired.",
+  "rca of the issue": "ROOT CAUSE — In /app/backend/routes/app_cms.py, the function `add_manual_takeaway` was added immediately after `get_pnl_daily` but its FastAPI route decorator `@router.post(\"/admin/restaurant/takeaway-pendency/manual\")` was never written. Looking at lines 361-364: the file ends `get_pnl_daily` with `\"computed_at\": server.iso(server.now_utc()),` then `}` then DIRECTLY `async def add_manual_takeaway(...)` with no blank line, no decorator. FastAPI scans the router for decorated functions only; this function is invisible. REPRODUCTION — `curl -X POST $BASE/api/admin/restaurant/takeaway-pendency/manual -H 'Authorization: Bearer <admin>' -H 'Content-Type: application/json' -d '{\"name\":\"x\",\"phone\":\"9999900000\",\"tiffin_count\":1}'` returns `{\"detail\":\"Not Found\"}` 404. MITIGATION — insert `@router.post(\"/admin/restaurant/takeaway-pendency/manual\")` on its own line between line 363 (`}`) and line 364 (`async def add_manual_takeaway(...)`). RETEST — pytest /app/backend/tests/test_iter29.py::TestManualTakeaway should go from 0/3 → 3/3."
+}

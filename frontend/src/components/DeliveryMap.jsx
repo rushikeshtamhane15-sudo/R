@@ -5,7 +5,7 @@ import "leaflet/dist/leaflet.css";
 import "./delivery-map.css";
 
 // CartoDB Voyager — clean, polished, free, no API key
-const TILE_URL = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const TILE_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> · CARTO';
 const KM = 1000;
 

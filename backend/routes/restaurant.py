@@ -224,6 +224,10 @@ class RestaurantTheme(BaseModel):
     hero_bg_color: Optional[str] = None
     hero_text_color: Optional[str] = None
     accent_color: Optional[str] = None
+    ninety_min_bg_color: Optional[str] = None  # default emerald (was yellow)
+    ninety_min_text_color: Optional[str] = None
+    item_promise_bg_color: Optional[str] = None
+    item_promise_text_color: Optional[str] = None
     # Visibility — kept for migration; admin UI no longer surfaces these
     show_zero_bad_stuff_chip: Optional[bool] = True
     show_delivery_promise: Optional[bool] = True

@@ -1,3 +1,26 @@
 .App {
     min-height: 100vh;
 }
+
+/* Trust-chips auto-scrolling marquee on /restaurant. The chip list is doubled
+   in JSX so the loop is seamless; we translate by -50% to reset to start. */
+@keyframes trust-marquee {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+}
+.animate-trust-marquee {
+    animation: trust-marquee 28s linear infinite;
+}
+.animate-trust-marquee:hover {
+    animation-play-state: paused;
+}
+
+/* Animated rider pin pulse on live tracking maps */
+@keyframes rider-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.55); }
+    70%  { box-shadow: 0 0 0 14px rgba(220, 38, 38, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+}
+.rider-pin-3d {
+    animation: rider-pulse 1.6s ease-out infinite;
+}

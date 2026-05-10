@@ -1,14 +1,19 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
-import { Phone, MapPin, RefreshCw, Package, CheckCircle2, Clock } from "lucide-react";
+import { Phone, MapPin, RefreshCw, Package, CheckCircle2, Clock, Plus, X } from "lucide-react";
 
 export default function AdminRestaurantTakeaway() {
   const [rows, setRows] = useState([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("pending"); // pending | collected | all
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({ name: "", phone: "", address: "", tiffin_count: 1, notes: "" });
+  const [adding, setAdding] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -31,6 +36,26 @@ export default function AdminRestaurantTakeaway() {
     } catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
   };
 
+  const submitManual = async () => {
+    if (!form.name.trim() || !form.phone.trim()) return toast.error("Name and phone are required");
+    if (!form.tiffin_count || form.tiffin_count < 1) return toast.error("Tiffin count must be at least 1");
+    setAdding(true);
+    try {
+      await api.post("/admin/restaurant/takeaway-pendency/manual", {
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        address: form.address.trim(),
+        tiffin_count: Number(form.tiffin_count),
+        notes: form.notes.trim(),
+      });
+      toast.success("Walk-in pendency added");
+      setForm({ name: "", phone: "", address: "", tiffin_count: 1, notes: "" });
+      setShowAdd(false);
+      load();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Add failed"); }
+    finally { setAdding(false); }
+  };
+
   return (
     <div className="space-y-5" data-testid="admin-takeaway-pendency">
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -40,10 +65,51 @@ export default function AdminRestaurantTakeaway() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">Customers who got returnable steel tiffins via /restaurant orders. Call them to schedule pickup.</p>
         </div>
-        <Button variant="outline" onClick={load} className="rounded-full" data-testid="takeaway-refresh">
-          <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? "animate-spin" : ""}`} /> Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={load} className="rounded-full" data-testid="takeaway-refresh">
+            <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? "animate-spin" : ""}`} /> Refresh
+          </Button>
+          <Button onClick={() => setShowAdd((s) => !s)} className="rounded-full bg-primary hover:bg-primary/90" data-testid="takeaway-add-manual">
+            {showAdd ? <X className="h-4 w-4 mr-1.5" /> : <Plus className="h-4 w-4 mr-1.5" />}
+            {showAdd ? "Cancel" : "Manual entry"}
+          </Button>
+        </div>
       </div>
+
+      {/* Manual walk-in entry — for unknown customer who took a steel tiffin */}
+      {showAdd && (
+        <section className="rounded-2xl border border-border bg-card p-5 space-y-3" data-testid="takeaway-manual-form">
+          <p className="font-display font-extrabold flex items-center gap-2"><Plus className="h-4 w-4 text-primary" /> Walk-in tiffin pendency</p>
+          <p className="text-xs text-muted-foreground">Capture an unknown customer's details so the kitchen can call them back to collect the steel tiffin.</p>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <label>
+              <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Name *</span>
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Customer name" className="mt-1" data-testid="manual-name" />
+            </label>
+            <label>
+              <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Phone *</span>
+              <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="9XXXXXXXXX" className="mt-1" data-testid="manual-phone" />
+            </label>
+            <label className="sm:col-span-2">
+              <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Address</span>
+              <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Optional · landmark / area" className="mt-1" data-testid="manual-address" />
+            </label>
+            <label>
+              <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Tiffin count *</span>
+              <Input type="number" min={1} max={20} value={form.tiffin_count} onChange={(e) => setForm({ ...form, tiffin_count: e.target.value })} className="mt-1" data-testid="manual-count" />
+            </label>
+            <label className="sm:col-span-2">
+              <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Notes</span>
+              <Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Optional · what dish, expected return date, etc." className="mt-1" data-testid="manual-notes" />
+            </label>
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={submitManual} disabled={adding} className="rounded-full bg-emerald-600 hover:bg-emerald-700" data-testid="manual-submit">
+              {adding ? "Adding…" : "Add walk-in pendency"}
+            </Button>
+          </div>
+        </section>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <div className="rounded-2xl border border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-900/50 p-4" data-testid="stat-pending">

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -6,13 +6,26 @@ import { Button } from "./ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "./ui/sheet";
 import WalletPill from "./WalletPill";
 import { BRAND_LOGO_URL } from "../lib/brand";
+import { api } from "../lib/api";
 import { LogOut, Menu, X, Wallet } from "lucide-react";
+
+const DEFAULT_INFO = [
+  { id: "contact",    label: "Contact",                to: "/contact",                  visible: true },
+  { id: "franchise",  label: "Contact for Franchisee", to: "/contact?subject=franchise", visible: true },
+  { id: "privacy",    label: "Privacy Policy",         to: "/privacy",                  visible: true },
+  { id: "refund",     label: "Refund Policy",          to: "/refund",                   visible: true },
+];
 
 export default function Header() {
   const { user, logout } = useAuth();
   const { theme } = useTheme();
   const location = useLocation();
   const [open, setOpen] = useState(false);
+  const [cmsInfo, setCmsInfo] = useState(null);
+
+  useEffect(() => {
+    api.get("/header-menu").then((r) => setCmsInfo(r.data?.items || null)).catch(() => {});
+  }, []);
 
   // Riders get their own bottom-nav-only chrome — no header / hamburger.
   if (user?.role === "rider") return null;
@@ -21,16 +34,7 @@ export default function Header() {
   const brandTagline = theme?.brand_tagline || "ghar se achha khana";
 
   const primary = [];
-  const info = [
-    { to: "/contact", label: "Contact" },
-    { to: "/contact?subject=franchise", label: "Contact for Franchisee" },
-    { to: "/privacy", label: "Privacy Policy" },
-    { to: "/refund", label: "Refund Policy" },
-  ];
-  // Surface "Become a rider" CTA in info section for non-rider, non-admin users
-  if (!user || (user.role !== "rider" && user.role !== "admin" && user.role !== "staff")) {
-    info.unshift({ to: "/become-a-rider", label: "Become a rider" });
-  }
+  const info = (cmsInfo || DEFAULT_INFO).filter((it) => it.visible !== false);
   if (user) {
     primary.push({ to: "/dashboard", label: "Dashboard" });
     primary.push({ to: "/plans", label: "Plans" });

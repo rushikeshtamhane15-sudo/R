@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { loadCart, saveCart, setQty, bumpQty, cartCount, priceCart } from "../lib/cart";
 import { useAuth } from "../context/AuthContext";
 import {
-  ShoppingBag, Plus, Minus, Search, ChefHat, ArrowRight, Tag, Truck, ChevronLeft, Star, RefreshCw, X, Leaf,
+  ShoppingBag, Plus, Minus, Search, ChefHat, ArrowRight, Tag, Truck, ChevronLeft, Star, RefreshCw, X,
 } from "lucide-react";
 
 // 8 trust chips — what we promise (and don't) about the food. Editable via PRD;
@@ -159,9 +159,16 @@ export default function Restaurant() {
               {theme?.bad_stuff_chip_text || "0% the bad stuff"}
             </span>
           </div>
-          {/* Prominent 90-min delivery banner */}
-          <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-yellow-300 text-foreground px-3 py-1.5 shadow-md" data-testid="ninety-min-banner">
-            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-foreground text-yellow-300 text-[11px] font-extrabold">⏱</span>
+          {/* Prominent 90-min delivery banner — emerald default; admin-configurable */}
+          <div
+            className="mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1.5 shadow-md"
+            style={{
+              backgroundColor: theme?.ninety_min_bg_color || "#059669",
+              color: theme?.ninety_min_text_color || "#ffffff",
+            }}
+            data-testid="ninety-min-banner"
+          >
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/95 text-emerald-700 text-[11px] font-extrabold">⏱</span>
             <span className="text-xs sm:text-sm font-extrabold tracking-tight">{theme?.hero_delivery_badge || "90 minutes Fresh Meal Delivery"}</span>
           </div>
           <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
@@ -182,18 +189,19 @@ export default function Restaurant() {
       </header>
 
       <div className="max-w-6xl mx-auto px-3 sm:px-5">
-        {/* Trust chips — what's in our food (and what's NOT). 8 micro-blocks. */}
-        <section className="mt-3 -mb-1 flex items-center gap-2 overflow-x-auto no-scrollbar pb-1" data-testid="trust-chips">
-          <Leaf className="h-4 w-4 text-emerald-700 flex-shrink-0" aria-hidden />
-          {TRUST_CHIPS.map((label) => (
-            <span
-              key={label}
-              className="flex-shrink-0 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wide rounded-full px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 whitespace-nowrap dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900/40"
-              data-testid={`trust-chip-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`}
-            >
-              {label}
-            </span>
-          ))}
+        {/* Trust chips — auto-scrolling horizontal marquee. 8 micro-blocks. */}
+        <section className="mt-3 -mb-1 overflow-hidden" data-testid="trust-chips">
+          <div className="flex items-center gap-2 animate-trust-marquee py-1" style={{ width: "max-content" }}>
+            {[...TRUST_CHIPS, ...TRUST_CHIPS].map((label, i) => (
+              <span
+                key={`${label}-${i}`}
+                className="flex-shrink-0 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wide rounded-full px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 whitespace-nowrap dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900/40"
+                data-testid={i < TRUST_CHIPS.length ? `trust-chip-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}` : undefined}
+              >
+                {label}
+              </span>
+            ))}
+          </div>
         </section>
 
         {/* Live tracking pill — when a restaurant order is in-flight */}
@@ -320,7 +328,14 @@ export default function Restaurant() {
                     <div className="p-2.5 sm:p-3 flex flex-col gap-1.5">
                       <p className="text-[9px] tracking-overline uppercase font-bold text-secondary leading-none">{it.category}</p>
                       <h3 className="font-display font-extrabold text-sm sm:text-base leading-tight line-clamp-1" data-testid={`item-name-${it.id}`}>{it.name}</h3>
-                      <span className="inline-flex items-center gap-0.5 text-[8px] sm:text-[9px] font-extrabold tracking-wide uppercase text-amber-700 dark:text-amber-300" data-testid={`item-90min-${it.id}`}>
+                      <span
+                        className="inline-flex items-center gap-0.5 text-[8px] sm:text-[9px] font-extrabold tracking-wide uppercase rounded px-1.5 py-0.5"
+                        style={{
+                          color: theme?.item_promise_text_color || "#065f46",
+                          backgroundColor: theme?.item_promise_bg_color || "#d1fae5",
+                        }}
+                        data-testid={`item-90min-${it.id}`}
+                      >
                         ⏱ {theme?.item_promise_label || "90-min fresh"}
                       </span>
                       <p className="text-[11px] text-muted-foreground line-clamp-2 min-h-[2lh]">{it.description}</p>

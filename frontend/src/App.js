@@ -53,6 +53,8 @@ import AdminRestaurantTheme from "./pages/AdminRestaurantTheme";
 import AdminRestaurantTracking from "./pages/AdminRestaurantTracking";
 import AdminRestaurantTakeaway from "./pages/AdminRestaurantTakeaway";
 import AdminBottomNavEditor from "./pages/AdminBottomNavEditor";
+import AdminHeaderMenu from "./pages/AdminHeaderMenu";
+import AdminPnL from "./pages/AdminPnL";
 import { Privacy, Refund } from "./pages/PolicyPage";
 
 function RequireAuth({ children, roles }) {
@@ -92,7 +94,7 @@ function AppRoutes() {
       <AnnouncementBar />
       <main className="flex-1 pb-16 md:pb-0">
         <Routes>
-          <Route path="/" element={<Login />} />
+          <Route path="/" element={<Restaurant />} />
           <Route path="/home" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/restaurant" element={<Restaurant />} />
@@ -130,6 +132,8 @@ function AppRoutes() {
             <Route path="restaurant-tracking" element={<AdminRestaurantTracking />} />
             <Route path="restaurant-takeaway" element={<AdminRestaurantTakeaway />} />
             <Route path="bottom-nav" element={<AdminBottomNavEditor />} />
+            <Route path="header-menu" element={<AdminHeaderMenu />} />
+            <Route path="pnl" element={<AdminPnL />} />
             <Route path="theme" element={<AdminTheme />} />
             <Route path="landing" element={<AdminLanding />} />
             <Route path="dashboard-editor" element={<AdminDashboardEditor />} />

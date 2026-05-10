@@ -97,8 +97,8 @@ export default function LocationPicker({ value, onChange, height = "h-56" }) {
       <div className={`${height} w-full relative`}>
         <MapContainer center={[center.lat, center.lng]} zoom={pos ? 16 : 13} className="h-full w-full" scrollWheelZoom>
           <TileLayer
-            url="https://cartodb-basemaps-{s}.global.ssl.fastly.net/voyager/{z}/{x}/{y}.png"
-            attribution='&copy; OpenStreetMap · CARTO'
+            url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; OpenStreetMap contributors'
           />
           {pos && <PinDragger pos={pos} setPos={handleSetPos} />}
           {pos && <FlyTo pos={pos} />}

@@ -23,6 +23,7 @@ const SECTIONS = [
     items: [
       { to: "/admin/deliveries-today", label: "Today's deliveries", icon: ClipboardList, roles: ["admin", "staff"] },
       { to: "/admin/raw-materials", label: "Raw materials", icon: Wheat, roles: ["admin", "staff"] },
+      { to: "/admin/pnl", label: "Profit & loss", icon: ClipboardList, roles: ["admin"] },
       { to: "/admin/restaurant", label: "Restaurant menu", icon: ChefHat, roles: ["admin"] },
       { to: "/admin/restaurant-orders", label: "Restaurant orders", icon: ChefHat, roles: ["admin", "staff"] },
       { to: "/admin/whatsapp", label: "WhatsApp outbox", icon: MessageCircle, roles: ["admin"] },
@@ -39,6 +40,7 @@ const SECTIONS = [
       { to: "/admin/landing", label: "Home page", icon: Home, roles: ["admin"] },
       { to: "/admin/dashboard-editor", label: "Subscriber dashboard", icon: Layout, roles: ["admin"] },
       { to: "/admin/bottom-nav", label: "Bottom nav & sound", icon: Megaphone, roles: ["admin"] },
+      { to: "/admin/header-menu", label: "Hamburger menu", icon: Menu, roles: ["admin"] },
       { to: "/admin/testimonials", label: "Testimonials", icon: MessageSquareQuote, roles: ["admin"] },
       { to: "/admin/content/announcement", label: "Announcement bar", icon: Megaphone, roles: ["admin"] },
       { to: "/admin/content/login", label: "Login page", icon: LogIn, roles: ["admin"] },

@@ -10,7 +10,7 @@ import { Link } from "react-router-dom";
 import { haversineKm, etaMinutes } from "../lib/geo";
 
 const REFRESH_MS = 10000;
-const TILE_URL = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const TILE_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> · CARTO';
 
 function makePinIcon({ color, label }) {
@@ -44,14 +44,21 @@ const ICON_PENDING = makePinIcon({ color: "#a02323", label: "•" });
 const ICON_DELIVERED = makePinIcon({ color: "#10b981", label: "✓" });
 
 function makeRiderIcon() {
-  // Restaurant rider — red pulse, distinct from the green delivery boy
+  // Restaurant rider — red pulse + bobbing motion + small efoodcare logo helmet
+  const LOGO = "https://customer-assets.emergentagent.com/job_dining-pass-scan/artifacts/uzs344m6_9a705f5a-b3a0-4286-b51d-b9bd6f55b7bb_20260504_011957_0000.png";
   const html = `
-    <div class="efc-rider-marker" style="position:relative;width:44px;height:44px">
-      <span style="position:absolute;inset:0;border-radius:50%;background:#a02323;opacity:0.22;animation:efc-rider-pulse 1.4s ease-out infinite"></span>
-      <span style="position:absolute;inset:6px;border-radius:50%;background:linear-gradient(135deg,#c92929,#7a1818);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;box-shadow:0 4px 10px rgba(160,35,35,0.5)">🛵</span>
+    <div class="efc-rider-marker" style="position:relative;width:54px;height:60px">
+      <span style="position:absolute;left:5px;top:8px;width:44px;height:44px;border-radius:50%;background:#a02323;opacity:0.28;animation:efc-rider-pulse 1.4s ease-out infinite"></span>
+      <div style="position:absolute;left:5px;top:8px;width:44px;height:44px;animation:efc-rider-bob 1.1s ease-in-out infinite">
+        <span style="position:absolute;inset:6px;border-radius:50%;background:linear-gradient(135deg,#c92929,#7a1818);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;box-shadow:0 4px 10px rgba(160,35,35,0.5)">🛵</span>
+        <img src="${LOGO}" alt="" style="position:absolute;top:-6px;left:50%;transform:translateX(-50%);width:22px;height:22px;border-radius:6px;background:#fff;padding:1.5px;box-shadow:0 2px 6px rgba(0,0,0,0.3),0 0 0 1.5px #a02323" />
+      </div>
     </div>
-    <style>@keyframes efc-rider-pulse{0%{transform:scale(0.8);opacity:0.5}100%{transform:scale(1.7);opacity:0}}</style>`;
-  return L.divIcon({ html, className: "efc-rider-icon", iconSize: [44, 44], iconAnchor: [22, 22], popupAnchor: [0, -20] });
+    <style>
+      @keyframes efc-rider-pulse{0%{transform:scale(0.8);opacity:0.5}100%{transform:scale(1.85);opacity:0}}
+      @keyframes efc-rider-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+    </style>`;
+  return L.divIcon({ html, className: "efc-rider-icon", iconSize: [54, 60], iconAnchor: [27, 32], popupAnchor: [0, -28] });
 }
 
 function makeRestaurantOrderIcon() {

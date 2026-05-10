@@ -21,18 +21,30 @@ import "maplibre-gl/dist/maplibre-gl.css";
 const PITCH = 60;
 const BEARING = -17.6;
 
-/* --------- shared marker assets --------- */
+/* --------- shared marker assets ---------
+ * Rider pin: scooter icon with a pulse halo + bobbing animation, plus a small
+ * eFoodCare logo "helmet" badge on top so the brand reads on the live map. */
+const BRAND_LOGO_URL =
+  "https://customer-assets.emergentagent.com/job_dining-pass-scan/artifacts/uzs344m6_9a705f5a-b3a0-4286-b51d-b9bd6f55b7bb_20260504_011957_0000.png";
+
 const RIDER_DIV = `
-  <div style="position:relative;width:46px;height:46px">
-    <span style="position:absolute;inset:0;border-radius:50%;background:#a02323;opacity:0.28;animation:trackmap-pulse 1.6s ease-out infinite"></span>
-    <span style="position:absolute;inset:7px;border-radius:50%;background:linear-gradient(135deg,#c92929,#7a1818);display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 6px 14px rgba(160,35,35,0.55)">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/>
-        <path d="M15 6h-3l-3 9h3l3-6h2.5l-1.5-3z"/>
-      </svg>
-    </span>
+  <div style="position:relative;width:54px;height:60px">
+    <span style="position:absolute;left:5px;top:5px;width:44px;height:44px;border-radius:50%;background:#a02323;opacity:0.32;animation:trackmap-pulse 1.6s ease-out infinite"></span>
+    <div style="position:absolute;left:5px;top:5px;width:44px;height:44px;animation:trackmap-bob 1.1s ease-in-out infinite">
+      <span style="position:absolute;inset:3px;border-radius:50%;background:linear-gradient(135deg,#c92929,#7a1818);display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 6px 14px rgba(160,35,35,0.55)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="animation:trackmap-wiggle 1.1s ease-in-out infinite">
+          <circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/>
+          <path d="M15 6h-3l-3 9h3l3-6h2.5l-1.5-3z"/>
+        </svg>
+      </span>
+      <img src="${BRAND_LOGO_URL}" alt="" style="position:absolute;top:-9px;left:50%;transform:translateX(-50%);width:22px;height:22px;border-radius:6px;background:#fff;padding:1.5px;box-shadow:0 2px 6px rgba(0,0,0,0.3),0 0 0 1.5px #a02323" />
+    </div>
   </div>
-  <style>@keyframes trackmap-pulse{0%{transform:scale(0.85);opacity:0.55}100%{transform:scale(1.7);opacity:0}}</style>`;
+  <style>
+    @keyframes trackmap-pulse{0%{transform:scale(0.85);opacity:0.55}100%{transform:scale(1.85);opacity:0}}
+    @keyframes trackmap-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+    @keyframes trackmap-wiggle{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
+  </style>`;
 
 const CUSTOMER_DIV = `
   <div style="width:34px;height:34px;border-radius:50%;background:#fff;border:3px solid #10b981;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 10px rgba(16,185,129,0.4)">
@@ -43,13 +55,13 @@ const CUSTOMER_DIV = `
 
 /* --------- Leaflet (mobile) --------- */
 function LeafletTrackMap({ rider, customer }) {
-  const riderIcon = L.divIcon({ className: "trackmap-rider", html: RIDER_DIV, iconSize: [46, 46], iconAnchor: [23, 23] });
+  const riderIcon = L.divIcon({ className: "trackmap-rider", html: RIDER_DIV, iconSize: [54, 60], iconAnchor: [27, 32] });
   const customerIcon = customer ? L.divIcon({ className: "trackmap-customer", html: CUSTOMER_DIV, iconSize: [34, 34], iconAnchor: [17, 17] }) : null;
   return (
     <MapContainer center={[rider.lat, rider.lng]} zoom={15} className="h-full w-full">
       <TileLayer
-        url="https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png"
-        attribution='&copy; OpenStreetMap · &copy; CARTO'
+        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution='&copy; OpenStreetMap contributors'
       />
       <Marker position={[rider.lat, rider.lng]} icon={riderIcon}>
         <Popup>{rider.name || "Rider"} on the way</Popup>
