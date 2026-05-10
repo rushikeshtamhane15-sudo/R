@@ -361,6 +361,9 @@ async def get_pnl_daily(days: int = 30, user: server.User = Depends(server.get_c
         "expenses": exp,
         "computed_at": server.iso(server.now_utc()),
     }
+
+
+@router.post("/admin/restaurant/takeaway-pendency/manual")
 async def add_manual_takeaway(payload: ManualTakeaway, user: server.User = Depends(server.get_current_user)):
     """Walk-in / unknown user took a steel tiffin (no order in our system).
     Admin captures their details so we can call them back."""

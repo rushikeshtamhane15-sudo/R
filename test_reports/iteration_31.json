@@ -1,0 +1,21 @@
+{
+  "summary": "iter29 RETEST after main agent's one-line fix on /app/backend/routes/app_cms.py:366 (added @router.post('/admin/restaurant/takeaway-pendency/manual') decorator). Result: 23/23 PASS (was 20/23). All 3 previously-failing TestManualTakeaway tests now green: admin creates row + appears in GET list, subscriber correctly 403, validation correctly rejects tiffin_count>20 and empty name. Smoke regression also verified: GET /api/header-menu returns 4 default items [Contact, Contact for Franchisee, Privacy Policy, Refund Policy], GET /api/admin/pnl/daily returns valid rows/summary/config schema for all parameterized day counts (1/7/30/60/90 + clamping 0->1 and 500->90), GET /api/restaurant/theme returns the 4 new color fields (ninety_min_bg/text + item_promise_bg/text). No regressions detected. Per request, frontend skipped (was 100% smoke pass in iter30).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter29.py",
+    "/app/test_reports/pytest/iter29_retest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "app_cms.py:366 — @router.post decorator now correctly placed above add_manual_takeaway. Fix verified end-to-end. Recommend (low priority) adding a CI check or a smoke test that asserts every async def in routes/*.py is reachable via OpenAPI schema, to catch silent missing-decorator bugs early."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (23/23 on test_iter29.py)", "frontend": "skipped per request"},
+  "test_credentials": "OTP DEV — admin phone 9970705391 auto-promoted via ADMIN_PHONES; dev_otp returned in /api/auth/send-otp response.",
+  "seed_data_creation": "Test inserted 1 manual takeaway pendency row (rtp_manual_*) for TEST_iter29 Walkin / phone 9999900000 — left in DB (collected=false). PUT /admin/pnl/expenses set salary=30000, rent=12000, electricity=4000, loan_emi=8000, other=1000. PUT /admin/restaurant/theme briefly set then cleared (null) the 4 new color fields. Header menu PUT then reset to defaults via /admin/header-menu/reset. Menu is_returnable_tiffin toggled and restored on first item. Main agent may want to clean takeaway pendency test row + zero out expense config before user demo.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter29 fully closed at 23/23. test_iter29.py is stable and reusable for regression. Pytest run requires REACT_APP_BACKEND_URL exported in environment (the test imports os.environ.get without a default; it is intentionally there to fail-fast in case the env is missing). One test-time gotcha: when running pytest from /app without inheriting frontend/.env, you must `export REACT_APP_BACKEND_URL=https://dining-pass-scan.preview.emergentagent.com` first, otherwise all tests fail with MissingSchema. Theme + P&L expense + header menu + manual takeaway all functioning correctly.",
+  "rca of the issue": "ROOT CAUSE confirmed fixed: missing @router.post decorator on add_manual_takeaway at /app/backend/routes/app_cms.py:366. Main agent applied one-line fix. POST /api/admin/restaurant/takeaway-pendency/manual now returns 200 with {ok:true, pendency_id:'rtp_manual_<hex>'} for admin, 403 for subscriber, 422 for validation errors (tiffin_count>20, empty name). Verified via TestManualTakeaway 3/3 PASS."
+}
