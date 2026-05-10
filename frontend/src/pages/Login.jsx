@@ -136,6 +136,15 @@ export default function Login() {
     verifiedHereRef.current = true; // prevent useEffect re-fire before window.location swap
     const next = searchParams.get("next");
     const dest = (next && next.startsWith("/") && !next.startsWith("//")) ? next : "/dashboard";
+    // Also stash the destination in sessionStorage so AuthCallback can recover
+    // the intent post-OAuth (Emergent strips query params on the redirect-back).
+    try {
+      const existing = sessionStorage.getItem("efc_pending_action_v1");
+      // Don't override an explicit pending action set by Restaurant.jsx (cart/buy-now)
+      if (!existing && next && next.startsWith("/") && !next.startsWith("//") && next !== "/" && !next.startsWith("/login")) {
+        sessionStorage.setItem("efc_pending_action_v1", next);
+      }
+    } catch {}
     const redirectUrl = window.location.origin + dest;
     window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
   };

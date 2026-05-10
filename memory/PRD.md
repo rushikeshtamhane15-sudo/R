@@ -254,6 +254,37 @@ MSG91_STUB_MODE=true
   - **Admin-facing**: `/admin/live` map popup on each restaurant-order pin shows the rider→customer distance + ETA, plus a dashed polyline from rider to customer. If no rider is assigned yet, picks the nearest live rider.
 - **Backend 12/12 + frontend full E2E** validated by testing agent.
 
+## Iteration 33 (Feb 10, 2026) — Email/Google login redirect bug fixed (the REAL root cause)
+
+### Bug
+User reported login-redirect issue persisting **only on email/Google login**, not OTP login. This was the missing piece in iter32.
+
+### Root cause
+`AuthCallback.jsx` (renders globally when URL hash contains `session_id=`) had a hardcoded `navigate("/dashboard", ...)` on line 28. Every email/Google login dropped the user on `/dashboard` regardless of role, regardless of cart intent, regardless of `?next=`. This is the second, completely separate auth post-flow we had missed in iter28-32 (which only patched the OTP `verifyOtp` path).
+
+### Fix
+1. **`AuthCallback.jsx` rewritten** with the same destination-resolution logic as Login.jsx::computeNext:
+   - Reads current URL `?next=` (deep-link preservation)
+   - Reads `sessionStorage.efc_pending_action_v1` (cart/buy-now intent)
+   - Role override: admin/staff/rider routed to role-home unless deep-linking into their role page
+   - Cart-aware upgrade: `?next=/restaurant` + items in cart → `/restaurant/checkout`
+   - Subscriber with cart items + no next → `/restaurant/checkout`
+   - Subscriber default → `/restaurant`
+2. **`handleGoogle` in Login.jsx** now also stashes `?next=` into `sessionStorage.efc_pending_action_v1` BEFORE the Emergent Google OAuth redirect — so AuthCallback can recover the intent after Emergent strips query params on the redirect-back.
+
+### Both paths now equivalent
+| Entry point | Login mode | Destination |
+|---|---|---|
+| Admin via /login | OTP | /admin ✓ |
+| Admin via /login | **Email/Google** | **/admin ✓ (was /dashboard)** |
+| Subscriber + cart via Restaurant page | OTP | /restaurant/checkout ✓ |
+| Subscriber + cart via Restaurant page | **Email/Google** | **/restaurant/checkout ✓ (was /dashboard)** |
+| Subscriber direct /login | either | /restaurant ✓ |
+
+### Tests
+Static code-review: both `verifyOtp` and `AuthCallback::computeDest` use identical precedence. **Test manually:** click Google sign-in from /restaurant with items in cart → after OAuth → /restaurant/checkout.
+
+
 ## Iteration 32 (Feb 10, 2026) — CRITICAL fix: admin login redirect + cart-action preservation race condition
 
 ### Bug fixes
