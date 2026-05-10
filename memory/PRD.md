@@ -254,6 +254,42 @@ MSG91_STUB_MODE=true
   - **Admin-facing**: `/admin/live` map popup on each restaurant-order pin shows the rider→customer distance + ETA, plus a dashed polyline from rider to customer. If no rider is assigned yet, picks the nearest live rider.
 - **Backend 12/12 + frontend full E2E** validated by testing agent.
 
+## Iteration 29 (Feb 10, 2026) — 13-item batch · P&L tracker · Hamburger CMS · Manual tiffin entry · Animated rider with logo · OSM tiles · Emerald 90-min · Marquee chips · / → restaurant
+
+### Features delivered
+- **Cleanup** — Wiped polluted `restaurant_theme` collection (TEST_iter28_* placeholder values left by previous testing agent).
+- **#1 Manual tiffin entry** — admin/staff can record a walk-in customer's name+phone+address+count via `POST /api/admin/restaurant/takeaway-pendency/manual`. New "Manual entry" button + form on `/admin/restaurant-takeaway` (`takeaway-add-manual`).
+- **#2 Returnable-tiffin checkbox in menu editor** — `is_returnable_tiffin` per-item checkbox in `/admin/restaurant` menu editor (`menu-returnable-{idx}`); persists via PUT.
+- **#3 (deferred)** Referral credits + drag-drop BottomNav reorder → backlog.
+- **#4 Hamburger menu CMS** — new `/admin/header-menu` page (admin only, sidebar under Content & design). 4 default items. Add/edit/reorder/hide/delete. `Header.jsx` reads from `/api/header-menu`.
+- **#5 Trust chips → auto-scrolling marquee** — replaced manual horizontal scroll with `animate-trust-marquee` 28s linear infinite (pauses on hover).
+- **#6 / → /restaurant** — root path now serves the Restaurant ordering page (was Login). `/login` remains for explicit login.
+- **#7 Cart action preserved across login** — kept from iter28.
+- **#8 Admin login → /admin** — already wired (computeNext role-based).
+- **#9 FSSAI footer** — already wired in iter28 (verified persisting).
+- **#10 Replaced Carto map tiles with OSM** — AdminLiveMap, DeliveryMap, TrackMap3D (Leaflet), LocationPicker now use `https://tile.openstreetmap.org/{z}/{x}/{y}.png` (no Carto attribution that user found distracting for Indian users).
+- **#11 90-min banner color picker** — emerald (#059669) default + 4 new `RestaurantTheme` color fields: `ninety_min_bg_color`, `ninety_min_text_color`, `item_promise_bg_color`, `item_promise_text_color`. All editable in `/admin/restaurant-theme`.
+- **#12 Login mobile-optimized** — `max-w-xs sm:max-w-sm`, smaller icon badge (h-11 w-11), tighter padding on mobile.
+- **#13 Animated rider markers with logo** — `TrackMap3D` rider DIV + `AdminLiveMap` `makeRiderIcon` now have:
+   * Continuous bobbing animation (`@keyframes trackmap-bob` / `efc-rider-bob`)
+   * Wiggling scooter icon (`@keyframes trackmap-wiggle`)
+   * Pulse halo + eFoodCare logo "helmet" badge on top of the bike
+   * 54×60px footprint (was 44×44px)
+- **#14 P&L tracker** —
+   * `GET /api/admin/pnl/expenses`, `PUT /api/admin/pnl/expenses` (5 fields: salary, rent, electricity, loan_emi, other)
+   * `GET /api/admin/pnl/daily?days=N` (1-90, default 30) returns per-day rows: subscription revenue + restaurant revenue - raw material cost (auto from `_compute_raw_materials_fresh`) - daily fixed (monthly ÷ 30) = net.
+   * Summary block shows total revenue, total expense, net (profit/loss), days tracked.
+   * New admin page `/admin/pnl` (sidebar under Operations).
+
+### New CMS / endpoints
+- `GET /api/header-menu` (public) · `PUT /api/admin/header-menu` (admin) · `POST /api/admin/header-menu/reset` (admin)
+- `POST /api/admin/restaurant/takeaway-pendency/manual` (admin/staff)
+- `GET /api/admin/pnl/expenses` (admin/staff) · `PUT /api/admin/pnl/expenses` (admin) · `GET /api/admin/pnl/daily` (admin/staff)
+
+### Tests
+Backend: **23/23 PASS** on `test_iter29.py` after one-line decorator fix on `add_manual_takeaway`. No regressions on iter12-28. Frontend: 100% smoke pass on / route serving Restaurant, emerald 90-min banner (#059669), trust marquee, mobile login form (320px max-w-xs), FSSAI footer.
+
+
 ## Iteration 28 (Feb 10, 2026) — 14-item batch · Top-container CMS · Take-away tiffin pendency · Raw materials stock tracking
 
 ### Features delivered
