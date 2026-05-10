@@ -254,6 +254,28 @@ MSG91_STUB_MODE=true
   - **Admin-facing**: `/admin/live` map popup on each restaurant-order pin shows the rider→customer distance + ETA, plus a dashed polyline from rider to customer. If no rider is assigned yet, picks the nearest live rider.
 - **Backend 12/12 + frontend full E2E** validated by testing agent.
 
+## Iteration 30 (Feb 10, 2026) — Compact mobile hero · Robust cart-preservation login · Theme cleanup
+
+### Features delivered
+- **Compact hero on mobile** — vertical height reduced from ~330px → 166px on 390x844 mobile viewport (a 50% shrink). Tighter padding (`py-3 sm:py-4`), smaller title (`text-lg sm:text-2xl`), no more big bottom-padding promise box.
+- **Removed promise text** — "Hum late aate hai par fresh late hai" + "Toh apna khana thoda pre-plan kare 🍱" deleted from hero. `delivery-promise` block removed.
+- **90-min banner moved to BOTTOM of hero** — previously rendered at top; now appears as the 3rd / last row of the hero container so the title is the dominant first-impression.
+- **Pure Veg badge has logo on LEFT** — eFoodCare logo `<img>` embedded inside the badge alongside the green dot + "Pure Veg" label. Same data-testid `pure-veg-badge`.
+- **0% bad stuff chip on RIGHT** — already on right, kept; visual emphasis improved by tighter row layout (`justify-between`).
+- **Admin login → /admin** — already wired in `computeNext` (returns `/admin` when role==='admin'). Confirmed by testing agent.
+- **Auto-expire subscription on wallet=0** — already implemented in `server.py::run_subscription_tick` (lines 790-841). 24h grace window then `status='expired'`, `expired_reason='wallet_zero'`. Recovery (refund/topup) clears the grace flag automatically. Confirmed by testing agent.
+- **Cart-preservation login flow (P0 recurring 4th time)** — comprehensive 3-layer fix:
+   1. `Restaurant.jsx::goCheckout` and `buyNow` set `sessionStorage.efc_pending_action_v1` BEFORE navigating to /login (existing).
+   2. `Header.jsx` hamburger Login link `onClick` now stashes the current pathname into `sessionStorage.efc_pending_action_v1` (NEW).
+   3. `Login.jsx::computeNext` has cart-aware fallback: if `?next=` and `sessionStorage` are empty BUT `localStorage.efc_restaurant_cart_v1` has any items (qty>0), redirect to `/restaurant/checkout` instead of `/restaurant` or `/dashboard` (NEW).
+
+   This ensures: subscribers who add items to cart → click "Login" anywhere → after OTP land DIRECTLY on /restaurant/checkout regardless of the entry path. Verified end-to-end by testing agent (subscriber 9876543210 + cart in localStorage → /restaurant/checkout post-OTP).
+- **Theme DB cleanup** — wiped `restaurant_theme` collection of all `TEST_iter28_*` placeholder strings that testing agents had repeatedly polluted. Future testing agents should reset their writes.
+
+### Tests
+Backend: 43/43 regression PASS. Frontend: 4/4 acceptance flows PASS (hero compaction, cart-with-items → checkout, cart-empty → /restaurant, hamburger Login stash). Theme DB cleaned post-test.
+
+
 ## Iteration 29 (Feb 10, 2026) — 13-item batch · P&L tracker · Hamburger CMS · Manual tiffin entry · Animated rider with logo · OSM tiles · Emerald 90-min · Marquee chips · / → restaurant
 
 ### Features delivered
