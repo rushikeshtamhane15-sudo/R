@@ -6,7 +6,7 @@ import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
 import {
   UtensilsCrossed, Save, Plus, Trash2, ArrowUp, ArrowDown, Eye, EyeOff,
-  Upload, Image as ImageIcon, RotateCcw, Loader2,
+  Upload, Image as ImageIcon, RotateCcw, Loader2, ListOrdered,
 } from "lucide-react";
 
 const blank = () => ({
@@ -32,17 +32,29 @@ async function uploadMenuImage(file) {
   return r.data?.url || "";
 }
 
-const CATEGORIES = ["Starters", "Mains", "Tiffin Specials", "Beverages", "Desserts"];
+const CATEGORIES_FALLBACK = ["Starters", "Mains", "Tiffin Specials", "Beverages", "Desserts"];
 
 export default function AdminRestaurant() {
   const [items, setItems] = useState(null);
   const [saving, setSaving] = useState(false);
   const fileInputs = useRef({});
 
+  // Admin-curated category list (rename / reorder / add / delete here).
+  // Saved separately via /api/admin/restaurant/categories. Rename propagates
+  // server-side to every menu item using the old name.
+  const [categories, setCategories] = useState(CATEGORIES_FALLBACK);
+  const [savingCats, setSavingCats] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+
   const load = async () => {
     try {
-      const r = await api.get("/admin/restaurant/menu");
-      setItems(r.data?.items || []);
+      const [menuRes, catsRes] = await Promise.all([
+        api.get("/admin/restaurant/menu"),
+        api.get("/admin/restaurant/categories"),
+      ]);
+      setItems(menuRes.data?.items || []);
+      const cats = catsRes.data?.categories;
+      if (Array.isArray(cats) && cats.length) setCategories(cats);
     } catch {
       toast.error("Could not load menu");
       setItems([]);
@@ -117,6 +129,48 @@ export default function AdminRestaurant() {
     } catch { toast.error("Reset failed"); }
   };
 
+  // --- Category editor handlers ---------------------------------------------
+  const moveCat = (idx, delta) => setCategories((arr) => {
+    const next = [...arr];
+    const ni = idx + delta;
+    if (ni < 0 || ni >= next.length) return arr;
+    [next[idx], next[ni]] = [next[ni], next[idx]];
+    return next;
+  });
+  const renameCat = (idx, name) => setCategories((arr) => arr.map((c, i) => (i === idx ? name : c)));
+  const removeCat = (idx) => {
+    const c = categories[idx];
+    const inUse = (items || []).some((it) => it.category === c);
+    if (inUse && !window.confirm(`Items still use "${c}". Delete anyway? (Items will keep the category name as-is.)`)) return;
+    setCategories((arr) => arr.filter((_, i) => i !== idx));
+  };
+  const addCat = () => {
+    const name = (newCatName || "").trim();
+    if (!name) return toast.error("Enter a category name");
+    if (categories.includes(name)) return toast.error("Already exists");
+    setCategories((arr) => [...arr, name]);
+    setNewCatName("");
+  };
+  const saveCategories = async () => {
+    setSavingCats(true);
+    try {
+      const r = await api.put("/admin/restaurant/categories", { categories });
+      const saved = r.data?.categories || categories;
+      setCategories(saved);
+      const renames = r.data?.renames || {};
+      const renameCount = Object.keys(renames).length;
+      if (renameCount) {
+        // Reflect server-side rename propagation in our local items state
+        setItems((arr) => (arr || []).map((it) => (renames[it.category] ? { ...it, category: renames[it.category] } : it)));
+        toast.success(`Categories saved · ${renameCount} rename(s) propagated to items`);
+      } else {
+        toast.success("Categories saved");
+      }
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Save failed");
+    } finally { setSavingCats(false); }
+  };
+
   if (items === null) {
     return (
       <div className="flex items-center justify-center py-20 text-muted-foreground">
@@ -144,6 +198,72 @@ export default function AdminRestaurant() {
           </Button>
         </div>
       </div>
+
+      {/* === Category editor === reorder · rename · add · delete.
+          Sits above the menu rows so admins can shape the storefront's
+          category strip without leaving this page. */}
+      <section className="rounded-2xl border border-border bg-card p-4 sm:p-5" data-testid="admin-categories-editor">
+        <div className="flex items-end justify-between gap-3 mb-3">
+          <div>
+            <p className="text-xs tracking-overline uppercase font-bold text-secondary flex items-center gap-1.5">
+              <ListOrdered className="h-3.5 w-3.5" /> Categories
+            </p>
+            <h2 className="font-display font-extrabold text-lg sm:text-xl tracking-tight mt-0.5 leading-tight">
+              Reorder & rename
+            </h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              Drag-order on the storefront strip. Renaming a category here propagates to every item using it.
+            </p>
+          </div>
+          <Button
+            onClick={saveCategories}
+            disabled={savingCats || !categories.length}
+            data-testid="admin-categories-save"
+            size="sm"
+          >
+            {savingCats ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+            Save
+          </Button>
+        </div>
+
+        <ul className="space-y-2" data-testid="admin-categories-list">
+          {categories.map((c, idx) => (
+            <li key={`${idx}-${c}`} className="flex items-center gap-1.5" data-testid={`admin-cat-row-${idx}`}>
+              <Input
+                value={c}
+                onChange={(e) => renameCat(idx, e.target.value)}
+                className="flex-1 h-9 text-sm"
+                maxLength={60}
+                data-testid={`admin-cat-name-${idx}`}
+              />
+              <Button size="icon" variant="ghost" onClick={() => moveCat(idx, -1)} disabled={idx === 0} aria-label="Move up" data-testid={`admin-cat-up-${idx}`}>
+                <ArrowUp className="h-4 w-4" />
+              </Button>
+              <Button size="icon" variant="ghost" onClick={() => moveCat(idx, 1)} disabled={idx === categories.length - 1} aria-label="Move down" data-testid={`admin-cat-down-${idx}`}>
+                <ArrowDown className="h-4 w-4" />
+              </Button>
+              <Button size="icon" variant="ghost" onClick={() => removeCat(idx)} aria-label="Delete" data-testid={`admin-cat-remove-${idx}`}>
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+
+        <div className="flex items-center gap-1.5 mt-3">
+          <Input
+            value={newCatName}
+            onChange={(e) => setNewCatName(e.target.value)}
+            placeholder="New category name (e.g. Snacks)"
+            className="flex-1 h-9 text-sm"
+            maxLength={60}
+            onKeyDown={(e) => e.key === "Enter" && addCat()}
+            data-testid="admin-cat-new-name"
+          />
+          <Button onClick={addCat} size="sm" variant="outline" data-testid="admin-cat-add">
+            <Plus className="h-4 w-4 mr-1.5" /> Add
+          </Button>
+        </div>
+      </section>
 
       <div className="space-y-4">
         {items.map((it, idx) => (
@@ -216,7 +336,7 @@ export default function AdminRestaurant() {
                       className="w-full mt-2 h-10 px-3 rounded-md border border-input bg-background text-sm"
                       data-testid={`menu-category-${idx}`}
                     >
-                      {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                      {categories.map((c) => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
                 </div>

@@ -45,12 +45,16 @@ export default function Restaurant() {
   const [reorderDismissed, setReorderDismissed] = useState(false);
   const [theme, setTheme] = useState(null);
   const [activeOrder, setActiveOrder] = useState(null);
+  // Admin-curated category list (CMS) — falls back to deriving from menu items
+  // if the categories doc is empty / hasn't been bootstrapped yet.
+  const [cmsCategories, setCmsCategories] = useState(null);
 
   useEffect(() => {
     api.get("/restaurant/menu")
       .then((r) => { setMenu(r.data.items || []); setMeta({ delivery_fee_flat: r.data.delivery_fee_flat, delivery_free_over: r.data.delivery_free_over }); })
       .catch(() => toast.error("Could not load menu"));
     api.get("/restaurant/theme").then((r) => setTheme(r.data || null)).catch(() => {});
+    api.get("/restaurant/categories").then((r) => setCmsCategories(r.data?.categories || null)).catch(() => {});
     hydrateGuestCart().then((merged) => setCart(merged)).catch(() => {});
   }, []);
 
@@ -75,9 +79,15 @@ export default function Restaurant() {
   useEffect(() => { saveCart(cart); }, [cart]);
 
   const categories = useMemo(() => {
-    const set = new Set((menu || []).map((m) => m.category || "Mains"));
-    return ["All", ...Array.from(set)];
-  }, [menu]);
+    // Prefer the admin-curated list when available; intersect with what's
+    // actually present in the menu to avoid empty category pills.
+    const presentInMenu = new Set((menu || []).map((m) => m.category || "Mains"));
+    if (cmsCategories && cmsCategories.length) {
+      const filtered = cmsCategories.filter((c) => presentInMenu.has(c));
+      return ["All", ...(filtered.length ? filtered : cmsCategories)];
+    }
+    return ["All", ...Array.from(presentInMenu)];
+  }, [menu, cmsCategories]);
 
   const filtered = useMemo(() => {
     if (!menu) return [];
@@ -94,7 +104,6 @@ export default function Restaurant() {
 
   const onAdd = (it) => setCart((c) => bumpQty(c, it.id, 1));
   const onSub = (it) => setCart((c) => bumpQty(c, it.id, -1));
-  const onChangeQty = (it, val) => setCart((c) => setQty(c, it.id, val));
 
   const buyNow = (it) => {
     try { sessionStorage.setItem("efc_buynow_v1", JSON.stringify({ [it.id]: { id: it.id, qty: 1 } })); } catch {}
@@ -245,7 +254,7 @@ export default function Restaurant() {
             <p className="text-center text-muted-foreground py-12" data-testid="restaurant-no-items">No items match your search.</p>
           ) : (
             <ul
-              className="grid grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-5 pt-2 pb-4"
+              className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 sm:gap-2.5 pt-2 pb-4"
               data-testid="restaurant-items"
               style={{ perspective: "1200px" }}
             >
@@ -258,7 +267,6 @@ export default function Restaurant() {
                   idx={idx}
                   onAdd={onAdd}
                   onSub={onSub}
-                  onChangeQty={onChangeQty}
                   onBuy={buyNow}
                 />
               ))}

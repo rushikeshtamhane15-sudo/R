@@ -363,6 +363,119 @@ async def admin_upload_menu_image(
 
 
 # ---------------------------------------------------------------------------
+# Admin — restaurant categories (rename / reorder / add / delete)
+#
+# Categories used to be derived from the distinct `category` strings on menu
+# items. Now we persist an admin-curated list in `restaurant_categories` so
+# admins can reorder, rename, add new, or hide categories from the storefront.
+# Renaming a category propagates to every menu item that uses it.
+# ---------------------------------------------------------------------------
+DEFAULT_CATEGORIES = ["Starters", "Mains", "Tiffin Specials", "Beverages", "Desserts"]
+
+
+class CategoryList(BaseModel):
+    categories: List[str]
+
+
+async def _load_categories() -> list[str]:
+    doc = await server.db.restaurant_categories.find_one({"_id": "active"}, {"_id": 0}) or {}
+    cats = doc.get("categories")
+    if cats:
+        return cats
+    # Bootstrap: seed from distinct categories on menu items, falling back to
+    # DEFAULT_CATEGORIES if the menu is empty. Persist for future reads.
+    items = await _load_menu()
+    derived: list[str] = []
+    seen: set = set()
+    for it in items:
+        c = (it.get("category") or "").strip()
+        if c and c not in seen:
+            seen.add(c)
+            derived.append(c)
+    if not derived:
+        derived = list(DEFAULT_CATEGORIES)
+    await server.db.restaurant_categories.update_one(
+        {"_id": "active"},
+        {"$set": {"categories": derived, "updated_at": server.iso(server.now_utc())}},
+        upsert=True,
+    )
+    return derived
+
+
+@router.get("/restaurant/categories")
+async def public_categories():
+    """Public — sorted category list for the storefront category strip."""
+    return {"categories": await _load_categories()}
+
+
+@router.get("/admin/restaurant/categories")
+async def admin_categories(user: server.User = Depends(server.get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    return {"categories": await _load_categories()}
+
+
+@router.put("/admin/restaurant/categories")
+async def admin_save_categories(
+    payload: CategoryList,
+    user: server.User = Depends(server.get_current_user),
+):
+    """Save admin-curated category list. Accepts a rename map {old: new}
+    via query param `rename` is intentionally NOT supported — the convention is:
+    pass `categories=[..]` only and rename detection happens client-side
+    (admin replaces a name in-place). For server-side rename propagation, we
+    diff the new list against the old list at the same index and treat
+    different strings as renames."""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    cleaned: list[str] = []
+    seen: set = set()
+    for c in payload.categories:
+        c = (c or "").strip()
+        if not c:
+            continue
+        if c in seen:
+            raise HTTPException(status_code=400, detail=f"Duplicate category: {c}")
+        if len(c) > 60:
+            raise HTTPException(status_code=400, detail=f"Category too long: {c}")
+        seen.add(c)
+        cleaned.append(c)
+    if not cleaned:
+        raise HTTPException(status_code=400, detail="At least one category required")
+
+    # Detect renames by index against the previously stored list so we can
+    # propagate the change to every menu item using the old name.
+    prev = await _load_categories()
+    renames: dict[str, str] = {}
+    for i, new_name in enumerate(cleaned):
+        if i < len(prev) and prev[i] != new_name and prev[i] not in cleaned:
+            renames[prev[i]] = new_name
+    if renames:
+        menu_doc = await server.db.restaurant_menu_items.find_one({"_id": "active"}, {"_id": 0}) or {}
+        items = menu_doc.get("items") or []
+        touched = False
+        for it in items:
+            if it.get("category") in renames:
+                it["category"] = renames[it["category"]]
+                touched = True
+        if touched:
+            await server.db.restaurant_menu_items.update_one(
+                {"_id": "active"},
+                {"$set": {"items": items, "updated_at": server.iso(server.now_utc())}},
+                upsert=True,
+            )
+
+    await server.db.restaurant_categories.update_one(
+        {"_id": "active"},
+        {"$set": {"categories": cleaned, "updated_at": server.iso(server.now_utc())}},
+        upsert=True,
+    )
+    return {"categories": cleaned, "renames": renames}
+
+
+
+
+# ---------------------------------------------------------------------------
 # Order checkout — creates Razorpay order, persists cart, returns payment intent
 # ---------------------------------------------------------------------------
 @router.post("/restaurant/order")

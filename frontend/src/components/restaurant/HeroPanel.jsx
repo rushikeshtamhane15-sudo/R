@@ -97,35 +97,36 @@ export default function HeroPanel({ theme, meta }) {
         style={{ transformStyle: "preserve-3d", willChange: "transform" }}
       >
         {/* Row 1 — efoodcare restaurant overline (LEFT) ↔ tiny 100% Pure Veg badge (RIGHT).
-            The Pure Veg badge now leads with the eFoodCare logo on the LEFT,
-            then a tiny dot, then the "100% Pure Veg" label. */}
+            The Pure Veg badge leads with the eFoodCare logo on the LEFT,
+            then a tiny dot, then the "100% Pure Veg" label. Both badge and
+            label are styled in 3D (badge-3d + text-3d-pureveg). */}
         <div className="flex items-center justify-between gap-3">
-          <p className="text-3d-overline text-[12px] sm:text-base tracking-wider uppercase font-extrabold flex items-center gap-1.5 min-w-0 truncate">
-            <ChefHat className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0 drop-shadow" /> {theme?.hero_overline || "efoodcare restaurant"}
+          <p className="text-[12px] sm:text-base tracking-wider uppercase font-extrabold flex items-center gap-1.5 min-w-0 truncate">
+            <ChefHat className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" /> {theme?.hero_overline || "efoodcare restaurant"}
           </p>
           <span
-            className="badge-3d badge-3d-bob inline-flex items-center gap-1 rounded bg-white/95 text-green-700 pl-1 pr-1.5 py-0.5 text-[9px] sm:text-[10px] font-extrabold tracking-wide uppercase flex-shrink-0"
+            className="pure-veg-3d badge-3d badge-3d-bob inline-flex items-center gap-1 rounded bg-white/95 text-green-700 pl-1 pr-1.5 py-0.5 text-[9px] sm:text-[10px] font-extrabold tracking-wide uppercase flex-shrink-0"
             data-testid="pure-veg-badge"
           >
             <img
               src={BRAND_LOGO_URL}
               alt="eFoodCare"
-              className="h-3.5 w-3.5 rounded-sm flex-shrink-0"
+              className="pure-veg-logo-3d h-3.5 w-3.5 rounded-sm flex-shrink-0"
               data-testid="pure-veg-logo"
             />
             <span aria-hidden className="text-green-700/60 text-[10px] leading-none">·</span>
-            {theme?.pure_veg_label || "100% Pure Veg"}
+            <span className="pure-veg-label-3d">{theme?.pure_veg_label || "100% Pure Veg"}</span>
           </span>
           <span className="sr-only" data-testid="zero-bad-stuff">100% Pure Veg</span>
         </div>
 
         {/* Row 2 — Title + tagline (overline pulled up to row 1) */}
         <div className="mt-1.5">
-          <h1 className="text-3d-title font-display font-extrabold text-2xl sm:text-3xl tracking-tight lowercase leading-tight">
+          <h1 className="font-display font-extrabold text-2xl sm:text-3xl tracking-tight lowercase leading-tight">
             {theme?.hero_title || "order online · ghar se accha khana"}
           </h1>
           <p
-            className="text-3d-quote -mt-0.5 text-[16px] sm:text-xl italic font-bold leading-snug"
+            className="-mt-0.5 text-[16px] sm:text-xl italic font-bold leading-snug"
             data-testid="hero-hindi-quote"
             lang="hi"
           >
@@ -133,8 +134,8 @@ export default function HeroPanel({ theme, meta }) {
             {theme?.hero_promise_line1 || "हम टाइम लेते हैं पर फ्रेश लातें हैं"}
             <span aria-hidden className="ml-1 text-yellow-200">”</span>
           </p>
-          <p className="text-3d-soft opacity-95 text-[13px] sm:text-base mt-2 flex items-center gap-1.5 leading-snug">
-            <Truck className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0 drop-shadow" />
+          <p className="opacity-95 text-[13px] sm:text-base mt-2 flex items-center gap-1.5 leading-snug">
+            <Truck className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
             <span className="truncate">
               {theme?.hero_tagline || `Free delivery on orders over ₹${meta.delivery_free_over} · ₹${meta.delivery_fee_flat} otherwise`}
             </span>

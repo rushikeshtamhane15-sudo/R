@@ -1,0 +1,32 @@
+{
+  "summary": "Iter-37 full verification of the 5 enhancements: restaurant categories CRUD + rename propagation backend, compact DishCard grid, hero text 3D removed, Pure Veg 3D badge, and BadStuffBackground watermark on /login. 11/11 backend pytest cases PASS. 5/5 frontend critical checks PASS (hero text-shadow none, pure-veg-3d class present + transform applied, 6-col grid at 1280px, DishCard testids correct (add → qty-controls with inc/dec/qty), BadStuffBackground renders 8 words aria-hidden & pointer-events:none, admin categories editor full CRUD: rename/save flow propagates rename to menu items confirmed via subsequent GET, reorder via admin-cat-up/down works, add + remove work).",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter37_categories.py",
+    "/app/test_reports/pytest/iter37_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Backend rename detection is positional (compares prev[i] vs new[i]); if the admin both reorders AND renames in one save the rename for moved items may not be detected. Current admin UI saves on each operation so this is a latent edge case worth a future safeguard (e.g., accept explicit {old:new} map alongside list).",
+    "/api/admin/restaurant/categories validates duplicates/length/empty correctly (400). Returns 401 for anonymous, 403 for non-admin — verified via dedicated tests.",
+    "Public /api/restaurant/categories auto-bootstraps from menu items on first call — confirmed list returned even when no categories doc exists.",
+    "DishCard qty-{id} is now a <span> (not <input>) — matches main-agent note; tests that previously typed into qty-{id} should click inc/dec instead.",
+    "BadStuffBackground correctly renders 8 strike-through extruded words, aria-hidden, pointer-events:none — does not capture clicks on the login form (OTP form fields/buttons remain interactive).",
+    "Hero h1 + hindi quote computed text-shadow is exactly 'none' (no text-3d-* classes). pure-veg-badge carries pure-veg-3d class with active 3D transform (matrix shows non-identity translateY -0.44px from badge-3d-bob animation)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter37_categories.py (new)"
+  ],
+  "success_rate": { "backend": "100% (11/11)", "frontend": "100% (5/5)" },
+  "test_credentials": "OTP DEV mode — admin phone 9970705391 (in ADMIN_PHONES), regular user 9876543210. dev_otp returned by /api/auth/send-otp.",
+  "seed_data_creation": "Test rename TESTCAT_<ts> persisted then restored — does not pollute (final state restored to original 5 categories). One in-flight rename to 'Sweet Treats <ts>' was also reverted to 'Desserts'. No residual test data in restaurant_categories or restaurant_menu_items.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 5 enhancements verified on viewport 1280x900. (1) DishCard grid uses grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 — 6 columns at 1280px confirmed. Add button toggles to qty-controls-{id} containing dec-{id}/qty-{id} (span, not input)/inc-{id}. buy-now-{id} link present. (2) Admin categories editor data-testid=admin-categories-editor renders above menu rows with admin-cat-name-{idx} inputs, admin-cat-up-{idx}/down-{idx}/remove-{idx} controls, admin-cat-new-name + admin-cat-add, admin-categories-save. Save shows toast 'Categories saved · N rename(s) propagated to items'. (3) Hero h1 + hindi quote computed text-shadow='none', no text-3d-* classes. (4) pure-veg-badge has pure-veg-3d class + visible 3D transform; first child IMG[testid=pure-veg-logo] then · then label span.pure-veg-label-3d. (5) Login renders bad-stuff-watermark with 8 .bad-stuff-word spans (Ajinomoto, Maida, Artificial Flavours, Artificial Colours, Polished Grains, Refined Oil, Palm Oil, Pre-made Gravy), aria-hidden=true, pointer-events:none. OTP login form (phone-input, name-input, send-otp-button) remains fully interactive above the watermark. Backend rename propagation: PUT /api/admin/restaurant/categories returns {categories, renames:{old:new}} and updates restaurant_menu_items entries — confirmed via subsequent GET /admin/restaurant/menu. Validation: empty list 400, duplicates 400, strings >60 chars 400, anonymous 401, non-admin 403.",
+  "rca of the issue": "N/A — no bugs found."
+}

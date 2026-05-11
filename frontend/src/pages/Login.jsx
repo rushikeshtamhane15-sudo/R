@@ -7,6 +7,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, ShieldCheck, KeyRound } from "lucide-react";
+import BadStuffBackground from "../components/login/BadStuffBackground";
 
 const HERO_FOOD_IMG = "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?crop=entropy&cs=srgb&fm=jpg&q=85&w=1400";
 
@@ -225,10 +226,13 @@ export default function Login() {
         data-testid="login-hero-spacer"
       />
 
-      {/* FORM SHEET — Zomato-clone style: floating white card with 3D depth */}
-      <div className="bg-background flex-1 px-3 sm:px-6 relative pb-24 md:pb-12">
+      {/* FORM SHEET — Zomato-clone style: floating white card with 3D depth.
+          The "bad stuff" watermark sits decoratively in the background — it
+          reinforces our brand promise the moment a user opens the login. */}
+      <div className="bg-background flex-1 px-3 sm:px-6 relative pb-24 md:pb-12 overflow-hidden">
+        <BadStuffBackground />
         <div
-          className="login-card-3d max-w-[280px] sm:max-w-sm mx-auto w-full bg-card rounded-2xl px-3 py-2.5 sm:px-6 sm:py-5 mt-3 sm:mt-5"
+          className="login-card-3d relative max-w-[280px] sm:max-w-sm mx-auto w-full bg-card rounded-2xl px-3 py-2.5 sm:px-6 sm:py-5 mt-3 sm:mt-5 z-[1]"
           data-testid="login-form-card"
         >
           {/* Compact admin-style icon badge above the form */}

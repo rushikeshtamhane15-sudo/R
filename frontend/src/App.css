@@ -263,3 +263,84 @@
             0 0 0 1px rgba(0,0,0,0.06);
     }
 }
+
+/* === 3D Pure-Veg badge ===
+   The badge already has badge-3d (bevel + bob). Add a stronger drop-shadow,
+   give the logo a tiny lift/tilt, and apply a chiselled effect on the label
+   text so "100% Pure Veg" reads as embossed on a glossy white pill. */
+.pure-veg-3d {
+    box-shadow:
+        0 1px 0 rgba(255,255,255,0.9) inset,
+        0 -1px 0 rgba(0,0,0,0.10) inset,
+        0 2px 4px rgba(0,0,0,0.18),
+        0 6px 14px -4px rgba(0,0,0,0.30),
+        0 12px 26px -10px rgba(0,0,0,0.35);
+    transform: perspective(600px) rotateX(8deg);
+    transform-style: preserve-3d;
+}
+.pure-veg-logo-3d {
+    transform: translateZ(2px) rotate(-2deg);
+    filter:
+        drop-shadow(0 1px 0 rgba(0,0,0,0.15))
+        drop-shadow(0 2px 4px rgba(0,0,0,0.30));
+}
+.pure-veg-label-3d {
+    /* Chiselled extruded green text */
+    color: #057a3a;
+    text-shadow:
+        0 1px 0 rgba(255,255,255,0.75),
+        0 -1px 0 rgba(0,80,30,0.45),
+        0 2px 1px rgba(0,40,15,0.30),
+        0 3px 4px rgba(0,0,0,0.15);
+    transform: translateZ(1px);
+}
+
+/* === Login page "0% the bad stuff" subtle background ===
+   Scattered, low-opacity, rotated, extruded watermark words for the items we
+   never put in your plate. Hovers behind the login card. Hidden under
+   `aria-hidden` div in Login.jsx with data-testid="bad-stuff-watermark". */
+.bad-stuff-bg {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+}
+.bad-stuff-word {
+    position: absolute;
+    font-family: var(--font-display, "Cabinet Grotesk"), system-ui, sans-serif;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    color: rgba(180, 30, 18, 0.10);
+    text-shadow:
+        0 1px 0 rgba(255,255,255,0.55),
+        0 2px 0 rgba(180, 30, 18, 0.10),
+        0 3px 0 rgba(150, 25, 15, 0.08),
+        0 4px 0 rgba(120, 22, 13, 0.06),
+        0 6px 14px rgba(0,0,0,0.10);
+    /* a red diagonal "strike-through" line accentuates "we don't serve this" */
+    background-image: linear-gradient(
+        to bottom right,
+        transparent calc(50% - 1.5px),
+        rgba(180, 30, 18, 0.22) calc(50% - 0.5px),
+        rgba(180, 30, 18, 0.22) calc(50% + 0.5px),
+        transparent calc(50% + 1.5px)
+    );
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    -webkit-background-clip: padding-box;
+    background-clip: padding-box;
+}
+@keyframes bad-stuff-float {
+    0%, 100% { transform: translate(0, 0) rotate(var(--rot, -8deg)); }
+    50%      { transform: translate(0, -6px) rotate(var(--rot, -8deg)); }
+}
+.bad-stuff-word {
+    animation: bad-stuff-float var(--dur, 8s) ease-in-out infinite;
+    animation-delay: var(--delay, 0s);
+}
+@media (prefers-reduced-motion: reduce) {
+    .bad-stuff-word { animation: none; }
+}
