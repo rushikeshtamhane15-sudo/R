@@ -506,5 +506,14 @@ Backend: 14/14 new (test_iter27_app_cms.py) + 110/114 regression (4 timeouts unr
 - Frontend regression: 100% pass (iteration_35.json — 9/9 checks on /restaurant).
 
 
+### Iteration 36 (Feb 11, 2026) — Refactor + Object Storage + Parallax + 3D Login
+- **Refactor**: Restaurant.jsx (was 480 lines) now ~280 lines. Extracted `components/restaurant/HeroPanel.jsx`, `CategoryStrip.jsx`, `DishCard.jsx`.
+- **Object storage for menu images**: new POST `/api/admin/restaurant/menu/upload-image` (multipart, 4MB cap, validates content-type). Files saved to `/app/backend/uploads/menu_images/<uuid>.<ext>` and served via StaticFiles mount at `/api/uploads/*`. Removed base64-in-Mongo approach. `AdminRestaurant.jsx` POSTs file instead of FileReader → base64.
+- **Parallax tilt on hero**: `HeroPanel` listens to `pointermove` (desktop) and `deviceorientation` (touch devices), translates to ±3°/±4° rotateX/rotateY on inner wrapper with requestAnimationFrame easing. Respects `prefers-reduced-motion`.
+- **Pure-Veg badge**: logo on LEFT, then a `·` middle-dot, then the label.
+- **Login page 3D**: spacer bumped to `h-7 sm:h-10 w-full bg-white` (pure white slab, 40px desktop). Login card uses new `.login-card-3d` (multi-layer shadow + gloss sweep + floor reflection + hover tilt). Hero title gets extruded `text-3d-title` treatment.
+- **Iteration 36 testing**: 10/10 backend pytest + 9/9 frontend checks pass.
+
+
 ## Test Credentials
 See `/app/memory/test_credentials.md`.
