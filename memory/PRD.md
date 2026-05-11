@@ -534,3 +534,13 @@ See `/app/memory/test_credentials.md`.
 - **Circular Bad-Stuff halo**: 8 small 3D pills (red 0% bubble + label) arranged on a circle around the login card. Hidden on viewports <481px.
 - **Bug fix**: Buy-now from modal at portion>1 now correctly threads portion count → sessionStorage carries `qty=portions`. Verified via Playwright.
 - **Testing**: 13/13 frontend assertions PASS (iteration_38.json).
+
+
+### Iteration 39 (Feb 11, 2026) — Variant cart wiring + Halo anchoring + Lucide revert
+- **Variant-aware cart**: New cart shape `{ "${id}::${variant}": {id, variant, qty} }` (regular/large/family). Composite keys allow the SAME dish in multiple variants. Frontend `priceCart()` applies multiplier; backend `_compute_totals` surfaces `variant_label` + `portion_multiplier` on every priced line.
+- **End-to-end variant display**: Cart, checkout, OrderTrack, RestaurantOrderHistory all show a "LARGE · 2×" pill next to the dish name when variant !== regular. Reorder honours stored variants.
+- **Backwards compat**: `migrate()` in cart.js silently re-keys legacy v1 carts to `::regular`.
+- **Login halo anchored**: Bad-Stuff pills wrapped to login-form-card via `-inset-y-32 -inset-x-32` so the ring tightly rings the card (255–308 px from card center) on all viewports. No more `display:none` on small viewports — pills just shrink.
+- **Lucide icons restored**: CategoryStrip reverted from emoji to Lucide line icons. Removed `.cat-emoji-3d` / `.cat-icon-3d-img` CSS.
+- **Iter-38 buynow bug fixed**: root-caused — modal looped onAdd N times for portion>1; now threads `variant` string through `buyNow(it, variant)` so the backend multiplier prices correctly.
+- **Testing**: 10/10 backend pytest + 100% frontend assertions pass (iteration_39.json + `/app/backend/tests/test_restaurant_variant.py`).
