@@ -216,10 +216,18 @@ export default function Login() {
         </div>
       )}
 
+      {/* Thick decorative spacer — gradient strip between the red hero and
+          the white form sheet. Adds visual breathing room on mobile. */}
+      <div
+        aria-hidden
+        className="h-3 sm:h-5 w-full bg-gradient-to-b from-primary to-background"
+        data-testid="login-hero-spacer"
+      />
+
       {/* FORM SHEET — Zomato-clone style: floating white card with thick border + shadow */}
-      <div className="bg-background flex-1 -mt-6 px-3 sm:px-6 relative pb-24 md:pb-12">
+      <div className="bg-background flex-1 px-3 sm:px-6 relative pb-24 md:pb-12">
         <div
-          className="max-w-[280px] sm:max-w-sm mx-auto w-full bg-card rounded-2xl px-3 py-2.5 sm:px-6 sm:py-5 mt-2"
+          className="max-w-[280px] sm:max-w-sm mx-auto w-full bg-card rounded-2xl px-3 py-2.5 sm:px-6 sm:py-5 mt-3 sm:mt-5"
           style={{
             border: "2px solid #ffffff",
             boxShadow: "0 14px 36px -10px rgba(0,0,0,0.18), 0 4px 12px -4px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.05)",

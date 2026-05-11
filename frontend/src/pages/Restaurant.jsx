@@ -162,8 +162,9 @@ export default function Restaurant() {
             <p className="text-[12px] sm:text-base tracking-wider uppercase font-extrabold opacity-95 flex items-center gap-1.5 min-w-0 truncate">
               <ChefHat className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" /> {theme?.hero_overline || "efoodcare restaurant"}
             </p>
-            <span className="inline-flex items-center rounded bg-white/95 text-green-700 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-extrabold tracking-wide uppercase shadow-sm flex-shrink-0" data-testid="pure-veg-badge">
+            <span className="inline-flex items-center gap-1 rounded bg-white/95 text-green-700 pl-1.5 pr-1.5 py-0.5 text-[9px] sm:text-[10px] font-extrabold tracking-wide uppercase shadow-sm flex-shrink-0" data-testid="pure-veg-badge">
               {theme?.pure_veg_label || "100% Pure Veg"}
+              <img src={BRAND_LOGO_URL} alt="eFoodCare" className="h-3.5 w-3.5 rounded-sm" />
             </span>
             <span className="sr-only" data-testid="zero-bad-stuff">100% Pure Veg</span>
           </div>
@@ -173,9 +174,11 @@ export default function Restaurant() {
             <h1 className="font-display font-extrabold text-2xl sm:text-3xl tracking-tight lowercase leading-tight">
               {theme?.hero_title || "order online · ghar se accha khana"}
             </h1>
-            {/* Hindi quote — our promise about fresh food, even if it takes a little longer */}
+            {/* Hindi quote — placed between the two headings so it visually
+                anchors the brand promise. Slight negative spacing pulls it up
+                to feel centered between title and tagline. */}
             <p
-              className="mt-2 text-[16px] sm:text-xl italic font-bold opacity-100 leading-snug"
+              className="-mt-0.5 text-[16px] sm:text-xl italic font-bold opacity-100 leading-snug"
               data-testid="hero-hindi-quote"
               lang="hi"
             >
@@ -183,7 +186,7 @@ export default function Restaurant() {
               {theme?.hero_promise_line1 || "हम टाइम लेते हैं पर फ्रेश लातें हैं"}
               <span aria-hidden className="ml-1 text-yellow-200">”</span>
             </p>
-            <p className="opacity-95 text-[13px] sm:text-base mt-1 flex items-center gap-1.5 leading-snug">
+            <p className="opacity-95 text-[13px] sm:text-base mt-2 flex items-center gap-1.5 leading-snug">
               <Truck className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
               <span className="truncate">{theme?.hero_tagline || `Free delivery on orders over ₹${meta.delivery_free_over} · ₹${meta.delivery_fee_flat} otherwise`}</span>
             </p>
