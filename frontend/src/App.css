@@ -150,22 +150,6 @@
         radial-gradient(120% 80% at 50% -10%, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 55%),
         radial-gradient(80% 60% at 100% 100%, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0) 60%),
         linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(0,0,0,0.10) 100%);
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.30),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.20),
-        0 14px 28px -14px rgba(20, 12, 5, 0.45),
-        0 28px 60px -28px rgba(20, 12, 5, 0.55);
-}
-/* Bottom highlight ridge — sits just below the hero and curves the eye into
-   the page content; reads like a beveled "lip" on the 3D panel. */
-.hero-3d::after {
-    content: "";
-    position: absolute;
-    left: 0; right: 0; bottom: -6px;
-    height: 12px;
-    background: radial-gradient(ellipse at center, rgba(20,12,5,0.32), transparent 70%);
-    filter: blur(6px);
-    pointer-events: none;
 }
 
 /* Extruded text — for the hero title. Stacked text-shadows fake an extrusion
