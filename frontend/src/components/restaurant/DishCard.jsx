@@ -11,7 +11,7 @@ import { CATEGORY_ICON } from "./CategoryStrip";
  *   • Price sits on the LEFT of the card.
  *   • Add + Buy buttons sit centered horizontally on a row of their own.
  */
-export default function DishCard({ it, qty, theme, idx, onAdd, onSub, onBuy }) {
+export default function DishCard({ it, qty, theme, idx, onAdd, onSub, onBuy, onOpenDetail }) {
   const hasDiscount = it.discounted_price != null && it.discounted_price < it.price;
   const CatIcon = CATEGORY_ICON(it.category);
   const price = it.discounted_price ?? it.price;
@@ -22,8 +22,16 @@ export default function DishCard({ it, qty, theme, idx, onAdd, onSub, onBuy }) {
       data-testid={`item-${it.id}`}
       title={it.name}
     >
-      {/* Shorter wide image — 5:2 keeps the rhythm but cuts ~30% vertical height */}
-      <div className="dish-image-3d relative aspect-[5/2] w-full bg-muted">
+      {/* Shorter wide image — 5:2 keeps the rhythm but cuts ~30% vertical height.
+          Image is tappable to open the dish detail modal (full description,
+          ingredients, portion-size selector). */}
+      <button
+        type="button"
+        onClick={() => onOpenDetail?.(it)}
+        className="dish-image-3d relative aspect-[5/2] w-full bg-muted block text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        data-testid={`open-detail-${it.id}`}
+        aria-label={`View details for ${it.name}`}
+      >
         <img
           src={it.image_url}
           alt={it.name}
@@ -42,7 +50,7 @@ export default function DishCard({ it, qty, theme, idx, onAdd, onSub, onBuy }) {
             <Tag className="h-2.5 w-2.5" /> {Math.round(((it.price - it.discounted_price) / it.price) * 100)}%
           </span>
         )}
-      </div>
+      </button>
 
       {/* Body — tight vertical rhythm */}
       <div className="px-2.5 pt-2 pb-2.5 sm:px-3 sm:pt-2.5 sm:pb-3 flex flex-col gap-1">

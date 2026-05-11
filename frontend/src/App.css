@@ -129,6 +129,38 @@
     z-index: -1;
 }
 
+/* === 3D emoji food icons for the category strip ===
+   Larger circular pill that hosts a chunky food emoji rendered with a
+   layered drop-shadow + slight tilt so it reads as a "plate seen from
+   above". Each platform's native colour emoji set does the heavy lifting. */
+.cat-icon-3d-img {
+    height: 52px;
+    width: 52px;
+    background: linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--muted)) 100%);
+}
+.cat-icon-3d-img .cat-emoji-3d {
+    font-size: 30px;
+    line-height: 1;
+    transform: perspective(140px) rotateX(18deg) translateZ(2px);
+    transform-origin: center 70%;
+    /* Layered drop-shadows fake an extrusion underneath the emoji */
+    filter:
+        drop-shadow(0 1px 0 rgba(0,0,0,0.18))
+        drop-shadow(0 2px 1px rgba(0,0,0,0.22))
+        drop-shadow(0 4px 6px rgba(0,0,0,0.28));
+    transition: transform 220ms cubic-bezier(.2,.8,.2,1);
+}
+.cat-chip-3d:hover .cat-icon-3d-img .cat-emoji-3d,
+.cat-chip-3d[data-active="true"] .cat-icon-3d-img .cat-emoji-3d {
+    transform: perspective(140px) rotateX(22deg) translateZ(4px) scale(1.08);
+}
+.cat-chip-3d[data-active="true"] .cat-icon-3d-img {
+    /* When active, swap the gradient to a tinted primary surface but keep
+       the emoji glyph colourful — only the pill tints, not the food. */
+    background: linear-gradient(180deg, hsl(var(--primary) / 0.18) 0%, hsl(var(--primary) / 0.10) 100%);
+    border-color: hsl(var(--primary) / 0.40);
+}
+
 /* Subtle entrance — fade + rise — for menu items as they paint. */
 @keyframes dish-rise {
     from { opacity: 0; transform: translateY(8px) scale(0.985); }
@@ -295,10 +327,10 @@
     transform: translateZ(1px);
 }
 
-/* === Login page "0% the bad stuff" subtle background ===
-   Scattered, low-opacity, rotated, extruded watermark words for the items we
-   never put in your plate. Hovers behind the login card. Hidden under
-   `aria-hidden` div in Login.jsx with data-testid="bad-stuff-watermark". */
+/* === Login page "0% the bad stuff" circular halo ===
+   Eight small 3D circular pills arranged in a ring around the login card,
+   each declaring an ingredient we *never* put in your plate. Decorative
+   only — aria-hidden + pointer-events:none on the parent .bad-stuff-bg. */
 .bad-stuff-bg {
     position: absolute;
     inset: 0;
@@ -306,41 +338,73 @@
     pointer-events: none;
     z-index: 0;
 }
-.bad-stuff-word {
+.bad-stuff-pill {
     position: absolute;
+    transform: translate(-50%, -50%) rotate(var(--rot, 0deg));
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px 6px 8px;
+    border-radius: 9999px;
+    background: linear-gradient(180deg, #ffffff 0%, #fff5f3 100%);
+    border: 1px solid rgba(180, 30, 18, 0.30);
+    color: rgba(120, 22, 13, 0.78);
     font-family: var(--font-display, "Cabinet Grotesk"), system-ui, sans-serif;
-    font-weight: 900;
+    font-weight: 800;
+    font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: -0.02em;
+    letter-spacing: 0.04em;
     white-space: nowrap;
-    color: rgba(180, 30, 18, 0.10);
-    text-shadow:
-        0 1px 0 rgba(255,255,255,0.55),
-        0 2px 0 rgba(180, 30, 18, 0.10),
-        0 3px 0 rgba(150, 25, 15, 0.08),
-        0 4px 0 rgba(120, 22, 13, 0.06),
-        0 6px 14px rgba(0,0,0,0.10);
-    /* a red diagonal "strike-through" line accentuates "we don't serve this" */
-    background-image: linear-gradient(
-        to bottom right,
-        transparent calc(50% - 1.5px),
-        rgba(180, 30, 18, 0.22) calc(50% - 0.5px),
-        rgba(180, 30, 18, 0.22) calc(50% + 0.5px),
-        transparent calc(50% + 1.5px)
-    );
-    background-repeat: no-repeat;
-    background-size: 100% 100%;
-    -webkit-background-clip: padding-box;
-    background-clip: padding-box;
-}
-@keyframes bad-stuff-float {
-    0%, 100% { transform: translate(0, 0) rotate(var(--rot, -8deg)); }
-    50%      { transform: translate(0, -6px) rotate(var(--rot, -8deg)); }
-}
-.bad-stuff-word {
-    animation: bad-stuff-float var(--dur, 8s) ease-in-out infinite;
+    box-shadow:
+        0 1px 0 rgba(255,255,255,0.95) inset,
+        0 -1px 0 rgba(0,0,0,0.06) inset,
+        0 2px 4px rgba(180, 30, 18, 0.18),
+        0 8px 18px -6px rgba(180, 30, 18, 0.32),
+        0 16px 36px -14px rgba(180, 30, 18, 0.30);
+    animation: bad-pill-float var(--dur, 8s) ease-in-out infinite;
     animation-delay: var(--delay, 0s);
+    backdrop-filter: blur(1px);
+    /* Subtle 3D tilt — pill leans on its axis */
+    transform: translate(-50%, -50%) rotate(var(--rot, 0deg)) perspective(220px) rotateX(8deg);
+}
+.bad-stuff-pill-zero {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 4px;
+    border-radius: 9999px;
+    background: linear-gradient(180deg, #b91c1c 0%, #7f1d1d 100%);
+    color: #fff;
+    font-weight: 900;
+    font-size: 10px;
+    letter-spacing: 0.02em;
+    box-shadow:
+        0 1px 0 rgba(255,255,255,0.30) inset,
+        0 -1px 0 rgba(0,0,0,0.25) inset,
+        0 2px 4px rgba(0,0,0,0.30);
+}
+.bad-stuff-pill-label {
+    color: rgba(120, 22, 13, 0.85);
+    text-shadow: 0 1px 0 rgba(255,255,255,0.55);
+}
+
+@keyframes bad-pill-float {
+    0%, 100% {
+        transform: translate(-50%, -50%) rotate(var(--rot, 0deg)) perspective(220px) rotateX(8deg);
+    }
+    50% {
+        transform: translate(-50%, calc(-50% - 4px)) rotate(var(--rot, 0deg)) perspective(220px) rotateX(8deg) translateZ(4px);
+    }
 }
 @media (prefers-reduced-motion: reduce) {
-    .bad-stuff-word { animation: none; }
+    .bad-stuff-pill { animation: none; }
+}
+
+/* Stack the pills below ~640px so they don't crowd a phone screen — hide the
+   ring entirely on very narrow viewports where the login card already fills
+   most of the page. */
+@media (max-width: 480px) {
+    .bad-stuff-pill { display: none; }
 }

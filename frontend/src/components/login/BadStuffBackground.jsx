@@ -1,52 +1,66 @@
 import React from "react";
 
 /**
- * Subtle, decorative background watermark for /login.
+ * Decorative "0% the bad stuff" halo for /login.
  *
- * Renders the "0% the bad stuff" list (referenced from server.py
- * `healthy_never_items`) as low-opacity 3D-extruded words scattered across
- * the page, each with a thin red diagonal strike-through to communicate
- * "we never put this in your plate". Decorative only — `aria-hidden` and
- * `pointer-events: none`.
+ * Renders 8 small circular 3D pills arranged on a circle around the login
+ * card. Each pill carries one of our "never on your plate" ingredients
+ * (sourced from server.py `healthy_never_items`) prefixed with "0%". The
+ * pills float gently and tilt independently — together they ring the login
+ * card like a brand promise halo.
  *
- * The list mirrors what we surface in the landing-page "Our kitchen promise"
- * section to keep the brand promise consistent across surfaces.
+ * `aria-hidden` + `pointer-events: none` so the decoration never captures
+ * clicks or keyboard focus.
  */
-const WORDS = [
-  { text: "Ajinomoto",        top: "8%",   left: "6%",   size: 56, rot: -8 },
-  { text: "Maida",            top: "18%",  left: "72%",  size: 48, rot: 6 },
-  { text: "Artificial Flavours", top: "30%",  left: "2%",   size: 40, rot: -5 },
-  { text: "Artificial Colours",  top: "44%",  left: "70%",  size: 36, rot: 4 },
-  { text: "Polished Grains",  top: "60%",  left: "4%",   size: 42, rot: -7 },
-  { text: "Refined Oil",      top: "72%",  left: "65%",  size: 50, rot: 5 },
-  { text: "Palm Oil",         top: "84%",  left: "10%",  size: 44, rot: -6 },
-  { text: "Pre-made Gravy",   top: "92%",  left: "55%",  size: 38, rot: 7 },
+const BAD_STUFF = [
+  "Ajinomoto",
+  "Maida",
+  "Artificial Flavours",
+  "Artificial Colours",
+  "Polished Grains",
+  "Refined Oil",
+  "Palm Oil",
+  "Pre-made Gravy",
 ];
 
 export default function BadStuffBackground() {
+  // Pre-compute trig per pill so the layout is deterministic. We anchor each
+  // pill on a circle of radius `r%` from the centre of the parent box.
+  const n = BAD_STUFF.length;
+  const radius = 38; // % of the smaller side from the centre
   return (
     <div
       className="bad-stuff-bg"
       aria-hidden
       data-testid="bad-stuff-watermark"
     >
-      {WORDS.map((w, i) => (
-        <span
-          key={w.text}
-          className="bad-stuff-word"
-          style={{
-            top: w.top,
-            left: w.left,
-            fontSize: `${w.size}px`,
-            // CSS vars consumed by the keyframes for per-word tilt + cadence
-            "--rot": `${w.rot}deg`,
-            "--dur": `${7 + (i % 3) * 1.5}s`,
-            "--delay": `${i * 0.4}s`,
-          }}
-        >
-          {w.text}
-        </span>
-      ))}
+      {BAD_STUFF.map((label, i) => {
+        // Distribute pills evenly on the circle, starting from the top.
+        const angle = (i / n) * 2 * Math.PI - Math.PI / 2;
+        const x = 50 + radius * Math.cos(angle);
+        const y = 50 + radius * Math.sin(angle);
+        // Slight per-pill tilt for organic feel
+        const tilt = ((i % 2 === 0) ? -6 : 6) + (i - n / 2) * 1.2;
+        const dur = 6 + (i % 3) * 1.5;
+        const delay = i * 0.35;
+        return (
+          <span
+            key={label}
+            className="bad-stuff-pill"
+            style={{
+              top: `${y}%`,
+              left: `${x}%`,
+              "--rot": `${tilt}deg`,
+              "--dur": `${dur}s`,
+              "--delay": `${delay}s`,
+            }}
+            data-testid={`bad-stuff-pill-${i}`}
+          >
+            <span className="bad-stuff-pill-zero">0%</span>
+            <span className="bad-stuff-pill-label">{label}</span>
+          </span>
+        );
+      })}
     </div>
   );
 }

@@ -12,6 +12,7 @@ import {
 import HeroPanel from "../components/restaurant/HeroPanel";
 import CategoryStrip from "../components/restaurant/CategoryStrip";
 import DishCard from "../components/restaurant/DishCard";
+import DishDetailModal from "../components/restaurant/DishDetailModal";
 
 // 8 trust chips — what we promise (and don't) about the food. Brand-defining
 // commitment, intentionally kept in code (not CMS-editable).
@@ -48,6 +49,8 @@ export default function Restaurant() {
   // Admin-curated category list (CMS) — falls back to deriving from menu items
   // if the categories doc is empty / hasn't been bootstrapped yet.
   const [cmsCategories, setCmsCategories] = useState(null);
+  // Tap-image-to-expand detail modal — opens for the clicked menu item
+  const [openItem, setOpenItem] = useState(null);
 
   useEffect(() => {
     api.get("/restaurant/menu")
@@ -268,6 +271,7 @@ export default function Restaurant() {
                   onAdd={onAdd}
                   onSub={onSub}
                   onBuy={buyNow}
+                  onOpenDetail={setOpenItem}
                 />
               ))}
             </ul>
@@ -300,6 +304,15 @@ export default function Restaurant() {
           </div>
         </div>
       )}
+
+      {/* Dish detail modal — opens when a user taps a dish image */}
+      <DishDetailModal
+        open={!!openItem}
+        item={openItem}
+        onClose={() => setOpenItem(null)}
+        onAdd={onAdd}
+        onBuy={buyNow}
+      />
     </div>
   );
 }
