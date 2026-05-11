@@ -498,5 +498,13 @@ Backend: 14/14 new (test_iter27_app_cms.py) + 110/114 regression (4 timeouts unr
 - P2: pydantic gt=0 validators on admin plan upsert
 - P2: Auto-expire subscription when wallet hits 0
 
+### Iteration 35 (Feb 11, 2026) — Restaurant page 3D facelift
+- **3D dish cards** — added `.dish-card-3d`, `.dish-image-3d`, `dish-rise` to `App.css` for layered shadows (1px + 6px + 18px + 32px), perspective tilt-on-hover (translateY(-6px) + rotateX(2.5deg)), and floor reflection via `::after` radial gradient. Staggered entrance animation (40ms delay × index).
+- **Floating category symbols** — each category chip now has a circular `.cat-icon-3d` pill with a Lucide line icon (UtensilsCrossed, Soup, Wheat, IceCream, CupSoda, Cookie, Salad, Coffee, Sandwich, Pizza, Apple) sitting above the label. Active chip gets a primary-red gradient + lifted shadow. Mapped via `CATEGORY_ICON()` keyword matcher in `Restaurant.jsx`.
+- **Per-card category symbol** — top-right glassmorphism badge (backdrop-blur, white/55 with white/60 border) showing the matching Lucide icon on every dish image.
+- Verified: AdminRestaurant.jsx menu image upload (FileReader → base64, MAX 1.4MB) still functional.
+- Frontend regression: 100% pass (iteration_35.json — 9/9 checks on /restaurant).
+
+
 ## Test Credentials
 See `/app/memory/test_credentials.md`.
