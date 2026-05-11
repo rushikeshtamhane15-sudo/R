@@ -175,13 +175,13 @@ export default function Restaurant() {
             </h1>
             {/* Hindi quote — our promise about fresh food, even if it takes a little longer */}
             <p
-              className="mt-1.5 text-[13px] sm:text-base italic font-semibold opacity-95 leading-snug"
+              className="mt-2 text-[16px] sm:text-xl italic font-bold opacity-100 leading-snug"
               data-testid="hero-hindi-quote"
               lang="hi"
             >
-              <span aria-hidden className="mr-0.5">“</span>
+              <span aria-hidden className="mr-1 text-yellow-200">“</span>
               {theme?.hero_promise_line1 || "हम टाइम लेते हैं पर फ्रेश लातें हैं"}
-              <span aria-hidden className="ml-0.5">”</span>
+              <span aria-hidden className="ml-1 text-yellow-200">”</span>
             </p>
             <p className="opacity-95 text-[13px] sm:text-base mt-1 flex items-center gap-1.5 leading-snug">
               <Truck className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
