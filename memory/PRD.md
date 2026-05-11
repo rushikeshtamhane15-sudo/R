@@ -517,3 +517,12 @@ Backend: 14/14 new (test_iter27_app_cms.py) + 110/114 regression (4 timeouts unr
 
 ## Test Credentials
 See `/app/memory/test_credentials.md`.
+
+### Iteration 37 (Feb 11, 2026) — Compact grid + Admin categories CRUD + Pure-Veg 3D + Bad-Stuff watermark
+- **Compact /restaurant grid**: `grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6` — up to 6 cards/row on desktop, 3/row on mobile. `DishCard.jsx` rewritten compact: price chip overlays image, single-line title, tiny Add → qty pill (no number input).
+- **Admin categories CRUD**: backend `GET/PUT /api/admin/restaurant/categories` + public `GET /api/restaurant/categories`. Validates dupes/empty/length. Rename propagation: when admin replaces a name at an existing index, every `restaurant_menu_items` entry using the old name is updated atomically. Inline editor on `/admin/restaurant` with rename/reorder/add/delete.
+- **Hero text shadows removed**: `text-3d-*` classes stripped from HeroPanel — title/Hindi quote/overline/free-delivery line are flat.
+- **Pure-Veg 3D badge**: new `.pure-veg-3d` (rotateX(8deg) + multi-layer shadow), `.pure-veg-logo-3d` (translateZ + tilt + drop-shadow), `.pure-veg-label-3d` (extruded green chisel text-shadow).
+- **Login Bad-Stuff watermark**: `BadStuffBackground.jsx` renders 8 scattered, low-opacity, extruded words with diagonal red strike-throughs (Ajinomoto · Maida · Artificial Flavours · Artificial Colours · Polished Grains · Refined Oil · Palm Oil · Pre-made Gravy). Aria-hidden, pointer-events:none, gentle float animation honouring `prefers-reduced-motion`.
+- **Testing**: 11/11 backend pytest + 5/5 frontend checks pass (iteration_37.json).
+
