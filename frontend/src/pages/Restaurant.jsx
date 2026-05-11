@@ -157,16 +157,14 @@ export default function Restaurant() {
         data-testid="restaurant-hero"
       >
         <div className="max-w-6xl mx-auto px-4 sm:px-5 py-3 sm:py-4">
-          {/* Row 1 — Pure Veg ICON+text LEFT ↔ 100% Pure Veg badge RIGHT */}
-          <div className="flex items-center justify-between gap-3">
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-white text-green-700 pl-1 pr-2 py-0.5 text-[12px] font-extrabold tracking-wide uppercase shadow-sm" data-testid="pure-veg-badge">
-              <img src={PURE_VEG_ICON} alt="Pure Veg icon" className="h-5 w-5" />
-              <span>{theme?.pure_veg_label || "Pure Veg"}</span>
+          {/* Row 1 — 100% Pure Veg badge RIGHT (with both icons) · left side clear */}
+          <div className="flex items-center justify-end gap-3">
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-white text-green-700 pl-1 pr-2.5 py-0.5 text-[12px] sm:text-[13px] font-extrabold tracking-wide uppercase shadow-sm" data-testid="pure-veg-badge">
+              <img src={PURE_VEG_ICON} alt="Pure Veg" className="h-5 w-5" />
+              <span>{theme?.pure_veg_label || "100% Pure Veg"}</span>
+              <img src={BRAND_LOGO_URL} alt="eFoodCare" className="h-4 w-4 rounded-sm ml-0.5" />
             </span>
-            <span className="inline-flex items-center gap-1 text-[11px] sm:text-[12px] tracking-overline uppercase font-extrabold bg-emerald-600/95 text-white px-2.5 py-1 rounded-full whitespace-nowrap" data-testid="zero-bad-stuff">
-              <img src={PURE_VEG_ICON} alt="" className="h-3.5 w-3.5 bg-white rounded-sm p-0.5" />
-              {theme?.bad_stuff_chip_text || "100% Pure Veg"}
-            </span>
+            <span className="sr-only" data-testid="zero-bad-stuff">100% Pure Veg</span>
           </div>
 
           {/* Row 2 — Dominant overline + title + tagline */}

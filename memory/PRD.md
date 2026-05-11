@@ -254,6 +254,29 @@ MSG91_STUB_MODE=true
   - **Admin-facing**: `/admin/live` map popup on each restaurant-order pin shows the rider→customer distance + ETA, plus a dashed polyline from rider to customer. If no rider is assigned yet, picks the nearest live rider.
 - **Backend 12/12 + frontend full E2E** validated by testing agent.
 
+## Iteration 34 (Feb 10, 2026) — Hero left-only "100% Pure Veg" badge + vertical Login form compaction
+
+### Features delivered
+- **#1 + #2 Removed the redundant right-side "100% Pure Veg" chip** and **consolidated everything into the left badge**. The single left-side badge now reads "100% PURE VEG" and shows BOTH icons: the green Pure-Veg square (left of label) + the eFoodCare brand logo (right of label).  Slightly bigger text on mobile (`text-[12px] sm:text-[13px]`).
+- **#3 Login form vertically compact on mobile only** — height reduced ~30% on mobile (390px viewport). Changes:
+  - Card padding `py-3 → py-2.5`
+  - Icon badge `h-9 w-9 → h-8 w-8` + margin `mb-2.5 → mb-1.5`
+  - Overline + heading 1 step smaller (`text-xs → text-[10px]`, `text-xl → text-base`)
+  - Subheading + terms text **hidden on mobile** (`hidden sm:block`) — these read OK on desktop but waste vertical space on mobile
+  - All input heights `h-11 → h-9`
+  - All label-to-input margins `mt-1.5 → mt-1`
+  - Primary CTA height `h-12 → h-10`
+  - Google button height `h-11 → h-9`
+  - Divider margins `my-4 → my-2.5`
+
+All `sm:` (≥640px) variants preserve the original spacious desktop layout.
+
+### Tests
+Lint clean. Visual smoke screenshot at 390x844 mobile + desktop confirms:
+- Right side of restaurant hero is empty (only sr-only marker preserved for backward-compatible test selectors)
+- Left badge renders "100% PURE VEG" with both icons inline
+
+
 ## Iteration 33 (Feb 10, 2026) — Email/Google login redirect bug fixed (the REAL root cause)
 
 ### Bug

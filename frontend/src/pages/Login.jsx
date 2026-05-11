@@ -219,7 +219,7 @@ export default function Login() {
       {/* FORM SHEET — Zomato-clone style: floating white card with thick border + shadow */}
       <div className="bg-background flex-1 -mt-6 px-3 sm:px-6 relative pb-24 md:pb-12">
         <div
-          className="max-w-[280px] sm:max-w-sm mx-auto w-full bg-card rounded-2xl px-3.5 py-3 sm:px-6 sm:py-5 mt-2"
+          className="max-w-[280px] sm:max-w-sm mx-auto w-full bg-card rounded-2xl px-3 py-2.5 sm:px-6 sm:py-5 mt-2"
           style={{
             border: "2px solid #ffffff",
             boxShadow: "0 14px 36px -10px rgba(0,0,0,0.18), 0 4px 12px -4px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.05)",
@@ -229,7 +229,7 @@ export default function Login() {
           {/* Compact admin-style icon badge above the form */}
           <div
             data-testid="login-icon-badge"
-            className="mx-auto mb-2.5 flex items-center justify-center h-9 w-9 sm:h-12 sm:w-12 rounded-xl"
+            className="mx-auto mb-1.5 sm:mb-2.5 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12 rounded-xl"
             style={{
               background: "linear-gradient(145deg, #2746a3 0%, #14266b 100%)",
               boxShadow:
@@ -250,17 +250,17 @@ export default function Login() {
                 data-testid="login-choose"
               >
                 <div data-testid="otp-phone-form">
-                  <p className="text-xs tracking-overline uppercase font-bold text-secondary">{c.form_overline}</p>
-                  <h2 className="font-display font-extrabold text-xl tracking-tight mt-1.5 leading-tight">
+                  <p className="text-[10px] sm:text-xs tracking-overline uppercase font-bold text-secondary">{c.form_overline}</p>
+                  <h2 className="font-display font-extrabold text-base sm:text-xl tracking-tight mt-1 leading-tight">
                     {c.form_heading}
                   </h2>
-                  <p className="text-xs text-muted-foreground mt-1">{c.form_subheading}</p>
+                  <p className="hidden sm:block text-xs text-muted-foreground mt-1">{c.form_subheading}</p>
 
-                  <label className="block text-xs tracking-overline uppercase font-bold text-muted-foreground mt-5" htmlFor="phone-input">
+                  <label className="block text-[10px] sm:text-xs tracking-overline uppercase font-bold text-muted-foreground mt-3 sm:mt-5" htmlFor="phone-input">
                     {c.phone_label}
                   </label>
-                  <div className="mt-1.5 flex items-stretch rounded-2xl border border-input bg-background overflow-hidden focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15 transition-colors">
-                    <span className="flex items-center gap-1.5 pl-4 pr-3 text-sm font-semibold text-foreground border-r border-input bg-muted/40">
+                  <div className="mt-1 sm:mt-1.5 flex items-stretch rounded-2xl border border-input bg-background overflow-hidden focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15 transition-colors">
+                    <span className="flex items-center gap-1.5 pl-3 pr-2.5 sm:pl-4 sm:pr-3 text-sm font-semibold text-foreground border-r border-input bg-muted/40">
                       <span aria-hidden>🇮🇳</span> +91
                     </span>
                     <Input
@@ -268,7 +268,7 @@ export default function Login() {
                       value={phone}
                       onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, "").slice(0, 10))}
                       placeholder={c.phone_placeholder}
-                      className="border-0 focus-visible:ring-0 text-base h-11 px-3"
+                      className="border-0 focus-visible:ring-0 text-sm sm:text-base h-9 sm:h-11 px-3"
                       data-testid="phone-input"
                       inputMode="numeric"
                       autoFocus
@@ -276,7 +276,7 @@ export default function Login() {
                     />
                   </div>
 
-                  <label className="block text-xs tracking-overline uppercase font-bold text-muted-foreground mt-3.5" htmlFor="name-input">
+                  <label className="block text-[10px] sm:text-xs tracking-overline uppercase font-bold text-muted-foreground mt-2.5 sm:mt-3.5" htmlFor="name-input">
                     {c.name_label} <span className="text-muted-foreground/70 normal-case tracking-normal font-normal">{c.name_optional_label}</span>
                   </label>
                   <Input
@@ -284,7 +284,7 @@ export default function Login() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder={c.name_placeholder}
-                    className="mt-1.5 rounded-2xl h-11 px-4"
+                    className="mt-1 sm:mt-1.5 rounded-2xl h-9 sm:h-11 px-4 text-sm sm:text-base"
                     data-testid="name-input"
                   />
 
@@ -292,7 +292,7 @@ export default function Login() {
                     onClick={sendOtp}
                     disabled={submitting || phone.length < 10}
                     data-testid="send-otp-button"
-                    className="w-full h-12 mt-5 rounded-2xl bg-primary hover:bg-primary/90 font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full h-10 sm:h-12 mt-3 sm:mt-5 rounded-2xl bg-primary hover:bg-primary/90 font-semibold text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {submitting ? "Sending OTP…" : (
                       <>
@@ -301,7 +301,7 @@ export default function Login() {
                     )}
                   </Button>
 
-                  <div className="flex items-center gap-3 my-4">
+                  <div className="flex items-center gap-3 my-2.5 sm:my-4">
                     <span className="flex-1 h-px bg-border"></span>
                     <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">{c.or_divider}</span>
                     <span className="flex-1 h-px bg-border"></span>
@@ -311,12 +311,12 @@ export default function Login() {
                     onClick={handleGoogle}
                     variant="outline"
                     data-testid="google-login-button"
-                    className="w-full h-11 rounded-2xl border-input font-semibold text-sm bg-background hover:bg-muted/60"
+                    className="w-full h-9 sm:h-11 rounded-2xl border-input font-semibold text-xs sm:text-sm bg-background hover:bg-muted/60"
                   >
                     <GoogleIcon /> {c.google_label}
                   </Button>
 
-                  <p className="text-[11px] text-muted-foreground text-center mt-5 leading-relaxed">
+                  <p className="hidden sm:block text-[11px] text-muted-foreground text-center mt-5 leading-relaxed">
                     {c.terms_prefix}{" "}
                     <Link to="/privacy" className="font-semibold text-foreground underline-offset-2 hover:underline">Privacy Policy</Link>{" "}
                     {c.terms_separator}{" "}
