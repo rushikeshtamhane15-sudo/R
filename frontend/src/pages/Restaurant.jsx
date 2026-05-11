@@ -6,37 +6,15 @@ import { Input } from "../components/ui/input";
 import { toast } from "sonner";
 import { loadCart, saveCart, setQty, bumpQty, cartCount, priceCart, hydrateGuestCart } from "../lib/cart";
 import { useAuth } from "../context/AuthContext";
-import { BRAND_LOGO_URL } from "../lib/brand";
-
-// User-provided Pure Veg green-square icon. Hosted on Emergent CDN.
-const PURE_VEG_ICON = "https://customer-assets.emergentagent.com/job_dining-pass-scan/artifacts/li3dreby_images.jpeg";
 import {
-  ShoppingBag, Plus, Minus, Search, ChefHat, ArrowRight, Tag, Truck, ChevronLeft, Star, RefreshCw, X,
-  UtensilsCrossed, Soup, IceCream, Wheat, CupSoda, Cookie, Salad, Coffee, Pizza, Beef, Apple, Drumstick, Sandwich,
+  ShoppingBag, Search, ArrowRight, Truck, RefreshCw, X,
 } from "lucide-react";
+import HeroPanel from "../components/restaurant/HeroPanel";
+import CategoryStrip from "../components/restaurant/CategoryStrip";
+import DishCard from "../components/restaurant/DishCard";
 
-// Map a free-form menu category string → a crisp Lucide icon. Falls back to a
-// generic utensil icon. Lowercased + simple contains() match keeps it forgiving
-// to admin-typed category names ("Mains", "main course", "Curry & Dal", etc.).
-const CATEGORY_ICON = (cat) => {
-  const s = (cat || "").toLowerCase();
-  if (s === "all") return UtensilsCrossed;
-  if (/(rice|biryani|pulao|pulav)/.test(s)) return Wheat;
-  if (/(roti|naan|bread|paratha|kulcha)/.test(s)) return Sandwich;
-  if (/(dal|curry|sabzi|gravy|main)/.test(s)) return Soup;
-  if (/(salad|raita|veg)/.test(s)) return Salad;
-  if (/(sweet|dessert|kheer|halwa|ice)/.test(s)) return IceCream;
-  if (/(drink|juice|lassi|water|beverage|soda)/.test(s)) return CupSoda;
-  if (/(snack|chaat|starter|appet)/.test(s)) return Cookie;
-  if (/(tea|coffee|chai)/.test(s)) return Coffee;
-  if (/(thali|combo|special|meal)/.test(s)) return UtensilsCrossed;
-  if (/(pizza)/.test(s)) return Pizza;
-  if (/(fruit)/.test(s)) return Apple;
-  return UtensilsCrossed;
-};
-
-// 8 trust chips — what we promise (and don't) about the food. Editable via PRD;
-// kept here in code (not in CMS) since they're a brand-defining commitment.
+// 8 trust chips — what we promise (and don't) about the food. Brand-defining
+// commitment, intentionally kept in code (not CMS-editable).
 const TRUST_CHIPS = [
   "0% Ajinomoto",
   "0% Maida",
@@ -50,9 +28,9 @@ const TRUST_CHIPS = [
 
 /**
  * Restaurant browse — Zomato-style:
- *   • Horizontal category chips (sticky)
- *   • Compact horizontal item cards
- *   • "Reorder in 1 tap" banner for returning customers
+ *   • HeroPanel (3D + parallax tilt) on top
+ *   • CategoryStrip (floating Lucide icons + label) below search
+ *   • DishCard grid with 3D depth + glassmorphism category badges
  *   • Sticky cart pill at the bottom
  */
 export default function Restaurant() {
@@ -63,25 +41,21 @@ export default function Restaurant() {
   const [cart, setCart] = useState(loadCart());
   const [q, setQ] = useState("");
   const [activeCat, setActiveCat] = useState("All");
-  const [lastOrder, setLastOrder] = useState(null); // most recent delivered order for reorder banner
+  const [lastOrder, setLastOrder] = useState(null);
   const [reorderDismissed, setReorderDismissed] = useState(false);
   const [theme, setTheme] = useState(null);
+  const [activeOrder, setActiveOrder] = useState(null);
 
   useEffect(() => {
     api.get("/restaurant/menu")
       .then((r) => { setMenu(r.data.items || []); setMeta({ delivery_fee_flat: r.data.delivery_fee_flat, delivery_free_over: r.data.delivery_free_over }); })
       .catch(() => toast.error("Could not load menu"));
-    // CMS-managed restaurant page theme (admin can edit hero copy/colors)
-    api.get("/restaurant/theme")
-      .then((r) => setTheme(r.data || null))
-      .catch(() => {});
-    // Cross-device guest cart hydration — merges server-side cart with local
+    api.get("/restaurant/theme").then((r) => setTheme(r.data || null)).catch(() => {});
     hydrateGuestCart().then((merged) => setCart(merged)).catch(() => {});
   }, []);
 
   // Pull most recent delivered order for the "reorder in 1 tap" banner
   // AND any in-flight (out_for_delivery / preparing / etc) for the live tracking pill.
-  const [activeOrder, setActiveOrder] = useState(null);
   useEffect(() => {
     if (!user) { setLastOrder(null); setActiveOrder(null); return; }
     try {
@@ -122,7 +96,6 @@ export default function Restaurant() {
   const onSub = (it) => setCart((c) => bumpQty(c, it.id, -1));
   const onChangeQty = (it, val) => setCart((c) => setQty(c, it.id, val));
 
-  // Buy now: stash one-item cart in sessionStorage and jump to checkout (login wall handles redirect)
   const buyNow = (it) => {
     try { sessionStorage.setItem("efc_buynow_v1", JSON.stringify({ [it.id]: { id: it.id, qty: 1 } })); } catch {}
     if (!user) {
@@ -143,7 +116,6 @@ export default function Restaurant() {
     navigate("/restaurant/checkout");
   };
 
-  // 1-tap reorder: restock cart against current menu, jump to checkout
   const reorderNow = () => {
     if (!lastOrder || !menu) return;
     const liveIds = new Set(menu.map((m) => m.id));
@@ -170,66 +142,10 @@ export default function Restaurant() {
 
   return (
     <div className="min-h-screen bg-background pb-40 md:pb-32" data-testid="restaurant-page">
-      {/* Hero — compact mobile-first layout. Top row: Pure Veg icon (left) + 100% Pure Veg (right).
-          Title row: brand line + dish title. Bottom strip: 90-min delivery banner. */}
-      <header
-        className="hero-3d bg-primary text-primary-foreground relative"
-        style={(theme?.hero_bg_color || theme?.hero_text_color) ? { backgroundColor: theme?.hero_bg_color || undefined, color: theme?.hero_text_color || undefined } : undefined}
-        data-testid="restaurant-hero"
-      >
-        <div className="max-w-6xl mx-auto px-4 sm:px-5 py-4 sm:py-5 relative z-[1]">
-          {/* Row 1 — efoodcare restaurant overline (LEFT) ↔ tiny 100% Pure Veg badge (RIGHT) */}
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-3d-overline text-[12px] sm:text-base tracking-wider uppercase font-extrabold flex items-center gap-1.5 min-w-0 truncate">
-              <ChefHat className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0 drop-shadow" /> {theme?.hero_overline || "efoodcare restaurant"}
-            </p>
-            <span className="badge-3d badge-3d-bob inline-flex items-center gap-1 rounded bg-white/95 text-green-700 pl-1.5 pr-1.5 py-0.5 text-[9px] sm:text-[10px] font-extrabold tracking-wide uppercase flex-shrink-0" data-testid="pure-veg-badge">
-              {theme?.pure_veg_label || "100% Pure Veg"}
-              <img src={BRAND_LOGO_URL} alt="eFoodCare" className="h-3.5 w-3.5 rounded-sm" />
-            </span>
-            <span className="sr-only" data-testid="zero-bad-stuff">100% Pure Veg</span>
-          </div>
-
-          {/* Row 2 — Title + tagline (overline pulled up to row 1) */}
-          <div className="mt-1.5">
-            <h1 className="text-3d-title font-display font-extrabold text-2xl sm:text-3xl tracking-tight lowercase leading-tight">
-              {theme?.hero_title || "order online · ghar se accha khana"}
-            </h1>
-            {/* Hindi quote — placed between the two headings so it visually
-                anchors the brand promise. Slight negative spacing pulls it up
-                to feel centered between title and tagline. */}
-            <p
-              className="text-3d-quote -mt-0.5 text-[16px] sm:text-xl italic font-bold leading-snug"
-              data-testid="hero-hindi-quote"
-              lang="hi"
-            >
-              <span aria-hidden className="mr-1 text-yellow-200">“</span>
-              {theme?.hero_promise_line1 || "हम टाइम लेते हैं पर फ्रेश लातें हैं"}
-              <span aria-hidden className="ml-1 text-yellow-200">”</span>
-            </p>
-            <p className="text-3d-soft opacity-95 text-[13px] sm:text-base mt-2 flex items-center gap-1.5 leading-snug">
-              <Truck className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0 drop-shadow" />
-              <span className="truncate">{theme?.hero_tagline || `Free delivery on orders over ₹${meta.delivery_free_over} · ₹${meta.delivery_fee_flat} otherwise`}</span>
-            </p>
-          </div>
-
-          {/* Row 3 — 90-min banner */}
-          <div
-            className="badge-3d mt-2.5 inline-flex items-center gap-2 rounded-full px-3 py-1"
-            style={{
-              backgroundColor: theme?.ninety_min_bg_color || "#059669",
-              color: theme?.ninety_min_text_color || "#ffffff",
-            }}
-            data-testid="ninety-min-banner"
-          >
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/95 text-emerald-700 text-[11px] font-extrabold">⏱</span>
-            <span className="text-[12px] sm:text-sm font-extrabold tracking-tight">{theme?.hero_delivery_badge || "90 minutes Fresh Meal Delivery"}</span>
-          </div>
-        </div>
-      </header>
+      <HeroPanel theme={theme} meta={meta} />
 
       <div className="max-w-6xl mx-auto px-3 sm:px-5">
-        {/* Trust chips — auto-scrolling horizontal marquee. 8 micro-blocks. */}
+        {/* Trust chips — auto-scrolling horizontal marquee. */}
         <section className="mt-3 -mb-1 overflow-hidden" data-testid="trust-chips">
           <div className="flex items-center gap-2 animate-trust-marquee py-1" style={{ width: "max-content" }}>
             {[...TRUST_CHIPS, ...TRUST_CHIPS].map((label, i) => (
@@ -319,41 +235,9 @@ export default function Restaurant() {
           </div>
         </div>
 
-        {/* Horizontal category chips — each chip has a floating circular icon
-            symbol ABOVE the label, giving the strip a 3D "ledge" feel.
-            The icon sits on cat-icon-3d (gradient + heavy shadow + reflection). */}
-        <div
-          className="sticky top-[58px] z-10 -mx-3 sm:-mx-5 px-3 sm:px-5 pt-3 pb-3 bg-background/95 backdrop-blur border-b border-border overflow-x-auto no-scrollbar"
-          data-testid="restaurant-categories"
-        >
-          <ul className="flex items-end gap-3 min-w-max">
-            {categories.map((c) => {
-              const Icon = CATEGORY_ICON(c);
-              const isActive = activeCat === c;
-              return (
-                <li key={c} className="flex-shrink-0">
-                  <button
-                    onClick={() => setActiveCat(c)}
-                    className="cat-chip-3d group flex flex-col items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded-2xl px-1.5 pt-1 pb-1"
-                    data-active={isActive}
-                    data-testid={`cat-${c.toLowerCase().replace(/\s+/g, "-")}`}
-                  >
-                    <span className="cat-icon-3d" aria-hidden>
-                      <Icon className="h-[18px] w-[18px]" strokeWidth={2.25} />
-                    </span>
-                    <span
-                      className={`text-[10px] sm:text-[11px] font-bold tracking-overline uppercase whitespace-nowrap leading-none ${isActive ? "text-primary" : "text-foreground/80 group-hover:text-foreground"}`}
-                    >
-                      {c}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
+        <CategoryStrip categories={categories} activeCat={activeCat} onChange={setActiveCat} />
 
-        {/* Items list — responsive grid: 1 col on mobile, 2 cols ≥sm, 3 cols ≥lg */}
+        {/* Items grid */}
         <div className="mt-3">
           {!menu ? (
             <p className="text-center text-muted-foreground py-12">Loading menu…</p>
@@ -365,95 +249,25 @@ export default function Restaurant() {
               data-testid="restaurant-items"
               style={{ perspective: "1200px" }}
             >
-              {filtered.map((it, idx) => {
-                const qty = cart[it.id]?.qty || 0;
-                const hasDiscount = it.discounted_price != null && it.discounted_price < it.price;
-                const CatIcon = CATEGORY_ICON(it.category);
-                return (
-                  <li
-                    key={it.id}
-                    className="dish-card-3d dish-rise rounded-2xl border border-border bg-card overflow-hidden flex flex-col"
-                    style={{ animationDelay: `${Math.min(idx, 8) * 40}ms` }}
-                    data-testid={`item-${it.id}`}
-                  >
-                    {/* Image on top — square aspect, full width, with gloss sweep */}
-                    <div className="dish-image-3d relative aspect-square w-full bg-muted">
-                      <img src={it.image_url} alt={it.name} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
-                      {/* Floating category symbol — top-right, glassmorphism */}
-                      <span
-                        className="absolute top-1.5 right-1.5 z-[3] inline-flex h-7 w-7 items-center justify-center rounded-full backdrop-blur bg-white/55 border border-white/60 text-emerald-700 shadow-md dark:bg-black/35 dark:text-emerald-200 dark:border-white/15"
-                        aria-hidden
-                        data-testid={`item-cat-icon-${it.id}`}
-                      >
-                        <CatIcon className="h-3.5 w-3.5" strokeWidth={2.4} />
-                      </span>
-                      {hasDiscount && (
-                        <span className="absolute top-1.5 left-1.5 z-[3] inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-bold tracking-overline uppercase shadow">
-                          <Tag className="h-2.5 w-2.5" /> {Math.round(((it.price - it.discounted_price) / it.price) * 100)}%
-                        </span>
-                      )}
-                    </div>
-                    {/* Details + price BELOW image */}
-                    <div className="p-2.5 sm:p-3 flex flex-col gap-1.5">
-                      <p className="text-[9px] tracking-overline uppercase font-bold text-secondary leading-none">{it.category}</p>
-                      <h3 className="font-display font-extrabold text-sm sm:text-base leading-tight line-clamp-1" data-testid={`item-name-${it.id}`}>{it.name}</h3>
-                      <span
-                        className="inline-flex items-center gap-0.5 text-[8px] sm:text-[9px] font-extrabold tracking-wide uppercase rounded px-1.5 py-0.5"
-                        style={{
-                          color: theme?.item_promise_text_color || "#065f46",
-                          backgroundColor: theme?.item_promise_bg_color || "#d1fae5",
-                        }}
-                        data-testid={`item-90min-${it.id}`}
-                      >
-                        ⏱ {theme?.item_promise_label || "90-min fresh"}
-                      </span>
-                      <p className="text-[12px] sm:text-[13px] text-muted-foreground line-clamp-3 min-h-[3lh] leading-snug">
-                        {it.description || `Freshly prepared ${(it.name || "").toLowerCase()} · made daily in our kitchen.`}
-                      </p>
-
-                      <div className="flex items-end justify-between gap-2 mt-1">
-                        {hasDiscount && <p className="text-[10px] line-through text-muted-foreground tabular-nums">₹{it.price}</p>}
-                        <p className="font-display font-extrabold text-base text-primary tabular-nums ml-auto" data-testid={`item-price-${it.id}`}>
-                          ₹{it.discounted_price ?? it.price}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 mt-1.5">
-                        {qty === 0 ? (
-                          <>
-                            <Button variant="outline" size="sm" onClick={() => onAdd(it)} data-testid={`add-${it.id}`} className="rounded-full h-7 text-[11px] sm:text-xs flex-1 px-2">
-                              <Plus className="h-3 w-3 mr-0.5" /> Add
-                            </Button>
-                            <Button size="sm" onClick={() => buyNow(it)} data-testid={`buy-now-${it.id}`} className="rounded-full h-7 text-[11px] sm:text-xs flex-1 px-2 bg-primary hover:bg-primary/90">
-                              Buy <ArrowRight className="h-3 w-3 ml-0.5" />
-                            </Button>
-                          </>
-                        ) : (
-                          <div className="inline-flex items-center gap-1 rounded-full border border-border bg-background overflow-hidden mx-auto" data-testid={`qty-controls-${it.id}`}>
-                            <button type="button" className="h-7 w-7 flex items-center justify-center hover:bg-muted" onClick={() => onSub(it)} aria-label="Decrease" data-testid={`dec-${it.id}`}><Minus className="h-3.5 w-3.5" /></button>
-                            <input
-                              type="number"
-                              value={qty}
-                              onChange={(e) => onChangeQty(it, e.target.value)}
-                              className="w-8 h-7 text-center bg-transparent text-xs font-bold focus:outline-none tabular-nums"
-                              data-testid={`qty-${it.id}`}
-                              min={0}
-                              max={50}
-                            />
-                            <button type="button" className="h-7 w-7 flex items-center justify-center hover:bg-muted" onClick={() => onAdd(it)} aria-label="Increase" data-testid={`inc-${it.id}`}><Plus className="h-3.5 w-3.5" /></button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
+              {filtered.map((it, idx) => (
+                <DishCard
+                  key={it.id}
+                  it={it}
+                  qty={cart[it.id]?.qty || 0}
+                  theme={theme}
+                  idx={idx}
+                  onAdd={onAdd}
+                  onSub={onSub}
+                  onChangeQty={onChangeQty}
+                  onBuy={buyNow}
+                />
+              ))}
             </ul>
           )}
         </div>
       </div>
 
-      {/* Sticky cart bar — sits ABOVE BottomNav (bottom-20 = 80px = above the 64px nav + 16px breathing room) */}
+      {/* Sticky cart bar — sits ABOVE BottomNav */}
       {totalCount > 0 && (
         <div className="fixed bottom-20 md:bottom-6 inset-x-0 z-40 px-4" data-testid="cart-bar">
           <div className="max-w-2xl mx-auto rounded-full bg-foreground text-background shadow-2xl flex items-center justify-between gap-3 px-5 py-3">
@@ -464,7 +278,11 @@ export default function Restaurant() {
                   {totalCount} item{totalCount > 1 ? "s" : ""} · ₹{cartLines.subtotal.toLocaleString("en-IN")}
                 </p>
                 <p className="text-xs opacity-80 leading-tight truncate">
-                  {!user ? (theme?.cart_login_hint || "Login required to checkout") : (cartLines.subtotal >= meta.delivery_free_over ? (theme?.cart_free_delivery_label || "Free delivery") : (theme?.cart_delivery_fee_template?.replace("{fee}", String(meta.delivery_fee_flat)) || `+ ₹${meta.delivery_fee_flat} delivery`))}
+                  {!user
+                    ? (theme?.cart_login_hint || "Login required to checkout")
+                    : (cartLines.subtotal >= meta.delivery_free_over
+                        ? (theme?.cart_free_delivery_label || "Free delivery")
+                        : (theme?.cart_delivery_fee_template?.replace("{fee}", String(meta.delivery_fee_flat)) || `+ ₹${meta.delivery_fee_flat} delivery`))}
                 </p>
               </div>
             </div>

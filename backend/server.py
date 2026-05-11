@@ -1,5 +1,6 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Cookie, Depends
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -2340,6 +2341,13 @@ api_router.include_router(_wa_admin_router)
 api_router.include_router(_app_cms_router)
 
 app.include_router(api_router)
+
+# Static "object storage" for admin-uploaded assets (menu images, etc).
+# Routed under /api/uploads so the existing Kubernetes ingress rule
+# (`/api/*` → backend) just works. Files live at /app/backend/uploads/.
+_uploads_dir = Path(__file__).resolve().parent / "uploads"
+_uploads_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/api/uploads", StaticFiles(directory=str(_uploads_dir)), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,

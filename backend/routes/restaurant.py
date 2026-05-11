@@ -11,16 +11,43 @@ Collections:
 """
 from __future__ import annotations
 
+import os
 import uuid
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field
 
 import server  # late-binding access to db/logger/helpers/models
 
 router = APIRouter()
+
+# ---------------------------------------------------------------------------
+# Local-disk "object storage" for admin-uploaded menu images.
+# We persist files under /app/backend/uploads/menu_images/<uuid>.<ext> and
+# serve them statically via FastAPI's StaticFiles mount at /api/uploads/...
+# (mount is registered in server.py at import time).
+#
+# Why local disk over base64-in-Mongo?
+#   * Keeps Mongo docs small (was 1.4 MB+ per menu item with base64).
+#   * Lets the browser cache images independently.
+#   * Easy upgrade path: swap save-path for S3/GCS later — public URL contract
+#     stays the same.
+# ---------------------------------------------------------------------------
+UPLOAD_ROOT = Path(__file__).resolve().parent.parent / "uploads"
+MENU_IMAGE_DIR = UPLOAD_ROOT / "menu_images"
+MENU_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+MAX_UPLOAD_BYTES = 4 * 1024 * 1024  # 4 MB — generous; was 1.4MB for base64
+
+_EXT_BY_MIME = {
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -307,6 +334,32 @@ async def admin_reset_menu(user: server.User = Depends(server.get_current_user))
         upsert=True,
     )
     return {"items": DEFAULT_MENU}
+
+
+@router.post("/admin/restaurant/menu/upload-image")
+async def admin_upload_menu_image(
+    file: UploadFile = File(...),
+    user: server.User = Depends(server.get_current_user),
+):
+    """Save an admin-uploaded menu item image to local disk "object storage"
+    and return a public URL the admin form can paste into `image_url`.
+
+    The static mount in server.py exposes /api/uploads/menu_images/<file>.
+    """
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    ext = _EXT_BY_MIME.get((file.content_type or "").lower())
+    if not ext:
+        raise HTTPException(status_code=400, detail="Only JPG / PNG / WEBP / GIF supported")
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty file")
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail=f"File too large (max {MAX_UPLOAD_BYTES // (1024 * 1024)} MB)")
+    fname = f"{uuid.uuid4().hex}{ext}"
+    fpath = MENU_IMAGE_DIR / fname
+    fpath.write_bytes(data)
+    return {"url": f"/api/uploads/menu_images/{fname}", "bytes": len(data)}
 
 
 # ---------------------------------------------------------------------------

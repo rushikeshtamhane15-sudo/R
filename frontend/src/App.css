@@ -205,3 +205,61 @@
 .badge-3d-bob {
     animation: hero-badge-bob 3.6s ease-in-out infinite;
 }
+
+/* === Login form card 3D treatment ===
+   Floating glass card with thick border + multi-layer shadow + subtle hover
+   tilt + glossy top highlight. Used on /login `.login-card-3d`. */
+.login-card-3d {
+    position: relative;
+    border: 2px solid #ffffff;
+    box-shadow:
+        0 1px 0 rgba(255,255,255,0.95) inset,
+        0 -1px 0 rgba(0,0,0,0.06) inset,
+        0 2px 4px rgba(20, 12, 5, 0.06),
+        0 14px 36px -10px rgba(20, 12, 5, 0.22),
+        0 36px 80px -28px rgba(20, 12, 5, 0.32),
+        0 0 0 1px rgba(0,0,0,0.05);
+    transform: perspective(1200px) translateZ(0);
+    transform-style: preserve-3d;
+    transition: transform 320ms cubic-bezier(.2,.8,.2,1),
+                box-shadow 320ms cubic-bezier(.2,.8,.2,1);
+    backdrop-filter: blur(2px);
+}
+/* Glossy sweep across the very top of the card — reads as a polished surface. */
+.login-card-3d::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(160deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 32%);
+    pointer-events: none;
+    z-index: 0;
+}
+/* Soft floor shadow — gives the card a "lifted" feel above the page. */
+.login-card-3d::after {
+    content: "";
+    position: absolute;
+    left: 6%;
+    right: 6%;
+    bottom: -16px;
+    height: 22px;
+    background: radial-gradient(ellipse at center, rgba(20,12,5,0.28), transparent 70%);
+    filter: blur(10px);
+    pointer-events: none;
+    z-index: -1;
+}
+/* Children sit above the gloss layer */
+.login-card-3d > * { position: relative; z-index: 1; }
+
+@media (hover: hover) and (pointer: fine) {
+    .login-card-3d:hover {
+        transform: perspective(1200px) translateY(-3px) rotateX(1.5deg);
+        box-shadow:
+            0 1px 0 rgba(255,255,255,0.95) inset,
+            0 -1px 0 rgba(0,0,0,0.08) inset,
+            0 4px 8px rgba(20, 12, 5, 0.08),
+            0 22px 48px -12px rgba(20, 12, 5, 0.28),
+            0 50px 100px -32px rgba(20, 12, 5, 0.40),
+            0 0 0 1px rgba(0,0,0,0.06);
+    }
+}

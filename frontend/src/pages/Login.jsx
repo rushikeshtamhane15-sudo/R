@@ -197,16 +197,16 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-primary flex flex-col" data-testid="login-page">
-      {/* HERO — dark red full-bleed top, simple & centered. Collapses if no title. */}
+      {/* HERO — dark red full-bleed top with 3D depth + extruded text. */}
       {(c.title_line1 || c.title_line2) && (
-        <div className="relative overflow-hidden">
+        <div className="hero-3d relative overflow-hidden">
           <div className="absolute inset-0 -z-10">
             <img src={HERO_FOOD_IMG} alt="" className="w-full h-full object-cover opacity-25" />
             <div className="absolute inset-0 bg-gradient-to-b from-primary/95 via-primary/90 to-primary"></div>
           </div>
           <div className="max-w-md mx-auto w-full px-6 pt-6 pb-7 md:pt-8 md:pb-9 text-primary-foreground text-center">
             <h1
-              className="font-display font-extrabold text-2xl md:text-3xl tracking-tight leading-[1.05]"
+              className="text-3d-title font-display font-extrabold text-2xl md:text-3xl tracking-tight leading-[1.05]"
               data-testid="login-title"
             >
               {c.title_line1 && <span className="block">{c.title_line1}</span>}
@@ -216,22 +216,19 @@ export default function Login() {
         </div>
       )}
 
-      {/* Thick decorative spacer — gradient strip between the red hero and
-          the white form sheet. Adds visual breathing room on mobile. */}
+      {/* Thick all-white spacer — pure white slab between the red hero and
+          the form sheet. Bumped from h-3/h-5 to h-7/h-10 for a more
+          deliberate, premium breathing room. */}
       <div
         aria-hidden
-        className="h-3 sm:h-5 w-full bg-gradient-to-b from-primary to-background"
+        className="h-7 sm:h-10 w-full bg-white"
         data-testid="login-hero-spacer"
       />
 
-      {/* FORM SHEET — Zomato-clone style: floating white card with thick border + shadow */}
+      {/* FORM SHEET — Zomato-clone style: floating white card with 3D depth */}
       <div className="bg-background flex-1 px-3 sm:px-6 relative pb-24 md:pb-12">
         <div
-          className="max-w-[280px] sm:max-w-sm mx-auto w-full bg-card rounded-2xl px-3 py-2.5 sm:px-6 sm:py-5 mt-3 sm:mt-5"
-          style={{
-            border: "2px solid #ffffff",
-            boxShadow: "0 14px 36px -10px rgba(0,0,0,0.18), 0 4px 12px -4px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.05)",
-          }}
+          className="login-card-3d max-w-[280px] sm:max-w-sm mx-auto w-full bg-card rounded-2xl px-3 py-2.5 sm:px-6 sm:py-5 mt-3 sm:mt-5"
           data-testid="login-form-card"
         >
           {/* Compact admin-style icon badge above the form */}

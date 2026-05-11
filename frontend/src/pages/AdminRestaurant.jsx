@@ -21,15 +21,15 @@ const blank = () => ({
   sort_order: 100,
 });
 
-const MAX_IMAGE_BYTES = 1_400_000;
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024; // 4 MB (matches backend)
 
-async function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload = () => resolve(fr.result);
-    fr.onerror = reject;
-    fr.readAsDataURL(file);
+async function uploadMenuImage(file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  const r = await api.post("/admin/restaurant/menu/upload-image", fd, {
+    headers: { "Content-Type": "multipart/form-data" },
   });
+  return r.data?.url || "";
 }
 
 const CATEGORIES = ["Starters", "Mains", "Tiffin Specials", "Beverages", "Desserts"];
@@ -65,12 +65,16 @@ export default function AdminRestaurant() {
   const onImageFile = async (idx, file) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) return toast.error("Please pick an image file");
-    if (file.size > MAX_IMAGE_BYTES) return toast.error("Image too large (max ~1.4 MB)");
+    if (file.size > MAX_IMAGE_BYTES) return toast.error("Image too large (max 4 MB)");
     try {
-      const dataUrl = await fileToDataUrl(file);
-      update(idx, { image_url: dataUrl });
-      toast.success("Image attached");
-    } catch { toast.error("Could not read image"); }
+      // Upload to backend "object storage" — returns a public URL.
+      const url = await uploadMenuImage(file);
+      if (!url) throw new Error("upload failed");
+      update(idx, { image_url: url });
+      toast.success("Image uploaded");
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Could not upload image");
+    }
   };
 
   const save = async () => {

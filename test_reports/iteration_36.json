@@ -1,0 +1,31 @@
+{
+  "summary": "Iter-36 full backend + frontend regression for the 5-step refactor (HeroPanel/CategoryStrip/DishCard extraction, local-disk object storage for menu images, parallax tilt, Pure-Veg badge logo-first, thicker white login spacer, 3D login card). 10/10 backend pytest cases PASS (new upload endpoint + 403/401 + regressions). 9/9 frontend visual + integration checks PASS (parallax tilt confirmed via inline transform mutation after pointermove, badge first-child IS the pure-veg-logo IMG, spacer height=40px & bg=rgb(255,255,255), login-card-3d carries multi-layer box-shadow, OTP send+verify works end-to-end).",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter36_upload.py",
+    "/app/test_reports/pytest/iter36_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "HeroPanel.jsx: pointermove listener is attached only on the <header>; works in real browsers but page.mouse.move from automation does not bubble synthetic pointer events to the React-managed ref — verified instead by dispatching PointerEvent directly. No code change needed, but worth knowing for future Playwright tests of this component.",
+    "/api/admin/restaurant/menu/upload-image correctly validates content_type, enforces 4MB cap (413), returns {url,bytes} and the file is GET-able via the StaticFiles mount with image/* content-type. Round-trip bytes match.",
+    "Restaurant.jsx now ~280 lines (down from 480) with HeroPanel/CategoryStrip/DishCard extracted — well under the 700-line threshold.",
+    "Login page spacer is h-7 sm:h-10 w-full bg-white (computed height 40px, bg rgb(255,255,255)). login-card-3d class is present and computed box-shadow is a 6-layer composite — 3D depth wired correctly.",
+    "Minor: 401 console errors from /api/restaurant/orders for anonymous /restaurant viewers persist (pre-existing, expected, caught client-side); consider gating the call with `if (user)` to silence devtools noise."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter36_upload.py (new)"
+  ],
+  "success_rate": { "backend": "100% (10/10)", "frontend": "100% (9/9)" },
+  "test_credentials": "OTP DEV mode — admin phone 9970705391 (in ADMIN_PHONES), regular user 9876543210. dev_otp returned by /api/auth/send-otp.",
+  "seed_data_creation": "None — generated a 70-byte valid 1x1 PNG in-test for the upload, and an over-sized 4MB+1KB buffer for the 413 check. Test upload files remain in /app/backend/uploads/menu_images/ but are uuid-named and harmless.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 5 features of iteration 36 are verified working in both backend and frontend on viewport 1280x900. Pure-Veg badge: first child is IMG[data-testid=pure-veg-logo], followed by middle-dot · then '100% Pure Veg' text. Parallax tilt: inner div carries `transform: perspective(900px) rotateX(...) rotateY(...)` that updates to non-zero values after pointermove (verified 2.09deg / 2.79deg after dispatchEvent). Login spacer testid login-hero-spacer has class 'h-7 sm:h-10 w-full bg-white' and computed height=40px/bg=white. login-form-card has class login-card-3d with a 6-layer box-shadow (inset highlight + inset bottom edge + ambient + drop + heavy floor + ring). /api/admin/restaurant/menu/upload-image returns {url:'/api/uploads/menu_images/<uuid>.<ext>', bytes:N} and the URL is publicly GET-able via the StaticFiles mount. Non-admin gets 403, anonymous gets 401. Restaurant menu/theme regression endpoints untouched. Existing critical flows (category filter 6→1 active, add-to-cart cart-bar shows '1 item · ₹380', search filter shows restaurant-no-items, login OTP send shows DEV MODE OTP banner) all work.",
+  "rca of the issue": "N/A — no bugs found."
+}
