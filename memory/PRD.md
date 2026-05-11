@@ -526,3 +526,11 @@ See `/app/memory/test_credentials.md`.
 - **Login Bad-Stuff watermark**: `BadStuffBackground.jsx` renders 8 scattered, low-opacity, extruded words with diagonal red strike-throughs (Ajinomoto · Maida · Artificial Flavours · Artificial Colours · Polished Grains · Refined Oil · Palm Oil · Pre-made Gravy). Aria-hidden, pointer-events:none, gentle float animation honouring `prefers-reduced-motion`.
 - **Testing**: 11/11 backend pytest + 5/5 frontend checks pass (iteration_37.json).
 
+
+
+### Iteration 38 (Feb 11, 2026) — Tap-to-detail modal + 3D emoji categories + Circular bad-stuff halo
+- **DishDetailModal**: tap-to-expand modal opens on dish image click. Shows full description, ingredient highlights (keyword-derived), and portion-size selector (Regular / Large 2× / Family 4×) with live total. Closes on ✕ / Escape / backdrop click.
+- **3D emoji category icons**: chunky food emojis (🍽 🍛 🥟 🍱 🍰 🥤) at 30px with multi-layer drop-shadow + perspective tilt + hover/active scale.
+- **Circular Bad-Stuff halo**: 8 small 3D pills (red 0% bubble + label) arranged on a circle around the login card. Hidden on viewports <481px.
+- **Bug fix**: Buy-now from modal at portion>1 now correctly threads portion count → sessionStorage carries `qty=portions`. Verified via Playwright.
+- **Testing**: 13/13 frontend assertions PASS (iteration_38.json).

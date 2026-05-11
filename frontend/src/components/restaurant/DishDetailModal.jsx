@@ -72,8 +72,10 @@ export default function DishDetailModal({ open, item, onClose, onAdd, onBuy }) {
     onClose();
   };
   const handleBuy = () => {
-    for (let i = 0; i < selected.portions; i++) onAdd(item);
-    onBuy(item);
+    // Skip cart — go straight to checkout with the chosen portion count so
+    // the user pays for exactly what the modal Total displays. The parent
+    // `onBuy(item, portions)` is responsible for routing to checkout.
+    onBuy(item, selected.portions);
     onClose();
   };
 

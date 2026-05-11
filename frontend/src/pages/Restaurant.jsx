@@ -108,8 +108,12 @@ export default function Restaurant() {
   const onAdd = (it) => setCart((c) => bumpQty(c, it.id, 1));
   const onSub = (it) => setCart((c) => bumpQty(c, it.id, -1));
 
-  const buyNow = (it) => {
-    try { sessionStorage.setItem("efc_buynow_v1", JSON.stringify({ [it.id]: { id: it.id, qty: 1 } })); } catch {}
+  // Buy now: stash one-item cart in sessionStorage and jump to checkout
+  // (login wall handles redirect). `portions` lets the dish detail modal
+  // pass through a Large/Family selection so the user pays for the right qty.
+  const buyNow = (it, portions = 1) => {
+    const qty = Math.max(1, Number(portions) || 1);
+    try { sessionStorage.setItem("efc_buynow_v1", JSON.stringify({ [it.id]: { id: it.id, qty } })); } catch {}
     if (!user) {
       try { sessionStorage.setItem("efc_pending_action_v1", "/restaurant/checkout?buynow=1"); } catch {}
       navigate(`/login?next=${encodeURIComponent("/restaurant/checkout?buynow=1")}`);
