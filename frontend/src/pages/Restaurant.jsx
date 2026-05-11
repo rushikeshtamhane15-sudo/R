@@ -157,25 +157,23 @@ export default function Restaurant() {
         data-testid="restaurant-hero"
       >
         <div className="max-w-6xl mx-auto px-4 sm:px-5 py-3 sm:py-4">
-          {/* Row 1 — 100% Pure Veg badge RIGHT (with both icons) · left side clear */}
+          {/* Row 1 — tiny "100% Pure Veg" text badge on RIGHT, no icons */}
           <div className="flex items-center justify-end gap-3">
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-white text-green-700 pl-1 pr-2.5 py-0.5 text-[12px] sm:text-[13px] font-extrabold tracking-wide uppercase shadow-sm" data-testid="pure-veg-badge">
-              <img src={PURE_VEG_ICON} alt="Pure Veg" className="h-5 w-5" />
-              <span>{theme?.pure_veg_label || "100% Pure Veg"}</span>
-              <img src={BRAND_LOGO_URL} alt="eFoodCare" className="h-4 w-4 rounded-sm ml-0.5" />
+            <span className="inline-flex items-center rounded bg-white/95 text-green-700 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-extrabold tracking-wide uppercase shadow-sm" data-testid="pure-veg-badge">
+              {theme?.pure_veg_label || "100% Pure Veg"}
             </span>
             <span className="sr-only" data-testid="zero-bad-stuff">100% Pure Veg</span>
           </div>
 
           {/* Row 2 — Dominant overline + title + tagline */}
-          <div className="mt-3">
-            <p className="text-[13px] sm:text-base tracking-wider uppercase font-extrabold opacity-95 flex items-center gap-1.5">
+          <div className="mt-2.5">
+            <p className="text-[14px] sm:text-lg tracking-wider uppercase font-extrabold opacity-95 flex items-center gap-1.5">
               <ChefHat className="h-4 w-4 sm:h-5 sm:w-5" /> {theme?.hero_overline || "efoodcare restaurant"}
             </p>
-            <h1 className="font-display font-extrabold text-xl sm:text-3xl tracking-tight mt-1 lowercase leading-tight">
+            <h1 className="font-display font-extrabold text-2xl sm:text-3xl tracking-tight mt-1 lowercase leading-tight">
               {theme?.hero_title || "order online · ghar se accha khana"}
             </h1>
-            <p className="opacity-95 text-[12px] sm:text-base mt-1.5 flex items-center gap-1.5 leading-snug">
+            <p className="opacity-95 text-[13px] sm:text-base mt-1.5 flex items-center gap-1.5 leading-snug">
               <Truck className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
               <span className="truncate">{theme?.hero_tagline || `Free delivery on orders over ₹${meta.delivery_free_over} · ₹${meta.delivery_fee_flat} otherwise`}</span>
             </p>
