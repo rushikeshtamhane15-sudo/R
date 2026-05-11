@@ -88,8 +88,9 @@ export default function OrderTrack() {
     let skipped = 0;
     for (const line of order.items) {
       if (!liveIds.has(line.id)) { skipped += 1; continue; }
-      const cur = next[line.id]?.qty || 0;
-      next = setQty(next, line.id, cur + (line.qty || 1));
+      const variant = (line.variant || "regular").toLowerCase();
+      const cur = next[`${line.id}::${variant}`]?.qty || 0;
+      next = setQty(next, line.id, cur + (line.qty || 1), variant);
       added += 1;
     }
     saveCart(next);
@@ -255,7 +256,7 @@ export default function OrderTrack() {
           <ul className="space-y-2 text-sm">
             {order.items?.map((i) => (
               <li key={i.id} className="flex justify-between">
-                <span>{i.name} × {i.qty}</span>
+                <span>{i.name}{i.variant && i.variant !== "regular" ? <span className="ml-1 inline-block px-1 py-0.5 rounded text-[9px] font-bold uppercase bg-primary/10 text-primary align-middle">{i.variant_label || i.variant}</span> : null} × {i.qty}</span>
                 <span className="tabular-nums">₹{i.line_total?.toFixed(0) || (i.unit_price * i.qty).toFixed(0)}</span>
               </li>
             ))}

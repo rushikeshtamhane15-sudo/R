@@ -76,6 +76,17 @@ class MenuPatch(BaseModel):
 class CartLine(BaseModel):
     id: str
     qty: int = Field(ge=1, le=50)
+    # Optional portion variant — used by the dish detail modal so a single
+    # cart line can represent a Large/Family-sized order. Backend resolves
+    # variant → portion multiplier ({regular:1, large:2, family:4}) to compute
+    # the line total. Defaults to "regular" when missing.
+    variant: Optional[str] = "regular"
+
+
+# Portion-variant → multiplier. Keep in sync with frontend
+# `src/lib/cart.js#PORTION_MULTIPLIER`.
+PORTION_MULTIPLIER = {"regular": 1, "large": 2, "family": 4}
+PORTION_LABEL = {"regular": "Regular", "large": "Large", "family": "Family"}
 
 
 class CreateRestaurantOrder(BaseModel):
@@ -178,17 +189,31 @@ async def _load_menu() -> list[dict]:
 
 
 def _compute_totals(menu_by_id: dict, items: list[CartLine]) -> tuple[list[dict], float, float, float]:
-    """Resolve cart lines → priced lines + subtotal + delivery_fee + grand_total."""
+    """Resolve cart lines → priced lines + subtotal + delivery_fee + grand_total.
+
+    Honours the optional `variant` on each line (regular/large/family). Large
+    multiplies the unit price by 2, Family by 4, so a single line with
+    variant=large + qty=1 charges for two regular portions and the receipt
+    reads "Butter Chicken · Large".
+    """
     priced: list[dict] = []
     subtotal = 0.0
     for line in items:
         m = menu_by_id.get(line.id)
         if not m or not m.get("active", True):
             raise HTTPException(status_code=400, detail=f"Item not available: {line.id}")
-        unit = float(m.get("discounted_price") or m["price"])
+        variant = (line.variant or "regular").lower()
+        if variant not in PORTION_MULTIPLIER:
+            raise HTTPException(status_code=400, detail=f"Unknown portion variant: {variant}")
+        portion_mult = PORTION_MULTIPLIER[variant]
+        base_unit = float(m.get("discounted_price") or m["price"])
+        unit = round(base_unit * portion_mult, 2)
         line_total = round(unit * line.qty, 2)
         priced.append({
             "id": m["id"], "name": m["name"], "qty": line.qty,
+            "variant": variant,
+            "variant_label": PORTION_LABEL.get(variant, variant.title()),
+            "portion_multiplier": portion_mult,
             "unit_price": unit, "line_total": line_total,
             "image_url": m.get("image_url", ""),
         })

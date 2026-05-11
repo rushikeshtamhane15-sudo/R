@@ -129,38 +129,6 @@
     z-index: -1;
 }
 
-/* === 3D emoji food icons for the category strip ===
-   Larger circular pill that hosts a chunky food emoji rendered with a
-   layered drop-shadow + slight tilt so it reads as a "plate seen from
-   above". Each platform's native colour emoji set does the heavy lifting. */
-.cat-icon-3d-img {
-    height: 52px;
-    width: 52px;
-    background: linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--muted)) 100%);
-}
-.cat-icon-3d-img .cat-emoji-3d {
-    font-size: 30px;
-    line-height: 1;
-    transform: perspective(140px) rotateX(18deg) translateZ(2px);
-    transform-origin: center 70%;
-    /* Layered drop-shadows fake an extrusion underneath the emoji */
-    filter:
-        drop-shadow(0 1px 0 rgba(0,0,0,0.18))
-        drop-shadow(0 2px 1px rgba(0,0,0,0.22))
-        drop-shadow(0 4px 6px rgba(0,0,0,0.28));
-    transition: transform 220ms cubic-bezier(.2,.8,.2,1);
-}
-.cat-chip-3d:hover .cat-icon-3d-img .cat-emoji-3d,
-.cat-chip-3d[data-active="true"] .cat-icon-3d-img .cat-emoji-3d {
-    transform: perspective(140px) rotateX(22deg) translateZ(4px) scale(1.08);
-}
-.cat-chip-3d[data-active="true"] .cat-icon-3d-img {
-    /* When active, swap the gradient to a tinted primary surface but keep
-       the emoji glyph colourful — only the pill tints, not the food. */
-    background: linear-gradient(180deg, hsl(var(--primary) / 0.18) 0%, hsl(var(--primary) / 0.10) 100%);
-    border-color: hsl(var(--primary) / 0.40);
-}
-
 /* Subtle entrance — fade + rise — for menu items as they paint. */
 @keyframes dish-rise {
     from { opacity: 0; transform: translateY(8px) scale(0.985); }
@@ -402,9 +370,9 @@
     .bad-stuff-pill { animation: none; }
 }
 
-/* Stack the pills below ~640px so they don't crowd a phone screen — hide the
-   ring entirely on very narrow viewports where the login card already fills
-   most of the page. */
+/* Compact-screen tweak — at very narrow widths the ring crowds the login
+   card, so we shrink the pills (and they still float around the form). */
 @media (max-width: 480px) {
-    .bad-stuff-pill { display: none; }
+    .bad-stuff-pill { font-size: 9px; padding: 4px 8px 4px 6px; }
+    .bad-stuff-pill-zero { min-width: 18px; height: 18px; font-size: 8px; }
 }

@@ -67,15 +67,15 @@ export default function DishDetailModal({ open, item, onClose, onAdd, onBuy }) {
   const totalPrice = unit * selected.portions;
 
   const handleAdd = () => {
-    // Add `portions` of the item — qty represents one regular portion each.
-    for (let i = 0; i < selected.portions; i++) onAdd(item);
+    // Add a single line of the selected variant. cart.bumpQty handles the
+    // variant-aware composite key — Regular + Large coexist as separate lines.
+    onAdd(item, selected.id);
     onClose();
   };
   const handleBuy = () => {
-    // Skip cart — go straight to checkout with the chosen portion count so
-    // the user pays for exactly what the modal Total displays. The parent
-    // `onBuy(item, portions)` is responsible for routing to checkout.
-    onBuy(item, selected.portions);
+    // Skip cart — go straight to checkout with the chosen variant so the
+    // receipt shows "Butter Chicken · Large" and pricing is correct.
+    onBuy(item, selected.id);
     onClose();
   };
 

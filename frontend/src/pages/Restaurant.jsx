@@ -105,15 +105,20 @@ export default function Restaurant() {
   const cartLines = priceCart(cart, menu || []);
   const totalCount = cartCount(cart);
 
-  const onAdd = (it) => setCart((c) => bumpQty(c, it.id, 1));
-  const onSub = (it) => setCart((c) => bumpQty(c, it.id, -1));
+  const onAdd = (it, variant = "regular") => setCart((c) => bumpQty(c, it.id, 1, variant));
+  const onSub = (it, variant = "regular") => setCart((c) => bumpQty(c, it.id, -1, variant));
 
   // Buy now: stash one-item cart in sessionStorage and jump to checkout
-  // (login wall handles redirect). `portions` lets the dish detail modal
-  // pass through a Large/Family selection so the user pays for the right qty.
-  const buyNow = (it, portions = 1) => {
-    const qty = Math.max(1, Number(portions) || 1);
-    try { sessionStorage.setItem("efc_buynow_v1", JSON.stringify({ [it.id]: { id: it.id, qty } })); } catch {}
+  // (login wall handles redirect). The dish detail modal passes the chosen
+  // portion variant so checkout shows "Butter Chicken · Large" not just qty.
+  const buyNow = (it, variant = "regular") => {
+    const v = (variant || "regular").toLowerCase();
+    try {
+      sessionStorage.setItem(
+        "efc_buynow_v1",
+        JSON.stringify({ [`${it.id}::${v}`]: { id: it.id, variant: v, qty: 1 } })
+      );
+    } catch {}
     if (!user) {
       try { sessionStorage.setItem("efc_pending_action_v1", "/restaurant/checkout?buynow=1"); } catch {}
       navigate(`/login?next=${encodeURIComponent("/restaurant/checkout?buynow=1")}`);
@@ -140,8 +145,10 @@ export default function Restaurant() {
     let skipped = 0;
     for (const line of lastOrder.items || []) {
       if (!liveIds.has(line.id)) { skipped += 1; continue; }
-      const cur = next[line.id]?.qty || 0;
-      next = setQty(next, line.id, cur + (line.qty || 1));
+      const variant = (line.variant || "regular").toLowerCase();
+      const key = `${line.id}::${variant}`;
+      const cur = next[key]?.qty || 0;
+      next = setQty(next, line.id, cur + (line.qty || 1), variant);
       added += 1;
     }
     setCart(next);
@@ -269,7 +276,7 @@ export default function Restaurant() {
                 <DishCard
                   key={it.id}
                   it={it}
-                  qty={cart[it.id]?.qty || 0}
+                  qty={cart[`${it.id}::regular`]?.qty || 0}
                   theme={theme}
                   idx={idx}
                   onAdd={onAdd}

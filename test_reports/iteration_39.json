@@ -1,0 +1,31 @@
+{
+  "summary": "Iter-39 full-stack verification of variant cart + halo + Lucide icons. Backend: 10/10 pytest passing (variant pricing math regular×1 / large×2 / family×4 verified end-to-end against Butter Chicken ₹380, Dal Makhani, Veg Biryani; unknown variant 'supersize' → HTTP 400; missing variant defaults to 'regular'; GET /restaurant/orders surfaces variant + variant_label + portion_multiplier on every priced line; mixed cart with same dish in two variants returns 2 distinct priced lines and correct subtotal; regression endpoints menu/theme/categories/guest-cart all 200). Frontend: (1) /restaurant CategoryStrip renders 6/6 chips with Lucide SVG icons; 0 .cat-emoji-3d elements anywhere in DOM; no obsolete CSS rules for emoji 3D icons remain. (2) DishDetailModal opens via open-detail-{id}, Large portion button shifts modal Total to ₹760 (2×₹380 ✅), Add adds {main_butter_chicken::large: qty 1}. Re-open same dish, pick Regular, Add → cart now has BOTH composite keys (main_butter_chicken::large + main_butter_chicken::regular) confirming dual-line behaviour. (3) /login halo: exactly 8 [data-testid^=bad-stuff-pill-] pills visible, all 255–308 px from login-form-card center (card 384×553 at 448,178) → tight ring around the card (NOT viewport edges, 0/8 within 50 px of any edge). At viewport 390×844 every pill still computed `display: flex` (no display:none), sizes shrunk to ~31–50 px tall (was 40–63 px on desktop). (4) RestaurantCheckout.jsx code-review confirms composite-key testids (checkout-line-name-${id}::${variant}, co-inc/co-dec/co-qty/co-remove all use composite key) and variant pill shown when variant !== 'regular' as `${variant_label} · ${portion_multiplier}×`; submits `items: [{id, qty, variant}]` to /restaurant/order. Iter-38 buynow bug is FIXED — buyNow(it, variant) now writes qty:1 with the correct variant into sessionStorage (efc_buynow_v1 key = `${id}::${variant}`).",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_restaurant_variant.py",
+    "/app/test_reports/pytest/iter39_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Backend _compute_totals: lowercases the variant before lookup but Pydantic CartLine.variant default is 'regular' — fine. Consider adding `Literal['regular','large','family']` to surface invalid values in OpenAPI docs (currently the 400 only fires after request reaches the handler).",
+    "Frontend cart.js migrate(): handles legacy v1 carts (key=id, no variant) by re-keying to ::regular. Edge case — if a stale v1 payload contains key with '::' coincidentally in the id, this would mis-parse. Restaurant menu ids today never contain '::', so safe in practice. Worth documenting.",
+    "RestaurantCheckout submits variant only when present; CartLine on backend defaults variant to 'regular' if missing → backwards compat verified. Good.",
+    "Bad-stuff halo: pills are absolutely positioned via -inset-y-32 -inset-x-32 wrapper around login-form-card. Distances 255–308 px from card center on 1280×900 desktop. On mobile (390×844) pills shrink correctly and still render; no display:none rule remains in App.css for .bad-stuff-pill. Iter-38 'pills ring the page not the form' concern resolved.",
+    "Lucide-only category strip — bundle no longer ships emoji-3D CSS. Verified zero `.cat-emoji-3d` / `.cat-icon-3d-img` rules in App.css and index.css. 6/6 category chips contain an <svg>."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_restaurant_variant.py (new)"
+  ],
+  "success_rate": { "backend": "100% (10/10)", "frontend": "100% (all 4 enhancement areas verified)" },
+  "test_credentials": "OTP DEV mode — phone 9876543210, dev_otp echoed in /api/auth/send-otp response body.",
+  "seed_data_creation": "Created several restaurant orders for TEST user (variant=large butter chicken, variant=family dal makhani, no-variant paneer tikka, mixed-cart veg biryani). Orders persist in restaurant_orders collection under the dev TEST user.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test file at /app/backend/tests/test_restaurant_variant.py — uses session_token from /api/auth/verify-otp (NOT 'token'/'access_token'). Tests are idempotent and create new orders each run. Frontend verification: tested at viewport 1280x900 and 390x844. Modal open requires JS-dispatched click (`document.querySelector(...).click()`); native Playwright click sometimes misses on first try due to react hydration timing — use `page.evaluate(\"...click()\")` for reliability. Cart shape v2 = `{ [id::variant]: {id, variant, qty} }` — composite key. priceCart() applies PORTION_MULTIPLIER. RestaurantCheckout uses composite keys for testids: checkout-line-name-${id}::${variant}, co-inc/co-dec/co-qty/co-remove all composite. Backend orders carry variant + variant_label + portion_multiplier per priced line. Bad-stuff halo wrapper now sized with -inset-y-32 -inset-x-32 — pills cluster tight around login-form-card, not viewport edges.",
+  "rca of the issue": "Iter-38 reported buyNow ignored portion selector → qty hardcoded to 1, undercharging Large/Family buyers. ROOT CAUSE was buyNow only accepting `it`, no variant; DishDetailModal looped onAdd N times to compensate. FIX applied: buyNow(it, variant) writes a single sessionStorage line `{id, variant, qty:1}` with composite key, and DishDetailModal.handleAdd passes selected.id as variant string instead of looping. Backend resolves variant → multiplier so qty:1+variant=large is priced as 2 portions. Verified end-to-end via 10 backend tests and frontend dual-line cart test (Large add → 1 line :: large, Regular add → 1 line :: regular, NOT collapsed)."
+}

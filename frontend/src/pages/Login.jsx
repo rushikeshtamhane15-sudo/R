@@ -227,14 +227,21 @@ export default function Login() {
       />
 
       {/* FORM SHEET — Zomato-clone style: floating white card with 3D depth.
-          The "bad stuff" watermark sits decoratively in the background — it
-          reinforces our brand promise the moment a user opens the login. */}
-      <div className="bg-background flex-1 px-3 sm:px-6 relative pb-24 md:pb-12 overflow-hidden">
-        <BadStuffBackground />
-        <div
-          className="login-card-3d relative max-w-[280px] sm:max-w-sm mx-auto w-full bg-card rounded-2xl px-3 py-2.5 sm:px-6 sm:py-5 mt-3 sm:mt-5 z-[1]"
-          data-testid="login-form-card"
-        >
+          The "bad stuff" halo is positioned in a wrapper sized to the card so
+          the ring of 0% pills naturally rings the login form regardless of
+          viewport height. */}
+      <div className="bg-background flex-1 px-3 sm:px-6 relative pb-24 md:pb-12">
+        <div className="relative max-w-[280px] sm:max-w-sm mx-auto w-full mt-3 sm:mt-5">
+          {/* Halo container — sized to the form card so pills ring the card,
+              not the entire viewport. Uses padding to extend the ring outside
+              the card by ~140px on every side without affecting layout flow. */}
+          <div className="absolute -inset-y-32 -inset-x-32 sm:-inset-x-36 pointer-events-none" aria-hidden>
+            <BadStuffBackground />
+          </div>
+          <div
+            className="login-card-3d relative bg-card rounded-2xl px-3 py-2.5 sm:px-6 sm:py-5 z-[1]"
+            data-testid="login-form-card"
+          >
           {/* Compact admin-style icon badge above the form */}
           <div
             data-testid="login-icon-badge"
@@ -418,6 +425,7 @@ export default function Login() {
               </motion.div>
             )}
           </AnimatePresence>
+        </div>
         </div>
       </div>
     </div>

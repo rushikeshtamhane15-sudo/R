@@ -1,14 +1,48 @@
 /**
- * Restaurant cart — localStorage-backed. Stays alive across page reloads.
- * Shape: { [itemId]: { id, qty } }
+ * Restaurant cart — localStorage-backed, variant-aware.
  *
- * Cross-device sync: every saveCart() also fire-and-forgets a PUT /guest-cart
- * keyed by a UUID stored in localStorage.efc_guest_token. On app boot, /restaurant
- * page calls hydrateGuestCart() to merge any server-side cart into the local one
- * (taking max qty per item). This way mobile-built carts appear on desktop.
+ * Cart shape (v2):
+ *   { [key]: { id, variant, qty } }
+ * where key = `${id}::${variant}` so the same dish can appear as multiple
+ * lines (Regular AND Large) and each line is priced + labelled separately.
+ *
+ * Variants: "regular" (default), "large" (×2), "family" (×4). Keep these
+ * in lockstep with backend `routes/restaurant.py#PORTION_MULTIPLIER`.
+ *
+ * Backwards compat: older carts used key=id with no variant. loadCart()
+ * silently re-keys those lines to `${id}::regular`.
  */
 const KEY = "efc_restaurant_cart_v1";
 const TOKEN_KEY = "efc_guest_token";
+
+export const PORTION_MULTIPLIER = { regular: 1, large: 2, family: 4 };
+export const PORTION_LABEL = { regular: "Regular", large: "Large", family: "Family" };
+export const DEFAULT_VARIANT = "regular";
+
+export function lineKey(id, variant = DEFAULT_VARIANT) {
+  return `${id}::${variant || DEFAULT_VARIANT}`;
+}
+
+function migrate(raw) {
+  if (!raw || typeof raw !== "object") return {};
+  const next = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (!v) continue;
+    // Already v2 (key contains "::") OR explicit variant field present
+    if (k.includes("::") || v.variant) {
+      const variant = (v.variant || k.split("::")[1] || DEFAULT_VARIANT).toLowerCase();
+      const id = v.id || k.split("::")[0];
+      const qty = Math.max(0, Math.min(50, Number(v.qty) || 0));
+      if (qty > 0 && id) next[lineKey(id, variant)] = { id, variant, qty };
+      continue;
+    }
+    // v1 shape — coerce to regular variant
+    const id = v.id || k;
+    const qty = Math.max(0, Math.min(50, Number(v.qty) || 0));
+    if (qty > 0 && id) next[lineKey(id, DEFAULT_VARIANT)] = { id, variant: DEFAULT_VARIANT, qty };
+  }
+  return next;
+}
 
 function getOrCreateGuestToken() {
   try {
@@ -22,15 +56,14 @@ function getOrCreateGuestToken() {
 }
 
 export function loadCart() {
-  try { return JSON.parse(localStorage.getItem(KEY) || "{}") || {}; }
+  try { return migrate(JSON.parse(localStorage.getItem(KEY) || "{}")); }
   catch { return {}; }
 }
 
 export function saveCart(cart) {
   try { localStorage.setItem(KEY, JSON.stringify(cart || {})); } catch {}
-  // Cross-tab sync via storage event already handled by browser.
   try { window.dispatchEvent(new CustomEvent("efc-cart-changed")); } catch {}
-  // Cross-device sync — fire-and-forget. Uses fetch (axios isn't imported here).
+  // Cross-device sync — fire-and-forget.
   try {
     const token = getOrCreateGuestToken();
     const base = process.env.REACT_APP_BACKEND_URL;
@@ -45,7 +78,6 @@ export function saveCart(cart) {
   } catch {}
 }
 
-/** Hydrate localStorage cart from server-side guest cart (cross-device). */
 export async function hydrateGuestCart() {
   const token = getOrCreateGuestToken();
   const base = process.env.REACT_APP_BACKEND_URL;
@@ -55,15 +87,15 @@ export async function hydrateGuestCart() {
     if (!r.ok) return loadCart();
     const { cart: serverCart } = await r.json();
     const local = loadCart();
-    // Merge: take max qty per item so a cart built on another device adds in
+    const serverMigrated = migrate(serverCart || {});
+    // Merge — take max qty per (id, variant) key so cross-device adds win
     const merged = { ...local };
-    for (const [id, line] of Object.entries(serverCart || {})) {
+    for (const [k, line] of Object.entries(serverMigrated)) {
       const q = Number(line?.qty) || 0;
       if (q <= 0) continue;
-      const existing = Number(merged[id]?.qty || 0);
-      merged[id] = { id, qty: Math.max(existing, q) };
+      const existing = Number(merged[k]?.qty || 0);
+      merged[k] = { id: line.id, variant: line.variant, qty: Math.max(existing, q) };
     }
-    // Persist merged locally (without re-PUT — would loop)
     try { localStorage.setItem(KEY, JSON.stringify(merged)); } catch {}
     try { window.dispatchEvent(new CustomEvent("efc-cart-changed")); } catch {}
     return merged;
@@ -72,24 +104,35 @@ export async function hydrateGuestCart() {
 
 export function clearCart() { saveCart({}); }
 
-export function setQty(cart, id, qty) {
+export function setQty(cart, id, qty, variant = DEFAULT_VARIANT) {
   const next = { ...cart };
+  const k = lineKey(id, variant);
   const n = Math.max(0, Math.min(50, Number(qty) || 0));
-  if (n === 0) delete next[id];
-  else next[id] = { id, qty: n };
+  if (n === 0) delete next[k];
+  else next[k] = { id, variant: variant || DEFAULT_VARIANT, qty: n };
   return next;
 }
 
-export function bumpQty(cart, id, delta) {
-  const cur = cart[id]?.qty || 0;
-  return setQty(cart, id, cur + delta);
+export function bumpQty(cart, id, delta, variant = DEFAULT_VARIANT) {
+  const cur = cart[lineKey(id, variant)]?.qty || 0;
+  return setQty(cart, id, cur + delta, variant);
 }
 
 export function cartCount(cart) {
-  return Object.values(cart || {}).reduce((s, l) => s + (l?.qty || 0), 0);
+  // Counts each portion individually (Large counts as 2, Family as 4) so the
+  // sticky cart-bar reflects "physical portions in the box" not "lines".
+  return Object.values(cart || {}).reduce((s, l) => {
+    const mult = PORTION_MULTIPLIER[l?.variant || DEFAULT_VARIANT] || 1;
+    return s + (Number(l?.qty) || 0) * mult;
+  }, 0);
 }
 
-/** Price the cart against a menu list (frontend preview only — server is the source of truth). */
+/** Number of distinct cart lines — useful for "N items in cart" pluralisation. */
+export function cartLineCount(cart) {
+  return Object.values(cart || {}).reduce((s, l) => s + ((Number(l?.qty) || 0) > 0 ? 1 : 0), 0);
+}
+
+/** Price the cart against a menu list (frontend preview — server is the source of truth). */
 export function priceCart(cart, menu) {
   const byId = {};
   for (const m of (menu || [])) byId[m.id] = m;
@@ -98,9 +141,20 @@ export function priceCart(cart, menu) {
   for (const l of Object.values(cart || {})) {
     const m = byId[l.id];
     if (!m) continue;
-    const unit = Number(m.discounted_price ?? m.price);
+    const variant = (l.variant || DEFAULT_VARIANT).toLowerCase();
+    const mult = PORTION_MULTIPLIER[variant] || 1;
+    const baseUnit = Number(m.discounted_price ?? m.price);
+    const unit = +(baseUnit * mult).toFixed(2);
     const total = +(unit * l.qty).toFixed(2);
-    lines.push({ ...m, qty: l.qty, unit, line_total: total });
+    lines.push({
+      ...m,
+      qty: l.qty,
+      variant,
+      variant_label: PORTION_LABEL[variant] || variant,
+      portion_multiplier: mult,
+      unit,
+      line_total: total,
+    });
     subtotal += total;
   }
   subtotal = +subtotal.toFixed(2);

@@ -88,8 +88,9 @@ export default function RestaurantOrderHistory() {
     let skipped = 0;
     for (const line of order.items || []) {
       if (!liveIds.has(line.id)) { skipped += 1; continue; }
-      const curQty = next[line.id]?.qty || 0;
-      next = setQty(next, line.id, curQty + (line.qty || 1));
+      const variant = (line.variant || "regular").toLowerCase();
+      const curQty = next[`${line.id}::${variant}`]?.qty || 0;
+      next = setQty(next, line.id, curQty + (line.qty || 1), variant);
       added += 1;
     }
     saveCart(next);
@@ -172,7 +173,7 @@ export default function RestaurantOrderHistory() {
               <ul className="mt-3 space-y-1 text-sm">
                 {(o.items || []).slice(0, 4).map((i) => (
                   <li key={i.id} className="flex justify-between gap-2">
-                    <span className="text-foreground/90 truncate">{i.name} <span className="text-muted-foreground">× {i.qty}</span></span>
+                    <span className="text-foreground/90 truncate">{i.name}{i.variant && i.variant !== "regular" ? <span className="ml-1 inline-block px-1 py-0.5 rounded text-[9px] font-bold uppercase bg-primary/10 text-primary align-middle">{i.variant_label || i.variant}</span> : null} <span className="text-muted-foreground">× {i.qty}</span></span>
                     <span className="tabular-nums text-muted-foreground">₹{Number(i.line_total ?? (i.unit_price * i.qty)).toFixed(0)}</span>
                   </li>
                 ))}

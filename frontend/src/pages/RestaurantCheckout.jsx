@@ -93,10 +93,13 @@ export default function RestaurantCheckout() {
     return { km, min, total };
   }, [meta.kitchen_lat, meta.kitchen_lng, pinLoc]);
 
-  const onAdd = (id) => setCart((c) => bumpQty(c, id, 1));
-  const onSub = (id) => setCart((c) => bumpQty(c, id, -1));
-  const onChangeQty = (id, val) => setCart((c) => setQty(c, id, val));
-  const onRemove = (id) => setCart((c) => setQty(c, id, 0));
+  // Variant-aware cart mutators — checkout's qty controls operate on a
+  // specific (id, variant) line, so we accept the full priced-line object
+  // and pass its variant through to bumpQty/setQty.
+  const onAdd = (line) => setCart((c) => bumpQty(c, line.id, 1, line.variant));
+  const onSub = (line) => setCart((c) => bumpQty(c, line.id, -1, line.variant));
+  const onChangeQty = (line, val) => setCart((c) => setQty(c, line.id, val, line.variant));
+  const onRemove = (line) => setCart((c) => setQty(c, line.id, 0, line.variant));
 
   const placeOrder = async () => {
     if (!name.trim() || !phone.trim() || !address.trim()) {
@@ -110,7 +113,7 @@ export default function RestaurantCheckout() {
     setSubmitting(true);
     try {
       const r = await api.post("/restaurant/order", {
-        items: priced.lines.map((l) => ({ id: l.id, qty: l.qty })),
+        items: priced.lines.map((l) => ({ id: l.id, qty: l.qty, variant: l.variant || "regular" })),
         name, phone, address, notes,
         apply_wallet: applyWallet && walletBalance > 0,
         customer_lat: pinLoc?.lat,
@@ -218,39 +221,52 @@ export default function RestaurantCheckout() {
             </div>
           ) : (
             <ul className="divide-y divide-border">
-              {priced.lines.map((l) => (
-                <li key={l.id} className="p-3 sm:p-4 flex flex-col sm:flex-row gap-3 sm:items-center" data-testid={`checkout-line-${l.id}`}>
+              {priced.lines.map((l) => {
+                // Use composite (id, variant) for the React key + testids so a
+                // user can hold both Regular and Large of the same dish.
+                const lk = `${l.id}::${l.variant || "regular"}`;
+                const showVariant = l.variant && l.variant !== "regular";
+                return (
+                <li key={lk} className="p-3 sm:p-4 flex flex-col sm:flex-row gap-3 sm:items-center" data-testid={`checkout-line-${lk}`}>
                   <div className="flex gap-3 items-center flex-1 min-w-0">
                     <img src={l.image_url} alt={l.name} className="h-14 w-14 rounded-xl object-cover flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold leading-tight truncate text-sm">{l.name}</p>
+                      <p className="font-semibold leading-tight truncate text-sm" data-testid={`checkout-line-name-${lk}`}>
+                        {l.name}
+                        {showVariant && (
+                          <span className="ml-1.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-extrabold tracking-wide uppercase bg-primary/10 text-primary align-middle">
+                            {l.variant_label || l.variant} · {l.portion_multiplier}×
+                          </span>
+                        )}
+                      </p>
                       <p className="text-xs text-muted-foreground mt-0.5">₹{l.unit} × {l.qty} = <span className="font-bold tabular-nums text-foreground">₹{l.line_total.toFixed(0)}</span></p>
                     </div>
                   </div>
                   <div className="flex items-center justify-between gap-2 sm:gap-3 sm:justify-end flex-shrink-0">
                     <div className="inline-flex items-center gap-0.5 rounded-full border border-border bg-background overflow-hidden">
-                      <button type="button" className="h-8 w-8 flex items-center justify-center hover:bg-muted" onClick={() => onSub(l.id)} aria-label="Decrease" data-testid={`co-dec-${l.id}`}>
+                      <button type="button" className="h-8 w-8 flex items-center justify-center hover:bg-muted" onClick={() => onSub(l)} aria-label="Decrease" data-testid={`co-dec-${lk}`}>
                         <Minus className="h-3.5 w-3.5" />
                       </button>
                       <input
                         type="number"
                         value={l.qty}
-                        onChange={(e) => onChangeQty(l.id, e.target.value)}
+                        onChange={(e) => onChangeQty(l, e.target.value)}
                         className="w-9 h-8 text-center bg-transparent text-xs font-bold focus:outline-none tabular-nums"
-                        data-testid={`co-qty-${l.id}`}
+                        data-testid={`co-qty-${lk}`}
                         min={0}
                         max={50}
                       />
-                      <button type="button" className="h-8 w-8 flex items-center justify-center hover:bg-muted" onClick={() => onAdd(l.id)} aria-label="Increase" data-testid={`co-inc-${l.id}`}>
+                      <button type="button" className="h-8 w-8 flex items-center justify-center hover:bg-muted" onClick={() => onAdd(l)} aria-label="Increase" data-testid={`co-inc-${lk}`}>
                         <Plus className="h-3.5 w-3.5" />
                       </button>
                     </div>
-                    <button type="button" onClick={() => onRemove(l.id)} className="text-muted-foreground hover:text-destructive p-1.5" aria-label="Remove" data-testid={`co-remove-${l.id}`}>
+                    <button type="button" onClick={() => onRemove(l)} className="text-muted-foreground hover:text-destructive p-1.5" aria-label="Remove" data-testid={`co-remove-${lk}`}>
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
         </section>
