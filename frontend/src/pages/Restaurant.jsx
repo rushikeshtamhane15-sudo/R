@@ -173,6 +173,16 @@ export default function Restaurant() {
             <h1 className="font-display font-extrabold text-2xl sm:text-3xl tracking-tight lowercase leading-tight">
               {theme?.hero_title || "order online · ghar se accha khana"}
             </h1>
+            {/* Hindi quote — our promise about fresh food, even if it takes a little longer */}
+            <p
+              className="mt-1.5 text-[13px] sm:text-base italic font-semibold opacity-95 leading-snug"
+              data-testid="hero-hindi-quote"
+              lang="hi"
+            >
+              <span aria-hidden className="mr-0.5">“</span>
+              {theme?.hero_promise_line1 || "हम टाइम लेते हैं पर फ्रेश लातें हैं"}
+              <span aria-hidden className="ml-0.5">”</span>
+            </p>
             <p className="opacity-95 text-[13px] sm:text-base mt-1 flex items-center gap-1.5 leading-snug">
               <Truck className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
               <span className="truncate">{theme?.hero_tagline || `Free delivery on orders over ₹${meta.delivery_free_over} · ₹${meta.delivery_fee_flat} otherwise`}</span>
