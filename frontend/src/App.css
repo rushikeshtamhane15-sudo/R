@@ -24,3 +24,116 @@
 .rider-pin-3d {
     animation: rider-pulse 1.6s ease-out infinite;
 }
+
+/* === Restaurant 3D treatment ===
+   Used on /restaurant page: floating menu cards w/ depth + glassmorphism, plus
+   floating category symbol pills that hover above the sticky category strip. */
+
+/* Floating dish card — depth via layered shadows + tilt-on-hover. */
+.dish-card-3d {
+    position: relative;
+    transform: perspective(1200px) translateZ(0);
+    transform-style: preserve-3d;
+    transition: transform 320ms cubic-bezier(.2,.8,.2,1),
+                box-shadow 320ms cubic-bezier(.2,.8,.2,1);
+    box-shadow:
+        0 1px 1px rgba(20, 12, 5, 0.04),
+        0 6px 14px -6px rgba(20, 12, 5, 0.18),
+        0 18px 32px -18px rgba(20, 12, 5, 0.28);
+    will-change: transform, box-shadow;
+}
+.dish-card-3d::after {
+    /* Soft floor reflection — gives the card a "floating" feel. */
+    content: "";
+    position: absolute;
+    left: 8%;
+    right: 8%;
+    bottom: -10px;
+    height: 14px;
+    background: radial-gradient(ellipse at center, rgba(20,12,5,0.22), transparent 70%);
+    filter: blur(6px);
+    opacity: 0.55;
+    pointer-events: none;
+    transition: opacity 320ms cubic-bezier(.2,.8,.2,1);
+    z-index: -1;
+}
+@media (hover: hover) and (pointer: fine) {
+    .dish-card-3d:hover {
+        transform: perspective(1200px) translateY(-6px) rotateX(2.5deg);
+        box-shadow:
+            0 2px 2px rgba(20, 12, 5, 0.05),
+            0 14px 28px -10px rgba(20, 12, 5, 0.24),
+            0 32px 60px -22px rgba(20, 12, 5, 0.38);
+    }
+    .dish-card-3d:hover::after { opacity: 0.85; }
+}
+
+/* Subtle gloss sweep across the dish image — reads as 3D sheen. */
+.dish-image-3d {
+    position: relative;
+    overflow: hidden;
+}
+.dish-image-3d::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(160deg, rgba(255,255,255,0.32) 0%, rgba(255,255,255,0) 38%);
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* Category icon — circular floating pill above the sticky category strip.
+   Sits on z-index above the strip background so it visually "pops". */
+.cat-icon-3d {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 38px;
+    width: 38px;
+    border-radius: 9999px;
+    background: linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--muted)) 100%);
+    border: 1px solid hsl(var(--border));
+    box-shadow:
+        0 1px 2px rgba(20, 12, 5, 0.08),
+        0 6px 14px -6px rgba(20, 12, 5, 0.22),
+        inset 0 1px 0 rgba(255,255,255,0.55);
+    transition: transform 220ms cubic-bezier(.2,.8,.2,1),
+                box-shadow 220ms cubic-bezier(.2,.8,.2,1);
+}
+.cat-chip-3d:hover .cat-icon-3d,
+.cat-chip-3d[data-active="true"] .cat-icon-3d {
+    transform: translateY(-3px) scale(1.04);
+    box-shadow:
+        0 2px 4px rgba(20, 12, 5, 0.10),
+        0 10px 22px -8px rgba(20, 12, 5, 0.30),
+        inset 0 1px 0 rgba(255,255,255,0.6);
+}
+.cat-chip-3d[data-active="true"] .cat-icon-3d {
+    background: linear-gradient(180deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.85) 100%);
+    color: hsl(var(--primary-foreground));
+    border-color: hsl(var(--primary));
+}
+.cat-icon-3d::after {
+    /* Floor reflection for icon */
+    content: "";
+    position: absolute;
+    left: 18%;
+    right: 18%;
+    bottom: -6px;
+    height: 6px;
+    background: radial-gradient(ellipse at center, rgba(20,12,5,0.22), transparent 70%);
+    filter: blur(3px);
+    opacity: 0.55;
+    pointer-events: none;
+    z-index: -1;
+}
+
+/* Subtle entrance — fade + rise — for menu items as they paint. */
+@keyframes dish-rise {
+    from { opacity: 0; transform: translateY(8px) scale(0.985); }
+    to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+.dish-rise {
+    animation: dish-rise 360ms cubic-bezier(.2,.8,.2,1) both;
+}

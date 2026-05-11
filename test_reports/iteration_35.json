@@ -1,0 +1,30 @@
+{
+  "summary": "Frontend-only smoke test of the /restaurant 3D facelift on mobile viewport (390x844). All 9 requested visual & interaction checks PASSED. AdminMenu image upload code reviewed (FileReader → base64); functional UI test of the admin upload was not executed because that flow lives on /admin/restaurant (NOT /admin/menu as the review request states) and admin login is gated by Google OAuth / admin email allowlist which cannot be reliably automated.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/restaurant categories strip (mobile)", "issues": ["Category labels (Mains, Starters, Tiffin Specials …) overflow horizontally as designed (overflow-x-auto), but on a 390px viewport only ~4 chips are visible without scrolling — acceptable, just note for design polish if more categories appear."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Doc-only: review request mentions image upload at /admin/menu, but /admin/menu is the simple daily lunch/dinner text editor (AdminMenu.jsx) — image upload with FileReader→base64 actually lives at /admin/restaurant in AdminRestaurant.jsx (onImageFile, line 65). Either update the review request or rename the route for consistency.",
+    "Optional: consider truncating data URLs server-side or moving large image uploads to an object store — current MAX_IMAGE_BYTES (~1.4MB) base64 inflates Mongo doc size."
+  ],
+  "critical_code_review_comments": [
+    "Restaurant.jsx (480 lines) is close to the 700-line threshold — extracting CategoryStrip and DishCard into separate components would improve readability.",
+    "AdminRestaurant.onImageFile correctly validates mime + size and uses FileReader; OK.",
+    "All interactive elements on /restaurant have data-testid (cat-*, item-*, add-*, buy-now-*, qty-controls-*, cart-bar, cart-count, go-checkout, restaurant-search) — excellent testability.",
+    "401 console errors on /restaurant/orders for anonymous users are expected (handled via .catch) but pollute devtools — consider short-circuiting the call when !user (already done) and silently dropping the network log."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "skipped", "frontend": "100%"},
+  "test_credentials": "Not used. Admin upload UI not exercised (Google OAuth / admin email allowlist gating).",
+  "seed_data_creation": "None — used the existing seeded menu (15 items, 6 categories).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All Restaurant 3D upgrade tests pass on mobile viewport. Validated: page load, 15 dish cards with .dish-card-3d + .dish-rise classes and layered box-shadow, 6 category chips each with floating .cat-icon-3d Lucide icon, active-state toggle (data-active true/false), filter (15→5 when 'Mains' selected), per-card glassmorphism .item-cat-icon-{id} top-right floating badge, Add-to-cart shows cart-bar with correct count/price (₹380), search filter shows restaurant-no-items for zero hits, login-gated checkout redirects to /login?next=%2Frestaurant%2Fcheckout. Screenshot saved at .screenshots/restaurant_3d_mobile.png clearly shows red-gradient active 'All' chip with floating UtensilsCrossed icon, glassmorphism icons in top-right of dish images, and lifted card shadows. AdminRestaurant image upload code path verified by static review only — functional test would need an authenticated admin session.",
+  "rca of the issue": "N/A — no bugs found."
+}

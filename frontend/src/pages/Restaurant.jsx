@@ -12,7 +12,28 @@ import { BRAND_LOGO_URL } from "../lib/brand";
 const PURE_VEG_ICON = "https://customer-assets.emergentagent.com/job_dining-pass-scan/artifacts/li3dreby_images.jpeg";
 import {
   ShoppingBag, Plus, Minus, Search, ChefHat, ArrowRight, Tag, Truck, ChevronLeft, Star, RefreshCw, X,
+  UtensilsCrossed, Soup, IceCream, Wheat, CupSoda, Cookie, Salad, Coffee, Pizza, Beef, Apple, Drumstick, Sandwich,
 } from "lucide-react";
+
+// Map a free-form menu category string → a crisp Lucide icon. Falls back to a
+// generic utensil icon. Lowercased + simple contains() match keeps it forgiving
+// to admin-typed category names ("Mains", "main course", "Curry & Dal", etc.).
+const CATEGORY_ICON = (cat) => {
+  const s = (cat || "").toLowerCase();
+  if (s === "all") return UtensilsCrossed;
+  if (/(rice|biryani|pulao|pulav)/.test(s)) return Wheat;
+  if (/(roti|naan|bread|paratha|kulcha)/.test(s)) return Sandwich;
+  if (/(dal|curry|sabzi|gravy|main)/.test(s)) return Soup;
+  if (/(salad|raita|veg)/.test(s)) return Salad;
+  if (/(sweet|dessert|kheer|halwa|ice)/.test(s)) return IceCream;
+  if (/(drink|juice|lassi|water|beverage|soda)/.test(s)) return CupSoda;
+  if (/(snack|chaat|starter|appet)/.test(s)) return Cookie;
+  if (/(tea|coffee|chai)/.test(s)) return Coffee;
+  if (/(thali|combo|special|meal)/.test(s)) return UtensilsCrossed;
+  if (/(pizza)/.test(s)) return Pizza;
+  if (/(fruit)/.test(s)) return Apple;
+  return UtensilsCrossed;
+};
 
 // 8 trust chips — what we promise (and don't) about the food. Editable via PRD;
 // kept here in code (not in CMS) since they're a brand-defining commitment.
@@ -298,23 +319,37 @@ export default function Restaurant() {
           </div>
         </div>
 
-        {/* Horizontal category chips */}
+        {/* Horizontal category chips — each chip has a floating circular icon
+            symbol ABOVE the label, giving the strip a 3D "ledge" feel.
+            The icon sits on cat-icon-3d (gradient + heavy shadow + reflection). */}
         <div
-          className="sticky top-[58px] z-10 -mx-3 sm:-mx-5 px-3 sm:px-5 py-2.5 bg-background/95 backdrop-blur border-b border-border overflow-x-auto no-scrollbar"
+          className="sticky top-[58px] z-10 -mx-3 sm:-mx-5 px-3 sm:px-5 pt-3 pb-3 bg-background/95 backdrop-blur border-b border-border overflow-x-auto no-scrollbar"
           data-testid="restaurant-categories"
         >
-          <ul className="flex items-center gap-2 min-w-max">
-            {categories.map((c) => (
-              <li key={c} className="flex-shrink-0">
-                <button
-                  onClick={() => setActiveCat(c)}
-                  className={`text-xs font-bold tracking-overline uppercase px-3.5 py-1.5 rounded-full border transition-all whitespace-nowrap ${activeCat === c ? "bg-primary text-primary-foreground border-primary shadow-sm" : "bg-card text-foreground border-border hover:border-primary/40"}`}
-                  data-testid={`cat-${c.toLowerCase().replace(/\s+/g, "-")}`}
-                >
-                  {c}
-                </button>
-              </li>
-            ))}
+          <ul className="flex items-end gap-3 min-w-max">
+            {categories.map((c) => {
+              const Icon = CATEGORY_ICON(c);
+              const isActive = activeCat === c;
+              return (
+                <li key={c} className="flex-shrink-0">
+                  <button
+                    onClick={() => setActiveCat(c)}
+                    className="cat-chip-3d group flex flex-col items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded-2xl px-1.5 pt-1 pb-1"
+                    data-active={isActive}
+                    data-testid={`cat-${c.toLowerCase().replace(/\s+/g, "-")}`}
+                  >
+                    <span className="cat-icon-3d" aria-hidden>
+                      <Icon className="h-[18px] w-[18px]" strokeWidth={2.25} />
+                    </span>
+                    <span
+                      className={`text-[10px] sm:text-[11px] font-bold tracking-overline uppercase whitespace-nowrap leading-none ${isActive ? "text-primary" : "text-foreground/80 group-hover:text-foreground"}`}
+                    >
+                      {c}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </div>
 
@@ -326,19 +361,34 @@ export default function Restaurant() {
             <p className="text-center text-muted-foreground py-12" data-testid="restaurant-no-items">No items match your search.</p>
           ) : (
             <ul
-              className="grid grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3"
+              className="grid grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-5 pt-2 pb-4"
               data-testid="restaurant-items"
+              style={{ perspective: "1200px" }}
             >
-              {filtered.map((it) => {
+              {filtered.map((it, idx) => {
                 const qty = cart[it.id]?.qty || 0;
                 const hasDiscount = it.discounted_price != null && it.discounted_price < it.price;
+                const CatIcon = CATEGORY_ICON(it.category);
                 return (
-                  <li key={it.id} className="rounded-xl border border-border bg-card overflow-hidden flex flex-col" data-testid={`item-${it.id}`}>
-                    {/* Image on top — square aspect, full width */}
-                    <div className="relative aspect-square w-full bg-muted">
+                  <li
+                    key={it.id}
+                    className="dish-card-3d dish-rise rounded-2xl border border-border bg-card overflow-hidden flex flex-col"
+                    style={{ animationDelay: `${Math.min(idx, 8) * 40}ms` }}
+                    data-testid={`item-${it.id}`}
+                  >
+                    {/* Image on top — square aspect, full width, with gloss sweep */}
+                    <div className="dish-image-3d relative aspect-square w-full bg-muted">
                       <img src={it.image_url} alt={it.name} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                      {/* Floating category symbol — top-right, glassmorphism */}
+                      <span
+                        className="absolute top-1.5 right-1.5 z-[3] inline-flex h-7 w-7 items-center justify-center rounded-full backdrop-blur bg-white/55 border border-white/60 text-emerald-700 shadow-md dark:bg-black/35 dark:text-emerald-200 dark:border-white/15"
+                        aria-hidden
+                        data-testid={`item-cat-icon-${it.id}`}
+                      >
+                        <CatIcon className="h-3.5 w-3.5" strokeWidth={2.4} />
+                      </span>
                       {hasDiscount && (
-                        <span className="absolute top-1.5 left-1.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-bold tracking-overline uppercase">
+                        <span className="absolute top-1.5 left-1.5 z-[3] inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-bold tracking-overline uppercase shadow">
                           <Tag className="h-2.5 w-2.5" /> {Math.round(((it.price - it.discounted_price) / it.price) * 100)}%
                         </span>
                       )}
