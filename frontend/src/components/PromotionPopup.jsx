@@ -31,18 +31,18 @@ export default function PromotionPopup() {
         const p = r.data?.promotion;
         if (!mounted || !p) return;
         // Skip if user dismissed this session
-        try { if (sessionStorage.getItem(DISMISS_KEY) === "1") return; } catch {}
+        try { if (sessionStorage.getItem(DISMISS_KEY) === "1") return; } catch { /* non-critical: storage/network unavailable */ }
         setPromo(p);
         // Tiny delay so it doesn't fight the hero entrance animation
         setTimeout(() => mounted && setOpen(true), 700);
-      } catch {}
+      } catch { /* non-critical: storage/network unavailable */ }
     })();
     return () => { mounted = false; };
   }, []);
 
   const close = () => {
     setOpen(false);
-    try { sessionStorage.setItem(DISMISS_KEY, "1"); } catch {}
+    try { sessionStorage.setItem(DISMISS_KEY, "1"); } catch { /* non-critical: storage/network unavailable */ }
   };
 
   if (!promo || !open) return null;

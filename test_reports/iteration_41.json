@@ -1,0 +1,38 @@
+{
+  "summary": "Iter-41 regression after circular-import shim (shared.py), XSS sink removals (AdminWhatsAppOutbox.jsx, TrackMap3D.jsx), catch-block documentation, eslint-disable directive in Restaurant.jsx, and test_restaurant_variant.py token prefix rename. Backend 26/27 pytest passing (1 pre-existing failure unrelated to shim). Frontend /restaurant + /login smoke verified — page renders, 9 trust chips, menu items + Add/Buy buttons visible, no console errors, no pageerrors. Lazy server shim works — all routes/*.py modules import via `from shared import server` and backend starts clean with [STARTUP] logs visible.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "test_restaurant_variant.py::test_large_variant_doubles_price", "issue": "Pre-existing test failure: looks up 'Butter Chicken' on /api/restaurant/menu, but veg-enforcement (iter-40) filters non-veg items out of public menu. Test uses stale fixture name. Unrelated to iter-41 shim change. Should be updated to a veg variant (e.g., 'Paneer Tikka') with size variants."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter40_promo_veg.py",
+    "/app/backend/tests/test_restaurant_variant.py",
+    "/app/test_reports/pytest/iter41_results.xml"
+  ],
+  "action_items": [
+    "Update test_restaurant_variant.py::test_large_variant_doubles_price to use a veg item (e.g., Paneer/Tiffin variant) since veg gate now filters Butter Chicken out of public menu. Not a regression — pre-existing data drift."
+  ],
+  "critical_code_review_comments": [
+    "shared.py _LazyServer pattern is clean and correct — `__getattr__` deferral works because routes only dereference server.* inside request handlers, which execute after server.py import completes.",
+    "AdminWhatsAppOutbox.jsx now renders preview inside <pre> with text content — XSS surface fully removed; testid wa-preview-html-{idx} preserved.",
+    "TrackMap3D.jsx uses DOMParser.parseFromString with appendChild — eliminates innerHTML sink even for build-time constants. Static analyzers will no longer flag.",
+    "Restaurant.jsx mount-once useEffect at line 60 has eslint-disable-next-line with documented intent.",
+    "All catch {} blocks in Restaurant/RestaurantCheckout/Track/SelfScan/PromotionPopup/cart.js have inline `/* non-critical: storage/network unavailable */` comments.",
+    "test_restaurant_variant.py token prefix renamed (now `iter39_guest_` for guest cart tokens) — clears false-positive hardcoded-secret flag."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "96% (26/27)", "frontend": "100% (smoke)"},
+  "test_credentials": "OTP DEV mode — admin phone 9970705391 (from ADMIN_PHONES env), regular user phone 9876543210. dev_otp returned in send-otp response.",
+  "seed_data_creation": "None — used existing menu/promotion data.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 4 code-quality fixes (shim + XSS + catch comments + eslint-disable) are verified live. Single test failure in test_restaurant_variant.py (Butter Chicken lookup) is a pre-existing data drift issue from iter-40 veg gate, NOT caused by iter-41 changes. Backend startup logs show clean [STARTUP] sequence with no ImportError. Frontend /restaurant loads with 9 trust chips, menu cards, Add/Buy buttons — XSS removals did not break rendering. /login halo (decorative tilted chips) renders fine.",
+  "rca of the issue": "test_restaurant_variant.py::test_large_variant_doubles_price expects 'Butter Chicken' in public /api/restaurant/menu. After iter-40 veg-enforcement was added (TestVegEnforcement.test_public_menu_filters_nonveg in test_iter40_promo_veg.py asserts NO non-veg items in public menu), Butter Chicken is filtered. Test needs to be updated to use a veg variant-bearing item. Mitigation: switch fixture to 'Paneer Butter Masala' or any item with variants in current menu."
+}

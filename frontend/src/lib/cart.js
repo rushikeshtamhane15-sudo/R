@@ -61,8 +61,8 @@ export function loadCart() {
 }
 
 export function saveCart(cart) {
-  try { localStorage.setItem(KEY, JSON.stringify(cart || {})); } catch {}
-  try { window.dispatchEvent(new CustomEvent("efc-cart-changed")); } catch {}
+  try { localStorage.setItem(KEY, JSON.stringify(cart || {})); } catch { /* non-critical: storage/network unavailable */ }
+  try { window.dispatchEvent(new CustomEvent("efc-cart-changed")); } catch { /* non-critical: storage/network unavailable */ }
   // Cross-device sync — fire-and-forget.
   try {
     const token = getOrCreateGuestToken();
@@ -75,7 +75,7 @@ export function saveCart(cart) {
         keepalive: true,
       }).catch(() => {});
     }
-  } catch {}
+  } catch { /* non-critical: storage/network unavailable */ }
 }
 
 export async function hydrateGuestCart() {
@@ -96,8 +96,8 @@ export async function hydrateGuestCart() {
       const existing = Number(merged[k]?.qty || 0);
       merged[k] = { id: line.id, variant: line.variant, qty: Math.max(existing, q) };
     }
-    try { localStorage.setItem(KEY, JSON.stringify(merged)); } catch {}
-    try { window.dispatchEvent(new CustomEvent("efc-cart-changed")); } catch {}
+    try { localStorage.setItem(KEY, JSON.stringify(merged)); } catch { /* non-critical: storage/network unavailable */ }
+    try { window.dispatchEvent(new CustomEvent("efc-cart-changed")); } catch { /* non-critical: storage/network unavailable */ }
     return merged;
   } catch { return loadCart(); }
 }

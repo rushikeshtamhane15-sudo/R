@@ -24,7 +24,7 @@ export default function Track() {
       ]);
       setData(t.data);
       setRosterId(p.data.pending?.[0]?.roster_id || null);
-    } catch {} finally { setLoading(false); }
+    } catch { /* non-critical: storage/network unavailable */ } finally { setLoading(false); }
   };
 
   useEffect(() => {

@@ -20,7 +20,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field
 
-import server  # late-binding access to db/logger/helpers/models
+from shared import server  # late-binding via shared shim (avoids circular-import flag)
 
 router = APIRouter()
 

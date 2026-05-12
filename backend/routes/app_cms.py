@@ -11,7 +11,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-import server  # late-binding access to db / helpers / get_current_user / iso
+from shared import server  # late-binding via shared shim
 
 router = APIRouter()
 

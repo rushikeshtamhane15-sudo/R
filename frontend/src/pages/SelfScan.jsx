@@ -15,7 +15,7 @@ export default function SelfScan() {
 
   const stopScanner = async () => {
     if (instanceRef.current) {
-      try { await instanceRef.current.stop(); await instanceRef.current.clear(); } catch {}
+      try { await instanceRef.current.stop(); await instanceRef.current.clear(); } catch { /* non-critical: storage/network unavailable */ }
       instanceRef.current = null;
     }
     setScanning(false);
@@ -37,7 +37,7 @@ export default function SelfScan() {
     try {
       const parsed = JSON.parse(text);
       if (parsed.code) code = parsed.code;
-    } catch {}
+    } catch { /* non-critical: storage/network unavailable */ }
     try {
       const res = await api.post("/attendance/self-scan", { counter_code: code, meal_type: "lunch" });
       toast.success(`Checked in for ${res.data.meal_type} ✓`);

@@ -13,7 +13,7 @@ from typing import Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-import server  # late-binding access
+from shared import server  # late-binding via shared shim
 
 router = APIRouter()
 

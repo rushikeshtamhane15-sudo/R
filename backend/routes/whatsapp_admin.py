@@ -9,7 +9,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-import server
+from shared import server  # late-binding via shared shim
 import whatsapp
 
 router = APIRouter()

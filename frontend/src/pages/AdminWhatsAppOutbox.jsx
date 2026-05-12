@@ -116,7 +116,12 @@ export default function AdminWhatsAppOutbox() {
                   </tr>
                   {previewIdx === idx && e.vars?.preview_html && (
                     <tr><td colSpan={5} className="px-2 pb-3 pt-1">
-                      <div className="bg-muted/40 rounded-xl p-3" data-testid={`wa-preview-html-${idx}`} dangerouslySetInnerHTML={{ __html: e.vars.preview_html }} />
+                      {/* Admin-only debug preview. Render as plain text inside
+                          a <pre> to eliminate any XSS surface — we don't need
+                          HTML rendering here, just a readable template dump. */}
+                      <pre className="bg-muted/40 rounded-xl p-3 text-xs whitespace-pre-wrap break-words font-mono" data-testid={`wa-preview-html-${idx}`}>
+                        {e.vars.preview_html}
+                      </pre>
                     </td></tr>
                   )}
                 </React.Fragment>

@@ -17,7 +17,7 @@ import httpx
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 
-import server  # safe late-binding reference
+from shared import server  # late-binding via shared shim
 
 router = APIRouter()
 

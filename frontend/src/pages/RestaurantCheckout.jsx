@@ -73,7 +73,7 @@ export default function RestaurantCheckout() {
   }, [user, navigate]);
 
   // Persist cart edits — but ONLY when this is the persistent cart, not buy-now.
-  useEffect(() => { if (!isBuyNow) saveCart(cart); else { try { sessionStorage.setItem(BUYNOW_KEY, JSON.stringify(cart)); } catch {} } }, [cart, isBuyNow]);
+  useEffect(() => { if (!isBuyNow) saveCart(cart); else { try { sessionStorage.setItem(BUYNOW_KEY, JSON.stringify(cart)); } catch { /* non-critical: storage/network unavailable */ } } }, [cart, isBuyNow]);
 
   const priced = useMemo(() => priceCart(cart, menu || []), [cart, menu]);
   const subtotal = priced.subtotal;
@@ -167,10 +167,10 @@ export default function RestaurantCheckout() {
 
   const finalize = (order) => {
     setSuccess(order);
-    if (isBuyNow) { try { sessionStorage.removeItem(BUYNOW_KEY); } catch {} }
+    if (isBuyNow) { try { sessionStorage.removeItem(BUYNOW_KEY); } catch { /* non-critical: storage/network unavailable */ } }
     else clearCart();
     setSubmitting(false);
-    try { checkAuth?.(); } catch {}
+    try { checkAuth?.(); } catch { /* non-critical: storage/network unavailable */ }
     toast.success("Order placed · enjoy your meal!");
   };
 

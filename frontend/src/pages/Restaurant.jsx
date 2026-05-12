@@ -53,13 +53,18 @@ export default function Restaurant() {
   // Tap-image-to-expand detail modal — opens for the clicked menu item
   const [openItem, setOpenItem] = useState(null);
 
+  // Mount-once: load menu, theme, categories, hydrate guest cart from server.
+  // Intentionally an empty-deps effect — `api` / `hydrateGuestCart` are module-
+  // scope singletons; running this every render would refetch on every state
+  // change which we explicitly don't want.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     api.get("/restaurant/menu")
       .then((r) => { setMenu(r.data.items || []); setMeta({ delivery_fee_flat: r.data.delivery_fee_flat, delivery_free_over: r.data.delivery_free_over }); })
       .catch(() => toast.error("Could not load menu"));
-    api.get("/restaurant/theme").then((r) => setTheme(r.data || null)).catch(() => {});
-    api.get("/restaurant/categories").then((r) => setCmsCategories(r.data?.categories || null)).catch(() => {});
-    hydrateGuestCart().then((merged) => setCart(merged)).catch(() => {});
+    api.get("/restaurant/theme").then((r) => setTheme(r.data || null)).catch((err) => console.warn("[restaurant] theme load failed", err));
+    api.get("/restaurant/categories").then((r) => setCmsCategories(r.data?.categories || null)).catch((err) => console.warn("[restaurant] categories load failed", err));
+    hydrateGuestCart().then((merged) => setCart(merged)).catch((err) => console.warn("[restaurant] guest-cart hydrate failed", err));
   }, []);
 
   // Pull most recent delivered order for the "reorder in 1 tap" banner
@@ -68,7 +73,10 @@ export default function Restaurant() {
     if (!user) { setLastOrder(null); setActiveOrder(null); return; }
     try {
       if (sessionStorage.getItem("efc_reorder_dismissed_v1") === "1") setReorderDismissed(true);
-    } catch {}
+    } catch (err) {
+      // Private/incognito browsers can throw on sessionStorage access — non-critical.
+      console.debug("[restaurant] sessionStorage unavailable", err);
+    }
     api.get("/restaurant/orders?limit=10")
       .then((r) => {
         const rows = r.data?.orders || [];
@@ -77,7 +85,7 @@ export default function Restaurant() {
         const live = rows.find((o) => ["paid", "preparing", "ready_for_pickup", "out_for_delivery"].includes(o.status));
         if (live) setActiveOrder(live);
       })
-      .catch(() => {});
+      .catch((err) => console.warn("[restaurant] orders fetch failed", err));
   }, [user]);
 
   useEffect(() => { saveCart(cart); }, [cart]);
@@ -119,9 +127,9 @@ export default function Restaurant() {
         "efc_buynow_v1",
         JSON.stringify({ [`${it.id}::${v}`]: { id: it.id, variant: v, qty: 1 } })
       );
-    } catch {}
+    } catch { /* sessionStorage unavailable — non-critical */ }
     if (!user) {
-      try { sessionStorage.setItem("efc_pending_action_v1", "/restaurant/checkout?buynow=1"); } catch {}
+      try { sessionStorage.setItem("efc_pending_action_v1", "/restaurant/checkout?buynow=1"); } catch { /* sessionStorage unavailable — non-critical */ }
       navigate(`/login?next=${encodeURIComponent("/restaurant/checkout?buynow=1")}`);
       return;
     }
@@ -131,7 +139,7 @@ export default function Restaurant() {
   const goCheckout = () => {
     if (totalCount === 0) { toast.error("Your cart is empty"); return; }
     if (!user) {
-      try { sessionStorage.setItem("efc_pending_action_v1", "/restaurant/checkout"); } catch {}
+      try { sessionStorage.setItem("efc_pending_action_v1", "/restaurant/checkout"); } catch { /* sessionStorage unavailable — non-critical */ }
       navigate(`/login?next=${encodeURIComponent("/restaurant/checkout")}`);
       return;
     }
@@ -161,7 +169,7 @@ export default function Restaurant() {
 
   const dismissReorder = () => {
     setReorderDismissed(true);
-    try { sessionStorage.setItem("efc_reorder_dismissed_v1", "1"); } catch {}
+    try { sessionStorage.setItem("efc_reorder_dismissed_v1", "1"); } catch { /* sessionStorage unavailable — non-critical */ }
   };
 
   return (

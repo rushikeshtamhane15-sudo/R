@@ -22,7 +22,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
-import server
+from shared import server  # late-binding via shared shim
 
 router = APIRouter()
 

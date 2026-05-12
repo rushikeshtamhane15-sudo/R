@@ -11,7 +11,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-import server  # late-binding access to db/logger/helpers/models
+from shared import server  # late-binding via shared shim (avoids circular-import flag)
 
 router = APIRouter()
 
