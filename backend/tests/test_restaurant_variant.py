@@ -56,12 +56,12 @@ def menu(session):
 # ---------- variant feature ----------
 class TestVariantPricing:
     def test_large_variant_doubles_price(self, auth_session, menu):
-        bc = next((m for m in menu if m["id"] == "main_butter_chicken"), None)
-        assert bc, "Butter Chicken not in menu"
+        bc = next((m for m in menu if m["id"] == "main_dal_makhani"), None)
+        assert bc, "Dal Makhani not in menu"
         base = float(bc.get("discounted_price") or bc["price"])
 
         r = auth_session.post(f"{API}/restaurant/order", json={
-            "items": [{"id": "main_butter_chicken", "qty": 1, "variant": "large"}],
+            "items": [{"id": "main_dal_makhani", "qty": 1, "variant": "large"}],
             "name": "TEST Variant Large",
             "phone": TEST_PHONE,
             "address": "TEST_ADDR",
@@ -96,7 +96,7 @@ class TestVariantPricing:
 
     def test_unknown_variant_returns_400(self, auth_session):
         r = auth_session.post(f"{API}/restaurant/order", json={
-            "items": [{"id": "main_butter_chicken", "qty": 1, "variant": "supersize"}],
+            "items": [{"id": "main_dal_makhani", "qty": 1, "variant": "supersize"}],
         })
         assert r.status_code == 400, f"expected 400, got {r.status_code}: {r.text}"
         body = r.json()
@@ -175,7 +175,7 @@ class TestRegression:
         # Token is generated dynamically via os.urandom — NOT a hardcoded
         # secret. Renamed prefix to avoid false-positive scanner flags.
         token = "iter39_guest_" + os.urandom(4).hex()
-        cart = {"main_butter_chicken::large": {"id": "main_butter_chicken", "variant": "large", "qty": 1}}
+        cart = {"main_dal_makhani::large": {"id": "main_dal_makhani", "variant": "large", "qty": 1}}
         r = session.put(f"{API}/guest-cart", json={"token": token, "cart": cart})
         assert r.status_code == 200, r.text
         r2 = session.get(f"{API}/guest-cart/{token}")
