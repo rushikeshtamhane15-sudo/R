@@ -6,7 +6,7 @@ import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
 import {
   UtensilsCrossed, Save, Plus, Trash2, ArrowUp, ArrowDown, Eye, EyeOff,
-  Upload, Image as ImageIcon, RotateCcw, Loader2, ListOrdered,
+  Upload, Image as ImageIcon, RotateCcw, Loader2, ListOrdered, Sparkles,
 } from "lucide-react";
 
 const blank = () => ({
@@ -86,6 +86,30 @@ export default function AdminRestaurant() {
       toast.success("Image uploaded");
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Could not upload image");
+    }
+  };
+
+  // Index of the row whose 3D image is currently generating, or null.
+  const [genBusyIdx, setGenBusyIdx] = useState(null);
+  const generateImage = async (idx) => {
+    const it = items?.[idx];
+    if (!it) return;
+    if (!it.name?.trim()) return toast.error("Item needs a name first");
+    setGenBusyIdx(idx);
+    try {
+      const r = await api.post("/admin/restaurant/menu/generate-image", {
+        name: it.name,
+        category: it.category,
+        description: it.description,
+      });
+      if (r.data?.url) {
+        update(idx, { image_url: r.data.url });
+        toast.success("3D image generated");
+      }
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Generation failed");
+    } finally {
+      setGenBusyIdx(null);
     }
   };
 
@@ -307,6 +331,17 @@ export default function AdminRestaurant() {
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" variant="outline" onClick={() => fileInputs.current[idx]?.click()} data-testid={`menu-upload-${idx}`}>
                     <Upload className="h-3.5 w-3.5 mr-1.5" /> Upload
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={() => generateImage(idx)}
+                    disabled={!!genBusyIdx}
+                    data-testid={`menu-generate-${idx}`}
+                    className="bg-primary hover:bg-primary/90"
+                  >
+                    {genBusyIdx === idx ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 mr-1.5" />}
+                    Generate 3D
                   </Button>
                   {it.image_url && (
                     <Button size="sm" variant="ghost" onClick={() => update(idx, { image_url: "" })} data-testid={`menu-clear-image-${idx}`}>Clear</Button>

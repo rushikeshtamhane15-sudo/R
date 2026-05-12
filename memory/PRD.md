@@ -544,3 +544,18 @@ See `/app/memory/test_credentials.md`.
 - **Lucide icons restored**: CategoryStrip reverted from emoji to Lucide line icons. Removed `.cat-emoji-3d` / `.cat-icon-3d-img` CSS.
 - **Iter-38 buynow bug fixed**: root-caused — modal looped onAdd N times for portion>1; now threads `variant` string through `buyNow(it, variant)` so the backend multiplier prices correctly.
 - **Testing**: 10/10 backend pytest + 100% frontend assertions pass (iteration_39.json + `/app/backend/tests/test_restaurant_variant.py`).
+
+
+### Iteration 40 (Feb 11, 2026) — Phase 1+2: 9 features (UX, 3D, Image-gen)
+**Phase 1 — Quick UX wins:**
+- **Edit-portion pencil** on `/restaurant/checkout` lines. New `changeVariant()` cart helper merges qty when target variant already exists. Lucide Pencil opens popover with Regular/Large/Family.
+- **Pure-Veg badge shadow removed**: stripped `box-shadow` from `.pure-veg-3d`; removed `badge-3d badge-3d-bob` classes (tilt + chiselled text retained).
+- **Login mobile bg fix**: halo wrapper `-inset-y-16 -inset-x-4 sm:-inset-y-32 sm:-inset-x-36`; no more display:none on small viewports.
+- **3D wired on Home/Contact/Profile/Dashboard**: new `.surface-3d` + `.tile-3d` CSS utilities. Applied to feature cards, never/always cards, how-images, contact map + rows, profile card, subscriber dashboard cards. Text untouched.
+
+**Phase 2 — Image-gen (Gemini Nano Banana):**
+- New `/app/backend/image_gen.py` wraps emergentintegrations LlmChat for `gemini-3.1-flash-image-preview`. Saves PNG to `/app/backend/uploads/<subdir>/`, returns public URL.
+- **Pure-veg gate**: `NON_VEG_PATTERNS` regex. `is_non_veg()` helper. Public menu filters; admin save rejects non-veg with HTTP 400. New endpoints: `POST /admin/restaurant/menu/check-veg` + `POST /admin/restaurant/menu/generate-image` (non-veg refused).
+- **Promo popup CMS** (`/app/backend/routes/promotions.py`). Endpoints under `/landing-promotion` + `/admin/landing-promotion`. CRUD + start/stop + upload + generate-image. New admin page `/admin/promotion` (AdminPromotion.jsx) — full editor. PromotionPopup.jsx auto-opens once per session on `/` AND `/home`.
+- **AdminRestaurant** menu rows get a `menu-generate-{idx}` button.
+- **Testing**: 17/17 backend pytest + critical frontend paths verified.

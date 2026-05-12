@@ -13,6 +13,7 @@ import HeroPanel from "../components/restaurant/HeroPanel";
 import CategoryStrip from "../components/restaurant/CategoryStrip";
 import DishCard from "../components/restaurant/DishCard";
 import DishDetailModal from "../components/restaurant/DishDetailModal";
+import PromotionPopup from "../components/PromotionPopup";
 
 // 8 trust chips — what we promise (and don't) about the food. Brand-defining
 // commitment, intentionally kept in code (not CMS-editable).
@@ -324,6 +325,11 @@ export default function Restaurant() {
         onAdd={onAdd}
         onBuy={buyNow}
       />
+
+      {/* Landing-page promotional popup — auto-opens once per session when
+          an admin has activated the offer. Mounted here AND on /home so the
+          promo reaches both the marketing landing and the storefront. */}
+      <PromotionPopup />
     </div>
   );
 }

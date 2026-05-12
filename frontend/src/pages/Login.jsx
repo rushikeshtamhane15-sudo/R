@@ -234,8 +234,9 @@ export default function Login() {
         <div className="relative max-w-[280px] sm:max-w-sm mx-auto w-full mt-3 sm:mt-5">
           {/* Halo container — sized to the form card so pills ring the card,
               not the entire viewport. Uses padding to extend the ring outside
-              the card by ~140px on every side without affecting layout flow. */}
-          <div className="absolute -inset-y-32 -inset-x-32 sm:-inset-x-36 pointer-events-none" aria-hidden>
+              the card by ~16/32px on every side. Wider extension on desktop
+              gives breathing room; tighter on mobile keeps pills onscreen. */}
+          <div className="absolute -inset-y-16 -inset-x-4 sm:-inset-y-32 sm:-inset-x-36 pointer-events-none" aria-hidden>
             <BadStuffBackground />
           </div>
           <div

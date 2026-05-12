@@ -7,11 +7,11 @@ import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
 import {
-  loadCart, saveCart, setQty, bumpQty, clearCart, priceCart,
+  loadCart, saveCart, setQty, bumpQty, clearCart, priceCart, changeVariant, PORTION_LABEL, PORTION_MULTIPLIER,
 } from "../lib/cart";
 import {
   ChevronLeft, Plus, Minus, ShoppingBag, MapPin, Phone, User as UserIcon,
-  Loader2, ShieldCheck, CheckCircle2, Trash2, Truck, Wallet,
+  Loader2, ShieldCheck, CheckCircle2, Trash2, Truck, Wallet, Pencil,
 } from "lucide-react";
 import LocationPicker from "../components/LocationPicker";
 import { haversineKm, etaMinutes } from "../lib/geo";
@@ -100,6 +100,14 @@ export default function RestaurantCheckout() {
   const onSub = (line) => setCart((c) => bumpQty(c, line.id, -1, line.variant));
   const onChangeQty = (line, val) => setCart((c) => setQty(c, line.id, val, line.variant));
   const onRemove = (line) => setCart((c) => setQty(c, line.id, 0, line.variant));
+  const onChangeVariant = (line, nextVariant) => {
+    if (nextVariant === line.variant) return;
+    setCart((c) => changeVariant(c, line.id, line.variant, nextVariant));
+    toast.success(`Switched to ${PORTION_LABEL[nextVariant] || nextVariant}`);
+  };
+
+  // Track which line has the variant popover open (composite-key string).
+  const [variantEditOpen, setVariantEditOpen] = useState(null);
 
   const placeOrder = async () => {
     if (!name.trim() || !phone.trim() || !address.trim()) {
@@ -231,13 +239,53 @@ export default function RestaurantCheckout() {
                   <div className="flex gap-3 items-center flex-1 min-w-0">
                     <img src={l.image_url} alt={l.name} className="h-14 w-14 rounded-xl object-cover flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold leading-tight truncate text-sm" data-testid={`checkout-line-name-${lk}`}>
-                        {l.name}
+                      <p className="font-semibold leading-tight truncate text-sm flex items-center gap-1.5" data-testid={`checkout-line-name-${lk}`}>
+                        <span className="truncate">{l.name}</span>
                         {showVariant && (
-                          <span className="ml-1.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-extrabold tracking-wide uppercase bg-primary/10 text-primary align-middle">
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-extrabold tracking-wide uppercase bg-primary/10 text-primary align-middle flex-shrink-0">
                             {l.variant_label || l.variant} · {l.portion_multiplier}×
                           </span>
                         )}
+                        {/* Edit-portion pencil — opens a tiny popover with
+                            Regular / Large / Family choices. Picking a new
+                            variant moves this line (merges qty if a line with
+                            that variant already exists). */}
+                        <span className="relative flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setVariantEditOpen((cur) => (cur === lk ? null : lk))}
+                            className="inline-flex items-center justify-center h-6 w-6 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
+                            aria-label="Edit portion"
+                            data-testid={`co-edit-variant-${lk}`}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                          {variantEditOpen === lk && (
+                            <div
+                              className="absolute z-30 top-7 left-0 surface-3d bg-card border border-border rounded-xl p-1.5 flex flex-col gap-0.5 min-w-[140px]"
+                              data-testid={`co-variant-popover-${lk}`}
+                            >
+                              {Object.keys(PORTION_LABEL).map((v) => {
+                                const active = l.variant === v;
+                                return (
+                                  <button
+                                    key={v}
+                                    type="button"
+                                    onClick={() => {
+                                      onChangeVariant(l, v);
+                                      setVariantEditOpen(null);
+                                    }}
+                                    className={`text-left px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center justify-between gap-2 ${active ? "bg-primary/15 text-primary" : "hover:bg-muted"}`}
+                                    data-testid={`co-variant-option-${lk}-${v}`}
+                                  >
+                                    <span>{PORTION_LABEL[v]}</span>
+                                    <span className="text-[10px] tabular-nums opacity-70">{PORTION_MULTIPLIER[v]}×</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </span>
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">₹{l.unit} × {l.qty} = <span className="font-bold tabular-nums text-foreground">₹{l.line_total.toFixed(0)}</span></p>
                     </div>

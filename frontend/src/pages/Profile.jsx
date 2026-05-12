@@ -131,7 +131,7 @@ export default function Profile() {
         </div>
       )}
 
-      <div className="mt-8 bg-card rounded-2xl border border-border p-6 space-y-5">
+      <div className="surface-3d mt-8 bg-card rounded-2xl border border-border p-6 space-y-5">
         {/* Photo */}
         <div>
           <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground flex items-center gap-1.5"><Camera className="h-3 w-3" /> Selfie / Photo (required)</label>

@@ -49,6 +49,35 @@ _EXT_BY_MIME = {
     "image/gif": ".gif",
 }
 
+# ---------------------------------------------------------------------------
+# Pure-veg gatekeeping
+#
+# efoodcare is strictly vegetarian. Admin-typed item names can accidentally
+# introduce non-veg ingredients via the menu form. `is_non_veg` runs a simple
+# keyword/regex pattern check on name/description/category. We BLOCK saves
+# (HTTP 400) when a non-veg item slips in, and filter out any pre-existing
+# non-veg seed entries on first read.
+# ---------------------------------------------------------------------------
+import re as _re
+
+NON_VEG_PATTERNS = [
+    r"\bchicken\b", r"\bmutton\b", r"\blamb\b", r"\bbeef\b", r"\bpork\b",
+    r"\bham\b", r"\bbacon\b", r"\bsausage\b", r"\bsalami\b", r"\bpepperoni\b",
+    r"\bfish\b", r"\bsea\s*food\b", r"\bprawn\b", r"\bshrimp\b", r"\bcrab\b",
+    r"\boyster\b", r"\blobster\b", r"\bsquid\b", r"\btuna\b", r"\bsalmon\b",
+    r"\begg(s)?\b", r"\bomelette?\b", r"\bturkey\b", r"\bduck\b", r"\bquail\b",
+    r"\bgelatin\b", r"\bkebab\b", r"\bbiryani\s+(murg|murgh|chicken|mutton)\b",
+    r"\btikka\s+(masala\s+)?chicken\b", r"\btandoori\s+chicken\b",
+    r"\bkofta\s+meat\b", r"\bmeatball\b",
+]
+_NON_VEG_RE = _re.compile("|".join(NON_VEG_PATTERNS), _re.IGNORECASE)
+
+
+def is_non_veg(name: str | None, description: str | None = None, category: str | None = None) -> bool:
+    """Return True if any non-veg keyword appears in the combined text."""
+    combined = " ".join(filter(None, [name, description, category])).lower()
+    return bool(_NON_VEG_RE.search(combined))
+
 
 # ---------------------------------------------------------------------------
 # Pydantic models
@@ -230,7 +259,12 @@ def _compute_totals(menu_by_id: dict, items: list[CartLine]) -> tuple[list[dict]
 @router.get("/restaurant/menu")
 async def public_menu():
     items = await _load_menu()
-    visible = [i for i in items if i.get("active", True)]
+    # Pure-veg gatekeeper: filter out any non-veg rows even if an admin saved
+    # one bypassing the check. The storefront should NEVER show non-veg items.
+    visible = [
+        i for i in items
+        if i.get("active", True) and not is_non_veg(i.get("name"), i.get("description"), i.get("category"))
+    ]
     visible.sort(key=lambda x: (x.get("sort_order", 100), x.get("name", "")))
     # Kitchen / dispatch coords — read from delivery_settings (admin-editable in
     # /admin/delivery → settings). Fallback to Pune city centre so the
@@ -325,6 +359,7 @@ async def admin_save_menu(payload: MenuPatch, user: server.User = Depends(server
         raise HTTPException(status_code=403, detail="Admin only")
     seen_ids: set = set()
     cleaned: list[dict] = []
+    rejected_non_veg: list[str] = []
     for it in payload.items:
         if not it.name.strip():
             raise HTTPException(status_code=400, detail="Every item needs a name")
@@ -332,6 +367,12 @@ async def admin_save_menu(payload: MenuPatch, user: server.User = Depends(server
             raise HTTPException(status_code=400, detail="Prices cannot be negative")
         if it.discounted_price is not None and it.discounted_price >= it.price:
             it.discounted_price = None  # silently strip useless discounts
+        # Pure-veg gate — block non-veg items entirely. We collect names so we
+        # can show a clear single error to the admin instead of failing on
+        # the first offender.
+        if is_non_veg(it.name, it.description, it.category):
+            rejected_non_veg.append(it.name)
+            continue
         new_id = (it.id or f"custom_{uuid.uuid4().hex[:10]}").strip()
         if new_id in seen_ids:
             raise HTTPException(status_code=400, detail=f"Duplicate id: {new_id}")
@@ -341,12 +382,69 @@ async def admin_save_menu(payload: MenuPatch, user: server.User = Depends(server
         if not d.get("image_url"):
             d["image_url"] = _ph(d["name"])
         cleaned.append(d)
+    if rejected_non_veg:
+        raise HTTPException(
+            status_code=400,
+            detail=f"efoodcare is strictly vegetarian — rejected non-veg item(s): {', '.join(rejected_non_veg)}",
+        )
     await server.db.restaurant_menu_items.update_one(
         {"_id": "active"},
         {"$set": {"items": cleaned, "updated_at": server.iso(server.now_utc())}},
         upsert=True,
     )
     return {"items": cleaned}
+
+
+class VegCheckIn(BaseModel):
+    name: str
+    description: str | None = None
+    category: str | None = None
+
+
+@router.post("/admin/restaurant/menu/check-veg")
+async def admin_check_veg(payload: VegCheckIn, user: server.User = Depends(server.get_current_user)):
+    """Lightweight veg/non-veg classifier used by the admin form to warn the
+    admin BEFORE save if a name/description hits non-veg keywords."""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    flagged = is_non_veg(payload.name, payload.description, payload.category)
+    return {"is_non_veg": flagged, "is_veg": not flagged}
+
+
+class GenImageIn(BaseModel):
+    name: str
+    category: str | None = None
+    description: str | None = None
+
+
+@router.post("/admin/restaurant/menu/generate-image")
+async def admin_generate_menu_image(
+    payload: GenImageIn,
+    user: server.User = Depends(server.get_current_user),
+):
+    """Generate a 3D food image for a menu item via Gemini Nano Banana.
+
+    The handler refuses to generate for non-veg items so we never accidentally
+    embed a non-veg image on the storefront.
+    """
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    if is_non_veg(payload.name, payload.description, payload.category):
+        raise HTTPException(status_code=400, detail="Refusing to generate — non-veg item")
+    from image_gen import generate_3d_image  # late import → keeps SDK off the hot import path
+    prompt_bits = [
+        f"Indian vegetarian dish: {payload.name}",
+    ]
+    if payload.category:
+        prompt_bits.append(f"Category: {payload.category}")
+    if payload.description:
+        prompt_bits.append(payload.description)
+    prompt_bits.append("Plated, garnished, hot, freshly cooked, glistening, appetising, top-down 30-degree angle.")
+    try:
+        url, nbytes = await generate_3d_image(prompt=" · ".join(prompt_bits), subdir="menu_images")
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Image generation failed: {e}") from e
+    return {"url": url, "bytes": nbytes}
 
 
 @router.post("/admin/restaurant/menu/reset")

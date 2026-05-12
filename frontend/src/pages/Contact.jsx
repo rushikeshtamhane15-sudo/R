@@ -21,7 +21,7 @@ export default function Contact() {
           <ContactRow icon={Mail} label="Email" value={data.email} href={`mailto:${data.email}`} />
           <ContactRow icon={Clock} label="Hours" value={data.hours} />
         </div>
-        <div className="md:col-span-3 rounded-2xl overflow-hidden border border-border bg-card shadow-sm" data-testid="contact-map">
+        <div className="md:col-span-3 surface-3d rounded-2xl overflow-hidden border border-border bg-card" data-testid="contact-map">
           {data.map_embed_src ? (
             <iframe
               title="efoodcare location"
@@ -43,7 +43,7 @@ export default function Contact() {
 function ContactRow({ icon: Icon, label, value, href, multiline }) {
   const body = href ? <a href={href} className="text-foreground hover:text-primary transition-colors">{value}</a> : <span className="text-foreground">{value}</span>;
   return (
-    <div className="flex gap-3 items-start rounded-2xl border border-border bg-card p-4">
+    <div className="surface-3d tile-3d flex gap-3 items-start rounded-2xl border border-border bg-card p-4">
       <div className="h-10 w-10 rounded-xl bg-accent flex items-center justify-center shrink-0">
         <Icon className="h-4 w-4 text-primary" strokeWidth={1.75} />
       </div>

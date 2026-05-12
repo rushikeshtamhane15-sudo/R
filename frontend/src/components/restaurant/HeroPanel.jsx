@@ -105,7 +105,7 @@ export default function HeroPanel({ theme, meta }) {
             <ChefHat className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" /> {theme?.hero_overline || "efoodcare restaurant"}
           </p>
           <span
-            className="pure-veg-3d badge-3d badge-3d-bob inline-flex items-center gap-1 rounded bg-white/95 text-green-700 pl-1 pr-1.5 py-0.5 text-[9px] sm:text-[10px] font-extrabold tracking-wide uppercase flex-shrink-0"
+            className="pure-veg-3d inline-flex items-center gap-1 rounded bg-white/95 text-green-700 pl-1 pr-1.5 py-0.5 text-[9px] sm:text-[10px] font-extrabold tracking-wide uppercase flex-shrink-0"
             data-testid="pure-veg-badge"
           >
             <img

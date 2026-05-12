@@ -167,7 +167,7 @@ export default function SubscriberDashboard() {
   );
 
   const todayStatusSection = visible("today_status") && !isTiffin && sub && (
-    <div className="bg-card rounded-2xl border border-black/5 p-6" style={sideCardStyle || undefined} data-testid="status-card">
+    <div className="surface-3d bg-card rounded-2xl border border-black/5 p-6" style={sideCardStyle || undefined} data-testid="status-card">
       <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Today</p>
       <div className="mt-4 space-y-3">
         <StatusRow icon={Sun} label="Lunch" done={lunchDone} />
@@ -180,7 +180,7 @@ export default function SubscriberDashboard() {
   );
 
   const menuSection = visible("todays_menu") && (
-    <div className="bg-card rounded-2xl border border-black/5 p-6" style={sideCardStyle || undefined} data-testid="todays-menu">
+    <div className="surface-3d bg-card rounded-2xl border border-black/5 p-6" style={sideCardStyle || undefined} data-testid="todays-menu">
       <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Today's menu</p>
       <div className="mt-4 space-y-4">
         <div>
@@ -196,7 +196,7 @@ export default function SubscriberDashboard() {
   );
 
   const historySection = visible("history") && !isTiffin && (
-    <div className="bg-card rounded-2xl border border-black/5 p-6" style={sideCardStyle || undefined} data-testid="history-card">
+    <div className="surface-3d bg-card rounded-2xl border border-black/5 p-6" style={sideCardStyle || undefined} data-testid="history-card">
       <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Recent check-ins</p>
       <div className="mt-4 space-y-3 max-h-56 overflow-auto">
         {history.length === 0 && <p className="text-sm text-muted-foreground">No check-ins yet.</p>}

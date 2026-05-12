@@ -5,6 +5,7 @@ import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
 import TestimonialsSection from "../components/TestimonialsSection";
+import PromotionPopup from "../components/PromotionPopup";
 import * as Icons from "lucide-react";
 
 const DEFAULT_HERO = "https://images.unsplash.com/photo-1600488999806-8efb986d87b1?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600";
@@ -104,8 +105,8 @@ export default function Landing() {
             </div>
           </div>
           <div className="md:col-span-6 grid grid-cols-2 gap-4">
-            {c.how_image_1 && <img src={c.how_image_1} alt="meal" className="rounded-2xl aspect-[4/5] object-cover w-full border border-border" />}
-            {c.how_image_2 && <img src={c.how_image_2} alt="qr scan" className="rounded-2xl aspect-[4/5] object-cover w-full border border-border mt-10" />}
+            {c.how_image_1 && <img src={c.how_image_1} alt="meal" className="surface-3d rounded-2xl aspect-[4/5] object-cover w-full border border-border" />}
+            {c.how_image_2 && <img src={c.how_image_2} alt="qr scan" className="surface-3d rounded-2xl aspect-[4/5] object-cover w-full border border-border mt-10" />}
           </div>
         </div>
       </section>
@@ -121,7 +122,7 @@ export default function Landing() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {(c.band_items || []).map((f, i) => (
-              <div key={i} className="bg-card rounded-2xl border border-border p-8 transition-all hover:-translate-y-1 hover:shadow-lg" data-testid={`feature-card-${i}`}>
+              <div key={i} className="surface-3d tile-3d bg-card rounded-2xl border border-border p-8 transition-all hover:-translate-y-1" data-testid={`feature-card-${i}`}>
                 <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center mb-6">
                   <Icon name={f.icon} className="h-5 w-5 text-primary" />
                 </div>
@@ -176,6 +177,7 @@ export default function Landing() {
           </Link>
         </div>
       </section>
+      <PromotionPopup />
     </div>
   );
 }
@@ -205,7 +207,7 @@ function HealthyPromise({ c, alwaysBgClass }) {
 
         <div className="mt-12 grid lg:grid-cols-2 gap-6 lg:gap-8">
           {/* NEVER list */}
-          <div className="rounded-3xl bg-card border border-border p-7 md:p-9 relative overflow-hidden" data-testid="never-card">
+          <div className="surface-3d rounded-3xl bg-card border border-border p-7 md:p-9 relative overflow-hidden" data-testid="never-card">
             <div className="flex items-center gap-3 mb-2">
               <span className="inline-flex h-11 w-11 rounded-xl bg-destructive/10 text-destructive items-center justify-center">
                 <Icons.Ban className="h-5 w-5" strokeWidth={2} />
@@ -229,7 +231,7 @@ function HealthyPromise({ c, alwaysBgClass }) {
           </div>
 
           {/* ALWAYS list — admin-selectable bg */}
-          <div className={`rounded-3xl p-7 md:p-9 relative overflow-hidden ${alwaysBgClass}`} data-testid="always-card">
+          <div className={`surface-3d rounded-3xl p-7 md:p-9 relative overflow-hidden ${alwaysBgClass}`} data-testid="always-card">
             <div className="flex items-center gap-3 mb-2">
               <span className="inline-flex h-11 w-11 rounded-xl bg-white/15 text-white items-center justify-center">
                 <Icons.BadgeCheck className="h-5 w-5" strokeWidth={2} />

@@ -118,6 +118,24 @@ export function bumpQty(cart, id, delta, variant = DEFAULT_VARIANT) {
   return setQty(cart, id, cur + delta, variant);
 }
 
+/** Move a cart line from one variant to another, merging qty if the target
+ *  variant already has a line. No-op when oldVariant === newVariant. */
+export function changeVariant(cart, id, oldVariant, newVariant) {
+  if (!cart || !id) return cart;
+  const oldV = (oldVariant || DEFAULT_VARIANT).toLowerCase();
+  const newV = (newVariant || DEFAULT_VARIANT).toLowerCase();
+  if (oldV === newV) return cart;
+  const next = { ...cart };
+  const oldKey = lineKey(id, oldV);
+  const newKey = lineKey(id, newV);
+  const oldQty = Number(next[oldKey]?.qty) || 0;
+  if (oldQty <= 0) return cart;
+  const merged = (Number(next[newKey]?.qty) || 0) + oldQty;
+  delete next[oldKey];
+  next[newKey] = { id, variant: newV, qty: Math.min(50, merged) };
+  return next;
+}
+
 export function cartCount(cart) {
   // Counts each portion individually (Large counts as 2, Family as 4) so the
   // sticky cart-bar reflects "physical portions in the box" not "lines".
