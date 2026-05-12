@@ -1,0 +1,37 @@
+repos:
+  # === Backend lint — ruff ===
+  # Catches: undefined names, unused imports, unused locals (F841), syntax slip-ups.
+  # Auto-fixes safe issues on commit.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        name: ruff (backend)
+        args: [--fix, --exit-non-zero-on-fix]
+        files: ^backend/.*\.py$
+
+  # === Frontend lint — eslint ===
+  # Fails commit if there are ANY warnings (max-warnings 0). Runs via the
+  # repo-local yarn binary so the rule set + plugins (react-hooks etc.) stay
+  # in sync with what CI runs.
+  - repo: local
+    hooks:
+      - id: eslint-frontend
+        name: eslint (frontend, --max-warnings 0)
+        # `yarn lint` is defined in frontend/package.json
+        entry: bash -c 'cd frontend && yarn -s lint --max-warnings 0'
+        language: system
+        types_or: [javascript, jsx, ts, tsx]
+        files: ^frontend/src/.*\.(js|jsx|ts|tsx)$
+        pass_filenames: false
+        require_serial: true
+
+  # === Secret scanner — gitleaks ===
+  # Blocks commits that contain API keys / passwords matched by the gitleaks
+  # default rule set. Pairs with our existing rename-to-clear-false-positive
+  # discipline (e.g. `iter39_guest_` vs `TEST_guest_iter39_`).
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+        name: gitleaks (secret scan)

@@ -133,14 +133,16 @@ async def admin_upload(file: UploadFile = File(...), user: server.User = Depends
         raise HTTPException(status_code=400, detail="Empty file")
     if len(data) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail=f"File too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)")
+    from image_optim import optimize_to_webp
     fname = f"{uuid.uuid4().hex}{ext}"
     fpath = UPLOAD_ROOT / fname
-    fpath.write_bytes(data)
-    public_url = f"/api/uploads/promotions/{fname}"
+    written = optimize_to_webp(data, fpath)
+    final_name = fpath.with_suffix(".webp").name if (UPLOAD_ROOT / fname.replace(ext, ".webp")).exists() else fname
+    public_url = f"/api/uploads/promotions/{final_name}"
     cur = await _load()
     cur["image_url"] = public_url
     await _save(cur)
-    return {"url": public_url, "bytes": len(data)}
+    return {"url": public_url, "bytes": written}
 
 
 class PromoImagePromptIn(BaseModel):

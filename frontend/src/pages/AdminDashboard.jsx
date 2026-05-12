@@ -60,16 +60,33 @@ export default function AdminOverview() {
         </div>
       </div>
 
-      <div className="mt-6 bg-card rounded-2xl border border-border p-6" data-testid="today-attendance-list">
+      <div className="mt-6 surface-3d bg-card rounded-2xl border border-border p-6" data-testid="today-attendance-list">
         <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Today's check-ins</p>
         <div className="mt-4 max-h-80 overflow-auto divide-y divide-border">
           {attendance.length === 0 && <p className="text-sm text-muted-foreground">No check-ins yet.</p>}
-          {attendance.map((r) => (
-            <div key={r.att_id} className="flex items-center justify-between py-3 text-sm">
-              <span className="font-semibold">{r.user_name}</span>
-              <span className="text-xs text-muted-foreground capitalize">{r.meal_type} · {r.method}</span>
-            </div>
-          ))}
+          {attendance.map((r) => {
+            // Backend now enriches each row with subscriber_name + subscriber_phone
+            // + profile_photo_url. Fall back to the legacy user_name if a row
+            // was created before the enrichment landed.
+            const displayName = r.subscriber_name || r.user_name || "—";
+            const phone = r.subscriber_phone;
+            return (
+              <div key={r.att_id} className="flex items-center gap-3 py-3 text-sm" data-testid={`attendance-row-${r.att_id}`}>
+                {r.profile_photo_url ? (
+                  <img src={r.profile_photo_url} alt="" className="h-8 w-8 rounded-full object-cover flex-shrink-0" />
+                ) : (
+                  <span className="h-8 w-8 rounded-full bg-primary/15 text-primary flex items-center justify-center font-extrabold text-xs flex-shrink-0">
+                    {(displayName || "?").slice(0, 1).toUpperCase()}
+                  </span>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold truncate" data-testid={`attendance-name-${r.att_id}`}>{displayName}</p>
+                  {phone && <p className="text-[11px] text-muted-foreground" data-testid={`attendance-phone-${r.att_id}`}>{phone}</p>}
+                </div>
+                <span className="text-xs text-muted-foreground capitalize flex-shrink-0">{r.meal_type} · {r.method}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

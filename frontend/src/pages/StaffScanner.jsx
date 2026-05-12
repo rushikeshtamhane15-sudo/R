@@ -25,8 +25,19 @@ export default function StaffScanner() {
     await stopScanner();
     try {
       const res = await api.post("/attendance/scan", { qr_token: qrToken, meal_type: meal });
-      toast.success(`${res.data.subscriber_name} checked in for ${meal}`);
-      setLastScans((p) => [{ id: res.data.record.att_id, name: res.data.subscriber_name, meal, at: new Date().toLocaleTimeString() }, ...p].slice(0, 10));
+      const d = res.data || {};
+      toast.success(`${d.subscriber_name} · ${d.subscriber_phone || ""} checked in for ${meal}`);
+      setLastScans((p) => [{
+        id: d.record?.att_id,
+        name: d.subscriber_name,
+        phone: d.subscriber_phone,
+        photo: d.profile_photo_url,
+        plan: d.plan_name,
+        meals_left: d.meals_left,
+        meals_total: d.meals_total,
+        meal,
+        at: new Date().toLocaleTimeString(),
+      }, ...p].slice(0, 10));
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Scan failed");
     }
@@ -119,9 +130,29 @@ export default function StaffScanner() {
           <p className="text-xs tracking-overline uppercase font-bold text-[hsl(40,15%,70%)] mb-3">Recent scans</p>
           {lastScans.length === 0 && <p className="text-sm text-[hsl(40,15%,70%)]">None yet.</p>}
           {lastScans.map((s) => (
-            <div key={s.id} className="flex items-center justify-between py-3 border-b border-[hsl(140,8%,22%)]">
-              <div className="flex items-center gap-3"><UserCheck className="h-4 w-4 text-[hsl(135,25%,55%)]"/><span className="font-semibold">{s.name}</span><span className="text-xs text-[hsl(40,15%,70%)] capitalize">· {s.meal}</span></div>
-              <span className="text-xs text-[hsl(40,15%,70%)]">{s.at}</span>
+            <div key={s.id} className="flex items-center gap-3 py-3 border-b border-[hsl(140,8%,22%)]" data-testid={`recent-scan-${s.id}`}>
+              {/* Profile photo / fallback initial — gives counter staff
+                  visual confirmation of WHO just checked in. */}
+              {s.photo ? (
+                <img src={s.photo} alt="" className="h-10 w-10 rounded-full object-cover flex-shrink-0" />
+              ) : (
+                <span className="h-10 w-10 rounded-full bg-[hsl(135,25%,55%)] text-[hsl(140,8%,10%)] flex items-center justify-center font-extrabold text-base flex-shrink-0" aria-hidden>
+                  {(s.name || "?").slice(0, 1).toUpperCase()}
+                </span>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold leading-tight truncate" data-testid={`recent-scan-name-${s.id}`}>{s.name}</p>
+                <p className="text-[11px] text-[hsl(40,15%,70%)] flex items-center gap-1.5 mt-0.5">
+                  <UserCheck className="h-3 w-3 text-[hsl(135,25%,55%)]" />
+                  {s.phone && <span data-testid={`recent-scan-phone-${s.id}`}>{s.phone}</span>}
+                  {s.plan && <span>· {s.plan}</span>}
+                  {(s.meals_total != null) && <span>· {s.meals_left}/{s.meals_total} left</span>}
+                </p>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <p className="text-[11px] text-[hsl(40,15%,70%)] uppercase tracking-wide font-bold">{s.meal}</p>
+                <p className="text-[10px] text-[hsl(40,15%,70%)]">{s.at}</p>
+              </div>
             </div>
           ))}
         </div>

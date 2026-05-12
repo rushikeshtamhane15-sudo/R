@@ -65,6 +65,23 @@ async def admin_today_attendance(user: server.User = Depends(server.get_current_
         raise HTTPException(status_code=403, detail="Admin only")
     d = server.today_str()
     recs = await server.db.attendance.find({"date_str": d}, {"_id": 0}).sort("checked_at", -1).to_list(500)
+    # Enrich each attendance row with the user's name + phone so the admin
+    # "today's check-ins" list shows WHO checked in, not just IDs. We batch-load
+    # the user profiles via a single $in lookup and stitch them in.
+    user_ids = list({r.get("user_id") for r in recs if r.get("user_id")})
+    profiles: dict = {}
+    if user_ids:
+        cursor = server.db.users.find(
+            {"user_id": {"$in": user_ids}},
+            {"_id": 0, "user_id": 1, "name": 1, "phone": 1, "profile_photo_url": 1},
+        )
+        async for u in cursor:
+            profiles[u["user_id"]] = u
+    for r in recs:
+        p = profiles.get(r.get("user_id"), {})
+        r["subscriber_name"] = p.get("name")
+        r["subscriber_phone"] = p.get("phone")
+        r["profile_photo_url"] = p.get("profile_photo_url")
     return {"attendance": recs}
 
 

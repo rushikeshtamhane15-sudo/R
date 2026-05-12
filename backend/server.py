@@ -1382,7 +1382,22 @@ async def staff_scan(payload: StaffScanRequest, user: User = Depends(get_current
     if not target:
         raise HTTPException(status_code=404, detail="Invalid QR")
     record = await _mark_attendance(target, payload.meal_type, user.user_id, "counter_scan")
-    return {"ok": True, "record": record, "subscriber_name": target["name"]}
+    # Enrich response with subscriber identity + plan info so the scanning
+    # staff sees WHO actually checked in (not just a count). Phone is
+    # essential for paper-trail / dispute resolution at the counter.
+    sub = await get_active_subscription(target["user_id"])
+    return {
+        "ok": True,
+        "record": record,
+        "subscriber_name": target.get("name"),
+        "subscriber_phone": target.get("phone"),
+        "subscriber_user_id": target.get("user_id"),
+        "profile_photo_url": target.get("profile_photo_url"),
+        "plan_name": sub.get("plan_name") if sub else None,
+        "meals_left": (sub["meals_total"] - sub["meals_used"]) if sub else 0,
+        "meals_total": sub["meals_total"] if sub else 0,
+        "wallet_balance": sub.get("wallet_balance") if sub else 0,
+    }
 
 
 # Rotating HMAC counter codes

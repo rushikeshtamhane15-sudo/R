@@ -160,9 +160,20 @@ export function priceCart(cart, menu) {
     const m = byId[l.id];
     if (!m) continue;
     const variant = (l.variant || DEFAULT_VARIANT).toLowerCase();
-    const mult = PORTION_MULTIPLIER[variant] || 1;
     const baseUnit = Number(m.discounted_price ?? m.price);
-    const unit = +(baseUnit * mult).toFixed(2);
+    // Honour admin variant_prices override — mirrors backend _compute_totals.
+    const ov = (m.variant_prices || {})[variant];
+    let mult; let unit;
+    if (ov && typeof ov === "object" && ov.absolute != null) {
+      unit = +Number(ov.absolute).toFixed(2);
+      mult = baseUnit > 0 ? unit / baseUnit : (PORTION_MULTIPLIER[variant] || 1);
+    } else if (typeof ov === "number" && ov > 0) {
+      mult = ov;
+      unit = +(baseUnit * mult).toFixed(2);
+    } else {
+      mult = PORTION_MULTIPLIER[variant] || 1;
+      unit = +(baseUnit * mult).toFixed(2);
+    }
     const total = +(unit * l.qty).toFixed(2);
     lines.push({
       ...m,

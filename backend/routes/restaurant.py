@@ -15,7 +15,7 @@ import os
 import uuid
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field
@@ -96,6 +96,14 @@ class MenuItem(BaseModel):
     # a tiffin-pendency record on delivery and bumps the customer's tiffin_balance
     # so the kitchen can call them back later for pickup.
     is_returnable_tiffin: bool = False
+    # Optional per-variant price multipliers OR absolute prices. Lets an admin
+    # charge Large at 1.8× (instead of strict 2×) when margins on a bigger
+    # portion are tighter — or set an absolute price (e.g. "Family thali ₹650")
+    # that ignores the multiplier entirely.
+    #   - multiplier form: {"large": 1.8, "family": 3.5}
+    #   - absolute form:   {"large": {"absolute": 650}}
+    # An empty dict (default) preserves the standard 1×/2×/4× multipliers.
+    variant_prices: dict = Field(default_factory=dict)
 
 
 class MenuPatch(BaseModel):
@@ -109,7 +117,9 @@ class CartLine(BaseModel):
     # cart line can represent a Large/Family-sized order. Backend resolves
     # variant → portion multiplier ({regular:1, large:2, family:4}) to compute
     # the line total. Defaults to "regular" when missing.
-    variant: Optional[str] = "regular"
+    # Pydantic Literal[] catches invalid values at OpenAPI schema validation
+    # (HTTP 422) instead of inside the handler — cleaner error message.
+    variant: Optional[Literal["regular", "large", "family"]] = "regular"
 
 
 # Portion-variant → multiplier. Keep in sync with frontend
@@ -234,9 +244,21 @@ def _compute_totals(menu_by_id: dict, items: list[CartLine]) -> tuple[list[dict]
         variant = (line.variant or "regular").lower()
         if variant not in PORTION_MULTIPLIER:
             raise HTTPException(status_code=400, detail=f"Unknown portion variant: {variant}")
-        portion_mult = PORTION_MULTIPLIER[variant]
+        # Admin variant-price overrides — `variant_prices` on the menu item
+        # can contain either a custom multiplier (float) OR an absolute price
+        # ({"absolute": 650}). Falls back to the default 1×/2×/4× table when
+        # no override is set.
         base_unit = float(m.get("discounted_price") or m["price"])
-        unit = round(base_unit * portion_mult, 2)
+        override = (m.get("variant_prices") or {}).get(variant)
+        if isinstance(override, dict) and "absolute" in override:
+            unit = round(float(override["absolute"]), 2)
+            portion_mult = unit / base_unit if base_unit > 0 else PORTION_MULTIPLIER[variant]
+        elif isinstance(override, (int, float)) and override > 0:
+            portion_mult = float(override)
+            unit = round(base_unit * portion_mult, 2)
+        else:
+            portion_mult = PORTION_MULTIPLIER[variant]
+            unit = round(base_unit * portion_mult, 2)
         line_total = round(unit * line.qty, 2)
         priced.append({
             "id": m["id"], "name": m["name"], "qty": line.qty,
@@ -479,10 +501,15 @@ async def admin_upload_menu_image(
         raise HTTPException(status_code=400, detail="Empty file")
     if len(data) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail=f"File too large (max {MAX_UPLOAD_BYTES // (1024 * 1024)} MB)")
+    # WebP optimization — bandwidth saver for cellular users. optimize_to_webp
+    # falls back to writing raw bytes if Pillow chokes, so this never breaks
+    # an upload.
+    from image_optim import optimize_to_webp
     fname = f"{uuid.uuid4().hex}{ext}"
     fpath = MENU_IMAGE_DIR / fname
-    fpath.write_bytes(data)
-    return {"url": f"/api/uploads/menu_images/{fname}", "bytes": len(data)}
+    written = optimize_to_webp(data, fpath)
+    final_name = fpath.with_suffix(".webp").name if (MENU_IMAGE_DIR / fname.replace(ext, ".webp")).exists() else fname
+    return {"url": f"/api/uploads/menu_images/{final_name}", "bytes": written}
 
 
 # ---------------------------------------------------------------------------
