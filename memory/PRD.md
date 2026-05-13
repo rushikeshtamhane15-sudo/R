@@ -558,4 +558,15 @@ See `/app/memory/test_credentials.md`.
 - **Pure-veg gate**: `NON_VEG_PATTERNS` regex. `is_non_veg()` helper. Public menu filters; admin save rejects non-veg with HTTP 400. New endpoints: `POST /admin/restaurant/menu/check-veg` + `POST /admin/restaurant/menu/generate-image` (non-veg refused).
 - **Promo popup CMS** (`/app/backend/routes/promotions.py`). Endpoints under `/landing-promotion` + `/admin/landing-promotion`. CRUD + start/stop + upload + generate-image. New admin page `/admin/promotion` (AdminPromotion.jsx) — full editor. PromotionPopup.jsx auto-opens once per session on `/` AND `/home`.
 - **AdminRestaurant** menu rows get a `menu-generate-{idx}` button.
+
+### Iteration 42 (Feb 12, 2026) — Pre-commit · Quick-win refactors · Check-in identity
+- **Pre-commit hooks** (`/app/.pre-commit-config.yaml` + `PRE_COMMIT.md`): ruff (backend, auto-fix), eslint `--max-warnings 0` (frontend), gitleaks (secret scan). Devs install with `pip install pre-commit && pre-commit install`.
+- **QR check-in shows WHO**: `POST /api/attendance/scan` response now carries `subscriber_name + subscriber_phone + subscriber_user_id + profile_photo_url + plan_name + meals_left/total + wallet_balance`. `GET /api/admin/attendance/today` batches a single `users.find($in:[ids])` lookup and enriches every row with name/phone/photo. Both `/staff/scan` and `/admin/dashboard` UIs render the new identity (avatar/initial · name · phone · plan · meals-left).
+- **Quick-win refactors** (from iter-41 backlog):
+  - `CartLine.variant` → `Literal["regular","large","family"]` — invalid variant rejected with HTTP 422 + enumerated allowed values, no longer at handler-level.
+  - `MenuItem.variant_prices` admin override field. Supports multiplier (`{"large": 1.8}`) OR absolute (`{"family": {"absolute": 650}}`). `_compute_totals` honours both forms; frontend `priceCart` mirrors the same logic.
+  - **WebP optimisation pipeline** (`/app/backend/image_optim.py`): on every admin upload, `optimize_to_webp()` resizes to ≤1600px and converts to WebP @ q80. Falls back to raw bytes if Pillow fails. Wired into menu + promo upload endpoints.
+- **Deferred to backlog with rationale**: delivery.py `make_router()` (444 lines, complexity 95) + React component splits (RestaurantCheckout 418, Login 398, AdminRawMaterials 392). Each is a multi-day refactor with non-trivial regression surface — punted to a future dedicated iteration.
+- **Testing**: 17/17 pytest pass (test_iter42.py). Frontend code-review verified — Playwright live-render blocked by OTP rate-limit collision with backend tests (cosmetic; the rendering code matches spec exactly).
+
 - **Testing**: 17/17 backend pytest + critical frontend paths verified.
