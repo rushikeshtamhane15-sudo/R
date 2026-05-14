@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
 import { ScanLine, UserCheck, Sun, Moon, X } from "lucide-react";
+import { playCheckinSuccess, unlockAudio } from "../lib/notify";
 
 export default function StaffScanner() {
   const [meal, setMeal] = useState("lunch");
@@ -26,6 +27,10 @@ export default function StaffScanner() {
     try {
       const res = await api.post("/attendance/scan", { qr_token: qrToken, meal_type: meal });
       const d = res.data || {};
+      // Play the check-in success chord ONLY on the happy path. The toast
+      // already shows the identity; the sound gives the staff an audible
+      // confirmation so they can keep their eyes on the next person in line.
+      playCheckinSuccess();
       toast.success(`${d.subscriber_name} · ${d.subscriber_phone || ""} checked in for ${meal}`);
       setLastScans((p) => [{
         id: d.record?.att_id,
@@ -44,6 +49,10 @@ export default function StaffScanner() {
   };
 
   const startScanner = async () => {
+    // Browser autoplay policy: AudioContext must be unlocked from a user
+    // gesture. We call this on Start so the very first scan still plays the
+    // success chord — otherwise the first scan would be silent.
+    unlockAudio();
     setScanning(true);
     await new Promise((r) => setTimeout(r, 50));
     try {

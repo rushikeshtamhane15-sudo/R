@@ -6,6 +6,7 @@ import { api } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
 import { ScanLine, X, CheckCircle2, Sun, Moon } from "lucide-react";
+import { playCheckinSuccess, unlockAudio } from "../lib/notify";
 
 export default function SelfScan() {
   const navigate = useNavigate();
@@ -40,6 +41,9 @@ export default function SelfScan() {
     } catch { /* non-critical: storage/network unavailable */ }
     try {
       const res = await api.post("/attendance/self-scan", { counter_code: code, meal_type: "lunch" });
+      // Audible check-in confirmation — fires only on the 2xx path so the user
+      // hears the chord exactly when their meal was successfully marked.
+      playCheckinSuccess();
       toast.success(`Checked in for ${res.data.meal_type} ✓`);
       setSuccess(res.data);
       fireConfetti();
@@ -49,6 +53,9 @@ export default function SelfScan() {
   };
 
   const startScanner = async () => {
+    // Unlock the AudioContext from the user-gesture handler so the very
+    // first scan's check-in chord can play (Chrome/Safari autoplay policy).
+    unlockAudio();
     setScanning(true);
     await new Promise((r) => setTimeout(r, 50));
     try {

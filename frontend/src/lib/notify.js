@@ -64,6 +64,45 @@ export function playPing() {
   } catch { /* noop */ }
 }
 
+/** Cheerful C-major arpeggio — used ONLY on a confirmed QR check-in (staff
+ *  scanner + self-scan). Distinct from playPing so kitchen staff can audibly
+ *  distinguish "new order" from "subscriber checked in". 4 ascending notes
+ *  with a soft glockenspiel envelope. */
+export function playCheckinSuccess() {
+  const ac = ctx(); if (!ac) return;
+  if (ac.state === "suspended") { try { ac.resume(); } catch { /* noop */ } }
+  try {
+    const t = ac.currentTime;
+    // C5, E5, G5, C6 — ascending major arpeggio
+    [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      // Triangle base + sine overlay gives that "ka-ching"/glockenspiel timbre.
+      o.type = "triangle";
+      o.frequency.value = freq;
+      const start = t + i * 0.09;
+      g.gain.setValueAtTime(0.0001, start);
+      g.gain.exponentialRampToValueAtTime(0.28, start + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001, start + 0.32);
+      o.connect(g).connect(ac.destination);
+      o.start(start);
+      o.stop(start + 0.36);
+
+      // Sine overlay one octave up — gives the chord a brighter "sparkle".
+      const o2 = ac.createOscillator();
+      const g2 = ac.createGain();
+      o2.type = "sine";
+      o2.frequency.value = freq * 2;
+      g2.gain.setValueAtTime(0.0001, start);
+      g2.gain.exponentialRampToValueAtTime(0.08, start + 0.015);
+      g2.gain.exponentialRampToValueAtTime(0.0001, start + 0.30);
+      o2.connect(g2).connect(ac.destination);
+      o2.start(start);
+      o2.stop(start + 0.34);
+    });
+  } catch { /* noop */ }
+}
+
 /** Dramatic 3-tone alarm — for OUT-FOR-DELIVERY, RIDER ARRIVED. */
 export function playAlarm() {
   const ac = ctx(); if (!ac) return;
