@@ -1,0 +1,8 @@
+# Allow Google + every reputable crawler. Block the API surface so the bot
+# doesn't waste crawl budget on JSON endpoints that produce no search value.
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+
+Sitemap: https://efoodcare.in/sitemap.xml

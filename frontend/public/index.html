@@ -8,26 +8,106 @@
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="eFoodCare" />
         <link rel="manifest" href="/manifest.webmanifest" />
-        <meta name="description" content="eFoodCare · ghar se achha khana" />
-        <link rel="icon" type="image/png" href="https://customer-assets.emergentagent.com/job_dining-pass-scan/artifacts/uzs344m6_9a705f5a-b3a0-4286-b51d-b9bd6f55b7bb_20260504_011957_0000.png" />
-        <link rel="apple-touch-icon" href="https://customer-assets.emergentagent.com/job_dining-pass-scan/artifacts/uzs344m6_9a705f5a-b3a0-4286-b51d-b9bd6f55b7bb_20260504_011957_0000.png" />
+
+        <!-- =================================================================
+             SEO: Title + description.
+             Google uses <title> as the search result heading and the
+             description as the snippet. Keep title under ~60 chars and
+             description 120–160 chars for clean rendering on mobile + desktop.
+        ================================================================= -->
+        <title>eFoodCare — 100% Pure Veg Tiffin & Restaurant · Ghar Se Achha Khana</title>
+        <meta name="description" content="eFoodCare delivers 100% pure-veg, ghar-style meals: monthly tiffin subscriptions with QR check-in, restaurant ordering, and 90-minute fresh delivery. No Ajinomoto, no maida, no palm oil — real ghar ka khana, on time, every time." />
+        <meta name="keywords" content="efoodcare, pure veg tiffin, monthly mess subscription, ghar ka khana, restaurant near me, QR check-in dining, veg food delivery, 90 minute delivery, India" />
+        <meta name="author" content="eFoodCare" />
+        <link rel="canonical" href="https://efoodcare.in/" />
+
+        <!-- =================================================================
+             Favicons: serve from the SAME ORIGIN so Google's crawler can find
+             them. The cross-origin CDN icon is kept as a fallback but Google
+             prefers same-origin /favicon.ico for search results.
+        ================================================================= -->
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" type="image/png" href="/favicon.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+        <link rel="mask-icon" href="/favicon.png" color="#a02323" />
+
+        <!-- =================================================================
+             Open Graph (Facebook / LinkedIn / WhatsApp share preview).
+        ================================================================= -->
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="eFoodCare" />
+        <meta property="og:url" content="https://efoodcare.in/" />
+        <meta property="og:title" content="eFoodCare — 100% Pure Veg Tiffin & Restaurant" />
+        <meta property="og:description" content="Monthly veg tiffin subscriptions with QR check-in · 90-minute fresh restaurant delivery · No Ajinomoto, no maida, no palm oil." />
+        <meta property="og:image" content="https://efoodcare.in/og-image.png" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:locale" content="en_IN" />
+
+        <!-- =================================================================
+             Twitter / X card.
+        ================================================================= -->
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="eFoodCare — 100% Pure Veg Tiffin & Restaurant" />
+        <meta name="twitter:description" content="Monthly veg tiffin + 90-minute fresh restaurant delivery. No Ajinomoto, no maida, no palm oil." />
+        <meta name="twitter:image" content="https://efoodcare.in/og-image.png" />
+
+        <!-- =================================================================
+             Robots — let Google crawl + index everything; render images.
+        ================================================================= -->
+        <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+        <meta name="googlebot" content="index, follow" />
+
+        <!-- =================================================================
+             JSON-LD structured data — this is the magic that tells Google to
+             display your LOGO and ORG NAME in search results instead of the
+             generic globe icon. Two schemas:
+               1. Organization — defines the brand + logo
+               2. WebSite — adds a sitelinks search box
+        ================================================================= -->
+        <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            "name": "eFoodCare",
+            "alternateName": "efoodcare",
+            "url": "https://efoodcare.in/",
+            "logo": "https://efoodcare.in/favicon.png",
+            "image": "https://efoodcare.in/og-image.png",
+            "description": "100% pure-veg ghar-style tiffin subscriptions and restaurant ordering. Monthly mess plans with QR check-in and 90-minute fresh delivery.",
+            "sameAs": []
+        }
+        </script>
+        <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            "name": "eFoodCare",
+            "url": "https://efoodcare.in/",
+            "potentialAction": {
+                "@type": "SearchAction",
+                "target": "https://efoodcare.in/restaurant?q={search_term_string}",
+                "query-input": "required name=search_term_string"
+            }
+        }
+        </script>
+        <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "FoodEstablishment",
+            "name": "eFoodCare Restaurant",
+            "image": "https://efoodcare.in/og-image.png",
+            "url": "https://efoodcare.in/restaurant",
+            "servesCuisine": ["Indian Vegetarian", "North Indian", "South Indian"],
+            "priceRange": "₹₹",
+            "acceptsReservations": false,
+            "menu": "https://efoodcare.in/restaurant"
+        }
+        </script>
+
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap" rel="stylesheet" />
-        <!--
-        manifest.json provides metadata used when your web app is installed on a
-        user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
-        -->
-        <!--
-        Notice the use of %PUBLIC_URL% in the tags above.
-        It will be replaced with the URL of the `public` folder during the build.
-        Only files inside the `public` folder can be referenced from the HTML.
-
-        Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
-        work correctly both with client-side routing and a non-root public URL.
-        Learn how to configure a non-root public URL by running `npm run build`.
-        -->
-        <title>eFoodCare · ghar se achha khana</title>
         <script>window.addEventListener("error",function(e){if(e.error instanceof DOMException&&e.error.name==="DataCloneError"&&e.message&&e.message.includes("PerformanceServerTiming")){e.stopImmediatePropagation();e.preventDefault()}},true);</script>
         <script src="https://assets.emergent.sh/scripts/emergent-main.js"></script>
     </head>
