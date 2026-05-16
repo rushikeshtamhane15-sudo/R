@@ -7,6 +7,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, ShieldCheck, KeyRound } from "lucide-react";
+import { GoogleLogin, useGoogleOneTapLogin } from "@react-oauth/google";
 import BadStuffBackground from "../components/login/BadStuffBackground";
 
 const HERO_FOOD_IMG = "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?crop=entropy&cs=srgb&fm=jpg&q=85&w=1400";
@@ -195,6 +196,34 @@ export default function Login() {
       setSubmitting(false);
     }
   };
+
+  // === Google sign-in handler ============================================
+  // Shared by both the visible <GoogleLogin> button AND the auto-firing
+  // useGoogleOneTapLogin hook. credential is the ID-token JWT from Google.
+  const handleGoogleCredential = async (credentialResponse) => {
+    const credential = credentialResponse?.credential;
+    if (!credential) { toast.error("No credential from Google"); return; }
+    try {
+      const r = await api.post("/auth/google/verify", { credential });
+      verifiedHereRef.current = true;
+      const dest = computeNext(r.data.user);
+      setUser(r.data.user);
+      toast.success("Welcome to efoodcare");
+      navigate(dest, { replace: true, state: { user: r.data.user } });
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Google sign-in failed");
+    }
+  };
+
+  // One-Tap prompt — fires automatically (Google's UX) ONLY when:
+  //   - user is anonymous (no `user` in AuthContext)
+  //   - the Client ID is configured
+  //   - the user hasn't already declined Google on this device (Google handles
+  //     the cooldown internally).
+  useGoogleOneTapLogin({
+    onSuccess: handleGoogleCredential,
+    disabled: !!user || !process.env.REACT_APP_GOOGLE_CLIENT_ID,
+  });
 
   return (
     <div className="min-h-screen bg-primary flex flex-col" data-testid="login-page">

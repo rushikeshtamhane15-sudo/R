@@ -371,6 +371,53 @@
     .bad-stuff-pill-zero { min-width: 18px; height: 18px; font-size: 8px; }
 }
 
+/* === Horizontal scrolling marquee variant ===
+   Used on /login instead of the circular halo. Pills slide right-to-left
+   infinitely; container fades on both edges via mask so the loop is invisible. */
+@keyframes bad-stuff-marquee-scroll {
+    0%   { transform: translateX(0%); }
+    100% { transform: translateX(-50%); }
+}
+.bad-stuff-marquee {
+    overflow: hidden;
+    width: 100%;
+    padding: 6px 0;
+    -webkit-mask-image: linear-gradient(to right, transparent 0, black 6%, black 94%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, black 6%, black 94%, transparent 100%);
+    pointer-events: none;
+}
+.bad-stuff-marquee-track {
+    display: inline-flex;
+    gap: 12px;
+    width: max-content;
+    animation: bad-stuff-marquee-scroll 28s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+    .bad-stuff-marquee-track { animation: none; }
+}
+.bad-stuff-pill-mq {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px 5px 6px;
+    border-radius: 9999px;
+    background: linear-gradient(180deg, #ffffff 0%, #fff5f3 100%);
+    border: 1px solid rgba(180, 30, 18, 0.28);
+    color: rgba(120, 22, 13, 0.85);
+    font-family: var(--font-display, "Cabinet Grotesk"), system-ui, sans-serif;
+    font-weight: 800;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    flex-shrink: 0;
+    box-shadow:
+        0 1px 0 rgba(255,255,255,0.95) inset,
+        0 -1px 0 rgba(0,0,0,0.06) inset,
+        0 1px 2px rgba(180, 30, 18, 0.10),
+        0 4px 8px -2px rgba(180, 30, 18, 0.15);
+}
+
 /* === Generic 3D surface utility ===
    Applied to any container we want to read as "lifted off the page" — cards
    on landing, contact, profile, dashboard, etc. Multi-layer shadow + bevel +

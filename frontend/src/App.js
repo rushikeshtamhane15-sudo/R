@@ -1,6 +1,8 @@
 import React from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { HelmetProvider } from "react-helmet-async";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { Toaster } from "sonner";
@@ -162,18 +164,26 @@ function AppRoutes() {
 }
 
 export default function App() {
+  // Google OAuth Client ID is provisioned per-environment via .env. If it's
+  // missing we still render the app but the Google sign-in button will hide
+  // itself (see Login.jsx fallback to OTP-only flow).
+  const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || "";
   return (
-    <div className="App">
-      <SplashScreen />
-      <BrowserRouter>
-        <ThemeProvider>
-          <AuthProvider>
-            <AppRoutes />
-            <Toaster position="top-right" richColors />
-            <PWAInstallPrompt />
-          </AuthProvider>
-        </ThemeProvider>
-      </BrowserRouter>
-    </div>
+    <HelmetProvider>
+      <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+        <div className="App">
+          <SplashScreen />
+          <BrowserRouter>
+            <ThemeProvider>
+              <AuthProvider>
+                <AppRoutes />
+                <Toaster position="top-right" richColors />
+                <PWAInstallPrompt />
+              </AuthProvider>
+            </ThemeProvider>
+          </BrowserRouter>
+        </div>
+      </GoogleOAuthProvider>
+    </HelmetProvider>
   );
 }

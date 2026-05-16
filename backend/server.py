@@ -2348,7 +2348,9 @@ from routes.rider import router as _rider_router
 from routes.whatsapp_admin import router as _wa_admin_router
 from routes.app_cms import router as _app_cms_router
 from routes.promotions import router as _promotions_router
+from routes.auth_google import router as _auth_google_router
 api_router.include_router(_auth_router)
+api_router.include_router(_auth_google_router)
 api_router.include_router(_payments_router)
 api_router.include_router(_restaurant_router)
 api_router.include_router(_admin_router)
