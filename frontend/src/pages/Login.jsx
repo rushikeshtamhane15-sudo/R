@@ -248,25 +248,17 @@ export default function Login() {
         </div>
       )}
 
-      {/* Thick all-white spacer — pure white slab between the red hero and
-          the form sheet. Bumped from h-3/h-5 to h-7/h-10 for a more
-          deliberate, premium breathing room. */}
-      <div
-        aria-hidden
-        className="h-7 sm:h-10 w-full bg-white"
-        data-testid="login-hero-spacer"
-      />
-
       {/* FORM SHEET — Zomato-clone style: floating white card with 3D depth.
-          The page background is the "0% bad stuff" marquee — pills scroll
-          horizontally across the full width above and below the form card,
-          replacing the older circular halo. */}
-      <div className="bg-background flex-1 px-3 sm:px-6 relative pb-24 md:pb-12 overflow-hidden">
-        {/* Top scrolling marquee — sits ABOVE the login card */}
-        <div className="absolute left-0 right-0 top-2 sm:top-4 pointer-events-none" aria-hidden>
+          The "0% bad stuff" marquees flank the login form: one immediately
+          ABOVE, one immediately BELOW. A spacer is added after the bottom
+          marquee so the form sits cleanly in the middle of the mobile
+          screen with breathing room beneath. */}
+      <div className="bg-background flex-1 px-3 sm:px-6 relative pb-12 overflow-hidden flex flex-col">
+        {/* Top scrolling marquee — directly above the login card */}
+        <div className="w-full pt-3 sm:pt-4 pb-2 sm:pb-3" aria-hidden>
           <BadStuffMarquee />
         </div>
-        <div className="relative max-w-[280px] sm:max-w-sm mx-auto w-full mt-10 sm:mt-14">
+        <div className="relative max-w-[280px] sm:max-w-sm mx-auto w-full">
           <div
             className="login-card-3d relative bg-card rounded-2xl px-3 py-2.5 sm:px-6 sm:py-5 z-[1]"
             data-testid="login-form-card"
@@ -456,10 +448,13 @@ export default function Login() {
           </AnimatePresence>
         </div>
         </div>
-        {/* Bottom scrolling marquee — sits BELOW the login card. */}
-        <div className="absolute left-0 right-0 bottom-4 sm:bottom-6 pointer-events-none" aria-hidden>
+        {/* Bottom scrolling marquee — directly below the login card. */}
+        <div className="w-full pt-2 sm:pt-3" aria-hidden>
           <BadStuffMarquee />
         </div>
+        {/* Spacer after the bottom marquee — pushes the form into the
+            middle of the mobile viewport with breathing room beneath. */}
+        <div aria-hidden className="h-16 sm:h-24 w-full" />
       </div>
     </div>
   );

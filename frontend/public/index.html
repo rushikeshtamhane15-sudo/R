@@ -10,15 +10,18 @@
         <link rel="manifest" href="/manifest.webmanifest" />
 
         <!-- =================================================================
-             SEO: Title + description.
-             Google uses <title> as the search result heading and the
-             description as the snippet. Keep title under ~60 chars and
-             description 120–160 chars for clean rendering on mobile + desktop.
+             SEO: title + description + Open Graph + Twitter card.
+             These are managed PER-PAGE by `react-helmet-async` via the shared
+             `components/SEO.jsx` wrapper. Helmet replaces them at runtime so
+             every route ships its own title/description/OG metadata.
+
+             We intentionally do NOT ship a static <title> or <meta name=
+             "description"> here — having both would result in duplicate tags
+             (Helmet appends, browsers don't auto-replace by name) and
+             search-engine crawlers may pick the wrong one. The canonical
+             link + favicons + JSON-LD below remain static so non-JS bots
+             (link-preview scrapers, etc.) still get a sane fallback.
         ================================================================= -->
-        <title>eFoodCare — 100% Pure Veg Tiffin & Restaurant · Ghar Se Achha Khana</title>
-        <meta name="description" content="eFoodCare delivers 100% pure-veg, ghar-style meals: monthly tiffin subscriptions with QR check-in, restaurant ordering, and 90-minute fresh delivery. No Ajinomoto, no maida, no palm oil — real ghar ka khana, on time, every time." />
-        <meta name="keywords" content="efoodcare, pure veg tiffin, monthly mess subscription, ghar ka khana, restaurant near me, QR check-in dining, veg food delivery, 90 minute delivery, India" />
-        <meta name="author" content="eFoodCare" />
         <link rel="canonical" href="https://efoodcare.in/" />
 
         <!-- =================================================================
@@ -32,24 +35,21 @@
         <link rel="mask-icon" href="/favicon.png" color="#a02323" />
 
         <!-- =================================================================
-             Open Graph (Facebook / LinkedIn / WhatsApp share preview).
+             Open Graph + Twitter card — managed per-page by Helmet (see
+             /app/frontend/src/components/SEO.jsx). We only keep the
+             ORIGIN-WIDE bits here that never change (site_name, type, locale,
+             default OG image dimensions) so link-preview scrapers without JS
+             still get a recognisable card.
         ================================================================= -->
         <meta property="og:type" content="website" />
         <meta property="og:site_name" content="eFoodCare" />
-        <meta property="og:url" content="https://efoodcare.in/" />
-        <meta property="og:title" content="eFoodCare — 100% Pure Veg Tiffin & Restaurant" />
-        <meta property="og:description" content="Monthly veg tiffin subscriptions with QR check-in · 90-minute fresh restaurant delivery · No Ajinomoto, no maida, no palm oil." />
+        <meta property="og:locale" content="en_IN" />
         <meta property="og:image" content="https://efoodcare.in/og-image.png" />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
-        <meta property="og:locale" content="en_IN" />
 
-        <!-- =================================================================
-             Twitter / X card.
-        ================================================================= -->
+        <!-- Twitter card type — title/description/image come from Helmet per page -->
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="eFoodCare — 100% Pure Veg Tiffin & Restaurant" />
-        <meta name="twitter:description" content="Monthly veg tiffin + 90-minute fresh restaurant delivery. No Ajinomoto, no maida, no palm oil." />
         <meta name="twitter:image" content="https://efoodcare.in/og-image.png" />
 
         <!-- =================================================================
