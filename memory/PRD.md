@@ -515,6 +515,26 @@ Backend: 14/14 new (test_iter27_app_cms.py) + 110/114 regression (4 timeouts unr
 - **Iteration 36 testing**: 10/10 backend pytest + 9/9 frontend checks pass.
 
 
+## Iteration 43 (Feb 16, 2026) — Google One-Tap auth verified + BadStuffMarquee on Login + per-page SEO (LocalBusiness JSON-LD) + Pure Veg color CMS + Hero vertical bump
+
+### Features delivered
+- **Google One-Tap auth backend verified** — `/api/auth/google/verify` (in `routes/auth_google.py`) verifies Google ID-token JWT against Google certs, find-or-creates user via `server.create_or_get_user`, persists `google_sub` + `last_login_at`, issues our session cookie. Returns 401 on invalid creds (tested), 503 if `GOOGLE_CLIENT_ID` env not set. Frontend `Login.jsx` wires both visible Google button (`@react-oauth/google` <GoogleLogin> via existing `handleGoogle` redirect) AND `useGoogleOneTapLogin` hook (auto-prompts anonymous users) → both call `handleGoogleCredential` → POST `/api/auth/google/verify`.
+- **BadStuffMarquee replaces circular halo on Login** — `components/login/BadStuffMarquee.jsx` (8 ingredient pills: Ajinomoto · Maida · Artificial Flavours · Artificial Colours · Polished Grains · Refined Oil · Palm Oil · Pre-made Gravy). Two instances rendered on `/login` — one ABOVE the login card, one BELOW — both scrolling right-to-left in a 28s infinite loop with edge mask-image fades. Replaced `BadStuffBackground` ring component. Verified 2× `data-testid='bad-stuff-marquee'` on page.
+- **Per-page SEO via react-helmet-async** — new `components/SEO.jsx` shared component injects `<title>`, `<meta name='description'>`, canonical, Open Graph (`og:*`), Twitter Card, and **LocalBusiness JSON-LD** (`@type: Restaurant`) into head. JSON-LD includes address `shilangan Road, behind bhaktidham mandir, sai nagar, Amravati 444607, Maharashtra IN`, telephone `+91-9175560211`, opening hours `09:00–22:00 Mon-Sun`. Wired on `/login`, `/restaurant`, `/home` (Landing), `/contact`, `/profile`.
+- **Pure Veg badge — flat (shadow removed) + admin-editable color** — `.pure-veg-3d`, `.pure-veg-logo-3d`, `.pure-veg-label-3d` in App.css now empty rulesets (no extrude, no text-shadow, no drop-shadow). `HeroPanel.jsx` consumes new `theme.pure_veg_color` (text) and `theme.pure_veg_bg_color` (pill background) via inline style. Backend `RestaurantTheme` model in `routes/restaurant.py` got two new Optional[str] fields; PUT validated 200. Admin UI `AdminRestaurantTheme.jsx` COLORS list now exposes both as <input type="color">.
+- **Restaurant hero vertical bump** — `HeroPanel.jsx` inner wrapper `py-4 sm:py-5` → `py-6 sm:py-8`. Measured hero height 226px at 1440 viewport (was ~180px).
+
+### Tests
+- iter-43 backend: **5/5 PASS** (`test_iter43.py`): google-verify 401 invalid, google-verify 422 missing field, theme GET 200, theme PUT new fields 200 + persists, theme PUT auth-required 401.
+- iter-43 frontend: **100% spec PASS**: 2× bad-stuff-marquee, google-login-button, phone-input, pure-veg-badge top-right (x=1158.5/1440), restaurant-hero 226px, 4× JSON-LD scripts with postalCode 444607 + telephone +91-9175560211, Contact page Helmet title/desc, Landing Helmet og:title.
+- Privacy page already routed via existing `PolicyPage` (no Emergent branding in body).
+
+### Backlog (carried over)
+- P1 SEO polish: strip duplicate `<title>`/`<meta name=description>` from `public/index.html` so Helmet has sole ownership (Helmet runtime DOES replace; left static as no-JS crawler fallback).
+- P1 refactor `delivery.py`, `RestaurantCheckout.jsx`, `AdminRawMaterials.jsx`.
+- P1 self-hosted OSRM / Mapbox Directions for production routing.
+- P2 email/SMS reminder for unused daily meal, monthly PDF P&L export, multi-mess support, live WhatsApp Business API.
+
 ## Test Credentials
 See `/app/memory/test_credentials.md`.
 
