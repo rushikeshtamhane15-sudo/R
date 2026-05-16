@@ -8,7 +8,8 @@ import { Input } from "../components/ui/input";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, ShieldCheck, KeyRound } from "lucide-react";
 import { GoogleLogin, useGoogleOneTapLogin } from "@react-oauth/google";
-import BadStuffBackground from "../components/login/BadStuffBackground";
+import BadStuffMarquee from "../components/login/BadStuffMarquee";
+import SEO from "../components/SEO";
 
 const HERO_FOOD_IMG = "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?crop=entropy&cs=srgb&fm=jpg&q=85&w=1400";
 
@@ -227,6 +228,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-primary flex flex-col" data-testid="login-page">
+      <SEO title="Login or Sign up" path="/login" description="Login or sign up to eFoodCare — India's smartest zero-adulteration tiffin pass. OTP or Google sign-in." />
       {/* HERO — dark red full-bleed top with 3D depth + extruded text. */}
       {(c.title_line1 || c.title_line2) && (
         <div className="hero-3d relative overflow-hidden">
@@ -256,18 +258,15 @@ export default function Login() {
       />
 
       {/* FORM SHEET — Zomato-clone style: floating white card with 3D depth.
-          The "bad stuff" halo is positioned in a wrapper sized to the card so
-          the ring of 0% pills naturally rings the login form regardless of
-          viewport height. */}
-      <div className="bg-background flex-1 px-3 sm:px-6 relative pb-24 md:pb-12">
-        <div className="relative max-w-[280px] sm:max-w-sm mx-auto w-full mt-3 sm:mt-5">
-          {/* Halo container — sized to the form card so pills ring the card,
-              not the entire viewport. Uses padding to extend the ring outside
-              the card by ~16/32px on every side. Wider extension on desktop
-              gives breathing room; tighter on mobile keeps pills onscreen. */}
-          <div className="absolute -inset-y-16 -inset-x-4 sm:-inset-y-32 sm:-inset-x-36 pointer-events-none" aria-hidden>
-            <BadStuffBackground />
-          </div>
+          The page background is the "0% bad stuff" marquee — pills scroll
+          horizontally across the full width above and below the form card,
+          replacing the older circular halo. */}
+      <div className="bg-background flex-1 px-3 sm:px-6 relative pb-24 md:pb-12 overflow-hidden">
+        {/* Top scrolling marquee — sits ABOVE the login card */}
+        <div className="absolute left-0 right-0 top-2 sm:top-4 pointer-events-none" aria-hidden>
+          <BadStuffMarquee />
+        </div>
+        <div className="relative max-w-[280px] sm:max-w-sm mx-auto w-full mt-10 sm:mt-14">
           <div
             className="login-card-3d relative bg-card rounded-2xl px-3 py-2.5 sm:px-6 sm:py-5 z-[1]"
             data-testid="login-form-card"
@@ -456,6 +455,10 @@ export default function Login() {
             )}
           </AnimatePresence>
         </div>
+        </div>
+        {/* Bottom scrolling marquee — sits BELOW the login card. */}
+        <div className="absolute left-0 right-0 bottom-4 sm:bottom-6 pointer-events-none" aria-hidden>
+          <BadStuffMarquee />
         </div>
       </div>
     </div>

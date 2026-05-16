@@ -14,6 +14,7 @@ import CategoryStrip from "../components/restaurant/CategoryStrip";
 import DishCard from "../components/restaurant/DishCard";
 import DishDetailModal from "../components/restaurant/DishDetailModal";
 import PromotionPopup from "../components/PromotionPopup";
+import SEO from "../components/SEO";
 
 // 8 trust chips — what we promise (and don't) about the food. Brand-defining
 // commitment, intentionally kept in code (not CMS-editable).
@@ -174,6 +175,11 @@ export default function Restaurant() {
 
   return (
     <div className="min-h-screen bg-background pb-40 md:pb-32" data-testid="restaurant-page">
+      <SEO
+        title="Order online · 90-min fresh meal delivery"
+        path="/restaurant"
+        description="Order zero-adulteration home-style meals from eFoodCare — 90-minute fresh delivery. No Ajinomoto, No Maida, No Refined or Palm oil. Subscription meal plans and à-la-carte tiffins."
+      />
       <HeroPanel theme={theme} meta={meta} />
 
       <div className="max-w-6xl mx-auto px-3 sm:px-5">

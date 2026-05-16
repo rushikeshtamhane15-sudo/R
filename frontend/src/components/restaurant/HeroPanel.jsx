@@ -93,7 +93,7 @@ export default function HeroPanel({ theme, meta }) {
           surface (and overflow) stays put while the content embosses. */}
       <div
         ref={inner}
-        className="max-w-6xl mx-auto px-4 sm:px-5 py-4 sm:py-5 relative z-[1]"
+        className="max-w-6xl mx-auto px-4 sm:px-5 py-6 sm:py-8 relative z-[1]"
         style={{ transformStyle: "preserve-3d", willChange: "transform" }}
       >
         {/* Row 1 — efoodcare restaurant overline (LEFT) ↔ tiny 100% Pure Veg badge (RIGHT).
@@ -105,7 +105,11 @@ export default function HeroPanel({ theme, meta }) {
             <ChefHat className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" /> {theme?.hero_overline || "efoodcare restaurant"}
           </p>
           <span
-            className="pure-veg-3d inline-flex items-center gap-1 rounded bg-white/95 text-green-700 pl-1 pr-1.5 py-0.5 text-[9px] sm:text-[10px] font-extrabold tracking-wide uppercase flex-shrink-0"
+            className="pure-veg-3d inline-flex items-center gap-1 rounded pl-1 pr-1.5 py-0.5 text-[9px] sm:text-[10px] font-extrabold tracking-wide uppercase flex-shrink-0"
+            style={{
+              backgroundColor: theme?.pure_veg_bg_color || "rgba(255,255,255,0.95)",
+              color: theme?.pure_veg_color || "#057a3a",
+            }}
             data-testid="pure-veg-badge"
           >
             <img
@@ -114,7 +118,7 @@ export default function HeroPanel({ theme, meta }) {
               className="pure-veg-logo-3d h-3.5 w-3.5 rounded-sm flex-shrink-0"
               data-testid="pure-veg-logo"
             />
-            <span aria-hidden className="text-green-700/60 text-[10px] leading-none">·</span>
+            <span aria-hidden className="opacity-60 text-[10px] leading-none">·</span>
             <span className="pure-veg-label-3d">{theme?.pure_veg_label || "100% Pure Veg"}</span>
           </span>
           <span className="sr-only" data-testid="zero-bad-stuff">100% Pure Veg</span>

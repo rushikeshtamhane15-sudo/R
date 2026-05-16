@@ -57,6 +57,8 @@ const COLORS = [
   { key: "hero_bg_color",            label: "Hero background" },
   { key: "hero_text_color",          label: "Hero text" },
   { key: "accent_color",             label: "Accent / button" },
+  { key: "pure_veg_color",           label: "Pure Veg badge text" },
+  { key: "pure_veg_bg_color",        label: "Pure Veg badge background" },
   { key: "ninety_min_bg_color",      label: "90-min banner background" },
   { key: "ninety_min_text_color",    label: "90-min banner text" },
   { key: "item_promise_bg_color",    label: "Per-item 90-min badge background" },

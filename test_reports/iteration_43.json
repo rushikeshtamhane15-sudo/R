@@ -1,0 +1,64 @@
+{
+  "summary": "Iter-43 backend + frontend verification of Google One-Tap auth, BadStuffMarquee on Login, per-page SEO via react-helmet-async + LocalBusiness JSON-LD, admin-editable Pure Veg badge color, and bumped /restaurant hero vertical padding. Backend pytest 5/5 PASS. Frontend Playwright verified all data-testids, JSON-LD, badge position, hero height. ONE non-blocking SEO quality issue found: duplicate <title> and <meta name='description'> tags on every page (static one in /public/index.html + Helmet-injected one). Helmet IS working and IS injecting page-specific descriptions/titles correctly (verified 2nd <meta name='description'> on /home contains 'zero adulteration', 2nd one on /contact contains 'shilangan', 2nd <title> on /contact contains 'Contact us'), but the static index.html tag remains alongside. SEO crawlers will see two descriptions/titles per page — Google typically uses the first match, which is the GENERIC global fallback. Recommended fix: remove <title> + <meta name='description'> + <meta property='og:title'> + <meta property='og:description'> + <meta name='twitter:title'> + <meta name='twitter:description'> from /app/frontend/public/index.html (let Helmet own them); keep canonical + favicon static.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "All routes (SEO head)",
+        "issues": [
+          "Duplicate <meta name='description'> tags: 1 static (from public/index.html) + 1 Helmet-injected per page. Same for <title> (2 per page) and og:title/og:description (also duplicated). Helmet's per-page tags ARE present and correct, but they are APPENDED, not REPLACING, so search engines may pick up the wrong (generic) tag.",
+          "Fix: strip <title>, <meta name='description'>, og:title, og:description, twitter:title, twitter:description from /app/frontend/public/index.html — Helmet (via the new SEO component) will fully manage them."
+        ]
+      },
+      {
+        "screen": "/restaurant hero",
+        "issues": [
+          "Hero height = 226px at 1440 viewport. Spec asked for > 200px (PASS). Visually still feels compact — if the design intent was a 'more substantial' hero, consider bumping to py-10 sm:py-12. Non-blocking."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter43.py",
+    "/app/test_reports/pytest/iter43_results.xml"
+  ],
+  "passed_checks": [
+    "Backend POST /api/auth/google/verify → 401 on invalid credential (route registered, no 500/404)",
+    "Backend POST /api/auth/google/verify → 422 on missing credential",
+    "Backend GET /api/restaurant/theme → 200",
+    "Backend PUT /api/admin/restaurant/theme accepts pure_veg_color + pure_veg_bg_color → 200, persisted in DB",
+    "Backend PUT /api/admin/restaurant/theme requires auth → 401 unauth",
+    "/login: <meta name='description'> present, 2× [data-testid='bad-stuff-marquee'], google-login-button + phone-input present, no JS errors",
+    "/restaurant: restaurant-hero present, height 226px (> 200), pure-veg-badge in TOP-RIGHT (x=1158.5 of 1440, y=152)",
+    "/restaurant JSON-LD: 4 ld+json scripts in head, postalCode 444607 AND telephone +91-9175560211 present",
+    "/contact: Helmet title 'Contact us · franchise & support · eFoodCare' and description containing 'shilangan' injected (as 2nd tag — see design_issues)",
+    "/home: Helmet description containing 'zero adulteration' injected (as 2nd tag), og:title present",
+    "/privacy: PolicyPage renders, NO 'emergent' branding in body text"
+  ],
+  "action_items": [
+    "[LOW PRIORITY] In /app/frontend/public/index.html, remove the static <title>, <meta name='description'>, og:title, og:description, twitter:title, twitter:description tags so Helmet can own them. This eliminates duplicate-tag SEO warnings and ensures search snippets always reflect the page-specific copy."
+  ],
+  "critical_code_review_comments": [
+    "auth_google.py correctly returns 503 if GOOGLE_CLIENT_ID is unset (not 500) — graceful degradation.",
+    "auth_google.py uses google-auth's id_token.verify_oauth2_token with clock_skew_in_seconds=10 — robust against minor clock drift; good production setting.",
+    "auth_google.py persists google_sub + last_login_at on user doc after successful verify — enables future fast google_sub-only lookups (good).",
+    "restaurant.py RestaurantTheme uses Optional[str] for pure_veg_color/pure_veg_bg_color + payload.model_dump(exclude_none=True) on PUT — admins can update one field at a time without nulling siblings (correct partial-update semantics).",
+    "SEO.jsx LocalBusiness JSON-LD: schema.org type='Restaurant' is correct for the storefront page. Consider emitting schema.org type='Organization' on /home + /contact for slightly better entity-graph linkage (non-blocking, SEO polish).",
+    "SEO.jsx default DEFAULT_DESCRIPTION contains all the brand-promise strings — even when a page omits description= it still gets a high-quality SEO snippet."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter43.py (new)"
+  ],
+  "success_rate": {"backend": "100% (5/5)", "frontend": "100% spec requirements met (Helmet tags ARE injected; duplicate-tag SEO concern is non-blocking polish)"},
+  "test_credentials": "ADMIN_PHONE=9970705391 (ADMIN_PHONES env). OTP returned in dev_otp field of /api/auth/send-otp response.",
+  "seed_data_creation": "test_admin_put_pure_veg_color_fields snapshots existing /restaurant/theme, applies test colors, then restores prior values in a try/finally — clean DB state.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter-43 features all pass functional spec. ONLY outstanding item is duplicate <title>/<meta name='description'> in public/index.html (cosmetic SEO issue). Helmet IS active — verified via 2 description tags and 2 title tags in DOM after navigation; the SECOND tag in each pair carries the correct page-specific copy. Note: querySelector('meta[name=description]') returns the FIRST match (the static one) — future tests should use querySelectorAll and inspect ALL matches or strip the static tag from index.html first.",
+  "rca of the issue": "Duplicate SEO tags: react-helmet-async APPENDS its managed tags to <head>; it does NOT remove tags that were present at initial HTML render. Since public/index.html ships with <title> + <meta name='description'> + og:* + twitter:* hardcoded as a noscript-friendly fallback, every page now has both the static tags AND the Helmet tags. Fix: delete the duplicated tags from public/index.html (keep canonical link + favicon + JSON-LD if present) and let Helmet be the single source of truth via the new SEO component."
+}

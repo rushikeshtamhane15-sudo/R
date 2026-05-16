@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { MapPin, Phone, Mail, Clock, Building2 } from "lucide-react";
+import SEO from "../components/SEO";
 
 export default function Contact() {
   const [data, setData] = useState(null);
@@ -9,6 +10,11 @@ export default function Contact() {
 
   return (
     <div className="max-w-5xl mx-auto px-6 md:px-8 py-12" data-testid="contact-page">
+      <SEO
+        title="Contact us · franchise & support"
+        path="/contact"
+        description="Reach eFoodCare for orders, support or franchise enquiries. Address: shilangan Road, behind bhaktidham mandir, sai nagar, Amravati 444607, Maharashtra. Phone: +91 9175560211. Mon–Sun 09:00–22:00."
+      />
       <p className="text-xs tracking-overline uppercase font-bold text-secondary">We're here for you</p>
       <h1 className="font-display font-extrabold text-4xl md:text-5xl tracking-tight mt-3">{data.title}</h1>
       <p className="text-muted-foreground mt-3 max-w-2xl leading-relaxed">{data.intro}</p>

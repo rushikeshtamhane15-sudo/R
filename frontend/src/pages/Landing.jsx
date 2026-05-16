@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
 import TestimonialsSection from "../components/TestimonialsSection";
 import PromotionPopup from "../components/PromotionPopup";
+import SEO from "../components/SEO";
 import * as Icons from "lucide-react";
 
 const DEFAULT_HERO = "https://images.unsplash.com/photo-1600488999806-8efb986d87b1?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600";
@@ -50,6 +51,11 @@ export default function Landing() {
 
   return (
     <div data-testid="landing-page">
+      <SEO
+        title="Subscription tiffin · ghar se accha khana"
+        path="/home"
+        description="India's first zero adulteration meal app · 30-day subscription tiffin plans with smart wallet & QR check-in. No Ajinomoto, No Maida, No Refined or Palm oil. Subscribe in minutes via UPI."
+      />
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 -z-10">

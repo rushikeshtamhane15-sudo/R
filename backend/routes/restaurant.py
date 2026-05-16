@@ -315,6 +315,8 @@ class RestaurantTheme(BaseModel):
     hero_delivery_badge: Optional[str] = None
     # Top-container badges
     pure_veg_label: Optional[str] = None
+    pure_veg_color: Optional[str] = None   # text color e.g. "#057a3a"
+    pure_veg_bg_color: Optional[str] = None  # pill background e.g. "rgba(255,255,255,0.95)"
     bad_stuff_chip_text: Optional[str] = None
     # Per-item card
     item_promise_label: Optional[str] = None

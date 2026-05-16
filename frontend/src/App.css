@@ -264,29 +264,19 @@
     }
 }
 
-/* === 3D Pure-Veg badge ===
-   The badge already has badge-3d (bevel + bob). Add a stronger drop-shadow,
-   give the logo a tiny lift/tilt, and apply a chiselled effect on the label
-   text so "100% Pure Veg" reads as embossed on a glossy white pill. */
+/* === Pure-Veg badge — flat (shadow removed per CMS request) ===
+   The badge previously had a 3D extrude (rotateX + multi-layer text-shadow).
+   Now flat so admin-controlled color reads true. badge-3d on the wrapper is
+   intentionally kept for a subtle bevel + bob; the logo and label themselves
+   carry no extra shadows or tilt. */
 .pure-veg-3d {
-    transform: perspective(600px) rotateX(8deg);
-    transform-style: preserve-3d;
+    /* no extrude — flat */
 }
 .pure-veg-logo-3d {
-    transform: translateZ(2px) rotate(-2deg);
-    filter:
-        drop-shadow(0 1px 0 rgba(0,0,0,0.15))
-        drop-shadow(0 2px 4px rgba(0,0,0,0.30));
+    /* keep crisp; no drop shadow */
 }
 .pure-veg-label-3d {
-    /* Chiselled extruded green text */
-    color: #057a3a;
-    text-shadow:
-        0 1px 0 rgba(255,255,255,0.75),
-        0 -1px 0 rgba(0,80,30,0.45),
-        0 2px 1px rgba(0,40,15,0.30),
-        0 3px 4px rgba(0,0,0,0.15);
-    transform: translateZ(1px);
+    /* Color provided via inline style (theme.pure_veg_color); no shadow */
 }
 
 /* === Login page "0% the bad stuff" circular halo ===

@@ -7,6 +7,7 @@ import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
 import { MapPin, User as UserIcon, Phone, CheckCircle2, Camera, Trash2, AlertTriangle } from "lucide-react";
+import SEO from "../components/SEO";
 
 const MAX_DIM = 720;
 const QUALITY = 0.7;
@@ -118,6 +119,7 @@ export default function Profile() {
 
   return (
     <div className="max-w-2xl mx-auto px-6 md:px-8 lg:px-12 py-10" data-testid="profile-page">
+      <SEO title="My profile" path="/profile" includeBusinessSchema={false} description="Manage your eFoodCare profile, delivery address and subscription details." />
       <p className="text-xs tracking-overline uppercase font-bold text-secondary">Your details</p>
       <h1 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-2">
         {next ? "Complete profile before checkout" : "Profile"}
