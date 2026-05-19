@@ -41,8 +41,8 @@ async def google_verify(payload: GoogleSignInIn, response: Response):
         raise HTTPException(status_code=503, detail="Google auth not configured on server")
     try:
         # Lazy import — keep google-auth out of the cold-start path.
-        from google.oauth2 import id_token  # type: ignore
-        from google.auth.transport import requests as g_requests  # type: ignore
+        from google.oauth2 import id_token
+        from google.auth.transport import requests as g_requests
     except ImportError as e:
         raise HTTPException(status_code=503, detail=f"google-auth missing: {e}") from e
 

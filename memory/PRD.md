@@ -515,6 +515,20 @@ Backend: 14/14 new (test_iter27_app_cms.py) + 110/114 regression (4 timeouts unr
 - **Iteration 36 testing**: 10/10 backend pytest + 9/9 frontend checks pass.
 
 
+## Iteration 48 (Feb 19, 2026 night) — mypy pre-commit gate + Login icon swap + Google button 3D parity
+
+### Features delivered
+- **mypy in pre-commit** — added a new hook in `.pre-commit-config.yaml` that runs `mypy --strict-equality --no-implicit-optional --warn-unused-ignores --follow-imports=skip --ignore-missing-imports` over `^backend/routes/.*\.py$`. Catches stale imports + type slip-ups before the testing agent finds them. Removed 2 now-redundant `# type: ignore` comments from `routes/auth_google.py` (mypy unused-ignore warnings).
+- **Login icon swap** — replaced the `<ShieldCheck>` navy gradient badge with a `<UserIcon>` (lucide User) in a softer cream→peach gradient box. Icon size bumped from 16-24px → 24-32px (mobile→desktop). Container size: 32×32 → 44×56.
+- **Admin-editable icon** — 4 new fields under `/admin/content/login`: `icon_show` (bool), `icon_color` (foreground hex), `icon_bg_color_start` + `icon_bg_color_end` (gradient stops). Setting `icon_show=false` hides the badge entirely.
+- **Google button 3D + size parity** — wrapped `<GoogleLogin>` in a new `.google-3d-wrap` CSS class providing 3D bevel (outer drop shadow + ambient shadow + inset highlight + inset shadow) + `:hover` shadow bump + `:active` translateY(1px). Width and height now EXACTLY match the Continue button: mobile 252×40 / desktop 332×48 — 0px Δ. Inner GIS iframe scaled 1.08× and centered.
+
+### Tests
+- Backend: **61 passed / 1 skipped** (test_iter43 + 46 + 47 + 7/8/9 regression) — zero regressions. Admin icon-color override end-to-end (POST → GET reflects → restore) passes.
+- Frontend: **100%** — UserIcon SVG confirmed (not ShieldCheck), admin show/hide toggle works, Google button parity 0px Δ on both viewports, all box-shadow/hover/active CSS verified via getComputedStyle.
+- mypy: clean after removing the 2 unused `# type: ignore` comments.
+- Iter-48 report: `/app/test_reports/iteration_48.json` · test file: `/app/backend/tests/test_iter48.py`.
+
 ## Iteration 47 (Feb 19, 2026 late) — server.py + restaurant.py refactor wave 2 + Login marquee nudge
 
 ### Features delivered
