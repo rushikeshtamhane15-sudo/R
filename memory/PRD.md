@@ -515,6 +515,20 @@ Backend: 14/14 new (test_iter27_app_cms.py) + 110/114 regression (4 timeouts unr
 - **Iteration 36 testing**: 10/10 backend pytest + 9/9 frontend checks pass.
 
 
+## Iteration 44 (Feb 19, 2026) — Refactor wave + SEO dedup + Login marquee centering
+
+### Features delivered
+- **SEO dedup** — `/app/frontend/public/index.html` stripped static `<title>`, `<meta name=description>`, `og:title`, `og:description`, `twitter:title`, `twitter:description`. Helmet (via `components/SEO.jsx`) is now SOLE owner of these per-page. Site-wide constants (og:type/site_name/locale, image dims, twitter:card type, canonical, favicons, organization JSON-LD) remain static as no-JS crawler fallback. Result: exactly **1** `<title>` and **1** `<meta name=description>` per page (was duplicates).
+- **`delivery.py` → `delivery/` package** — the 980-line monolithic module was split into a Python package preserving the public import surface (`from delivery import make_router, make_boy_router, make_customer_router` still works). Files: `__init__.py` (29 LOC re-exports), `shared.py` (229 LOC — constants, Pydantic models, helpers), `admin.py` (467 LOC — `make_router`), `boy.py` (223 LOC — `make_boy_router` + uses `_nearest_neighbour_order` from customer), `customer.py` (113 LOC — `make_customer_router` + helper). All 44 delivery-related pytest tests pass post-refactor.
+- **`RestaurantCheckout.jsx` 449 → 365 lines** — extracted `components/checkout/CheckoutCartLine.jsx` (per-line render with variant-edit popover, qty stepper, remove button) + `components/checkout/BillSummary.jsx` (subtotal/delivery/wallet/total breakdown).
+- **`AdminRawMaterials.jsx` 460 → 403 lines** — extracted `components/admin/RawMaterialsBits.jsx` (`Stat` tile + `StockTopupCell` with inline top-up form).
+- **Login layout fix** — removed the standalone white `login-hero-spacer` (h-7/h-10) and rearranged the two `BadStuffMarquee` instances into the normal flow: top marquee → form card → bottom marquee → `h-16 sm:h-24` spacer at the very bottom. Result on mobile (390×844): login form sits cleanly in the middle of the viewport between the two scrolling pill strips.
+
+### Tests
+- Backend: **44/44 PASS** (`test_iter7.py` + `test_iter8.py` + `test_iter9.py` + `test_iter43.py`) — all delivery endpoints (admin/boy/customer) still respond correctly post-package-split.
+- Frontend: **100% PASS** post iter-45 import fixes. Iter-44 introduced 4 import regressions caught by testing agent (Link, ChevronLeft, CheckCircle2, PORTION_LABEL); all restored on RestaurantCheckout.jsx. No data-testid changes; all selectors still resolve.
+- Iter-44 report: `/app/test_reports/iteration_44.json` · Iter-45 retest: `/app/test_reports/iteration_45.json` · iter-44 test file: `/app/backend/tests/test_iter44.py`.
+
 ## Iteration 43 (Feb 16, 2026) — Google One-Tap auth verified + BadStuffMarquee on Login + per-page SEO (LocalBusiness JSON-LD) + Pure Veg color CMS + Hero vertical bump
 
 ### Features delivered
