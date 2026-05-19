@@ -515,6 +515,23 @@ Backend: 14/14 new (test_iter27_app_cms.py) + 110/114 regression (4 timeouts unr
 - **Iteration 36 testing**: 10/10 backend pytest + 9/9 frontend checks pass.
 
 
+## Iteration 47 (Feb 19, 2026 late) — server.py + restaurant.py refactor wave 2 + Login marquee nudge
+
+### Features delivered
+- **Login top marquee nudged up** — added `-mt-1.5 sm:-mt-2` so the scrolling pill strip tucks against the red hero edge. Marquee top-edge y dropped from ~121px → 100px at 390×844 mobile.
+- **server.py → 4 new route modules (iter-47)**:
+  - `routes/plans.py` (~70 LOC) — GET /plans, GET /admin/plans, POST /admin/plans, DELETE /admin/plans/{id}.
+  - `routes/wallet.py` (~30 LOC) — GET /my/wallet, GET /my/wallet/transactions.
+  - `routes/subscription.py` (~55 LOC) — GET /my/subscription, POST /my/subscription/pause, POST /my/subscription/resume.
+  All three use the `shared.server` late-binding shim (matches iter-46 testimonials pattern).
+- **routes/restaurant.py 928 → 641 LOC**: extracted ALL order-related routes into `routes/restaurant_orders.py` (322 LOC). New module re-imports menu helpers + models from sibling `.restaurant` to keep a single source of truth. Endpoints moved: POST /restaurant/order, POST /restaurant/verify, GET /restaurant/orders, GET /admin/restaurant/orders, GET /admin/live/restaurant, POST /restaurant/orders/{id}/cancel.
+- **server.py net reduction**: 2,310 → ~2,190 LOC (~120 LOC moved out across plans/wallet/subscription).
+
+### Tests
+- Backend: **58 passed / 4 skipped** across test_iter43 + test_iter46 + test_iter47 (NEW: covers all 4 extracted routers + E2E order flow) + test_iter7/8/9 delivery regression. Zero regressions. Skips are "no active sub"/"OTP rate-limit" non-failures.
+- Frontend: 100% — 1× marquee at y=100px ≤ target 130px, /restaurant renders neon-cyan Pure Veg HUD, admin hero-layout-editor end-to-end save→reload→reflect works.
+- Iter-47 report: `/app/test_reports/iteration_47.json` · test file: `/app/backend/tests/test_iter47.py`.
+
 ## Iteration 46 (Feb 19, 2026 evening) — Login simplification + lowercase branding sweep + Pure-Veg digital HUD + Hero CMS + SEO variant tracking + Google button fix + testimonials extraction
 
 ### Features delivered
