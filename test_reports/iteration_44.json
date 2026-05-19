@@ -1,0 +1,63 @@
+{
+  "summary": "Iter-44 refactor regression testing. Backend 44/44 pytest tests pass (test_iter7/8/9/43). All 5 delivery endpoints return 401 (auth required, not 404/500) — delivery package re-export is fully wired. SEO duplicate fix verified: EXACTLY 1 <title>, 1 meta[name=description], 1 og:title, 1 og:description, 1 twitter:title, 1 twitter:description on every probed page (/login, /restaurant). Login page renders correctly with exactly 2 bad-stuff-marquee instances stacked top+bottom (no login-hero-spacer), no console errors. /restaurant renders cleanly with hero + pure-veg-badge + Add buttons. /admin/raw-materials renders flawlessly — 4 stat-* tiles + topup-btn-{key} buttons render inline. CRITICAL REGRESSION: /restaurant/checkout throws ReferenceError 'Link is not defined' on render — the refactor of RestaurantCheckout.jsx removed the `Link` named import from react-router-dom but left 4 <Link> usages at lines 195/198/201/213. Page is COMPLETELY BROKEN — user cannot reach checkout to place an order. Verified: only `useNavigate, useSearchParams` are imported from react-router-dom (line 2); Link is still referenced in success screen and back-button links.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "RestaurantCheckout.jsx",
+        "issue": "ReferenceError: Link is not defined — react-router-dom import does NOT include Link, but 4 <Link> usages remain at lines 195/198/201/213 (success screen + back button). Entire /restaurant/checkout page crashes to error overlay. Cart flow + payment completely broken.",
+        "selector": "/restaurant/checkout (route)",
+        "priority": "CRITICAL"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Cart → Checkout → Payment",
+        "issue": "Checkout page unmounts with runtime error; CheckoutCartLine + BillSummary never render because the parent throws before mounting children. Order placement is impossible.",
+        "affected_selectors": ["checkout-line-*", "co-inc-*", "co-dec-*", "co-qty-*", "co-remove-*", "co-edit-variant-*", "checkout-summary", "sum-subtotal", "sum-delivery", "sum-total"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/pytest/iter44_results.xml",
+    "/app/backend/tests/test_iter7.py",
+    "/app/backend/tests/test_iter8.py",
+    "/app/backend/tests/test_iter9.py",
+    "/app/backend/tests/test_iter43.py"
+  ],
+  "passed_checks": [
+    "Backend pytest test_iter7 (13) + test_iter8 (20) + test_iter9 (6) + test_iter43 (5) = 44/44 PASS in 7.5s",
+    "GET /api/admin/delivery/settings → 401 (route mounted)",
+    "GET /api/boy/me → 401 (route mounted)",
+    "GET /api/boy/slots → 401 (route mounted)",
+    "GET /api/my/deliveries/pending → 401 (route mounted)",
+    "GET /api/admin/delivery/empties → 401 (route mounted)",
+    "SEO on /login: 1 title, 1 meta[name=description], 1 og:title, 1 og:description, 1 twitter:title, 1 twitter:description — duplicates fully eliminated",
+    "SEO on /restaurant: 1 title, 1 meta desc, 1 og:title, 1 og:description — duplicates eliminated",
+    "/login: 2 [data-testid=bad-stuff-marquee] instances, 0 login-hero-spacer, google-login-button + phone-input visible, 0 pageerrors on mobile (390x844). Marquees flank the card (top y≈118, bottom y≈555 over docH=1257).",
+    "/restaurant: restaurant-hero present, pure-veg-badge top-right, dish cards + Add buttons visible, no JS errors",
+    "/admin/raw-materials: stat-active-subs, stat-persons-(weighted), stat-lunch-cost, stat-dinner-cost present; topup-btn-toor_dal/rice/wheat/oil present per row; no JS errors. Stat + StockTopupCell extraction OK."
+  ],
+  "action_items": [
+    "[CRITICAL] Add `Link` to the react-router-dom import at top of /app/frontend/src/pages/RestaurantCheckout.jsx line 2. Change `import { useNavigate, useSearchParams } from \"react-router-dom\";` → `import { Link, useNavigate, useSearchParams } from \"react-router-dom\";`. Lines 195/198/201/213 still use <Link to=...>."
+  ],
+  "critical_code_review_comments": [
+    "Refactor of RestaurantCheckout.jsx 449→365 lines accidentally dropped the `Link` named import from react-router-dom. The component still uses <Link> in 4 places (success-track, success-history, success-keep-browsing, back-restaurant). One-line fix.",
+    "Delivery package split (admin/boy/customer/shared) is well-organized; the public import surface in __init__.py is preserved (make_router, make_boy_router, make_customer_router) and all 39 backend delivery tests pass — clean refactor on the backend side.",
+    "AdminRawMaterials.jsx extraction of Stat + StockTopupCell into RawMaterialsBits.jsx is working — all stat-* and topup-btn-* testids render correctly with no regressions.",
+    "public/index.html SEO duplicates correctly stripped; Helmet is now the single source of truth — confirmed exactly 1 of each managed tag on every tested route.",
+    "Login.jsx layout: marquees now in flow layout above + below the form card; no [data-testid=login-hero-spacer] present. Verified at mobile viewport (390x844)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (44/44)", "frontend": "80% — login + restaurant + admin/raw-materials all green; /restaurant/checkout completely broken by missing Link import"},
+  "test_credentials": "Subscriber: phone=9876543210 via /api/auth/send-otp → dev_otp → /api/auth/verify-otp (sets session_token cookie). Admin: phone=9970705391 (ADMIN_PHONES env). Backend returns user_id + session_token in JSON; cookie 'session_token' is HttpOnly+Secure+SameSite=None.",
+  "seed_data_creation": "None. test_iter43 self-restores theme values via try/finally.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "The Link import fix is a one-liner in RestaurantCheckout.jsx line 2. After the fix, re-verify /restaurant/checkout renders with: checkout-line-{id}::regular, co-inc-{lk}, co-dec-{lk}, co-qty-{lk}, co-remove-{lk}, co-edit-variant-{lk}, checkout-summary, sum-subtotal, sum-delivery, sum-total. To auth as subscriber for that route, POST /api/auth/send-otp + verify-otp using a requests.Session(), grab session_token from response JSON, then context.add_cookies({name='session_token', domain='dining-pass-scan.preview.emergentagent.com', httpOnly=True, secure=True, sameSite='None', path='/'}). Add 1+ items to cart on /restaurant first (Add buttons set localStorage['rest_cart_v1']) BEFORE navigating to /restaurant/checkout — otherwise the page redirects to empty-cart view.",
+  "rca of the issue": "RCA: During the RestaurantCheckout.jsx refactor (449→365 lines) that extracted CheckoutCartLine + BillSummary into components/checkout/*, the editor cleaned up imports believing <Link> was only used inside the extracted components. However, the parent file still renders <Link> in the order-success screen (3 links: success-track, success-history, success-keep-browsing) and the back-to-restaurant header link. The `Link` name was dropped from `import { useNavigate, useSearchParams } from 'react-router-dom'` resulting in ReferenceError at runtime, NOT at compile time (React's JSX transform compiles <Link> → React.createElement(Link, ...) where Link is looked up in the local scope). Repro: log in as subscriber, add an item to /restaurant cart, navigate to /restaurant/checkout — Uncaught runtime errors overlay appears immediately. Mitigation: restore `Link` in the import."
+}
