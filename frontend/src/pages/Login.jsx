@@ -263,7 +263,7 @@ export default function Login() {
           {c.icon_show !== false && (
             <div
               data-testid="login-icon-badge"
-              className="mx-auto mb-3.5 sm:mb-5 flex items-center justify-center h-11 w-11 sm:h-14 sm:w-14 rounded-2xl"
+              className="mx-auto mb-5 sm:mb-5 flex items-center justify-center h-11 w-11 sm:h-14 sm:w-14 rounded-2xl"
               style={{
                 background: `linear-gradient(145deg, ${c.icon_bg_color_start || "#fff4ee"} 0%, ${c.icon_bg_color_end || "#ffd9c8"} 100%)`,
                 // Stronger 3D bevel — outer drop shadow + colored ambient

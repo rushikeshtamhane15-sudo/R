@@ -515,6 +515,19 @@ Backend: 14/14 new (test_iter27_app_cms.py) + 110/114 regression (4 timeouts unr
 - **Iteration 36 testing**: 10/10 backend pytest + 9/9 frontend checks pass.
 
 
+## Iteration 49 (Feb 19, 2026 late night) — Login page polish: suppress site-wide announcement strip + bigger icon-to-text spacing
+
+### Features delivered
+- **AnnouncementBar suppressed on /login** — `components/AnnouncementBar.jsx` now uses `useLocation` and returns null when `pathname.startsWith("/login")`. The Hindi warning marquee stops competing with the login flow's own BadStuffMarquee. Site-wide announcement still renders on every other route.
+- **Form-position compensator** — added `[data-testid='announce-bar-compensator']` h-10 spacer at the top of the login form sheet so the AnnouncementBar removal doesn't shift the form upward (form-card Y stays at ~170-180px).
+- **Bigger icon-to-text gap** — bumped `mb-1.5 sm:mb-2.5` → `mb-5 sm:mb-5` on the login icon badge → measured gap to overline jumped from ~6px → ~20px on both mobile + desktop.
+- **DB cleanup** — `$unset` of `data.icon_color`/`icon_bg_*`/`icon_show` on `site_content/login` doc (leftover green color from iter-48 testing agent) so the cream/peach + brand-red defaults render.
+
+### Tests
+- Backend: **61 PASSED / 1 SKIPPED** (test_iter43+46+47+48+7/8/9). Zero regressions — no backend changes shipped.
+- Frontend: **11/11 hard assertions PASS** — announcement-bar=0 on /login, =1 on /restaurant; 1× bad-stuff-marquee; otp + verify form flow still works; icon color rgb(160,35,35); gap = 20px after polish.
+- Iter-49 report: `/app/test_reports/iteration_49.json`.
+
 ## Iteration 48 (Feb 19, 2026 night) — mypy pre-commit gate + Login icon swap + Google button 3D parity
 
 ### Features delivered
