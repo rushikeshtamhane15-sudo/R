@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -8,10 +8,12 @@ import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
 import {
   loadCart, saveCart, setQty, bumpQty, clearCart, priceCart, changeVariant,
+  PORTION_LABEL,
 } from "../lib/cart";
 import {
   ShoppingBag, MapPin, Phone, User as UserIcon,
   Loader2, ShieldCheck, Truck, Wallet,
+  ChevronLeft, CheckCircle2,
 } from "lucide-react";
 import LocationPicker from "../components/LocationPicker";
 import CheckoutCartLine, { CheckoutEmptyCart } from "../components/checkout/CheckoutCartLine";
