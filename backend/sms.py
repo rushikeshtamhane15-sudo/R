@@ -8,7 +8,7 @@ Env vars (all optional — when missing, runs in stub mode and logs only):
 
 DLT template (register on your DLT operator portal first, then map in MSG91):
   Hi {{name}}, please return your {{count}} empty tiffin{{plural}} when our boy arrives
-  for your {{slot}} delivery (~{{eta}}). Helps us keep meals coming on time. - eFoodCare
+  for your {{slot}} delivery (~{{eta}}). Helps us keep meals coming on time. - efoodcare
 
 Variables: name, count, plural ("" or "s"), slot ("lunch"/"dinner"), eta ("12:30 PM")
 """

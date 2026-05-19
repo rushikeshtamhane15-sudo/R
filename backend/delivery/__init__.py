@@ -1,4 +1,4 @@
-"""eFoodCare tiffin delivery package.
+"""efoodcare tiffin delivery package.
 
 Originally a single 980-line `delivery.py`. Split into focused submodules
 (shared, admin, boy, customer) for readability — public import surface

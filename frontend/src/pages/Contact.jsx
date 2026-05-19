@@ -13,7 +13,7 @@ export default function Contact() {
       <SEO
         title="Contact us · franchise & support"
         path="/contact"
-        description="Reach eFoodCare for orders, support or franchise enquiries. Address: shilangan Road, behind bhaktidham mandir, sai nagar, Amravati 444607, Maharashtra. Phone: +91 9175560211. Mon–Sun 09:00–22:00."
+        description="Reach efoodcare for orders, support or franchise enquiries. Address: shilangan Road, behind bhaktidham mandir, sai nagar, Amravati 444607, Maharashtra. Phone: +91 9175560211. Mon–Sun 09:00–22:00."
       />
       <p className="text-xs tracking-overline uppercase font-bold text-secondary">We're here for you</p>
       <h1 className="font-display font-extrabold text-4xl md:text-5xl tracking-tight mt-3">{data.title}</h1>

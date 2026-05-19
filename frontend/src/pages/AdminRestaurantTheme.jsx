@@ -5,6 +5,7 @@ import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
 import { Palette, Save, Eye, RefreshCw, Sparkles, Type, ShoppingBag } from "lucide-react";
+import AdminHeroLayoutEditor from "../components/admin/AdminHeroLayoutEditor";
 
 // Top-to-bottom text editing rights: every user-visible string on /restaurant
 // is editable here. Leave a field blank to use the built-in default copy.
@@ -73,6 +74,9 @@ export default function AdminRestaurantTheme() {
     ALL_TEXT_KEYS.forEach((k) => { o[k] = ""; });
     return o;
   });
+  // hero layout state (template + per-element ordering/positioning)
+  const [heroLayout, setHeroLayout] = useState("default");
+  const [heroElements, setHeroElements] = useState([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -85,6 +89,8 @@ export default function AdminRestaurantTheme() {
       ALL_TEXT_KEYS.forEach((k) => { next[k] = t[k] || ""; });
       COLORS.forEach((c) => { next[c.key] = t[c.key] || ""; });
       setForm(next);
+      setHeroLayout(t.hero_layout || "default");
+      setHeroElements(Array.isArray(t.hero_elements) ? t.hero_elements : []);
     } catch { toast.error("Could not load theme"); }
     setLoading(false);
   };
@@ -97,6 +103,9 @@ export default function AdminRestaurantTheme() {
       Object.entries(form).forEach(([k, v]) => {
         if (typeof v === "string" && v.trim()) payload[k] = v.trim();
       });
+      // Always include layout/elements (admin may have explicitly set defaults)
+      payload.hero_layout = heroLayout;
+      payload.hero_elements = heroElements;
       await api.put("/admin/restaurant/theme", payload);
       toast.success("Theme saved · live on /restaurant");
       load();
@@ -146,6 +155,16 @@ export default function AdminRestaurantTheme() {
           ))}
         </section>
       ))}
+
+      {/* Hero layout editor — template + per-element ordering & positioning */}
+      <AdminHeroLayoutEditor
+        layout={heroLayout}
+        elements={heroElements}
+        onChange={({ layout, elements }) => {
+          setHeroLayout(layout);
+          setHeroElements(elements);
+        }}
+      />
 
       <section className="rounded-2xl border border-border bg-card p-5 space-y-3">
         <p className="font-display font-extrabold flex items-center gap-2"><Palette className="h-4 w-4 text-primary" /> Colors</p>

@@ -1,0 +1,46 @@
+{
+  "summary": "Iter-46 full backend + frontend testing. Backend pytest: 49/49 PASS across test_iter46.py (NEW) + test_iter43.py + test_iter7.py + test_iter8.py + test_iter9.py. Confirmed: (1) testimonials extraction to routes/testimonials.py works — GET /api/testimonials 200, GET /api/admin/testimonials 401 unauth, PUT /api/admin/testimonials 200 with admin OTP, new testimonial round-trips to public GET. (2) Restaurant theme accepts hero_layout (string) + hero_elements (list[dict]) — 200 on PUT with admin token, GET reflects persistence, unauth PUT 401. Frontend: (a) /login has exactly 1 [data-testid=bad-stuff-marquee] (was 2), inner .bad-stuff-marquee-track animationDuration=12s + animationName=bad-stuff-marquee-scroll. (b) [data-testid=google-login-button] renders a Google iframe inside (src=https://accounts.google.com/gsi/button...). (c) No literal 'eFoodCare' anywhere on /login or /restaurant — all lowercase 'efoodcare'. (d) /restaurant pure-veg-badge has color rgb(52,245,197) (neon-cyan teal HUD) and .pure-veg-3d::before runs pure-veg-sweep animation 4.2s (digital sweep). (e) hero-row-pureveg-overline shows 'EFOODCARE RESTAURANT · 100% PURE VEG' (CSS uppercase on lowercase JSX). (f) Default hero layout = hero-layout-default. (g) SEO.jsx variant prop confirmed via code inspection — emits <meta name='x-efoodcare-variant'> + fires posthog 'seo_variant_viewed' on mount (lines 62-93). (h) AdminHeroLayoutEditor.jsx has all required testids: hero-layout-editor, hero-layout-template, hero-el-{key}, hero-el-up/down/vis/align/xpct/ypx. Admin /admin/restaurant-theme UI flow + 'centered' apply on /restaurant NOT manually tested via playwright due to admin OTP rate-limit (429, 7-min cooldown after backend tests + Mongo cleanup) — but the underlying API + visual default state both work and the file selectors are wired correctly.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter46.py",
+    "/app/test_reports/pytest/iter46_results.xml"
+  ],
+  "passed_checks": [
+    "Backend test_iter46.py (5 new) + test_iter43.py (5) + test_iter7.py (13) + test_iter8.py (18) + test_iter9.py (7) = 49/49 PASS in 8.3s",
+    "/login mobile (1920x1080): bad-stuff-marquee count = 1 (iter-46 spec, was 2 in iter-45)",
+    "/login marquee inner track animation: bad-stuff-marquee-scroll · 12s linear infinite",
+    "/login google-login-button wrapper contains real <iframe src='https://accounts.google.com/gsi/button?...'> from @react-oauth/google <GoogleLogin>",
+    "/login + /restaurant body text has 'efoodcare' lowercase and ZERO 'eFoodCare' mixed-case literals",
+    "/restaurant mobile (390x844): pure-veg-badge color rgb(52, 245, 197), class includes pure-veg-3d, ::before pure-veg-sweep 4.2s animation",
+    "/restaurant hero-row-pureveg-overline renders 'EFOODCARE RESTAURANT · 100% PURE VEG' (lowercase JSX, CSS uppercase)",
+    "/restaurant default hero (no admin override) renders [data-testid=hero-layout-default] via HeroPanel.DEFAULT_ELEMENTS fallback",
+    "SEO.jsx variant prop path: when variant is supplied, <meta name='x-efoodcare-variant' content={variant}> is rendered AND posthog.capture('seo_variant_viewed', {variant,...}) is fired on mount (verified via source-grep in /app/frontend/src/components/SEO.jsx lines 62-93)",
+    "AdminHeroLayoutEditor.jsx exposes data-testid hero-layout-editor + hero-layout-template + hero-el-{key} + per-row up/down/vis/align/xpct/ypx selectors"
+  ],
+  "action_items": [
+    "[Doc-only nit] Comment in /app/backend/routes/restaurant.py line 350 says hero_elements keys are 'pure_veg' | 'overline' | 'title' | 'hindi_quote' | 'tagline' | 'ninety_min', but HeroPanel.jsx actually renders only: pure_veg_overline (combined), title, hindi_quote, tagline, ninety_min. There is NO separate 'pure_veg' or 'overline' renderer. Either update the comment to match the implementation or split pure_veg_overline into two distinct elements in HeroPanel.jsx. Backend accepts any keys (free-form list[dict]) so this is not a 500 — it's a spec/impl mismatch that will silently hide unknown elements.",
+    "[Test-cleanup hardening] Original test_iter46 cleanup used `if original.get(...) is not None` which left polluted hero_layout='centered' on the live restaurant_theme doc when the original was unset. Fixed in current test_iter46.py — now always restores to {'hero_layout':'default','hero_elements':[]} when originals are missing. Same pattern should be replicated in other admin-mutating tests that snapshot-then-restore.",
+    "[Optional] Add a /admin/restaurant-theme playwright smoke test once OTP rate-limit window cools down — covers the AdminHeroLayoutEditor end-to-end (move/visibility/align/save → GET /restaurant/theme → reload /restaurant → assert hero-layout-{layoutKey} + element order)."
+  ],
+  "critical_code_review_comments": [
+    "HeroPanel.jsx switch-case keys (pure_veg_overline, title, hindi_quote, tagline, ninety_min) drift from the docstring in routes/restaurant.py RestaurantTheme — this is a maintenance hazard. Recommend defining a single source-of-truth ENUM/array exported from one file and consumed by both BE schema doc + FE renderer + admin editor.",
+    "Backend allows arbitrary dicts in hero_elements (no Pydantic shape validation). An admin who saves a malformed element (missing 'key', or non-numeric x_offset_pct) won't get a 422 — HeroPanel.jsx must guard. Consider tightening to `list[HeroElement]` Pydantic model in routes/restaurant.py.",
+    "AdminHeroLayoutEditor.jsx already correctly exposes data-testids for every interactive control — good testability hygiene retained from iter-45.",
+    "routes/testimonials.py uses the late-binding `shared.server` pattern consistently with other extracted routers — clean extraction, no circular-import risk."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter46.py (NEW — 5 tests covering testimonials extraction + hero_layout/hero_elements theme)"
+  ],
+  "success_rate": {"backend": "100% (49/49 across iter46 + iter43 + iter7/8/9 regression)", "frontend": "100% on items visually testable (marquee count, marquee 12s, google iframe, lowercase efoodcare, pure-veg neon-cyan, default hero layout, SEO variant code path)"},
+  "test_credentials": "Admin OTP: phone=9970705391 (dev_otp in /api/auth/send-otp response). 10-min per-phone rate-limit window applies; rotate or wait.",
+  "seed_data_creation": "test_iter46.py creates+removes one testimonial (id=t_iter46_test) and sets+restores hero_layout/hero_elements. Performed manual Mongo $unset of hero_layout & hero_elements on restaurant_theme doc after a prior test-run cleanup left hero_layout='centered' with unrecognised key 'pure_veg' — restored to default so /restaurant shows the expected pure-veg-badge in its default position.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Admin OTP 9970705391 was rate-limited at end of run (~7 min cooldown). If you need admin auth quickly, wait ~7 min OR use a fresh ADMIN_PHONES entry (see backend .env ADMIN_PHONES). HeroPanel.jsx accepts keys: pure_veg_overline (combined), title, hindi_quote, tagline, ninety_min — NOT the 'pure_veg'/'overline' split mentioned in the iter-46 spec docstring. The admin /admin/restaurant-theme UI hero-layout-editor was code-inspected (all testids wired) but not playwright-exercised due to the rate-limit. Backend test_iter46.py cleanup now always restores hero_layout='default' + hero_elements=[] so the live preview state isn't polluted.",
+  "rca of the issue": "No active bug. One spec-vs-impl gap noted: iter-46 problem statement + backend doc-comment list hero_elements keys as ('pure_veg','overline','title','hindi_quote','tagline','ninety_min') but HeroPanel.jsx only renders ('pure_veg_overline' combining the first two, then title/hindi_quote/tagline/ninety_min). Unknown keys are silently dropped by HeroPanel — caught during testing when my initial test_iter46 payload used 'pure_veg' and the badge stopped rendering. Mitigated by (a) fixing the test payload to use 'pure_veg_overline', (b) hardening cleanup to always restore the doc, (c) recommending a shared key-enum + Pydantic shape on hero_elements."
+}

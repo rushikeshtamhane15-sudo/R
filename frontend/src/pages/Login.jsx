@@ -134,24 +134,6 @@ export default function Login() {
   }, []);
   const c = content;
 
-  const handleGoogle = () => {
-    // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-    verifiedHereRef.current = true; // prevent useEffect re-fire before window.location swap
-    const next = searchParams.get("next");
-    const dest = (next && next.startsWith("/") && !next.startsWith("//")) ? next : "/dashboard";
-    // Also stash the destination in sessionStorage so AuthCallback can recover
-    // the intent post-OAuth (Emergent strips query params on the redirect-back).
-    try {
-      const existing = sessionStorage.getItem("efc_pending_action_v1");
-      // Don't override an explicit pending action set by Restaurant.jsx (cart/buy-now)
-      if (!existing && next && next.startsWith("/") && !next.startsWith("//") && next !== "/" && !next.startsWith("/login")) {
-        sessionStorage.setItem("efc_pending_action_v1", next);
-      }
-    } catch {}
-    const redirectUrl = window.location.origin + dest;
-    window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
-  };
-
   const sendOtp = async () => {
     const p = phone.trim();
     if (p.length < 10) {
@@ -228,7 +210,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-primary flex flex-col" data-testid="login-page">
-      <SEO title="Login or Sign up" path="/login" description="Login or sign up to eFoodCare — India's smartest zero-adulteration tiffin pass. OTP or Google sign-in." />
+      <SEO title="Login or Sign up" path="/login" description="Login or sign up to efoodcare — India's smartest zero-adulteration tiffin pass. OTP or Google sign-in." />
       {/* HERO — dark red full-bleed top with 3D depth + extruded text. */}
       {(c.title_line1 || c.title_line2) && (
         <div className="hero-3d relative overflow-hidden">
@@ -344,14 +326,29 @@ export default function Login() {
                     <span className="flex-1 h-px bg-border"></span>
                   </div>
 
-                  <Button
-                    onClick={handleGoogle}
-                    variant="outline"
-                    data-testid="google-login-button"
-                    className="w-full h-9 sm:h-11 rounded-2xl border-input font-semibold text-xs sm:text-sm bg-background hover:bg-muted/60"
-                  >
-                    <GoogleIcon /> {c.google_label}
-                  </Button>
+                  <div className="mt-2 sm:mt-3" data-testid="google-login-button">
+                    {process.env.REACT_APP_GOOGLE_CLIENT_ID ? (
+                      <GoogleLogin
+                        onSuccess={handleGoogleCredential}
+                        onError={() => toast.error("Google sign-in failed")}
+                        useOneTap={false}
+                        theme="outline"
+                        size="large"
+                        width="100%"
+                        text="continue_with"
+                        shape="rectangular"
+                        logo_alignment="left"
+                      />
+                    ) : (
+                      <Button
+                        variant="outline"
+                        disabled
+                        className="w-full h-9 sm:h-11 rounded-2xl border-input font-semibold text-xs sm:text-sm bg-background opacity-60"
+                      >
+                        <GoogleIcon /> Google sign-in unavailable
+                      </Button>
+                    )}
+                  </div>
 
                   <p className="hidden sm:block text-[11px] text-muted-foreground text-center mt-5 leading-relaxed">
                     {c.terms_prefix}{" "}
@@ -448,12 +445,8 @@ export default function Login() {
           </AnimatePresence>
         </div>
         </div>
-        {/* Bottom scrolling marquee — directly below the login card. */}
-        <div className="w-full pt-2 sm:pt-3" aria-hidden>
-          <BadStuffMarquee />
-        </div>
-        {/* Spacer after the bottom marquee — pushes the form into the
-            middle of the mobile viewport with breathing room beneath. */}
+        {/* Spacer below the form — pushes the form into the middle of the
+            mobile viewport with breathing room beneath. */}
         <div aria-hidden className="h-16 sm:h-24 w-full" />
       </div>
     </div>

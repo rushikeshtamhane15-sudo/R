@@ -1,4 +1,4 @@
-/* eFoodCare service worker — minimal, non-intrusive.
+/* efoodcare service worker — minimal, non-intrusive.
  *
  * Goals:
  * - Make the app installable (PWA) via a fetch handler.

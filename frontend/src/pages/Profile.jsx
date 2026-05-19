@@ -119,7 +119,7 @@ export default function Profile() {
 
   return (
     <div className="max-w-2xl mx-auto px-6 md:px-8 lg:px-12 py-10" data-testid="profile-page">
-      <SEO title="My profile" path="/profile" includeBusinessSchema={false} description="Manage your eFoodCare profile, delivery address and subscription details." />
+      <SEO title="My profile" path="/profile" includeBusinessSchema={false} description="Manage your efoodcare profile, delivery address and subscription details." />
       <p className="text-xs tracking-overline uppercase font-bold text-secondary">Your details</p>
       <h1 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-2">
         {next ? "Complete profile before checkout" : "Profile"}

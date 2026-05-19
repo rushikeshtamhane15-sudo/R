@@ -1,4 +1,4 @@
-"""WhatsApp messaging — branded eFoodCare templates.
+"""WhatsApp messaging — branded efoodcare templates.
 
 In production wires through MSG91 WhatsApp Business API. Without
 `MSG91_WA_AUTH_KEY` configured, runs in STUB MODE — every send is logged + a
@@ -8,7 +8,7 @@ IDs (registration, payment_success, expiry_reminder, restaurant_order)
 in /app/backend/.env.
 
 Branded HTML preview (used by admin dashboard "Show preview"):
-    eFoodCare logo · brand wordmark · "ghar se accha khana" tagline · message body.
+    efoodcare logo · brand wordmark · "ghar se accha khana" tagline · message body.
 
 NOTE: WhatsApp Business API doesn't render HTML — it uses pre-approved
 template strings with placeholder variables. The HTML preview is only for
@@ -27,7 +27,7 @@ import httpx
 logger = logging.getLogger("efoodcare.whatsapp")
 
 LOGO_URL = "https://customer-assets.emergentagent.com/job_dining-pass-scan/artifacts/uzs344m6_9a705f5a-b3a0-4286-b51d-b9bd6f55b7bb_20260504_011957_0000.png"
-BRAND = "eFoodCare"
+BRAND = "efoodcare"
 TAGLINE = "ghar se accha khana"
 
 # Template names approved at MSG91 dashboard (when going live, paste here from .env)

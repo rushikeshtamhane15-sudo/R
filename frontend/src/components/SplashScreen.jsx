@@ -8,7 +8,7 @@ import React, { useEffect, useState } from "react";
  *   ┌────────────────────────┐   #a02323 background
  *   │   [3D logo · 96 px]    │
  *   │                        │
- *   │      eFoodCare         │   wordmark (white)
+ *   │      efoodcare         │   wordmark (white)
  *   │  ghar se accha khana   │   tagline (white, italic)
  *   └────────────────────────┘
  */
@@ -96,7 +96,7 @@ export default function SplashScreen() {
         />
         <img
           src={LOGO_URL}
-          alt="eFoodCare"
+          alt="efoodcare"
           width={72}
           height={72}
           style={{

@@ -178,7 +178,7 @@ export default function Restaurant() {
       <SEO
         title="Order online · 90-min fresh meal delivery"
         path="/restaurant"
-        description="Order zero-adulteration home-style meals from eFoodCare — 90-minute fresh delivery. No Ajinomoto, No Maida, No Refined or Palm oil. Subscription meal plans and à-la-carte tiffins."
+        description="Order zero-adulteration home-style meals from efoodcare — 90-minute fresh delivery. No Ajinomoto, No Maida, No Refined or Palm oil. Subscription meal plans and à-la-carte tiffins."
       />
       <HeroPanel theme={theme} meta={meta} />
 

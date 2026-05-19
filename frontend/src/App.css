@@ -264,19 +264,68 @@
     }
 }
 
-/* === Pure-Veg badge — flat (shadow removed per CMS request) ===
-   The badge previously had a 3D extrude (rotateX + multi-layer text-shadow).
-   Now flat so admin-controlled color reads true. badge-3d on the wrapper is
-   intentionally kept for a subtle bevel + bob; the logo and label themselves
-   carry no extra shadows or tilt. */
+/* === Pure-Veg badge — futuristic HUD "digital" look ===
+   Neon-cyan glow + scanlines + thin uppercase mono label evokes a heads-up
+   display rather than a printed stamp. Color is still overrideable via
+   inline style (theme.pure_veg_color / pure_veg_bg_color from admin CMS) —
+   the defaults baked in here read as digital green-cyan.
+   The wrapper carries a clipped scanline overlay; the label gets a subtle
+   neon text-shadow + monospace letter-spacing. */
 .pure-veg-3d {
-    /* no extrude — flat */
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, rgba(2, 6, 23, 0.92) 0%, rgba(2, 13, 39, 0.92) 100%) !important;
+    color: #34f5c5 !important;
+    border: 1px solid rgba(52, 245, 197, 0.55);
+    box-shadow:
+        0 0 0 1px rgba(52, 245, 197, 0.18),
+        0 0 12px rgba(52, 245, 197, 0.35),
+        0 0 22px rgba(13, 148, 136, 0.25),
+        inset 0 0 12px rgba(52, 245, 197, 0.15);
+    text-shadow: 0 0 4px rgba(52, 245, 197, 0.85), 0 0 12px rgba(52, 245, 197, 0.45);
+}
+/* Scanline overlay — repeating 2px stripes give the CRT/digital-display feel */
+.pure-veg-3d::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+        0deg,
+        rgba(52, 245, 197, 0.05) 0px,
+        rgba(52, 245, 197, 0.05) 1px,
+        transparent 1px,
+        transparent 3px
+    );
+    mix-blend-mode: screen;
+    pointer-events: none;
+}
+/* Subtle horizontal sweep that scans the badge every 4s for the "live" feel */
+.pure-veg-3d::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -40%;
+    width: 25%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent 0%, rgba(52, 245, 197, 0.35) 50%, transparent 100%);
+    animation: pure-veg-sweep 4.2s linear infinite;
+    pointer-events: none;
+}
+@keyframes pure-veg-sweep {
+    0%   { left: -40%; }
+    60%  { left: 120%; }
+    100% { left: 120%; }
 }
 .pure-veg-logo-3d {
-    /* keep crisp; no drop shadow */
+    filter: drop-shadow(0 0 4px rgba(52, 245, 197, 0.75));
 }
 .pure-veg-label-3d {
-    /* Color provided via inline style (theme.pure_veg_color); no shadow */
+    font-family: ui-monospace, "SF Mono", "Roboto Mono", Menlo, monospace;
+    letter-spacing: 0.08em;
+    font-weight: 800;
+}
+@media (prefers-reduced-motion: reduce) {
+    .pure-veg-3d::before { animation: none; }
 }
 
 /* === Login page "0% the bad stuff" circular halo ===
@@ -380,7 +429,7 @@
     display: inline-flex;
     gap: 12px;
     width: max-content;
-    animation: bad-stuff-marquee-scroll 28s linear infinite;
+    animation: bad-stuff-marquee-scroll 12s linear infinite;
 }
 @media (prefers-reduced-motion: reduce) {
     .bad-stuff-marquee-track { animation: none; }

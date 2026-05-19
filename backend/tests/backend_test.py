@@ -103,7 +103,7 @@ class TestRoot:
         r = requests.get(f"{BASE_URL}/api/")
         assert r.status_code == 200
         d = r.json()
-        assert d.get("message") == "eFoodCare API"
+        assert d.get("message") == "efoodcare API"
         assert d.get("tagline") == "ghar se achha khana"
 
 

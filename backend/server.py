@@ -390,7 +390,7 @@ async def _reverse_geocode_pincode(lat: float, lng: float) -> tuple[str | None, 
             r = await client.get(
                 "https://nominatim.openstreetmap.org/reverse",
                 params={"lat": lat, "lon": lng, "format": "json", "zoom": 18, "addressdetails": 1},
-                headers={"User-Agent": "eFoodCare/1.0 (delivery-routing)"},
+                headers={"User-Agent": "efoodcare/1.0 (delivery-routing)"},
             )
             if r.status_code == 429:
                 return None, "rate_limited"
@@ -1034,7 +1034,7 @@ async def my_wallet_transactions(user: User = Depends(get_current_user)):
 # Theme settings (admin-editable design tokens)
 # ---------------------------
 DEFAULT_THEME = {
-    "brand_name": "eFoodCare",
+    "brand_name": "efoodcare",
     "brand_tagline": "ghar se achha khana",
     "tokens": {
         "background": "0 0% 100%",
@@ -1199,7 +1199,7 @@ DEFAULT_CONTENT = {
     "contact": {
         "title": "Contact Us",
         "intro": "We'd love to hear from you. Reach out any time.",
-        "company": "eFoodCare",
+        "company": "efoodcare",
         "address": "Your full address line · City · State · PIN",
         "phone": "+91 99707 05391",
         "email": "hello@efoodcare.in",
@@ -2148,51 +2148,9 @@ async def _load_testimonials() -> List[dict]:
     return sorted(items, key=lambda x: x.get("order", 0))
 
 
-@api_router.get("/testimonials")
-async def get_testimonials():
-    """Public — landing page renders these. Returns only visible testimonials."""
-    items = await _load_testimonials()
-    return {"items": [t for t in items if t.get("visible") is not False]}
-
-
-@api_router.get("/admin/testimonials")
-async def admin_get_testimonials(user: User = Depends(get_current_user)):
-    """Admin sees ALL (incl. hidden) testimonials."""
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    return {"items": await _load_testimonials()}
-
-
-@api_router.put("/admin/testimonials")
-async def admin_set_testimonials(payload: TestimonialsPatch, user: User = Depends(get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    cleaned = []
-    for i, t in enumerate(payload.items):
-        # Allow data-URL images up to ~1.5 MB; URL paste is small
-        img = t.image_url or ""
-        if len(img) > 2_000_000:
-            raise HTTPException(status_code=400, detail=f"Testimonial #{i+1} image is too large (max ~1.5 MB)")
-        cleaned.append({
-            "id": t.id or f"t_{uuid.uuid4().hex[:10]}",
-            "name": (t.name or "").strip()[:80] or "Anonymous",
-            "role": (t.role or "").strip()[:80],
-            "quote": (t.quote or "").strip()[:600],
-            "image_url": img.strip()[:2_000_000],
-            "rating": max(1, min(5, int(t.rating) if t.rating is not None else 5)),
-            "order": int(t.order if t.order is not None else i),
-            "visible": bool(t.visible if t.visible is not None else True),
-        })
-    await db.testimonials_config.update_one({"_id": "active"}, {"$set": {"items": cleaned, "updated_at": iso(now_utc())}}, upsert=True)
-    return {"items": await _load_testimonials()}
-
-
-@api_router.post("/admin/testimonials/reset")
-async def admin_reset_testimonials(user: User = Depends(get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    await db.testimonials_config.update_one({"_id": "active"}, {"$set": {"items": TESTIMONIAL_DEFAULTS, "updated_at": iso(now_utc())}}, upsert=True)
-    return {"items": await _load_testimonials()}
+# -----------------------------------------------------------------------------
+# Testimonials endpoints moved to routes/testimonials.py (Iter-46 refactor).
+# -----------------------------------------------------------------------------
 
 
 # ---------------------------
@@ -2228,7 +2186,7 @@ async def generate_purchase_order(payload: POGenerateRequest, user: User = Depen
         "generated_by_user_id": user.user_id,
         "generated_by_email": user_doc.get("email") or user.email,
         "generated_by_name": user_doc.get("name") or user.email,
-        "mess_name": "eFoodCare",
+        "mess_name": "efoodcare",
         "supplier_name": (payload.supplier_name or "").strip() or None,
         "counts": rm["counts"],
         "breakdown": rm["breakdown"],
@@ -2329,7 +2287,7 @@ async def staff_today_deliveries(user: User = Depends(get_current_user)):
 # ---------------------------
 @api_router.get("/")
 async def root():
-    return {"message": "eFoodCare API", "tagline": "ghar se achha khana"}
+    return {"message": "efoodcare API", "tagline": "ghar se achha khana"}
 
 
 # Mount delivery sub-router under /api
@@ -2349,6 +2307,7 @@ from routes.whatsapp_admin import router as _wa_admin_router
 from routes.app_cms import router as _app_cms_router
 from routes.promotions import router as _promotions_router
 from routes.auth_google import router as _auth_google_router
+from routes.testimonials import router as _testimonials_router
 api_router.include_router(_auth_router)
 api_router.include_router(_auth_google_router)
 api_router.include_router(_payments_router)
@@ -2358,6 +2317,7 @@ api_router.include_router(_rider_router)
 api_router.include_router(_wa_admin_router)
 api_router.include_router(_app_cms_router)
 api_router.include_router(_promotions_router)
+api_router.include_router(_testimonials_router)
 
 app.include_router(api_router)
 

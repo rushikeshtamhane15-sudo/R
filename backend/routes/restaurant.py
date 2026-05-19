@@ -1,6 +1,6 @@
 """Restaurant ordering router — separate menu CRUD + Razorpay-backed checkout.
 
-eFoodCare also runs an online-ordering restaurant alongside subscriptions.
+efoodcare also runs an online-ordering restaurant alongside subscriptions.
 Same Razorpay account is used (tagged with `notes.order_type='restaurant'`)
 so the admin Razorpay dashboard separates these flows from subscription
 payments naturally.
@@ -341,6 +341,16 @@ class RestaurantTheme(BaseModel):
     # Visibility — kept for migration; admin UI no longer surfaces these
     show_zero_bad_stuff_chip: Optional[bool] = True
     show_delivery_promise: Optional[bool] = True
+    # === Hero layout (Iter-46) ===
+    # Template picker: "default" | "centered" | "stacked-compact" | "split"
+    hero_layout: Optional[str] = None
+    # Per-element ordering + visibility + free-positioning offsets.
+    # Stored as a list of dicts to preserve admin's chosen order. Each entry:
+    #   {key: "pure_veg" | "overline" | "title" | "hindi_quote" | "tagline" | "ninety_min",
+    #    visible: bool, align: "left"|"center"|"right",
+    #    x_offset_pct: float (-50..50), y_offset_px: int (-40..40)}
+    # When the list is empty/None, HeroPanel renders the default layout.
+    hero_elements: Optional[list[dict]] = None
 
 
 @router.get("/restaurant/theme")
@@ -672,7 +682,7 @@ async def create_restaurant_order(payload: CreateRestaurantOrder, user: server.U
                 "amount": rzp["amount"],
                 "currency": rzp["currency"],
                 "order_id": rzp_order_id,
-                "name": "eFoodCare Restaurant",
+                "name": "efoodcare Restaurant",
                 "description": f"{len(payload.items)} item(s)",
                 "prefill": {
                     "name": (payload.name or user_doc.get("name") or "")[:40],
