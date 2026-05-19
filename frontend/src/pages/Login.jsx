@@ -240,18 +240,21 @@ export default function Login() {
       )}
 
       {/* FORM SHEET — Zomato-clone style: floating white card with 3D depth.
-          Marquee sits at the very top of the form sheet (nudged closer to
-          the red hero), then the login card, then a spacer below to keep
-          the form vertically centered on mobile. */}
+          The "0% bad stuff" marquee sits FULL-BLEED directly below the red
+          header (escapes the form-sheet horizontal padding via negative
+          margins), then the compensation spacer pushes the form card back
+          to its previous Y so the login form position is preserved. */}
       <div className="bg-background flex-1 px-3 sm:px-6 relative pb-12 overflow-hidden flex flex-col">
-        {/* Compensation spacer — AnnouncementBar (~41px) is hidden on /login
-            (iter-49) so the rest of the page would shift up. Re-introduce
-            equivalent space here so the login form stays at the same Y. */}
-        <div aria-hidden className="h-10 sm:h-10 w-full" data-testid="announce-bar-compensator" />
-        {/* Top scrolling marquee — pulled tighter to the hero edge above */}
-        <div className="w-full -mt-1.5 sm:-mt-2 pb-3 sm:pb-4" aria-hidden>
+        {/* Top scrolling marquee — edge-to-edge, sits immediately below the
+            red hero. `-mx-3 sm:-mx-6` cancels the parent's gutter so the
+            pills sweep across the full viewport width. */}
+        <div className="w-screen -mx-3 sm:-mx-6 max-w-none" aria-hidden data-testid="login-top-marquee">
           <BadStuffMarquee />
         </div>
+        {/* Compensation spacer — kept tiny because the marquee itself
+            already occupies ~52px between the red hero and the login card.
+            Adjust here if the form's Y position drifts. */}
+        <div aria-hidden className="h-3 sm:h-5 w-full" data-testid="announce-bar-compensator" />
         <div className="relative max-w-[280px] sm:max-w-sm mx-auto w-full">
           <div
             className="login-card-3d relative bg-card rounded-2xl px-3 py-2.5 sm:px-6 sm:py-5 z-[1]"

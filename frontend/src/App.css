@@ -481,8 +481,9 @@
     overflow: hidden;
     width: 100%;
     padding: 6px 0;
-    -webkit-mask-image: linear-gradient(to right, transparent 0, black 6%, black 94%, transparent 100%);
-    mask-image: linear-gradient(to right, transparent 0, black 6%, black 94%, transparent 100%);
+    /* Iter-50: fade-out mask removed — pills are now visible edge-to-edge
+       across the full viewport width. The marquee still scrolls infinitely
+       so pills enter/exit smoothly even without the soft fade. */
     pointer-events: none;
 }
 .bad-stuff-marquee-track {
