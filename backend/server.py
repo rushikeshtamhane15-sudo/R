@@ -414,55 +414,9 @@ async def _reverse_geocode_pincode(lat: float, lng: float) -> tuple[str | None, 
 # ---------------------------
 # Plans (DB-backed + admin CRUD)
 # ---------------------------
-@api_router.get("/plans")
-async def get_plans():
-    await seed_plans()
-    plans = await db.plans.find({"active": True}, {"_id": 0}).sort("sort_order", 1).to_list(100)
-    return {"plans": plans}
-
-
-@api_router.get("/admin/plans")
-async def admin_list_plans(user: User = Depends(get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    plans = await db.plans.find({}, {"_id": 0}).sort("sort_order", 1).to_list(100)
-    return {"plans": plans}
-
-
-@api_router.post("/admin/plans")
-async def admin_upsert_plan(payload: PlanUpsert, user: User = Depends(get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    plan_id = payload.plan_id or f"plan_{uuid.uuid4().hex[:8]}"
-    doc = {
-        "plan_id": plan_id,
-        "name": payload.name,
-        "description": payload.description,
-        "amount": float(payload.amount),
-        "currency": payload.currency,
-        "duration_days": int(payload.duration_days),
-        "meals": int(payload.meals),
-        "active": bool(payload.active),
-        "sort_order": int(payload.sort_order),
-        "updated_at": iso(now_utc()),
-    }
-    existing = await db.plans.find_one({"plan_id": plan_id}, {"_id": 0})
-    if existing:
-        await db.plans.update_one({"plan_id": plan_id}, {"$set": doc})
-    else:
-        doc["created_at"] = iso(now_utc())
-        await db.plans.insert_one(doc.copy())
-    return {"ok": True, "plan": await db.plans.find_one({"plan_id": plan_id}, {"_id": 0})}
-
-
-@api_router.delete("/admin/plans/{plan_id}")
-async def admin_delete_plan(plan_id: str, user: User = Depends(get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    result = await db.plans.delete_one({"plan_id": plan_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Plan not found")
-    return {"ok": True}
+# -----------------------------------------------------------------------------
+# Plans CRUD moved to routes/plans.py (iter-47 refactor).
+# -----------------------------------------------------------------------------
 
 
 # ---------------------------
@@ -1009,25 +963,9 @@ async def run_expiry_reminders() -> dict:
 # ---------------------------
 # Wallet + subscription views
 # ---------------------------
-@api_router.get("/my/wallet")
-async def my_wallet(user: User = Depends(get_current_user)):
-    sub = await get_active_subscription(user.user_id)
-    user_doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
-    return {
-        "wallet_balance": round(float(user_doc.get("wallet_balance", 0)), 2),
-        "subscription": sub,
-        "per_day_amount": sub["per_day_amount"] if sub else 0,
-        "paused_days": sub.get("paused_days", 0) if sub else 0,
-        "inactivity_threshold_days": INACTIVITY_THRESHOLD_DAYS,
-    }
-
-
-@api_router.get("/my/wallet/transactions")
-async def my_wallet_transactions(user: User = Depends(get_current_user)):
-    # ensure tick is up to date
-    await get_active_subscription(user.user_id)
-    txns = await db.wallet_transactions.find({"user_id": user.user_id}, {"_id": 0}).sort("created_at", -1).to_list(200)
-    return {"transactions": txns}
+# -----------------------------------------------------------------------------
+# Wallet endpoints moved to routes/wallet.py (iter-47 refactor).
+# -----------------------------------------------------------------------------
 
 
 # ---------------------------
@@ -1289,46 +1227,9 @@ async def reset_content(key: str, user: User = Depends(get_current_user)):
     return DEFAULT_CONTENT[key]
 
 
-@api_router.get("/my/subscription")
-async def my_subscription(user: User = Depends(get_current_user)):
-    sub = await get_active_subscription(user.user_id)
-    if not sub:
-        return {"active": False, "subscription": None}
-    return {"active": True, "subscription": sub}
-
-
-@api_router.post("/my/subscription/pause")
-async def pause_my_subscription(user: User = Depends(get_current_user)):
-    """Tiffin subscriber pauses delivery — they'll be skipped in roster generation.
-    Wallet keeps deducting; once continuous pause exceeds 7 days, end-date auto-extends."""
-    sub = await get_active_subscription(user.user_id)
-    if not sub:
-        raise HTTPException(status_code=404, detail="No active subscription")
-    if sub.get("service_type") != "tiffin":
-        raise HTTPException(status_code=400, detail="Only tiffin subscriptions can be paused — eat-in pass auto-pauses on 3+ skipped scans.")
-    if sub.get("user_paused"):
-        return {"ok": True, "already": True, "subscription": sub}
-    await db.subscriptions.update_one(
-        {"sub_id": sub["sub_id"]},
-        {"$set": {"user_paused": True, "user_pause_started_at": iso(now_utc())}},
-    )
-    fresh = await db.subscriptions.find_one({"sub_id": sub["sub_id"]}, {"_id": 0})
-    return {"ok": True, "subscription": fresh}
-
-
-@api_router.post("/my/subscription/resume")
-async def resume_my_subscription(user: User = Depends(get_current_user)):
-    sub = await get_active_subscription(user.user_id)
-    if not sub:
-        raise HTTPException(status_code=404, detail="No active subscription")
-    if not sub.get("user_paused"):
-        return {"ok": True, "already": True, "subscription": sub}
-    await db.subscriptions.update_one(
-        {"sub_id": sub["sub_id"]},
-        {"$set": {"user_paused": False, "user_pause_started_at": None}},
-    )
-    fresh = await db.subscriptions.find_one({"sub_id": sub["sub_id"]}, {"_id": 0})
-    return {"ok": True, "subscription": fresh}
+# -----------------------------------------------------------------------------
+# Subscription read + pause/resume moved to routes/subscription.py (iter-47).
+# -----------------------------------------------------------------------------
 
 
 @api_router.get("/my/qr")
@@ -2301,6 +2202,7 @@ api_router.include_router(_make_boy_router(db))
 from routes.auth import router as _auth_router
 from routes.payments import router as _payments_router
 from routes.restaurant import router as _restaurant_router
+from routes.restaurant_orders import router as _restaurant_orders_router
 from routes.admin import router as _admin_router
 from routes.rider import router as _rider_router
 from routes.whatsapp_admin import router as _wa_admin_router
@@ -2308,16 +2210,23 @@ from routes.app_cms import router as _app_cms_router
 from routes.promotions import router as _promotions_router
 from routes.auth_google import router as _auth_google_router
 from routes.testimonials import router as _testimonials_router
+from routes.plans import router as _plans_router
+from routes.wallet import router as _wallet_router
+from routes.subscription import router as _subscription_router
 api_router.include_router(_auth_router)
 api_router.include_router(_auth_google_router)
 api_router.include_router(_payments_router)
 api_router.include_router(_restaurant_router)
+api_router.include_router(_restaurant_orders_router)
 api_router.include_router(_admin_router)
 api_router.include_router(_rider_router)
 api_router.include_router(_wa_admin_router)
 api_router.include_router(_app_cms_router)
 api_router.include_router(_promotions_router)
 api_router.include_router(_testimonials_router)
+api_router.include_router(_plans_router)
+api_router.include_router(_wallet_router)
+api_router.include_router(_subscription_router)
 
 app.include_router(api_router)
 

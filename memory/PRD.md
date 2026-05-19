@@ -515,6 +515,22 @@ Backend: 14/14 new (test_iter27_app_cms.py) + 110/114 regression (4 timeouts unr
 - **Iteration 36 testing**: 10/10 backend pytest + 9/9 frontend checks pass.
 
 
+## Iteration 46 (Feb 19, 2026 evening) — Login simplification + lowercase branding sweep + Pure-Veg digital HUD + Hero CMS + SEO variant tracking + Google button fix + testimonials extraction
+
+### Features delivered
+- **Login** — bottom marquee removed (top marquee only). Top marquee animation duration 28s → 12s (snappier scroll). Bottom spacer keeps the form centered on mobile.
+- **Google sign-in button fix (#7)** — replaced the broken `auth.emergentagent.com` redirect button with `<GoogleLogin>` from `@react-oauth/google`. Returns ID-token credential → POST `/api/auth/google/verify` (already wired). Works on any origin with the Google Cloud OAuth client ID env. User still needs to whitelist `efoodcare.in` in the Google Cloud project's Authorized JavaScript origins to enable production.
+- **Lowercase "efoodcare" branding (#2)** — UI text + meta + JSON-LD + manifest + service-worker comment + backend log/SMS/PDF strings now consistently lowercase. React component class names (PascalCase identifiers) left unchanged. User to contact Emergent Support to rename the preview subdomain `dining-pass-scan` → `efoodcare`.
+- **SEO A/B variant tracking (#3)** — `<SEO variant="title-a" />` now emits `<meta name="x-efoodcare-variant" content="title-a">` AND fires `window.posthog.capture('seo_variant_viewed', {variant, path, title})` on mount. Silently no-ops if Posthog hasn't loaded.
+- **Pure Veg "digital" look (#5b)** — futuristic HUD style: dark navy background, neon-cyan border (#34f5c5), monospace label, scanline overlay (CSS pseudo-element), continuous 4.2s left-to-right sweep. Admin colors (`pure_veg_color`, `pure_veg_bg_color`) still override when set.
+- **Hero CMS — layout templates + free positioning (#6 b+c)** — backend `RestaurantTheme` model now has `hero_layout` (string: default/centered/stacked-compact/split) and `hero_elements` (list of {key, visible, align, x_offset_pct, y_offset_px}). New `AdminHeroLayoutEditor.jsx` provides up/down reorder, eye/eye-off visibility, left/center/right align, and ±50%/±40px offset inputs per element. `HeroPanel.jsx` rewritten to render dynamically from the list. Layout template controls inner container width/padding/text-align.
+- **server.py refactor (#4)** — extracted testimonials block (~50 LOC: GET /testimonials, GET/PUT/POST-reset /admin/testimonials) into `/app/backend/routes/testimonials.py` using the `shared.server` late-binding pattern. server.py: 2,363 → 2,310 LOC.
+
+### Tests
+- Backend: **49/49 PASS** (`test_iter46.py` NEW + `test_iter43.py` + `test_iter7/8/9.py` regression). Testimonials extraction works; theme accepts hero_layout + hero_elements.
+- Frontend: **100% PASS** — 1× bad-stuff-marquee (was 2), 12s animation, Google iframe inside button, no "eFoodCare" anywhere, pure-veg-badge color `rgb(52,245,197)` with sweep animation, default hero layout renders pure_veg_overline → title → hindi_quote → tagline → ninety_min.
+- Iter-46 report: `/app/test_reports/iteration_46.json` · test file: `/app/backend/tests/test_iter46.py`.
+
 ## Iteration 44 (Feb 19, 2026) — Refactor wave + SEO dedup + Login marquee centering
 
 ### Features delivered

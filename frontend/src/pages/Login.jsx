@@ -231,13 +231,12 @@ export default function Login() {
       )}
 
       {/* FORM SHEET — Zomato-clone style: floating white card with 3D depth.
-          The "0% bad stuff" marquees flank the login form: one immediately
-          ABOVE, one immediately BELOW. A spacer is added after the bottom
-          marquee so the form sits cleanly in the middle of the mobile
-          screen with breathing room beneath. */}
+          Marquee sits at the very top of the form sheet (nudged closer to
+          the red hero), then the login card, then a spacer below to keep
+          the form vertically centered on mobile. */}
       <div className="bg-background flex-1 px-3 sm:px-6 relative pb-12 overflow-hidden flex flex-col">
-        {/* Top scrolling marquee — directly above the login card */}
-        <div className="w-full pt-3 sm:pt-4 pb-2 sm:pb-3" aria-hidden>
+        {/* Top scrolling marquee — pulled tighter to the hero edge above */}
+        <div className="w-full -mt-1.5 sm:-mt-2 pb-3 sm:pb-4" aria-hidden>
           <BadStuffMarquee />
         </div>
         <div className="relative max-w-[280px] sm:max-w-sm mx-auto w-full">
