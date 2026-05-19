@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowRight, ShieldCheck, KeyRound } from "lucide-react";
+import { ArrowLeft, ArrowRight, User as UserIcon, KeyRound } from "lucide-react";
 import { GoogleLogin, useGoogleOneTapLogin } from "@react-oauth/google";
 import BadStuffMarquee from "../components/login/BadStuffMarquee";
 import SEO from "../components/SEO";
@@ -34,6 +34,15 @@ const DEFAULTS = {
   verify_cta_label: "Verify & Continue",
   resend_prompt: "Didn't get it?",
   resend_label: "Resend OTP",
+  // === Login icon (admin-editable) ===
+  // The small badge above the form. Defaults to a soft cream/pink gradient
+  // with brand-red foreground so the icon reads warm-and-inviting rather
+  // than the older corporate navy shield. Admin can override these via
+  // /admin/content/login or set icon_show=false to hide the badge entirely.
+  icon_bg_color_start: "#fff4ee",
+  icon_bg_color_end: "#ffd9c8",
+  icon_color: "#a02323",
+  icon_show: true,
 };
 
 export default function Login() {
@@ -244,18 +253,29 @@ export default function Login() {
             className="login-card-3d relative bg-card rounded-2xl px-3 py-2.5 sm:px-6 sm:py-5 z-[1]"
             data-testid="login-form-card"
           >
-          {/* Compact admin-style icon badge above the form */}
-          <div
-            data-testid="login-icon-badge"
-            className="mx-auto mb-1.5 sm:mb-2.5 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12 rounded-xl"
-            style={{
-              background: "linear-gradient(145deg, #2746a3 0%, #14266b 100%)",
-              boxShadow:
-                "0 6px 14px rgba(20,38,107,0.35), 0 2px 4px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -2px 3px rgba(0,0,0,0.2)",
-            }}
-          >
-            <ShieldCheck className="h-4 w-4 sm:h-6 sm:w-6 text-white" strokeWidth={2.2} />
-          </div>
+          {/* Login icon badge — user-silhouette, slightly larger than the
+              previous shield, admin-editable bg + foreground color via
+              /admin/content/login. Hidden entirely when icon_show=false. */}
+          {c.icon_show !== false && (
+            <div
+              data-testid="login-icon-badge"
+              className="mx-auto mb-1.5 sm:mb-2.5 flex items-center justify-center h-11 w-11 sm:h-14 sm:w-14 rounded-2xl"
+              style={{
+                background: `linear-gradient(145deg, ${c.icon_bg_color_start || "#fff4ee"} 0%, ${c.icon_bg_color_end || "#ffd9c8"} 100%)`,
+                // Stronger 3D bevel — outer drop shadow + colored ambient
+                // shadow + inset highlight (top) + inset shadow (bottom)
+                boxShadow:
+                  "0 10px 22px rgba(160,35,35,0.22), 0 4px 8px rgba(0,0,0,0.12), inset 0 2px 0 rgba(255,255,255,0.85), inset 0 -3px 4px rgba(160,35,35,0.18)",
+              }}
+            >
+              <UserIcon
+                className="h-6 w-6 sm:h-8 sm:w-8"
+                style={{ color: c.icon_color || "#a02323" }}
+                strokeWidth={2.1}
+                data-testid="login-icon"
+              />
+            </div>
+          )}
 
           <AnimatePresence mode="wait" initial={false}>
             {mode === "phone" && (
@@ -325,7 +345,10 @@ export default function Login() {
                     <span className="flex-1 h-px bg-border"></span>
                   </div>
 
-                  <div className="mt-2 sm:mt-3" data-testid="google-login-button">
+                  <div
+                    className="google-3d-wrap mt-2 sm:mt-3 w-full h-10 sm:h-12 rounded-2xl"
+                    data-testid="google-login-button"
+                  >
                     {process.env.REACT_APP_GOOGLE_CLIENT_ID ? (
                       <GoogleLogin
                         onSuccess={handleGoogleCredential}
@@ -342,7 +365,7 @@ export default function Login() {
                       <Button
                         variant="outline"
                         disabled
-                        className="w-full h-9 sm:h-11 rounded-2xl border-input font-semibold text-xs sm:text-sm bg-background opacity-60"
+                        className="w-full h-full rounded-2xl border-input font-semibold text-xs sm:text-sm bg-background opacity-60"
                       >
                         <GoogleIcon /> Google sign-in unavailable
                       </Button>

@@ -10,6 +10,32 @@ repos:
         args: [--fix, --exit-non-zero-on-fix]
         files: ^backend/.*\.py$
 
+  # === Backend type-check — mypy (iter-48) ===
+  # Catches stale imports + type slip-ups in the routes/ package BEFORE the
+  # testing agent finds them (we lost iter-44 to a stale lucide import; this
+  # gate prevents that class of regression). Only the `routes/` folder is
+  # gated — server.py and delivery/ are too monolithic for strict typing
+  # today; they'll be migrated incrementally as we extract more modules.
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        name: mypy (backend/routes)
+        files: ^backend/routes/.*\.py$
+        # Strict-equality flags `x == None` style mistakes; ignore-missing-imports
+        # avoids spurious failures on motor/google.auth stubs we don't bundle.
+        args: [
+          --strict-equality,
+          --ignore-missing-imports,
+          --no-implicit-optional,
+          --warn-unused-ignores,
+          --follow-imports=skip,
+        ]
+        # Skip mypy's own dependency-install — we run with the venv's already-
+        # installed packages. This keeps pre-commit fast (<3s typical) and avoids
+        # a duplicate pip-install on every hook invocation.
+        additional_dependencies: []
+
   # === Frontend lint — eslint ===
   # Fails commit if there are ANY warnings (max-warnings 0). Runs via the
   # repo-local yarn binary so the rule set + plugins (react-hooks etc.) stay

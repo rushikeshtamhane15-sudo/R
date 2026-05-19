@@ -328,6 +328,66 @@
     .pure-veg-3d::before { animation: none; }
 }
 
+/* === Google sign-in button — 3D wrapper ===
+   `<GoogleLogin>` from @react-oauth/google renders a fixed-height iframe
+   (~40px). To make it match the brand "Continue" button (h-10 sm:h-12) AND
+   look 3D like the rest of the form, we wrap it in this container which:
+     • provides a 3D bevel (outer drop shadow + ambient shadow + inset
+       highlight + inset shadow)
+     • centers the GIS iframe vertically and sizes it to fill via CSS scale
+     • on press, depresses the whole wrapper (translateY + shadow shrink)
+
+   The wrapper has rounded-2xl (matches Continue's curvature) and the GIS
+   button inside is its own iframe — we can't directly restyle it, but we
+   scale + clip it visually with the parent container. */
+.google-3d-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(180deg, #ffffff 0%, #f7f7f7 100%);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow:
+        0 6px 14px rgba(20, 12, 5, 0.18),
+        0 2px 4px rgba(0, 0, 0, 0.10),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95),
+        inset 0 -2px 3px rgba(0, 0, 0, 0.06);
+    transition: transform 80ms ease-out, box-shadow 80ms ease-out;
+    cursor: pointer;
+    overflow: hidden;
+}
+.google-3d-wrap:hover {
+    box-shadow:
+        0 8px 18px rgba(20, 12, 5, 0.22),
+        0 3px 6px rgba(0, 0, 0, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95),
+        inset 0 -2px 3px rgba(0, 0, 0, 0.06);
+}
+.google-3d-wrap:active {
+    transform: translateY(1px);
+    box-shadow:
+        0 3px 7px rgba(20, 12, 5, 0.18),
+        0 1px 2px rgba(0, 0, 0, 0.10),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95),
+        inset 0 -1px 2px rgba(0, 0, 0, 0.06);
+}
+/* Make the GIS-rendered iframe inside fill the wrapper width and visually
+   scale up so its label looks comparable to the Continue button. The
+   absolute clip via overflow:hidden on the wrapper keeps the visual tidy. */
+.google-3d-wrap > div {
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+.google-3d-wrap iframe {
+    width: 100% !important;
+    /* GIS button is 40px native; scaling slightly up to look more substantial */
+    transform: scale(1.08);
+    transform-origin: center center;
+}
+
 /* === Login page "0% the bad stuff" circular halo ===
    Eight small 3D circular pills arranged in a ring around the login card,
    each declaring an ingredient we *never* put in your plate. Decorative
