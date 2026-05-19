@@ -244,6 +244,10 @@ export default function Login() {
           the red hero), then the login card, then a spacer below to keep
           the form vertically centered on mobile. */}
       <div className="bg-background flex-1 px-3 sm:px-6 relative pb-12 overflow-hidden flex flex-col">
+        {/* Compensation spacer — AnnouncementBar (~41px) is hidden on /login
+            (iter-49) so the rest of the page would shift up. Re-introduce
+            equivalent space here so the login form stays at the same Y. */}
+        <div aria-hidden className="h-10 sm:h-10 w-full" data-testid="announce-bar-compensator" />
         {/* Top scrolling marquee — pulled tighter to the hero edge above */}
         <div className="w-full -mt-1.5 sm:-mt-2 pb-3 sm:pb-4" aria-hidden>
           <BadStuffMarquee />
@@ -259,7 +263,7 @@ export default function Login() {
           {c.icon_show !== false && (
             <div
               data-testid="login-icon-badge"
-              className="mx-auto mb-1.5 sm:mb-2.5 flex items-center justify-center h-11 w-11 sm:h-14 sm:w-14 rounded-2xl"
+              className="mx-auto mb-3.5 sm:mb-5 flex items-center justify-center h-11 w-11 sm:h-14 sm:w-14 rounded-2xl"
               style={{
                 background: `linear-gradient(145deg, ${c.icon_bg_color_start || "#fff4ee"} 0%, ${c.icon_bg_color_end || "#ffd9c8"} 100%)`,
                 // Stronger 3D bevel — outer drop shadow + colored ambient

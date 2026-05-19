@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { api } from "../lib/api";
 
 export default function AnnouncementBar() {
   const [cfg, setCfg] = useState(null);
+  const location = useLocation();
 
   useEffect(() => {
     (async () => {
@@ -13,6 +15,10 @@ export default function AnnouncementBar() {
     })();
   }, []);
 
+  // Iter-49: /login has its own BadStuffMarquee inside the form sheet —
+  // showing this site-wide Hindi warning strip on top of it stacks two
+  // marquees on the page and clutters the auth flow. Suppress here.
+  if (location.pathname.startsWith("/login")) return null;
   if (!cfg || !cfg.enabled || !cfg.text) return null;
 
   const text = String(cfg.text).trim();

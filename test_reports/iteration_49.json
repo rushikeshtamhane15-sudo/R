@@ -1,0 +1,54 @@
+{
+  "summary": "Iter-49 UI polish verification — ALL ACCEPTANCE CRITERIA PASSED. Backend regression unchanged: 61 PASSED / 1 SKIPPED across test_iter43.py + test_iter46.py + test_iter47.py + test_iter7.py + test_iter8.py + test_iter9.py — identical to iter-48 baseline (zero regressions, no backend changes shipped). Frontend /login at 390x844 mobile: [data-testid='announcement-bar'] count = 0 (Hindi marquee correctly suppressed via useLocation early-return in AnnouncementBar.jsx); [data-testid='bad-stuff-marquee'] count = 1 (exactly one scrolling strip); [data-testid='announce-bar-compensator'] count = 1 (h-10 spacer present); [data-testid='otp-phone-form'] visible + functional (filling phone + clicking send-otp-button → otp-verify-form appears + dev-otp-banner shows OTP). On /restaurant and / the [data-testid='announcement-bar'] STILL renders (count=1, visible=true) confirming suppression is scoped to /login only. Login icon color reverted to brand red: getComputedStyle on [data-testid='login-icon'].color = 'rgb(160, 35, 35)' exact match. Badge background gradient: 'linear-gradient(145deg, rgb(255, 244, 238) 0%, rgb(255, 217, 200) 100%)' = #fff4ee → #ffd9c8 cream→peach (iter-48's #1a8a3a green / #e7fff0 / #c1f4d2 successfully cleaned from db.site_content). form-card Y position = 154px at 390x844 (within target band 150-200, form sits cleanly in upper-third — not jammed against hero, not pushed off-screen).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/login mobile (390x844)", "issues": ["MINOR: Gap between bottom of [data-testid='login-icon-badge'] (y+h=210) and top of overline 'Enter your details' (y=224) measured = 14px on mobile. Spec target was '~20px expected' but stated assertion was '>= 12px' which PASSES. The mb-3.5 class = 14px is the source. If main agent wanted true 20px on mobile, change `mb-3.5` → `mb-5` (sm:mb-5 stays). Not blocking — just a nit that the 14px sits at the floor of the >=12 threshold rather than mid-range."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/test_reports/pytest/iter49_regression.xml",
+    "/app/backend/tests/test_iter43.py",
+    "/app/backend/tests/test_iter46.py",
+    "/app/backend/tests/test_iter47.py",
+    "/app/backend/tests/test_iter7.py",
+    "/app/backend/tests/test_iter8.py",
+    "/app/backend/tests/test_iter9.py"
+  ],
+  "passed_checks": [
+    "Backend regression 61P + 1S — identical to iter-48 baseline (zero regressions; no backend changes)",
+    "/login: [data-testid='announcement-bar'] count = 0 (suppressed)",
+    "/login: [data-testid='bad-stuff-marquee'] count = 1 (exactly one marquee remains)",
+    "/login: [data-testid='announce-bar-compensator'] count = 1 (h-10 spacer present)",
+    "/login: [data-testid='otp-phone-form'] visible + form fully functional (phone-input → send-otp-button → otp-verify-form transition works; dev OTP shown)",
+    "/restaurant: [data-testid='announcement-bar'] count = 1, visible = true (announcement enabled in DB, only suppressed on /login)",
+    "/ homepage: [data-testid='announcement-bar'] count = 1 (not affected by suppression)",
+    "/login mobile: getComputedStyle([data-testid='login-icon']).color === 'rgb(160, 35, 35)' (brand red restored from green iter-48 leftover)",
+    "/login mobile: [data-testid='login-icon-badge'] background = linear-gradient(145deg, rgb(255,244,238) 0%, rgb(255,217,200) 100%) — cream→peach (#fff4ee → #ffd9c8) hex match",
+    "/login mobile: badge bottom (210px) → overline top (224px) = 14px gap, satisfies >= 12px assertion",
+    "/login mobile: [data-testid='login-form-card'] Y = 154px — within target band 150-200, form in upper third, not jammed against hero"
+  ],
+  "action_items": [
+    "OPTIONAL nit (not blocking): Mobile gap between login-icon-badge and overline measured 14px (mb-3.5). Spec narrative said '~20px expected' but enforced minimum was 12px. If exactly 20px is desired on mobile too, change `mb-3.5` → `mb-5` on the badge wrapper in Login.jsx line 266. Otherwise leave as-is."
+  ],
+  "critical_code_review_comments": [
+    "AnnouncementBar.jsx: useLocation + early-return on /login is clean and correctly scoped (uses pathname.startsWith('/login') which also handles /login/anything sub-routes). Order of guards (location check BEFORE config-existence check) is correct — avoids the bar flashing on /login during the API roundtrip.",
+    "Login.jsx h-10 compensator (data-testid='announce-bar-compensator') is a transparent aria-hidden div — well-marked and won't interfere with layout flow. Y-position 154px confirms it successfully holds the form roughly where AnnouncementBar (41px) would have pushed it pre-suppression.",
+    "DB cleanup of icon_color/icon_bg_color_start/icon_bg_color_end via $unset was effective — getComputedStyle confirms defaults from DEFAULTS const apply (#a02323 / #fff4ee→#ffd9c8). No stale green theme leaking through.",
+    "Carried over from iter-48 (still unaddressed) — mypy unused-ignore warnings on backend/routes/auth_google.py lines 44-45. Not retested this iteration since iter-49 is UI-only, but worth tracking if a clean mypy gate is still desired.",
+    "Carried over from iter-47 (still unaddressed, doc-nit) — routes/restaurant.py RestaurantTheme docstring lists hero_elements keys that differ from what HeroPanel.jsx actually accepts."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (61P + 1S, zero regressions vs iter-48)",
+    "frontend": "100% on hard assertions (11/11 passed). 1 MINOR design nit on mobile icon→text gap (14px vs ~20px aspirational, but spec floor of >=12 met)."
+  },
+  "test_credentials": "Used dev OTP path (phone=9876543210) to verify form functionality end-to-end. No real OTP/admin actions needed since iter-49 is UI-only — no DB writes performed during testing.",
+  "seed_data_creation": "None. DB state unchanged (icon_color/icon_bg_* keys remain unset in db.site_content as iter-49 spec requested — confirmed via runtime getComputedStyle showing DEFAULTS values).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "1) Always export REACT_APP_BACKEND_URL explicitly before pytest — sourcing /app/backend/.env alone does NOT propagate frontend/.env. Use: export REACT_APP_BACKEND_URL=https://dining-pass-scan.preview.emergentagent.com before running. 2) AnnouncementBar.jsx now early-returns on /login via useLocation — DO NOT remove this when adding new route logic; verify it still gates correctly. 3) Login icon defaults live in DEFAULTS const inside Login.jsx (#a02323 fg, #fff4ee→#ffd9c8 bg) — if admin overrides land in db.site_content they MUST $unset cleanly (not set to '' which would leak through ?? spreading). 4) BadStuffMarquee inside the login card is the only scrolling marquee on /login; do not stack other marquees there. 5) Mobile gap between icon-badge and overline = 14px (mb-3.5); update Login.jsx line 266 → mb-5 if exact 20px on mobile becomes a hard requirement.",
+  "rca of the issue": "N/A — iter-49 polish landed cleanly. All three changes (announcement-bar suppression on /login, h-10 compensator spacer, icon mb-3.5/sm:mb-5 spacing increase) work as specified and DB cleanup of stale icon_color overrides was effective. Only nuance: the on-mobile icon→overline gap is 14px (the floor of the >=12px assertion) rather than the ~20px referenced narratively. If exact-20px-on-mobile parity with desktop is desired, swap mb-3.5 → mb-5 on Login.jsx line 266 (single-token change)."
+}
