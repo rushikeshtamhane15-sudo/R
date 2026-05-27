@@ -1217,7 +1217,16 @@ async def update_content(key: str, payload: ContentUpdate, user: User = Depends(
     if key not in DEFAULT_CONTENT:
         raise HTTPException(status_code=400, detail="Unknown content key")
     current = await _load_content(key)
-    merged = {**current, **payload.data}
+    # Iter-51 polish: treat empty-string overrides on color / numeric keys as
+    # "reset to default" so admin's UI blank-field-and-save naturally returns
+    # to the seed value instead of saving "" which would render no color.
+    defaults = DEFAULT_CONTENT.get(key, {})
+    incoming = dict(payload.data or {})
+    for k, v in list(incoming.items()):
+        if isinstance(v, str) and v.strip() == "" and k in defaults:
+            # Drop empty overrides so the default from DEFAULT_CONTENT applies
+            incoming.pop(k)
+    merged = {**current, **incoming}
     await db.site_content.update_one(
         {"key": key}, {"$set": {"key": key, "data": merged, "updated_at": iso(now_utc())}}, upsert=True,
     )

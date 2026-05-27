@@ -515,6 +515,23 @@ Backend: 14/14 new (test_iter27_app_cms.py) + 110/114 regression (4 timeouts unr
 - **Iteration 36 testing**: 10/10 backend pytest + 9/9 frontend checks pass.
 
 
+## Iteration 51 (Feb 27, 2026) — Big 10-item batch: marquee admin CMS + Pure Veg white + image-gen budget UX + checkout fix + plan bifurcation + meal-window QR enforcement + horiz toggles + landing image upload
+
+### Features delivered
+- **#1+#7 Login marquee** fully admin-editable via `/admin/content/login`: `marquee_show`, `marquee_pills` (pipe-separated), `marquee_bg_color`, `marquee_text_color`, `marquee_pill_bg_color`, `marquee_pill_border_color`, `marquee_pill_text_color`, `marquee_speed_seconds`. Defaults: brand-red bg, white pills with brand-red text, 12s scroll, 8 pills. Marquee renders edge-to-edge with **0px gap** below the red header. `BadStuffMarquee.jsx` rewritten to accept these as props; empty-string overrides now properly fall back to DEFAULT_CONTENT via a small polish in `/admin/content/{key}` POST.
+- **#2 Pure Veg badge** reverted to clean **white-bg + brand-green** look (admin still overrides via `pure_veg_color`/`pure_veg_bg_color`); subtle sweep + drop-shadow retained.
+- **#3 Image-gen budget UX** — `POST /admin/restaurant/menu/generate-image` catches the Emergent universal-key BudgetExceeded error and returns **HTTP 402** with an actionable banner message ("Profile → Universal Key → Add Balance").
+- **#4 Checkout text fix** — plan name + ₹price now stack on mobile (`flex-col sm:flex-row`) with `break-words` + `whitespace-nowrap` — "Custom Dining — 7 days" no longer mangles.
+- **#5 Razorpay LIVE** — keys confirmed loaded but Razorpay rejects with `Authentication failed`. **User-side fix needed** (keys mismatch / inactive account / wrong secret).
+- **#6 Home page image upload** — new `POST /admin/landing/upload-image` backend endpoint (WebP optimization, 5 MB cap) + AdminLanding.jsx `ImageField` upgraded with Upload button alongside the URL input + preview thumbnail.
+- **#8 + #10 Plan bifurcation + meal_window enforcement** — new schema fields on `plans` and `subscriptions`: `category` (`"dining"|"tiffin"`) + `meal_window` (`"both"|"lunch"|"dinner"`). PlanUpsert model + `routes/plans.py` persist them. `AdminPlans.jsx` adds 3 category tabs (Dining/Tiffin/All) + row badges + 2 selects in the create/edit dialog. `subscriptions` doc copies them on subscribe. `_mark_attendance` rejects off-window scans with **HTTP 403** + clear message. `delivery/admin.py` roster generator skips off-window meal slots.
+- **#9 Centered toggles** on `/plans` custom subscription — Service (Dining/Tiffin) + Tiffin-size (Full/Half) toggle rows now `text-center` + `inline-flex justify-center`.
+
+### Tests
+- Backend: **73 PASSED / 1 SKIPPED** (test_iter51 NEW with 12 cases — plan bifurcation, meal_window enforcement at scan, content/login marquee merge, landing upload multipart, 402 code-path inspection — plus iter-43+46+47+48+7/8/9 regression). Zero regressions.
+- Frontend: **100% PASS** — marquee bg `rgb(160,35,35)`, 8 pills, 0px gap. Pure Veg bg `rgb(255,255,255)` color `rgb(5,122,58)`. AdminPlans 3 tabs + new selects. Plans toggles centered. Checkout flex-stack confirmed.
+- Reports: `/app/test_reports/iteration_51.json`. Test files: `/app/backend/tests/test_iter51.py`.
+
 ## Iteration 50 (Feb 27, 2026) — Login marquee full-bleed + header-flush
 
 ### Features delivered
