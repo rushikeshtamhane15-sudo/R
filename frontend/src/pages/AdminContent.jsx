@@ -73,6 +73,19 @@ const SCHEMAS = {
       { key: "verify_cta_label", label: "Verify screen — CTA button", type: "input" },
       { key: "resend_prompt", label: "Resend OTP — prompt text", type: "input" },
       { key: "resend_label", label: "Resend OTP — link text", type: "input" },
+      // === Icon badge (iter-48) ===
+      { key: "icon_show", label: "Show login icon badge", type: "boolean" },
+      { key: "icon_color", label: "Login icon foreground color (hex)", type: "color" },
+      { key: "icon_bg_color_start", label: "Login icon bg gradient — start (hex)", type: "color" },
+      { key: "icon_bg_color_end", label: "Login icon bg gradient — end (hex)", type: "color" },
+      // === Marquee (iter-51) ===
+      { key: "marquee_show", label: "Show 'bad stuff' marquee below header", type: "boolean" },
+      { key: "marquee_pills", label: "Marquee pill labels (pipe-separated, e.g. '0% Ajinomoto|0% Maida|…')", type: "textarea", rows: 3 },
+      { key: "marquee_bg_color", label: "Marquee background color (hex)", type: "color" },
+      { key: "marquee_text_color", label: "Marquee text color (hex)", type: "color" },
+      { key: "marquee_pill_bg_color", label: "Marquee pill background (CSS color)", type: "input" },
+      { key: "marquee_pill_border_color", label: "Marquee pill border (CSS color)", type: "input" },
+      { key: "marquee_speed_seconds", label: "Marquee scroll speed in seconds (4–60, lower = faster)", type: "input" },
     ],
   },
   announcement: {

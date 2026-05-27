@@ -150,6 +150,12 @@ def make_router(db) -> APIRouter:
                 "created_at": iso(now_utc()),
             }
             for meal in MEALS:
+                # Iter-51: tiffin subs with a meal_window of "lunch" or
+                # "dinner" only get a single dispatch entry per day. "both"
+                # (the default) keeps the legacy 2-meal behaviour.
+                window = (sub.get("meal_window") or plan.get("meal_window") or "both").lower()
+                if window in ("lunch", "dinner") and meal != window:
+                    continue
                 exists = await db.daily_rosters.find_one(
                     {"date": date_str, "meal_type": meal, "sub_id": sub["sub_id"]}, {"_id": 0}
                 )

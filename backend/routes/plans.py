@@ -45,6 +45,9 @@ async def admin_upsert_plan(payload: server.PlanUpsert, user: server.User = Depe
         "meals": int(payload.meals),
         "active": bool(payload.active),
         "sort_order": int(payload.sort_order),
+        # iter-51 bifurcation
+        "category": (payload.category or "dining").lower(),
+        "meal_window": (payload.meal_window or "both").lower(),
         "updated_at": server.iso(server.now_utc()),
     }
     existing = await server.db.plans.find_one({"plan_id": plan_id}, {"_id": 0})

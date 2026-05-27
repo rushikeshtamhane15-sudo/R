@@ -479,7 +479,21 @@ async def admin_generate_menu_image(
     try:
         url, nbytes = await generate_3d_image(prompt=" · ".join(prompt_bits), subdir="menu_images")
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Image generation failed: {e}") from e
+        # Detect the Emergent universal-key budget exhaustion explicitly so
+        # the admin gets an actionable banner ("top up your universal key")
+        # instead of a generic 502 with raw JSON spilling into the toast.
+        msg = str(e)
+        low = msg.lower()
+        if "budget has been exceeded" in low or "budgetexceeded" in low or "max budget" in low:
+            raise HTTPException(
+                status_code=402,
+                detail=(
+                    "Emergent universal-key budget exhausted. Open your Emergent "
+                    "Profile → Universal Key → Add Balance (or enable auto-topup) "
+                    "and retry. No image was generated; no cost was charged."
+                ),
+            ) from e
+        raise HTTPException(status_code=502, detail=f"Image generation failed: {msg[:300]}") from e
     return {"url": url, "bytes": nbytes}
 
 

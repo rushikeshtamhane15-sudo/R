@@ -1,45 +1,67 @@
 import React from "react";
 
 /**
- * Login-page "0% the bad stuff" marquee.
+ * BadStuffMarquee — full-bleed horizontal scroller listing the brand
+ * "0% bad stuff" promise. Renders TWICE (`duplicate` track) so the
+ * CSS keyframe `bad-stuff-marquee-scroll` can move -50% for seamless loop.
  *
- * Replaces the circular halo with a continuously-scrolling horizontal strip
- * of pills naming every ingredient we never put in your plate. Pills are
- * decorative (aria-hidden + pointer-events: none) so they never capture
- * focus or block taps.
+ * Iter-51: every visual is admin-editable via /admin/content/login —
+ * pill list, container bg, text + pill colors, animation speed.
  *
- * Reference: same list as server.py `healthy_never_items` and the landing
- * page "0% the bad stuff" card — keeps the brand promise consistent.
+ * Props:
+ *   pills:               Array<string> | string with "|" delimiter
+ *   bgColor:             outer container background (default brand-red)
+ *   textColor:           pill label color
+ *   pillBgColor:         pill background (default translucent white)
+ *   pillBorderColor:     pill border color
+ *   speedSeconds:        number, lower = faster (default 12)
  */
-const BAD_STUFF = [
-  "Ajinomoto",
-  "Maida",
-  "Artificial Flavours",
-  "Artificial Colours",
-  "Polished Grains",
-  "Refined Oil",
-  "Palm Oil",
-  "Pre-made Gravy",
+
+const DEFAULT_PILLS = [
+  "0% Ajinomoto", "0% Maida", "0% Artificial Flavours", "0% Artificial Colours",
+  "0% Polished Grains", "0% Refined Oil", "0% Palm Oil", "0% Pre-made Gravy",
 ];
 
-export default function BadStuffMarquee() {
+function parsePills(pills) {
+  if (Array.isArray(pills) && pills.length > 0) return pills;
+  if (typeof pills === "string" && pills.trim()) {
+    return pills.split("|").map((s) => s.trim()).filter(Boolean);
+  }
+  return DEFAULT_PILLS;
+}
+
+export default function BadStuffMarquee({
+  pills,
+  bgColor = "#a02323",
+  textColor = "#ffffff",
+  pillBgColor = "rgba(255,255,255,0.12)",
+  pillBorderColor = "rgba(255,255,255,0.35)",
+  speedSeconds = 12,
+}) {
+  const items = parsePills(pills);
+  // Duplicate so the -50% scroll loops seamlessly.
+  const doubled = [...items, ...items];
   return (
     <div
       className="bad-stuff-marquee"
-      aria-hidden
+      style={{ backgroundColor: bgColor, color: textColor }}
       data-testid="bad-stuff-marquee"
     >
-      {/* Render the list twice so the CSS @keyframes can scroll seamlessly
-          from 0% → -50% without a visible jump back to start. */}
-      <div className="bad-stuff-marquee-track">
-        {[...BAD_STUFF, ...BAD_STUFF].map((label, i) => (
+      <div
+        className="bad-stuff-marquee-track"
+        style={{ animationDuration: `${Math.max(4, Number(speedSeconds) || 12)}s` }}
+      >
+        {doubled.map((text, i) => (
           <span
-            key={`${label}-${i}`}
-            className="bad-stuff-pill-mq"
-            data-testid={i < BAD_STUFF.length ? `bad-stuff-marquee-pill-${i}` : undefined}
+            key={i}
+            className="bad-stuff-pill"
+            style={{
+              backgroundColor: pillBgColor,
+              border: `1px solid ${pillBorderColor}`,
+              color: textColor,
+            }}
           >
-            <span className="bad-stuff-pill-zero">0%</span>
-            <span className="bad-stuff-pill-label">{label}</span>
+            {text}
           </span>
         ))}
       </div>

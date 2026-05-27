@@ -150,9 +150,9 @@ export default function Plans() {
             <h2 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-3 leading-tight">Pick any number of days.</h2>
             <p className="text-muted-foreground mt-3 leading-relaxed">Pay exactly for the days you'll eat. <span className="font-semibold text-foreground">₹{MEAL_PRICE_FULL}/meal</span> for full tiffin or dining; <span className="font-semibold text-foreground">₹{MEAL_PRICE_HALF}/meal</span> for half tiffin.</p>
 
-            <div className="mt-6">
+            <div className="mt-6 text-center">
               <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Service</label>
-              <div className="mt-2 flex gap-2 flex-wrap" data-testid="custom-service">
+              <div className="mt-2 inline-flex gap-2 flex-wrap justify-center" data-testid="custom-service">
                 {SERVICES.map((s) => (
                   <button
                     key={s.id} type="button" onClick={() => setService(s.id)}
@@ -166,9 +166,9 @@ export default function Plans() {
             </div>
 
             {service === "tiffin" && (
-              <div className="mt-5" data-testid="custom-tiffin-size">
+              <div className="mt-5 text-center" data-testid="custom-tiffin-size">
                 <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Tiffin size</label>
-                <div className="mt-2 flex gap-2 flex-wrap">
+                <div className="mt-2 inline-flex gap-2 flex-wrap justify-center">
                   {[
                     { id: "full", label: "Full · 5 chapati" },
                     { id: "half", label: "Half · 3 chapati" },
@@ -183,7 +183,7 @@ export default function Plans() {
               </div>
             )}
 
-            <div className="mt-6 flex flex-wrap gap-2" data-testid="day-presets">
+            <div className="mt-6 flex flex-wrap gap-2 justify-center" data-testid="day-presets">
               {[3, 5, 7, 10, 15, 21].map((d) => (
                 <button key={d} type="button" onClick={() => setDays(d)}
                   data-testid={`day-preset-${d}`}

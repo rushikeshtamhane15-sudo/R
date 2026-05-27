@@ -10,12 +10,56 @@ import uuid
 from datetime import timedelta
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 from shared import server  # late-binding via shared shim
 
 router = APIRouter()
+
+
+# Reuse the same upload pipeline as the menu image upload so admins get
+# WebP optimization + size cap + extension whitelist consistently.
+_LANDING_EXT_BY_MIME = {
+    "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp", "image/gif": ".gif",
+}
+_LANDING_MAX_BYTES = 5 * 1024 * 1024  # 5 MB
+
+
+@router.post("/admin/landing/upload-image")
+async def admin_landing_upload_image(
+    file: UploadFile = File(...),
+    user: server.User = Depends(server.get_current_user),
+):
+    """Upload an image for the /home (landing) CMS. Saves to
+    /api/uploads/landing_images/<uuid>.<ext> and returns the public URL.
+    Mirrors the menu image upload pipeline (WebP optimization + size cap).
+    """
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    ext = _LANDING_EXT_BY_MIME.get((file.content_type or "").lower())
+    if not ext:
+        raise HTTPException(status_code=400, detail="Only JPG / PNG / WEBP / GIF supported")
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty file")
+    if len(data) > _LANDING_MAX_BYTES:
+        raise HTTPException(status_code=413, detail="File too large (max 5 MB)")
+    from pathlib import Path
+    from image_optim import optimize_to_webp
+
+    upload_root = Path(__file__).resolve().parent.parent / "uploads"
+    folder = upload_root / "landing_images"
+    folder.mkdir(parents=True, exist_ok=True)
+    fname = f"{uuid.uuid4().hex}{ext}"
+    fpath = folder / fname
+    written = optimize_to_webp(data, fpath)
+    final_name = (
+        fpath.with_suffix(".webp").name
+        if (folder / fname.replace(ext, ".webp")).exists()
+        else fname
+    )
+    return {"url": f"/api/uploads/landing_images/{final_name}", "bytes": written}
 
 
 class RiderApplyRequest(BaseModel):

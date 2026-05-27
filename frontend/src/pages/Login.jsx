@@ -43,6 +43,18 @@ const DEFAULTS = {
   icon_bg_color_end: "#ffd9c8",
   icon_color: "#a02323",
   icon_show: true,
+  // === BadStuffMarquee (admin-editable, iter-51) ===
+  // The full-bleed "0% bad stuff" scroller below the red header. Admin
+  // can change pill list, colors, and speed from /admin/content/login.
+  marquee_show: true,
+  marquee_bg_color: "#a02323",         // brand-red default per request
+  marquee_text_color: "#a02323",       // pill text is brand-red on white pill
+  marquee_pill_bg_color: "#ffffff",    // solid white pill stands out on red bar
+  marquee_pill_border_color: "rgba(255,255,255,0.95)",
+  marquee_pill_text_color: "#a02323",
+  marquee_speed_seconds: 12,           // animation duration; lower = faster
+  // Pill labels — pipe-separated for easy admin editing in a single field.
+  marquee_pills: "0% Ajinomoto|0% Maida|0% Artificial Flavours|0% Artificial Colours|0% Polished Grains|0% Refined Oil|0% Palm Oil|0% Pre-made Gravy",
 };
 
 export default function Login() {
@@ -247,10 +259,20 @@ export default function Login() {
       <div className="bg-background flex-1 px-3 sm:px-6 relative pb-12 overflow-hidden flex flex-col">
         {/* Top scrolling marquee — edge-to-edge, sits immediately below the
             red hero. `-mx-3 sm:-mx-6` cancels the parent's gutter so the
-            pills sweep across the full viewport width. */}
-        <div className="w-screen -mx-3 sm:-mx-6 max-w-none" aria-hidden data-testid="login-top-marquee">
-          <BadStuffMarquee />
-        </div>
+            pills sweep across the full viewport width. All visuals are
+            admin-editable via /admin/content/login (iter-51). */}
+        {c.marquee_show !== false && (
+          <div className="w-screen -mx-3 sm:-mx-6 max-w-none" aria-hidden data-testid="login-top-marquee">
+            <BadStuffMarquee
+              pills={c.marquee_pills}
+              bgColor={c.marquee_bg_color}
+              textColor={c.marquee_text_color}
+              pillBgColor={c.marquee_pill_bg_color}
+              pillBorderColor={c.marquee_pill_border_color}
+              speedSeconds={c.marquee_speed_seconds}
+            />
+          </div>
+        )}
         {/* Compensation spacer — tuned to land the form card at ~Y=170px
             on 390x844 mobile, matching its pre-iter-50 position. */}
         <div aria-hidden className="h-7 sm:h-10 w-full" data-testid="announce-bar-compensator" />

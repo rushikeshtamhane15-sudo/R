@@ -130,9 +130,9 @@ export default function Checkout() {
       <div className="mt-8 grid md:grid-cols-5 gap-6">
         <div className="md:col-span-3 bg-card rounded-2xl border border-border p-6">
           <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Plan</p>
-          <div className="mt-3 flex items-baseline justify-between">
-            <h2 className="font-display font-extrabold text-2xl">{plan.name}</h2>
-            <span className="font-display font-extrabold text-3xl">₹{fees.base.toFixed(0)}</span>
+          <div className="mt-3 flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1 sm:gap-3">
+            <h2 className="font-display font-extrabold text-2xl break-words">{plan.name}</h2>
+            <span className="font-display font-extrabold text-3xl whitespace-nowrap">₹{fees.base.toFixed(0)}</span>
           </div>
           <p className="text-sm text-muted-foreground mt-1">{plan.description}</p>
           <ul className="mt-5 space-y-2 text-sm">
@@ -158,9 +158,9 @@ export default function Checkout() {
               <Receipt className="h-3.5 w-3.5" /> Bill summary
             </p>
             <dl className="mt-4 space-y-2 text-sm">
-              <div className="flex items-baseline justify-between">
-                <dt className="text-muted-foreground">{plan.name}</dt>
-                <dd className="font-semibold tabular-nums">₹{fees.base.toFixed(2)}</dd>
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-muted-foreground break-words min-w-0">{plan.name}</dt>
+                <dd className="font-semibold tabular-nums whitespace-nowrap">₹{fees.base.toFixed(2)}</dd>
               </div>
               <div className="flex items-baseline justify-between">
                 <dt className="text-muted-foreground">Platform fee ({PLATFORM_FEE_PCT}%)</dt>

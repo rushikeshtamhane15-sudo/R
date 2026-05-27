@@ -1,0 +1,42 @@
+{
+  "summary": "ITER-51 BIG batch — backend + frontend testing completed. 12 new iter-51 tests added covering plan bifurcation (category + meal_window), /admin/content/login marquee_* merge, /admin/landing/upload-image multipart, /attendance/scan meal_window enforcement (lunch-only sub rejects dinner scan with HTTP 403), and static inspection of the 402 BudgetExceeded code-path in routes/restaurant.py. Full regression: 73 passed / 1 skipped (was 61/1 in iter-48 baseline — +12 new tests, all green). Frontend: /login marquee renders rgb(160,35,35) bg with 8 pills (16 DOM-duplicated for seamless loop); /restaurant Pure Veg badge bg=rgb(255,255,255) color=rgb(5,122,58) per spec; /admin/plans shows 3 category tabs + field-category & field-meal-window selects in the create dialog + Tiffin tab correctly filters to empty-state; /plans toggles centered; /checkout flex-col sm:flex-row confirmed in source.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/admin/content/login", "issue": "Passing empty-string values (e.g. marquee_bg_color:\"\") into the data dict persists them as empty strings instead of unsetting / falling back to DEFAULTS. Frontend then renders bg='' (transparent). Recommend: skip empty-string keys server-side OR have AdminContent UI send DELETE / null sentinel to reset to defaults. Repro: POST /admin/content/login with {data:{marquee_bg_color:''}} → GET returns marquee_bg_color:'' (not the default '#a02323')."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter51.py",
+    "/app/test_reports/pytest/iter51_results.xml"
+  ],
+  "action_items": [
+    "MINOR: harden /admin/content/login to ignore empty-string overrides for color/numeric keys so DEFAULT_CONTENT fallback wins (the AdminContent UI form currently treats blank field as empty string, not 'reset').",
+    "FYI: Razorpay LIVE keys still rejected (Auth failed banner in admin Plans page) — flagged as user-side credential issue per request brief, no code change.",
+    "FYI: 402 budget-exhausted return on /admin/restaurant/menu/generate-image verified by static inspection only — couldn't trigger live without exhausting the universal key."
+  ],
+  "critical_code_review_comments": [
+    "routes/restaurant.py 402 branch correctly checks substring 'budget has been exceeded' (case-insensitive) on Exception(str()) — robust against litellm's BudgetExceededError without import coupling. Good.",
+    "server.py _mark_attendance enforces sub.meal_window vs scan meal_type and returns HTTP 403 with explicit 'lunch-only'/'dinner-only' message. Correctly placed before attendance-record insertion.",
+    "routes/plans.py PlanUpsert.category and meal_window are lower-cased on persist with safe defaults ('dining' / 'both') — good.",
+    "/admin/content/login endpoint stores arbitrary keys via merge; consider adding a Pydantic LoginContentSchema in a future iter to prevent typo'd keys from polluting the doc."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter51.py (created)"
+  ],
+  "success_rate": {
+    "backend": "100% (73/73 active, 1 baseline skipped)",
+    "frontend": "100% — all visible UI checks pass on /login, /restaurant, /plans, /admin/plans"
+  },
+  "test_credentials": "Admin OTP phone=9970705391 (dev_otp returned by /api/auth/send-otp in dev_mode). Subscriber OTP phone=9876543210.",
+  "seed_data_creation": "Synthetic lunch-only subscription doc inserted directly into mongo for the subscriber user during TestMealWindowEnforcement class; teardown deletes it + today's attendance row.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter-51 test file is /app/backend/tests/test_iter51.py. The OTP rate-limiter (rate_limit_hits collection) frequently 429's after a few send-otp calls in a row; clear with: await db.rate_limit_hits.delete_many({}). The TestMealWindowEnforcement fixture writes directly to db.subscriptions (bypassing Razorpay because LIVE keys are failing auth) — preserves a clean teardown. Marquee key cleanup on content/login currently leaves keys as empty strings (not absent) — see minor issue. Razorpay LIVE auth failure is USER-side credentials, do not attempt to fix.",
+  "rca of the issue": "N/A — no critical issues found. Single minor: admin marquee cleanup with empty strings overrides defaults (described above)."
+}

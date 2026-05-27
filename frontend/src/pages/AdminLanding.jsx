@@ -63,10 +63,7 @@ export default function AdminLanding() {
             <Field label="Primary button label"><Input value={data.hero_cta_primary || ""} onChange={(e) => update({ hero_cta_primary: e.target.value })} /></Field>
             <Field label="Secondary button label"><Input value={data.hero_cta_secondary || ""} onChange={(e) => update({ hero_cta_secondary: e.target.value })} /></Field>
           </div>
-          <Field label="Hero background image URL">
-            <Input value={data.hero_image_url || ""} onChange={(e) => update({ hero_image_url: e.target.value })} placeholder="https://…" />
-            {data.hero_image_url && <img src={data.hero_image_url} alt="hero" className="mt-3 h-40 rounded-xl object-cover w-full" />}
-          </Field>
+          <ImageField label="Hero background image" value={data.hero_image_url} onChange={(v) => update({ hero_image_url: v })} />
         </Card>
 
         {/* How it works */}
@@ -250,9 +247,30 @@ function Field({ label, children }) {
 }
 
 function ImageField({ label, value, onChange }) {
+  const [busy, setBusy] = useState(false);
+  const onPick = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error("Max 5 MB"); return; }
+    setBusy(true);
+    try {
+      const fd = new FormData(); fd.append("file", file);
+      const r = await api.post("/admin/landing/upload-image", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      onChange(r.data.url);
+      toast.success("Uploaded");
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Upload failed");
+    } finally { setBusy(false); e.target.value = ""; }
+  };
   return (
     <Field label={label}>
-      <Input value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder="https://…" />
+      <div className="flex items-stretch gap-2">
+        <Input value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder="https://… or upload below" className="flex-1" />
+        <label className={`inline-flex items-center gap-1.5 px-3 rounded-xl border border-input text-sm font-semibold cursor-pointer ${busy ? "opacity-50 pointer-events-none" : "hover:bg-muted"}`}>
+          {busy ? "Uploading…" : "Upload"}
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={onPick} />
+        </label>
+      </div>
       {value && <img src={value} alt="" className="mt-2 h-32 w-full object-cover rounded-lg border border-border" />}
     </Field>
   );

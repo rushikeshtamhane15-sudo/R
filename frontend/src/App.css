@@ -264,65 +264,49 @@
     }
 }
 
-/* === Pure-Veg badge — futuristic HUD "digital" look ===
-   Neon-cyan glow + scanlines + thin uppercase mono label evokes a heads-up
-   display rather than a printed stamp. Color is still overrideable via
-   inline style (theme.pure_veg_color / pure_veg_bg_color from admin CMS) —
-   the defaults baked in here read as digital green-cyan.
-   The wrapper carries a clipped scanline overlay; the label gets a subtle
-   neon text-shadow + monospace letter-spacing. */
+/* === Pure-Veg badge — clean white-bg + brand-green (iter-51) ===
+   User wants flat, traditional pure-veg look: white background + brand
+   green text. Admin can still override colors via theme.pure_veg_color +
+   theme.pure_veg_bg_color when needed (HeroPanel applies inline style).
+   The wrapper carries a thin green border + subtle drop shadow for depth;
+   the sweep animation is kept for an "active" feel. */
 .pure-veg-3d {
     position: relative;
     overflow: hidden;
-    background: linear-gradient(135deg, rgba(2, 6, 23, 0.92) 0%, rgba(2, 13, 39, 0.92) 100%) !important;
-    color: #34f5c5 !important;
-    border: 1px solid rgba(52, 245, 197, 0.55);
+    background: #ffffff !important;
+    color: #057a3a !important;
+    border: 1px solid rgba(5, 122, 58, 0.45);
     box-shadow:
-        0 0 0 1px rgba(52, 245, 197, 0.18),
-        0 0 12px rgba(52, 245, 197, 0.35),
-        0 0 22px rgba(13, 148, 136, 0.25),
-        inset 0 0 12px rgba(52, 245, 197, 0.15);
-    text-shadow: 0 0 4px rgba(52, 245, 197, 0.85), 0 0 12px rgba(52, 245, 197, 0.45);
+        0 2px 4px rgba(5, 122, 58, 0.12),
+        0 0 0 1px rgba(5, 122, 58, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    text-shadow: none;
 }
-/* Scanline overlay — repeating 2px stripes give the CRT/digital-display feel */
-.pure-veg-3d::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: repeating-linear-gradient(
-        0deg,
-        rgba(52, 245, 197, 0.05) 0px,
-        rgba(52, 245, 197, 0.05) 1px,
-        transparent 1px,
-        transparent 3px
-    );
-    mix-blend-mode: screen;
-    pointer-events: none;
-}
-/* Subtle horizontal sweep that scans the badge every 4s for the "live" feel */
+/* Subtle scanline overlay removed — keep it flat per "clean look" request */
+.pure-veg-3d::after { content: none; }
+/* Sweep animation kept but toned down to feel like a polish glint, not HUD */
 .pure-veg-3d::before {
     content: "";
     position: absolute;
     top: 0;
     left: -40%;
-    width: 25%;
+    width: 18%;
     height: 100%;
-    background: linear-gradient(90deg, transparent 0%, rgba(52, 245, 197, 0.35) 50%, transparent 100%);
-    animation: pure-veg-sweep 4.2s linear infinite;
+    background: linear-gradient(90deg, transparent 0%, rgba(5, 122, 58, 0.10) 50%, transparent 100%);
+    animation: pure-veg-sweep 6s linear infinite;
     pointer-events: none;
 }
 @keyframes pure-veg-sweep {
     0%   { left: -40%; }
-    60%  { left: 120%; }
+    70%  { left: 120%; }
     100% { left: 120%; }
 }
 .pure-veg-logo-3d {
-    filter: drop-shadow(0 0 4px rgba(52, 245, 197, 0.75));
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.15));
 }
 .pure-veg-label-3d {
-    font-family: ui-monospace, "SF Mono", "Roboto Mono", Menlo, monospace;
-    letter-spacing: 0.08em;
     font-weight: 800;
+    letter-spacing: 0.04em;
 }
 @media (prefers-reduced-motion: reduce) {
     .pure-veg-3d::before { animation: none; }
@@ -480,7 +464,7 @@
 .bad-stuff-marquee {
     overflow: hidden;
     width: 100%;
-    padding: 6px 0;
+    padding: 10px 0;
     /* Iter-50: fade-out mask removed — pills are now visible edge-to-edge
        across the full viewport width. The marquee still scrolls infinitely
        so pills enter/exit smoothly even without the soft fade. */
@@ -490,11 +474,32 @@
     display: inline-flex;
     gap: 12px;
     width: max-content;
+    /* `animation-duration` is set inline by the React component so admin
+       can tune speed live. Fallback below in case style is missing. */
     animation: bad-stuff-marquee-scroll 12s linear infinite;
 }
 @media (prefers-reduced-motion: reduce) {
     .bad-stuff-marquee-track { animation: none; }
 }
+/* === bad-stuff marquee pill (iter-51) ===
+   Colors / borders are supplied INLINE by the React component so admin
+   color overrides apply cleanly. Only structural styles here. */
+.bad-stuff-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 9999px;
+    font-family: var(--font-display, "Cabinet Grotesk"), system-ui, sans-serif;
+    font-weight: 800;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
 .bad-stuff-pill-mq {
     display: inline-flex;
     align-items: center;

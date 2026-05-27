@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Switch } from "../components/ui/switch";
 import { Plus, Pencil, Trash2, IndianRupee, ShieldCheck, Loader2, AlertTriangle, CheckCircle2, KeyRound, Webhook, RefreshCw, Ban, HelpCircle } from "lucide-react";
 
-const EMPTY = { plan_id: null, name: "", description: "", amount: 0, currency: "INR", duration_days: 30, meals: 60, active: true, sort_order: 100 };
+const EMPTY = { plan_id: null, name: "", description: "", amount: 0, currency: "INR", duration_days: 30, meals: 60, active: true, sort_order: 100, category: "dining", meal_window: "both" };
 
 const STATUS_LOOKUP = {
   live:        { tone: "ok",   icon: CheckCircle2,  label: "Live",          desc: "Real Razorpay payments enabled. Customers can check out via UPI/cards." },
@@ -197,6 +197,8 @@ export default function AdminPlans() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
+  // Iter-51: category filter tabs (dining | tiffin | all)
+  const [categoryTab, setCategoryTab] = useState("dining");
 
   const load = async () => {
     setLoading(true);
@@ -226,6 +228,8 @@ export default function AdminPlans() {
         meals: Number(form.meals),
         active: !!form.active,
         sort_order: Number(form.sort_order) || 100,
+        category: form.category || "dining",
+        meal_window: form.meal_window || "both",
       });
       toast.success("Plan saved");
       setOpen(false);
@@ -257,21 +261,51 @@ export default function AdminPlans() {
       <RazorpayStatusCard />
       <WebhookEventsPanel />
 
+      {/* Iter-51: category tabs to bifurcate dining vs tiffin plans */}
+      <div className="flex flex-wrap items-center gap-2 mb-4" data-testid="plan-category-tabs">
+        {[
+          { v: "dining", label: "Dining (eat-in / QR)" },
+          { v: "tiffin", label: "Tiffin (home delivery)" },
+          { v: "all",    label: "All" },
+        ].map((t) => (
+          <button
+            key={t.v}
+            type="button"
+            onClick={() => setCategoryTab(t.v)}
+            className={`rounded-full px-4 py-1.5 text-sm font-semibold border ${categoryTab === t.v ? "bg-primary text-primary-foreground border-primary" : "border-border bg-background hover:bg-muted"}`}
+            data-testid={`plan-tab-${t.v}`}
+          >
+            {t.label} ({categoryTab === t.v ? "•" : ""}{plans.filter((p) => t.v === "all" || (p.category || "dining") === t.v).length})
+          </button>
+        ))}
+      </div>
+
       <div className="bg-card rounded-2xl border border-black/5 overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-muted-foreground">Loading…</div>
-        ) : plans.length === 0 ? (
-          <div className="p-12 text-center text-muted-foreground">No plans yet.</div>
-        ) : (
+        ) : (() => {
+          const filtered = plans.filter((p) => categoryTab === "all" || (p.category || "dining") === categoryTab);
+          if (filtered.length === 0) {
+            return <div className="p-12 text-center text-muted-foreground">No {categoryTab} plans yet.</div>;
+          }
+          return (
           <div className="divide-y divide-black/5">
-            {plans.map((p) => (
+            {filtered.map((p) => (
               <div key={p.plan_id} className="flex flex-wrap items-center justify-between gap-4 p-6" data-testid={`admin-plan-row-${p.plan_id}`}>
                 <div className="flex-1 min-w-[220px]">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-display font-bold text-lg">{p.name}</p>
                     <span className={`text-[10px] tracking-overline uppercase font-bold px-2 py-0.5 rounded-full ${p.active ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
                       {p.active ? "Active" : "Inactive"}
                     </span>
+                    <span className="text-[10px] tracking-overline uppercase font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200" data-testid={`plan-category-${p.plan_id}`}>
+                      {(p.category || "dining")}
+                    </span>
+                    {p.meal_window && p.meal_window !== "both" && (
+                      <span className="text-[10px] tracking-overline uppercase font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                        {p.meal_window}-only
+                      </span>
+                    )}
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">{p.description}</p>
                 </div>
@@ -291,7 +325,8 @@ export default function AdminPlans() {
               </div>
             ))}
           </div>
-        )}
+          );
+        })()}
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -302,6 +337,31 @@ export default function AdminPlans() {
           <div className="space-y-4">
             <Field label="Name"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-testid="field-name" /></Field>
             <Field label="Description"><Textarea rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} data-testid="field-description" /></Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Category">
+                <select
+                  value={form.category || "dining"}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  className="h-10 w-full rounded-2xl border border-input bg-background px-3 text-sm"
+                  data-testid="field-category"
+                >
+                  <option value="dining">Dining (eat-in / QR)</option>
+                  <option value="tiffin">Tiffin (home delivery)</option>
+                </select>
+              </Field>
+              <Field label="Meal window">
+                <select
+                  value={form.meal_window || "both"}
+                  onChange={(e) => setForm({ ...form, meal_window: e.target.value })}
+                  className="h-10 w-full rounded-2xl border border-input bg-background px-3 text-sm"
+                  data-testid="field-meal-window"
+                >
+                  <option value="both">Both (lunch + dinner)</option>
+                  <option value="lunch">Lunch only</option>
+                  <option value="dinner">Dinner only</option>
+                </select>
+              </Field>
+            </div>
             <div className="grid grid-cols-3 gap-3">
               <Field label="Amount (₹)"><Input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} data-testid="field-amount" /></Field>
               <Field label="Duration (days)"><Input type="number" value={form.duration_days} onChange={(e) => setForm({ ...form, duration_days: e.target.value })} data-testid="field-duration" /></Field>

@@ -139,6 +139,11 @@ class PlanUpsert(BaseModel):
     meals: int
     active: bool = True
     sort_order: int = 100
+    # Iter-51: bifurcation
+    # category: "dining" (eat-in / QR) | "tiffin" (home delivery)
+    # meal_window: "both" | "lunch" | "dinner" — for single-meal plans
+    category: Optional[Literal["dining", "tiffin"]] = "dining"
+    meal_window: Optional[Literal["both", "lunch", "dinner"]] = "both"
 
 
 class ProfileUpdate(BaseModel):
@@ -582,6 +587,10 @@ async def _activate_subscription(order: dict):
         "tiffin_size": plan.get("tiffin_size"),
         "user_paused": False,
         "user_pause_started_at": None,
+        # Iter-51: copy meal_window from plan onto sub so scans & dispatch
+        # can enforce lunch-only / dinner-only without re-querying plans.
+        "meal_window": (plan.get("meal_window") or "both").lower(),
+        "category": (plan.get("category") or ("tiffin" if (plan.get("service_type") == "tiffin") else "dining")).lower(),
         "created_at": iso(start),
     }
     await db.subscriptions.insert_one(sub.copy())
@@ -1250,6 +1259,15 @@ async def _mark_attendance(target_user: dict, meal_type: str, marked_by: str, me
     sub = await get_active_subscription(target_user["user_id"])
     if not sub:
         raise HTTPException(status_code=400, detail="No active subscription")
+    # Iter-51: enforce single-meal plan windows. A `meal_window` of "both"
+    # (the default for every legacy sub) lets through any scan; "lunch" /
+    # "dinner" plans reject the off-window scan with a clear message.
+    window = (sub.get("meal_window") or "both").lower()
+    if window in ("lunch", "dinner") and window != meal_type:
+        raise HTTPException(
+            status_code=403,
+            detail=f"This subscription is {window}-only. Scan rejected for {meal_type}.",
+        )
     today = today_str()
     existing = await db.attendance.find_one({
         "user_id": target_user["user_id"],
