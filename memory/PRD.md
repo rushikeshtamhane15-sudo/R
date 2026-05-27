@@ -515,6 +515,18 @@ Backend: 14/14 new (test_iter27_app_cms.py) + 110/114 regression (4 timeouts unr
 - **Iteration 36 testing**: 10/10 backend pytest + 9/9 frontend checks pass.
 
 
+## Iteration 50 (Feb 27, 2026) — Login marquee full-bleed + header-flush
+
+### Features delivered
+- **Full-width marquee** — broke out of the form-sheet's `px-3 sm:px-6` gutter via `w-screen -mx-3 sm:-mx-6 max-w-none` so the bad-stuff pills now scroll edge-to-edge across the full viewport width.
+- **Removed fade mask** on `.bad-stuff-marquee` — pills are now visible across the entire width, no transparent edges.
+- **Moved marquee to the very top of the form sheet** — sits immediately below the red hero (`gap = 0px` between header bottom and marquee top).
+- **Form-position preserved** via a tuned compensation spacer (`h-7 sm:h-10`) below the marquee — login card lands at Y=163 on 390×844 mobile (was 171 before; 8px tolerance).
+
+### Tests
+- Smoke screenshot confirms: marquee at y=77 (= header bottom), x=0, width=full viewport, form-card y=163.
+- No backend changes — iter-49's 61P/1S regression baseline preserved.
+
 ## Iteration 49 (Feb 19, 2026 late night) — Login page polish: suppress site-wide announcement strip + bigger icon-to-text spacing
 
 ### Features delivered

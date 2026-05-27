@@ -251,10 +251,9 @@ export default function Login() {
         <div className="w-screen -mx-3 sm:-mx-6 max-w-none" aria-hidden data-testid="login-top-marquee">
           <BadStuffMarquee />
         </div>
-        {/* Compensation spacer — kept tiny because the marquee itself
-            already occupies ~52px between the red hero and the login card.
-            Adjust here if the form's Y position drifts. */}
-        <div aria-hidden className="h-3 sm:h-5 w-full" data-testid="announce-bar-compensator" />
+        {/* Compensation spacer — tuned to land the form card at ~Y=170px
+            on 390x844 mobile, matching its pre-iter-50 position. */}
+        <div aria-hidden className="h-7 sm:h-10 w-full" data-testid="announce-bar-compensator" />
         <div className="relative max-w-[280px] sm:max-w-sm mx-auto w-full">
           <div
             className="login-card-3d relative bg-card rounded-2xl px-3 py-2.5 sm:px-6 sm:py-5 z-[1]"
