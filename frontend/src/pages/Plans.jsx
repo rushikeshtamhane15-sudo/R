@@ -9,7 +9,7 @@ import { Check, Loader2, Sparkles, Utensils, Truck } from "lucide-react";
 const MEAL_PRICE_FULL = 70;
 const MEAL_PRICE_HALF = 50;
 const MEALS_PER_DAY = 2;
-const MIN_DAYS = 1;
+const MIN_DAYS = 3;
 const MAX_DAYS = 90;
 
 const SERVICES = [
@@ -157,11 +157,12 @@ export default function Plans() {
             <h2 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-3 leading-tight">Pick any number of days.</h2>
             <p className="text-muted-foreground mt-3 leading-relaxed">Pay exactly for the days you'll eat. <span className="font-semibold text-foreground">₹{MEAL_PRICE_FULL}/meal</span> for full tiffin or dining; <span className="font-semibold text-foreground">₹{MEAL_PRICE_HALF}/meal</span> for half tiffin.</p>
 
-            {/* Iter-52: Service + tiffin-size in a single horizontal row.
-                On sm+, force a row (no flex-wrap) so both toggles sit
-                side-by-side. On xs (<640px), stack vertically for room. */}
-            <div className="mt-6 flex flex-col sm:flex-row sm:items-end items-start justify-center gap-6 sm:gap-10">
-              <div className="text-center">
+            {/* Iter-53: Two independent toggle COLUMNS side-by-side. Each has
+                its own heading + chips. Tiffin Size column is shown always
+                (just disabled when Service !== tiffin) so the layout shape
+                stays stable as user flips between Dining and Tiffin. */}
+            <div className="mt-6 flex flex-col sm:flex-row items-stretch justify-center gap-6 sm:gap-10">
+              <div className="text-center flex-1">
                 <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Service</label>
                 <div className="mt-2 inline-flex gap-2 flex-wrap justify-center" data-testid="custom-service">
                   {SERVICES.map((s) => (
@@ -176,23 +177,21 @@ export default function Plans() {
                 </div>
               </div>
 
-              {service === "tiffin" && (
-                <div className="text-center" data-testid="custom-tiffin-size">
-                  <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Tiffin size</label>
-                  <div className="mt-2 inline-flex gap-2 flex-wrap justify-center">
-                    {[
-                      { id: "full", label: "Full · 5 chapati" },
-                      { id: "half", label: "Half · 3 chapati" },
-                    ].map((t) => (
-                      <button
-                        key={t.id} type="button" onClick={() => setTiffinSize(t.id)}
-                        className={`px-4 h-10 rounded-full text-sm font-semibold border transition-colors ${tiffinSize === t.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
-                        data-testid={`custom-tiffin-${t.id}`}
-                      >{t.label}</button>
-                    ))}
-                  </div>
+              <div className={`text-center flex-1 ${service !== "tiffin" ? "opacity-40 pointer-events-none" : ""}`} data-testid="custom-tiffin-size">
+                <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Tiffin size</label>
+                <div className="mt-2 inline-flex gap-2 flex-wrap justify-center">
+                  {[
+                    { id: "half", label: "3 chapati" },
+                    { id: "full", label: "5 chapati" },
+                  ].map((t) => (
+                    <button
+                      key={t.id} type="button" onClick={() => setTiffinSize(t.id)}
+                      className={`px-4 h-10 rounded-full text-sm font-semibold border transition-colors ${tiffinSize === t.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
+                      data-testid={`custom-tiffin-${t.id}`}
+                    >{t.label}</button>
+                  ))}
                 </div>
-              )}
+              </div>
             </div>
 
             <div className="mt-6 flex flex-wrap gap-2 justify-center" data-testid="day-presets">

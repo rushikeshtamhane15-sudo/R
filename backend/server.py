@@ -2240,6 +2240,7 @@ from routes.testimonials import router as _testimonials_router
 from routes.plans import router as _plans_router
 from routes.wallet import router as _wallet_router
 from routes.subscription import router as _subscription_router
+from routes.tiffin_prefs_admin import router as _tiffin_prefs_router
 api_router.include_router(_auth_router)
 api_router.include_router(_auth_google_router)
 api_router.include_router(_payments_router)
@@ -2254,6 +2255,7 @@ api_router.include_router(_testimonials_router)
 api_router.include_router(_plans_router)
 api_router.include_router(_wallet_router)
 api_router.include_router(_subscription_router)
+api_router.include_router(_tiffin_prefs_router)
 
 app.include_router(api_router)
 

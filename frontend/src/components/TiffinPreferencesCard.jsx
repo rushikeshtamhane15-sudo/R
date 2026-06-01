@@ -15,7 +15,7 @@ import { Utensils, Save, Loader2 } from "lucide-react";
  * so dispatch staff packs exactly what the user wants.
  */
 
-const ITEMS = [
+const FALLBACK_ITEMS = [
   { key: "rice", label: "Rice", emoji: "🍚" },
   { key: "dal", label: "Dal", emoji: "🍲" },
   { key: "chapati", label: "Chapati", emoji: "🫓" },
@@ -24,16 +24,26 @@ const ITEMS = [
 
 export default function TiffinPreferencesCard() {
   const [prefs, setPrefs] = useState({ rice: true, dal: true, chapati: true, sabji: true, chapati_count: null });
+  const [catalog, setCatalog] = useState(FALLBACK_ITEMS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
-        const r = await api.get("/my/tiffin/preferences");
-        setPrefs({ ...prefs, ...(r.data || {}) });
+        const [r, c] = await Promise.all([
+          api.get("/my/tiffin/preferences"),
+          api.get("/tiffin-preferences/catalog").catch(() => ({ data: { items: FALLBACK_ITEMS } })),
+        ]);
+        const items = (c.data?.items && c.data.items.length > 0) ? c.data.items : FALLBACK_ITEMS;
+        setCatalog(items);
+        // Seed prefs with all catalog keys as 'on' unless explicit false stored
+        const stored = r.data || {};
+        const seeded = {};
+        items.forEach((it) => { seeded[it.key] = stored[it.key] !== false; });
+        seeded.chapati_count = stored.chapati_count ?? null;
+        setPrefs(seeded);
       } catch {
-        // Not a tiffin sub or no active — silently hide
         setPrefs(null);
       } finally { setLoading(false); }
     })();
@@ -67,7 +77,7 @@ export default function TiffinPreferencesCard() {
       </p>
 
       <div className="grid grid-cols-2 gap-2.5">
-        {ITEMS.map((it) => {
+        {catalog.map((it) => {
           const on = prefs[it.key] !== false;
           return (
             <button
@@ -77,7 +87,11 @@ export default function TiffinPreferencesCard() {
               data-testid={`tiffin-pref-${it.key}`}
               className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border-2 transition-colors text-left ${on ? "border-primary bg-primary/8 text-foreground" : "border-border bg-muted/40 text-muted-foreground"}`}
             >
-              <span aria-hidden className="text-lg">{it.emoji}</span>
+              {it.image_url ? (
+                <img src={it.image_url} alt="" className="h-9 w-9 rounded-lg object-cover" />
+              ) : (
+                <span aria-hidden className="text-lg">{it.emoji || "🍽"}</span>
+              )}
               <span className="flex-1 font-semibold text-sm">{it.label}</span>
               <span className={`inline-flex items-center justify-center h-5 w-5 rounded border-2 ${on ? "bg-primary border-primary text-primary-foreground" : "border-border"}`}>
                 {on ? "✓" : ""}
