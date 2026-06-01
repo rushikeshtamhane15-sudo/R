@@ -1,0 +1,50 @@
+{
+  "summary": "Iter-53 full backend + frontend testing complete. Backend: 13/13 PASS (7 original test_iter53.py + 6 new test_iter53_extra.py covering OTP redaction, role gating, threshold persistence, assign-staff + resend-otp + staff-verify flow, pending-partials admin listing, and stock floor at 0). Iter-52 regression: 8 pass / 11 skipped, zero regressions. Frontend: all 4 new admin pages render with valid auth (synthetic-mongo session pattern from iter53 test helper): /admin/tiffin-stock shows stat tiles 50/2/4/+50 + topup form + adjust + threshold + history; /admin/cash-collections shows pending row, assign-staff dropdown, OTP input, verify+resend buttons; /admin/partial-payments shows 8 open rows with ₹8400 total dues; /admin/tiffin-preferences pref-gen-0 AI 3D image button PRESENT per row. /checkout/<plan_id> all three pay-mode-* testids present; selecting 'partial' reveals partial-down-input with min=1400 (50% of ₹2800 plan) auto-set correctly. PLANS REGRESSION FIXED: [data-testid=custom-service] and [data-testid=custom-tiffin-size] now have y-diff=0px on 1440x900 (was 80px in iter-52) — toggles side-by-side at x=249 and x=545, both y=404.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "/admin/cash-collections + tiffin-stock",
+        "issues": ["Dev-time React hydration warning: '<span> cannot be a child of <option>'. Caused by the visual-editor injecting <span data-ve-dynamic x-excluded='true' style='display:contents'> wrappers inside dynamic <option> text in AdminCashCollections.jsx L131 (Assign-staff dropdown options). This is a dev-overlay artifact (x-excluded=true) and does not impact production build, but does spam the console. Fix: render staff <option> labels via a stable string variable (const label = `${s.name||s.phone} · ${s.role}`) rather than inline JSX expression with concatenation — keeps the visual-editor from wrapping it."]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter53.py",
+    "/app/backend/tests/test_iter53_extra.py",
+    "/app/test_reports/pytest/iter53_results.xml",
+    "/app/test_reports/pytest/iter53_extra_results.xml"
+  ],
+  "action_items": [
+    "(Optional) Wrap Assign-staff <option> children in a plain string variable in AdminCashCollections.jsx L131 to silence the dev-only hydration warning. Production behaviour unaffected.",
+    "(FYI) Razorpay LIVE keys still failing — mock-fallback works for all partial + clear-partial flows. User action needed to fix live keys when ready to take real payments."
+  ],
+  "critical_code_review_comments": [
+    "routes/tiffin_stock.py decrement_stock_db correctly floors at 0 via find_one_and_update + post-check + explicit $set:0 — both adjust() and decrement_stock_db handle over-consumption safely. Good.",
+    "routes/subscription_payment.py admin_pending_cash projects {_id:0, cash_otp:0} — verified via test_pending_cash_redacts_otp_and_enriches_customer that OTP is NEVER exposed to admin/staff list. Good defence-in-depth.",
+    "subscription_payment.py cash_verify_otp gates on role in ('admin','staff') — matches user choice 1c (either role can verify). Confirmed via test_assign_staff_and_resend_otp using a synthetic staff session. Good.",
+    "subscription_payment.py create_partial_order: MIN_PARTIAL_FRACTION=0.5 enforced with strict <. A payment of exactly 50% passes; 49.99% fails. Matches spec.",
+    "tiffin_stock.py: /admin/tiffin-stock/adjust requires role=='admin' (not staff) — slightly stricter than topup/history. Reasonable: manual adjusts are higher-risk. Spec doesn't conflict.",
+    "Frontend AdminCashCollections L131: inline JSX option content triggers <span> hydration warning (visual editor artifact). Cosmetic only."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter53_extra.py (created — 6 new tests)",
+    "/app/test_reports/pytest/iter53_results.xml (created)",
+    "/app/test_reports/pytest/iter53_extra_results.xml (created)"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13 iter-53 tests pass; 8/8 iter-52+51 regression tests pass with 11 baseline skipped)",
+    "frontend": "100% (all 6 frontend feature checks pass; 1 minor dev-only console warning)"
+  },
+  "test_credentials": "Synthetic mongo sessions used to bypass /api/auth/send-otp rate-limit. Pattern: insert into db.users + db.user_sessions with role + 1-day expiry. See /app/backend/tests/test_iter53.py::_make_session helper. Admin OTP phone 9970705391 still works when not rate-limited.",
+  "seed_data_creation": "Created ~10 synthetic subscriber subs with pending_amount>0 across iter53 test runs (8 visible on /admin/partial-payments). Created 1 pending_cash order visible on /admin/cash-collections. Stock state: floored to 0 by test then restored to 50 via test_stock_floor_at_zero_via_adjust teardown.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter-53 added 4 features: tiffin-stock CRUD, cash OTP flow, partial 50%, AI 3D image button on tiffin-prefs. All endpoints under /api/admin/tiffin-stock/* and /api/admin/payments/* + /api/payments/cash-order + /api/payments/partial-order + /api/payments/clear-partial-balance + /api/staff/cash-collect/verify-otp. Frontend pages: /admin/tiffin-stock, /admin/cash-collections, /admin/partial-payments, /admin/tiffin-preferences (updated with AI 3D button). Use synthetic-mongo-session pattern for auth-gated frontend testing (OTP send-otp is rate-limited 3/10min/phone). Plans horizontal-row regression confirmed FIXED on 1440x900 (yDiff=0px). Test files: /app/backend/tests/test_iter53.py + /app/backend/tests/test_iter53_extra.py.",
+  "rca of the issue": "N/A — no critical bugs found this iteration. The only minor issue (option <span> hydration warning) RCA: visual-editor instrumentation wraps inline JSX expressions in <span data-ve-dynamic style='display:contents'>. When the parent is <option>, browser hydration refuses <span> child. Fix is trivial: render the dynamic label via a stable {variable} reference computed outside JSX, so the editor flags the parent text as static rather than computed."
+}

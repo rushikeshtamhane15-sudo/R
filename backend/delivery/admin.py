@@ -379,6 +379,16 @@ def make_router(db) -> APIRouter:
                 "meal_type": item["meal_type"],
                 "delta": 1,
             })
+            # Auto-deduct from physical raw tiffin stock (1 tiffin per delivery).
+            try:
+                from routes.tiffin_stock import decrement_stock_db
+                await decrement_stock_db(
+                    db, count=1,
+                    reason=f"Delivered to roster {roster_id} ({item['meal_type']})",
+                    source="admin-deliver", user_id=item["user_id"],
+                )
+            except Exception as _e:  # noqa: BLE001
+                pass
         return {"ok": True, **upd}
 
     @router.post("/empty/collect")

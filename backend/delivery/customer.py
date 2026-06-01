@@ -68,6 +68,25 @@ def make_customer_router(db) -> APIRouter:
                 "confirmed_by": "customer",
             }},
         )
+        # Tiffin balance / stock movement
+        try:
+            await db.users.update_one({"user_id": user.user_id}, {"$inc": {"tiffin_balance": 1}})
+            await db.tiffin_movements.insert_one({
+                "ts": iso(now_utc()),
+                "kind": "issued",
+                "user_id": user.user_id,
+                "roster_id": roster_id,
+                "meal_type": item.get("meal_type"),
+                "delta": 1,
+            })
+            from routes.tiffin_stock import decrement_stock_db
+            await decrement_stock_db(
+                db, count=1,
+                reason=f"Customer-confirmed delivery {roster_id}",
+                source="customer-confirm", user_id=user.user_id,
+            )
+        except Exception:
+            pass
         return {"ok": True}
 
     @router.get("/track")

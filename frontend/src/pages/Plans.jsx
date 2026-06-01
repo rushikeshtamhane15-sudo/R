@@ -162,9 +162,9 @@ export default function Plans() {
                 (just disabled when Service !== tiffin) so the layout shape
                 stays stable as user flips between Dining and Tiffin. */}
             <div className="mt-6 flex flex-col sm:flex-row items-stretch justify-center gap-6 sm:gap-10">
-              <div className="text-center flex-1">
+              <div className="text-center flex-1" data-testid="custom-service">
                 <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Service</label>
-                <div className="mt-2 inline-flex gap-2 flex-wrap justify-center" data-testid="custom-service">
+                <div className="mt-2 inline-flex gap-2 flex-wrap justify-center">
                   {SERVICES.map((s) => (
                     <button
                       key={s.id} type="button" onClick={() => setService(s.id)}

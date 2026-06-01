@@ -3,13 +3,12 @@ import { api } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
-import { Save, Plus, Trash2, ArrowUp, ArrowDown, Image as ImageIcon, RotateCw, Loader2 } from "lucide-react";
+import { Save, Plus, Trash2, ArrowUp, ArrowDown, Image as ImageIcon, RotateCw, Loader2, Sparkles } from "lucide-react";
 
 /**
  * AdminTiffinPreferences — admin CMS for the tiffin food-preference catalog.
- * Lets admin add/remove items, upload preview images, change emoji + label,
- * reorder, toggle active. The 4 defaults (rice/dal/chapati/sabji) are
- * pre-seeded and editable; custom items can be added below them.
+ * Lets admin add/remove items, upload preview images, generate AI 3D images,
+ * change emoji + label, reorder, toggle active.
  */
 const BLANK = { key: "", label: "", emoji: "", image_url: "", description: "", active: true, order: 100 };
 
@@ -17,6 +16,7 @@ export default function AdminTiffinPreferences() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [genIdx, setGenIdx] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -52,6 +52,23 @@ export default function AdminTiffinPreferences() {
     e.target.value = "";
   };
 
+  const generate3D = async (idx) => {
+    const it = items[idx];
+    if (!it?.label?.trim()) { toast.error("Set a label first (e.g. 'Salad')"); return; }
+    setGenIdx(idx);
+    try {
+      const r = await api.post("/admin/restaurant/menu/generate-image", {
+        name: it.label,
+        category: "Tiffin Preference",
+        description: it.description || `Indian vegetarian tiffin side: ${it.label}`,
+      });
+      update(idx, { image_url: r.data.url });
+      toast.success("3D image generated");
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Image generation failed");
+    } finally { setGenIdx(null); }
+  };
+
   const save = async () => {
     setSaving(true);
     try {
@@ -74,7 +91,7 @@ export default function AdminTiffinPreferences() {
         <div>
           <p className="text-xs tracking-overline uppercase font-bold text-secondary">CMS</p>
           <h1 className="font-display font-extrabold text-3xl mt-1">Tiffin food preferences</h1>
-          <p className="text-sm text-muted-foreground mt-1">Edit text, icons, images and add custom items shown on the subscriber dashboard.</p>
+          <p className="text-sm text-muted-foreground mt-1">Edit text, icons, images and add custom items shown on the subscriber dashboard. Use the <span className="font-semibold">AI 3D image</span> button to auto-generate a plated photo.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={reset} className="rounded-full" data-testid="pref-reset">
@@ -91,17 +108,26 @@ export default function AdminTiffinPreferences() {
       ) : (
         <div className="space-y-3">
           {items.map((it, idx) => (
-            <div key={idx} className="rounded-2xl border border-border bg-card p-4 sm:p-5 grid grid-cols-1 md:grid-cols-[88px_1fr_auto] gap-4 items-center" data-testid={`pref-row-${idx}`}>
+            <div key={idx} className="rounded-2xl border border-border bg-card p-4 sm:p-5 grid grid-cols-1 md:grid-cols-[110px_1fr_auto] gap-4 items-center" data-testid={`pref-row-${idx}`}>
               <div className="text-center">
                 {it.image_url ? (
-                  <img src={it.image_url} alt="" className="h-16 w-16 rounded-xl object-cover mx-auto border border-border" />
+                  <img src={it.image_url} alt="" className="h-20 w-20 rounded-xl object-cover mx-auto border border-border" />
                 ) : (
-                  <span aria-hidden className="text-4xl block">{it.emoji || "🍽"}</span>
+                  <span aria-hidden className="text-5xl block">{it.emoji || "🍽"}</span>
                 )}
-                <label className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold border border-input cursor-pointer hover:bg-muted">
-                  <ImageIcon className="h-3 w-3" /> Upload
-                  <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => upload(idx, e)} />
-                </label>
+                <div className="mt-2 flex flex-col items-center gap-1">
+                  <label className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border border-input cursor-pointer hover:bg-muted">
+                    <ImageIcon className="h-3 w-3" /> Upload
+                    <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => upload(idx, e)} data-testid={`pref-upload-${idx}`} />
+                  </label>
+                  <button
+                    type="button" onClick={() => generate3D(idx)} disabled={genIdx === idx}
+                    data-testid={`pref-gen-${idx}`}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border border-primary text-primary hover:bg-primary/5 disabled:opacity-50"
+                  >
+                    {genIdx === idx ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />} AI 3D image
+                  </button>
+                </div>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <label className="block">
@@ -119,6 +145,10 @@ export default function AdminTiffinPreferences() {
                 <label className="flex items-center gap-2 mt-4">
                   <input type="checkbox" checked={it.active !== false} onChange={(e) => update(idx, { active: e.target.checked })} className="h-4 w-4" data-testid={`pref-active-${idx}`} />
                   <span className="text-xs font-semibold">Active</span>
+                </label>
+                <label className="block col-span-2 sm:col-span-4">
+                  <span className="text-[9px] tracking-overline uppercase font-bold text-muted-foreground">Description (optional — guides AI image)</span>
+                  <Input value={it.description || ""} onChange={(e) => update(idx, { description: e.target.value })} className="mt-1 h-8 text-xs" placeholder="e.g. fresh kachumber salad with cucumber, tomato, onion" />
                 </label>
               </div>
               <div className="flex items-center gap-1">

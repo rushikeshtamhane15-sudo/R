@@ -58,6 +58,10 @@ import AdminRestaurantTakeaway from "./pages/AdminRestaurantTakeaway";
 import AdminBottomNavEditor from "./pages/AdminBottomNavEditor";
 import AdminHeaderMenu from "./pages/AdminHeaderMenu";
 import AdminPnL from "./pages/AdminPnL";
+import AdminTiffinPreferences from "./pages/AdminTiffinPreferences";
+import AdminTiffinStock from "./pages/AdminTiffinStock";
+import AdminCashCollections from "./pages/AdminCashCollections";
+import AdminPartialPayments from "./pages/AdminPartialPayments";
 import { Privacy, Refund } from "./pages/PolicyPage";
 
 function RequireAuth({ children, roles }) {
@@ -137,6 +141,10 @@ function AppRoutes() {
             <Route path="bottom-nav" element={<AdminBottomNavEditor />} />
             <Route path="header-menu" element={<AdminHeaderMenu />} />
             <Route path="pnl" element={<AdminPnL />} />
+            <Route path="tiffin-preferences" element={<AdminTiffinPreferences />} />
+            <Route path="tiffin-stock" element={<AdminTiffinStock />} />
+            <Route path="cash-collections" element={<AdminCashCollections />} />
+            <Route path="partial-payments" element={<AdminPartialPayments />} />
             <Route path="theme" element={<AdminTheme />} />
             <Route path="landing" element={<AdminLanding />} />
             <Route path="dashboard-editor" element={<AdminDashboardEditor />} />

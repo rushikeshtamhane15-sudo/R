@@ -537,6 +537,28 @@ async def _activate_subscription(order: dict):
     """Create subscription + credit wallet. Idempotent on order_id. Supports both standard plans and custom orders."""
     if order.get("status") == "paid":
         return
+
+    # Partial-clear orders: don't create a new sub, just zero out pending_amount.
+    if order.get("is_partial_clear") and order.get("linked_sub_id"):
+        sub_id = order["linked_sub_id"]
+        sub_doc = await db.subscriptions.find_one({"sub_id": sub_id}, {"_id": 0})
+        if not sub_doc:
+            return
+        clear_amt = float(order.get("clear_amount") or order.get("base_amount") or 0)
+        new_pending = max(0.0, round(float(sub_doc.get("pending_amount") or 0) - clear_amt, 2))
+        new_amount_paid = round(float(sub_doc.get("amount_paid") or 0) + clear_amt, 2)
+        await db.subscriptions.update_one(
+            {"sub_id": sub_id},
+            {"$set": {"pending_amount": new_pending, "amount_paid": new_amount_paid}},
+        )
+        # Wallet top-up for the cleared amount
+        await db.users.update_one({"user_id": order["user_id"]}, {"$inc": {"wallet_balance": clear_amt}})
+        user_doc_w = await db.users.find_one({"user_id": order["user_id"]}, {"_id": 0, "wallet_balance": 1})
+        await _log_wallet_txn(order["user_id"], sub_id, "credit", clear_amt, float((user_doc_w or {}).get("wallet_balance") or 0), f"Partial-payment top-up · {order.get('plan_name')}")
+        await db.payment_orders.update_one({"order_id": order["order_id"]}, {"$set": {"status": "paid", "sub_id": sub_id, "paid_at": iso(now_utc())}})
+        logger.info(f"[PARTIAL CLEARED] user={order['user_id']} sub={sub_id} amount={clear_amt} pending={new_pending}")
+        return
+
     user_id = order["user_id"]
 
     # Build plan-shape from either DB plan or the order itself (custom flow).
@@ -564,12 +586,18 @@ async def _activate_subscription(order: dict):
     start = now_utc()
     end = start + timedelta(days=plan["duration_days"])
     per_day = round(float(plan["amount"]) / max(1, plan["duration_days"]), 2)
+    # Partial / cash flow markers
+    pending_amount = round(float(order.get("partial_pending") or 0), 2) if order.get("is_partial") else 0.0
+    payment_mode = order.get("payment_mode") or ("cash" if order.get("status") == "pending_cash" else "online")
     sub = {
         "sub_id": f"sub_{uuid.uuid4().hex[:12]}",
         "user_id": user_id,
         "plan_id": plan["plan_id"],
         "plan_name": plan["name"],
         "amount_paid": float(plan["amount"]),
+        "pending_amount": pending_amount,
+        "payment_mode": payment_mode,
+        "deposit_slip_no": order.get("deposit_slip_no"),
         "currency": plan["currency"],
         "meals_total": plan["meals"],
         "meals_used": 0,
@@ -2241,6 +2269,8 @@ from routes.plans import router as _plans_router
 from routes.wallet import router as _wallet_router
 from routes.subscription import router as _subscription_router
 from routes.tiffin_prefs_admin import router as _tiffin_prefs_router
+from routes.tiffin_stock import router as _tiffin_stock_router
+from routes.subscription_payment import router as _sub_payment_router
 api_router.include_router(_auth_router)
 api_router.include_router(_auth_google_router)
 api_router.include_router(_payments_router)
@@ -2256,6 +2286,8 @@ api_router.include_router(_plans_router)
 api_router.include_router(_wallet_router)
 api_router.include_router(_subscription_router)
 api_router.include_router(_tiffin_prefs_router)
+api_router.include_router(_tiffin_stock_router)
+api_router.include_router(_sub_payment_router)
 
 app.include_router(api_router)
 

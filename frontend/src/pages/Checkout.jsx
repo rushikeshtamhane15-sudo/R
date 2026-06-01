@@ -3,19 +3,27 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 import { toast } from "sonner";
-import { Loader2, Wallet, Check, AlertCircle, MapPin, Phone as PhoneIcon, User as UserIcon, Sparkles, Receipt } from "lucide-react";
+import { Loader2, Wallet, Check, AlertCircle, MapPin, Phone as PhoneIcon, User as UserIcon, Sparkles, Receipt, Banknote, CreditCard, SplitSquareHorizontal, Clock } from "lucide-react";
 
 const PLATFORM_FEE_PCT = 2.0;
+const MIN_PARTIAL_FRACTION = 0.5;
 
 export default function Checkout() {
   const navigate = useNavigate();
   const { planId } = useParams();
   const [params] = useSearchParams();
-  const { user } = useAuth();
+  const { user, checkAuth } = useAuth();
   const [plan, setPlan] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState("idle");
+
+  // Payment mode: "online_full" | "partial" | "cash"
+  const [payMode, setPayMode] = useState("online_full");
+  const [partialDown, setPartialDown] = useState(0);
+  // Cash success state
+  const [cashSuccess, setCashSuccess] = useState(null); // {order_id, dev_otp, amount}
 
   const isCustom = planId === "custom";
   const days = isCustom ? Math.max(1, Math.min(90, Number(params.get("days") || 1))) : null;
@@ -49,7 +57,7 @@ export default function Checkout() {
         } catch { toast.error("Could not load plan"); }
       })();
     }
-  }, [planId, isCustom, days, navigate]);
+  }, [planId, isCustom, days, navigate, customServiceType, customTiffinSize]);
 
   useEffect(() => {
     const next = isCustom ? `/checkout/custom?days=${days}` : `/checkout/${planId}`;
@@ -61,18 +69,64 @@ export default function Checkout() {
   const fees = useMemo(() => {
     if (!plan) return null;
     const base = Number(plan.amount);
-    const fee = Math.round(base * PLATFORM_FEE_PCT) / 100;
-    return { base, fee, total: Math.round((base + fee) * 100) / 100 };
+    const minDown = Math.ceil(base * MIN_PARTIAL_FRACTION);
+    return { base, minDown };
   }, [plan]);
 
-  const handlePay = async () => {
+  // Initialise partial-down to min when user toggles to partial
+  useEffect(() => {
+    if (payMode === "partial" && fees && (!partialDown || partialDown < fees.minDown)) {
+      setPartialDown(fees.minDown);
+    }
+  }, [payMode, fees]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const effectiveBase = useMemo(() => {
+    if (!fees) return 0;
+    if (payMode === "partial") return Math.max(fees.minDown, Math.min(Number(partialDown || 0), fees.base));
+    return fees.base;
+  }, [payMode, partialDown, fees]);
+
+  const finalFees = useMemo(() => {
+    if (!fees) return null;
+    const base = payMode === "partial" ? effectiveBase : fees.base;
+    const fee = Math.round(base * PLATFORM_FEE_PCT) / 100;
+    const total = Math.round((base + fee) * 100) / 100;
+    const pending = payMode === "partial" ? Math.max(0, Math.round((fees.base - base) * 100) / 100) : 0;
+    return { base, fee, total, pending, planTotal: fees.base };
+  }, [fees, effectiveBase, payMode]);
+
+  // ---- Submit handlers ----
+  const submitCash = async () => {
     setSubmitting(true); setStatus("creating");
     try {
-      const orderRes = isCustom
-        ? await api.post("/payments/custom-order", { days, service_type: customServiceType, tiffin_size: customTiffinSize })
-        : await api.post("/payments/order", { plan_id: planId });
-      const order = orderRes.data;
+      const body = isCustom
+        ? { days, service_type: customServiceType, tiffin_size: customTiffinSize }
+        : { plan_id: planId };
+      const r = await api.post("/payments/cash-order", body);
+      setCashSuccess({ order_id: r.data.order_id, dev_otp: r.data.dev_otp, amount: r.data.amount, plan_name: r.data.plan_name });
+      setStatus("success");
+      toast.success("Cash order created · staff will collect cash");
+    } catch (e) {
+      setStatus("error");
+      toast.error(e?.response?.data?.detail || "Could not create cash order");
+    } finally { setSubmitting(false); }
+  };
 
+  const submitOnline = async () => {
+    setSubmitting(true); setStatus("creating");
+    try {
+      let orderRes;
+      if (payMode === "partial") {
+        const body = isCustom
+          ? { days, service_type: customServiceType, tiffin_size: customTiffinSize, down_payment: effectiveBase }
+          : { plan_id: planId, down_payment: effectiveBase };
+        orderRes = await api.post("/payments/partial-order", body);
+      } else {
+        orderRes = isCustom
+          ? await api.post("/payments/custom-order", { days, service_type: customServiceType, tiffin_size: customTiffinSize })
+          : await api.post("/payments/order", { plan_id: planId });
+      }
+      const order = orderRes.data;
       if (order.mock) {
         setStatus("verifying");
         const verify = await api.post("/payments/verify", {
@@ -80,7 +134,7 @@ export default function Checkout() {
           razorpay_payment_id: `pay_mock_${Date.now()}`,
           razorpay_signature: "mock_signature",
         });
-        if (verify.data.ok) { setStatus("success"); toast.success("Payment successful!"); setTimeout(() => navigate("/dashboard"), 1200); }
+        if (verify.data.ok) { setStatus("success"); toast.success("Payment successful!"); await checkAuth?.(); setTimeout(() => navigate("/dashboard"), 1200); }
         else { setStatus("error"); toast.error("Verification failed"); }
       } else {
         await loadRazorpayScript();
@@ -98,7 +152,7 @@ export default function Checkout() {
                 razorpay_payment_id: res.razorpay_payment_id,
                 razorpay_signature: res.razorpay_signature,
               });
-              if (verify.data.ok) { setStatus("success"); toast.success("Payment successful!"); setTimeout(() => navigate("/dashboard"), 1200); }
+              if (verify.data.ok) { setStatus("success"); toast.success("Payment successful!"); await checkAuth?.(); setTimeout(() => navigate("/dashboard"), 1200); }
               else { setStatus("error"); toast.error("Verification failed"); }
             } catch (e) { setStatus("error"); toast.error(e?.response?.data?.detail || "Verification failed"); }
           },
@@ -117,7 +171,27 @@ export default function Checkout() {
     } finally { setSubmitting(false); }
   };
 
-  if (!plan || !user || !fees) return <div className="p-12 text-center text-muted-foreground flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>;
+  const handlePay = () => (payMode === "cash" ? submitCash() : submitOnline());
+
+  if (!plan || !user || !finalFees) return <div className="p-12 text-center text-muted-foreground flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>;
+
+  if (cashSuccess) {
+    return (
+      <div className="max-w-xl mx-auto px-6 py-14 text-center" data-testid="cash-pending-confirm">
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-8">
+          <Clock className="h-10 w-10 text-amber-600 mx-auto" />
+          <h1 className="font-display font-extrabold text-2xl mt-3 text-amber-900">Cash payment pending</h1>
+          <p className="text-sm text-amber-800 mt-2">Hand over <span className="font-bold">₹{cashSuccess.amount?.toFixed?.(2)}</span> cash to our staff.</p>
+          <div className="mt-4 rounded-xl bg-white border border-amber-200 p-4 text-left text-sm">
+            <p className="text-xs uppercase tracking-overline font-bold text-amber-700">Your OTP (share with staff)</p>
+            <p className="font-display font-extrabold text-3xl tabular-nums mt-1 text-amber-900" data-testid="cash-otp">{cashSuccess.dev_otp || "Sent on WhatsApp / SMS"}</p>
+            <p className="text-[11px] text-muted-foreground mt-2">Order id: <span className="font-mono">{cashSuccess.order_id}</span></p>
+          </div>
+          <Button onClick={() => navigate("/dashboard")} className="rounded-full mt-6" data-testid="cash-go-dashboard">Go to dashboard</Button>
+        </div>
+      </div>
+    );
+  }
 
   const perDay = (plan.amount / plan.duration_days).toFixed(0);
   const backNext = isCustom ? `/checkout/custom?days=${days}` : `/checkout/${planId}`;
@@ -139,8 +213,55 @@ export default function Checkout() {
             <li className="flex items-center gap-2"><Check className="h-4 w-4 text-primary" /> {plan.meals} meals across {plan.duration_days} day{plan.duration_days > 1 ? "s" : ""}</li>
             <li className="flex items-center gap-2"><Check className="h-4 w-4 text-primary" /> ₹{perDay} per day wallet deduction</li>
             <li className="flex items-center gap-2"><Check className="h-4 w-4 text-primary" /> Auto-pause on 3+ inactive days</li>
-            {isCustom && <li className="flex items-center gap-2"><Check className="h-4 w-4 text-primary" /> Fixed price ₹70 per meal</li>}
           </ul>
+
+          {/* Payment mode selector */}
+          <div className="mt-6 border-t border-border pt-5" data-testid="payment-mode">
+            <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Payment mode</p>
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {[
+                { id: "online_full", label: "Pay fully online", icon: CreditCard, hint: "UPI, card, netbanking" },
+                { id: "partial",     label: "Pay 50% now",     icon: SplitSquareHorizontal, hint: "Settle the rest later" },
+                { id: "cash",        label: "Pay in cash",     icon: Banknote, hint: "Hand cash to staff with OTP" },
+              ].map((m) => (
+                <button key={m.id} type="button" onClick={() => setPayMode(m.id)}
+                  data-testid={`pay-mode-${m.id}`}
+                  className={`text-left rounded-xl border px-3.5 py-3 transition-colors ${payMode === m.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}>
+                  <m.icon className={`h-4 w-4 ${payMode === m.id ? "text-primary" : "text-muted-foreground"}`} />
+                  <p className="font-semibold text-sm mt-1.5">{m.label}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{m.hint}</p>
+                </button>
+              ))}
+            </div>
+
+            {payMode === "partial" && (
+              <div className="mt-4 rounded-xl bg-muted/30 border border-border p-4" data-testid="partial-down-block">
+                <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Down payment now</label>
+                <div className="mt-2 flex items-center gap-3">
+                  <Input
+                    type="number"
+                    min={fees.minDown}
+                    max={fees.base}
+                    value={partialDown}
+                    onChange={(e) => setPartialDown(Math.max(fees.minDown, Math.min(fees.base, Number(e.target.value) || 0)))}
+                    className="rounded-xl font-display font-bold text-lg w-36"
+                    data-testid="partial-down-input"
+                  />
+                  <input
+                    type="range"
+                    min={fees.minDown}
+                    max={fees.base}
+                    step={50}
+                    value={partialDown}
+                    onChange={(e) => setPartialDown(Number(e.target.value))}
+                    className="flex-1 accent-primary"
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-2">Minimum ₹{fees.minDown.toFixed(0)} (50% of ₹{fees.base.toFixed(0)}). Pending ₹{(fees.base - effectiveBase).toFixed(0)} can be settled later online or in cash.</p>
+              </div>
+            )}
+          </div>
+
           <div className="mt-6 border-t border-border pt-5">
             <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Delivery details</p>
             <div className="mt-3 space-y-2 text-sm">
@@ -160,15 +281,27 @@ export default function Checkout() {
             <dl className="mt-4 space-y-2 text-sm">
               <div className="flex items-baseline justify-between gap-3">
                 <dt className="text-muted-foreground break-words min-w-0">{plan.name}</dt>
-                <dd className="font-semibold tabular-nums whitespace-nowrap">₹{fees.base.toFixed(2)}</dd>
+                <dd className="font-semibold tabular-nums whitespace-nowrap">₹{finalFees.planTotal.toFixed(2)}</dd>
               </div>
+              {payMode === "partial" && (
+                <>
+                  <div className="flex items-baseline justify-between">
+                    <dt className="text-muted-foreground">Paying now</dt>
+                    <dd className="font-semibold tabular-nums text-primary" data-testid="partial-now-amt">₹{finalFees.base.toFixed(2)}</dd>
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <dt className="text-muted-foreground">Pending balance</dt>
+                    <dd className="font-semibold tabular-nums text-amber-700" data-testid="partial-pending-amt">₹{finalFees.pending.toFixed(2)}</dd>
+                  </div>
+                </>
+              )}
               <div className="flex items-baseline justify-between">
                 <dt className="text-muted-foreground">Platform fee ({PLATFORM_FEE_PCT}%)</dt>
-                <dd className="font-semibold tabular-nums" data-testid="platform-fee">₹{fees.fee.toFixed(2)}</dd>
+                <dd className="font-semibold tabular-nums" data-testid="platform-fee">₹{finalFees.fee.toFixed(2)}</dd>
               </div>
               <div className="flex items-baseline justify-between border-t border-border pt-3 mt-3">
-                <dt className="font-semibold">Total payable</dt>
-                <dd className="font-display font-extrabold text-xl tabular-nums" data-testid="total-payable">₹{fees.total.toFixed(2)}</dd>
+                <dt className="font-semibold">{payMode === "cash" ? "Cash to hand over" : "Total payable now"}</dt>
+                <dd className="font-display font-extrabold text-xl tabular-nums" data-testid="total-payable">₹{finalFees.total.toFixed(2)}</dd>
               </div>
             </dl>
           </div>
@@ -176,14 +309,10 @@ export default function Checkout() {
           <div className="bg-primary text-primary-foreground rounded-2xl p-6" data-testid="wallet-preview">
             <Wallet className="h-5 w-5 text-primary-foreground/70" strokeWidth={1.75} />
             <p className="text-[10px] tracking-overline uppercase font-bold text-primary-foreground/70 mt-3">Wallet load</p>
-            <p className="font-display font-extrabold text-4xl mt-2 leading-none">₹{fees.base.toFixed(0)}</p>
+            <p className="font-display font-extrabold text-4xl mt-2 leading-none">₹{finalFees.base.toFixed(0)}</p>
             <p className="text-xs text-primary-foreground/80 mt-3">Ticks down by ₹{perDay}/day</p>
           </div>
 
-          {/* Demo-mode notice — admin-only. End users never need to see
-              Razorpay configuration warnings; the backend silently uses a
-              mock pipeline when keys aren't live, and the order completes
-              normally for the customer. */}
           {user?.role === "admin" && (
             <div className="bg-secondary/10 border border-secondary/20 rounded-2xl p-4 text-sm flex items-start gap-3" data-testid="mock-payment-notice">
               <AlertCircle className="h-4 w-4 text-secondary mt-0.5 shrink-0" />
@@ -194,11 +323,11 @@ export default function Checkout() {
           )}
 
           <Button onClick={handlePay} disabled={submitting || status === "success"} data-testid="pay-button" className="w-full h-12 rounded-full bg-primary hover:bg-primary/90 font-semibold text-base">
-            {status === "idle" && `Pay ₹${fees.total.toFixed(2)}`}
+            {status === "idle" && (payMode === "cash" ? `Confirm cash · ₹${finalFees.total.toFixed(0)}` : `Pay ₹${finalFees.total.toFixed(2)}`)}
             {status === "creating" && <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Creating order…</>}
             {status === "paying" && <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Opening Razorpay…</>}
             {status === "verifying" && <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Verifying…</>}
-            {status === "success" && <><Check className="h-4 w-4 mr-2" /> Paid!</>}
+            {status === "success" && <><Check className="h-4 w-4 mr-2" /> Done!</>}
             {status === "error" && "Retry"}
           </Button>
         </div>
