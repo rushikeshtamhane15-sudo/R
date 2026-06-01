@@ -515,6 +515,24 @@ Backend: 14/14 new (test_iter27_app_cms.py) + 110/114 regression (4 timeouts unr
 - **Iteration 36 testing**: 10/10 backend pytest + 9/9 frontend checks pass.
 
 
+## Iteration 52 (Jun 1, 2026) — 7 fixes batch: quote color, hide razorpay banner, marquee regression, horiz toggles, tab filter, tiffin prefs, geo-serviceability
+
+### Features delivered
+1. **#1 Quote color**: HeroPanel Hindi-quote color yellow → **white**.
+2. **#2 Razorpay banner hidden from users**: `Checkout.jsx` "Razorpay demo mode" alert wrapped in `user?.role==='admin'`.
+3. **#3 Marquee regression fixed**: `BadStuffMarquee.jsx` rewritten with **inline styles**. iter-51 had track width=0; now 2626px with all 16 pills visible.
+4. **#4 Toggles side-by-side**: `Plans.jsx` Service + Tiffin-size toggles in a single horizontal row.
+5. **#5 Plan category filter (user-side)**: `Plans.jsx` `visiblePlans` filter reads `p.category` first. Admin-created tiffin plans now show only under the tiffin tab.
+6. **#6 Tiffin food preferences (NEW)**: rice/dal/chapati/sabji + chapati_count (0-8). Snapshot onto each `daily_rosters` doc on generation. `TiffinPreferencesCard.jsx` on dashboard. `StaffDeliveries.jsx` shows badges.
+7. **#7 Geolocation + serviceability (NEW)**: `GET /api/restaurant/serviceable-area` + `GeoServiceabilityBanner.jsx` on /restaurant uses navigator.geolocation, haversine vs kitchen pin, shows in-range or out-of-range pill.
+
+### Tests
+- Backend: **78 PASSED / 3 SKIPPED** (iter-52 NEW + iter-43/46/47/48/51/7/8/9 regression). Zero regressions.
+- Frontend: 100% — marquee 16 pills, quote marks white, GeoBanner verified, /checkout banner admin-gated, /plans toggles side-by-side.
+- Razorpay LIVE keys still failing auth (user-side credentials issue).
+- Reports: `/app/test_reports/iteration_52.json`.
+
+
 ## Iteration 51 (Feb 27, 2026) — Big 10-item batch: marquee admin CMS + Pure Veg white + image-gen budget UX + checkout fix + plan bifurcation + meal-window QR enforcement + horiz toggles + landing image upload
 
 ### Features delivered

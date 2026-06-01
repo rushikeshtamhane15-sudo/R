@@ -157,9 +157,10 @@ export default function Plans() {
             <h2 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-3 leading-tight">Pick any number of days.</h2>
             <p className="text-muted-foreground mt-3 leading-relaxed">Pay exactly for the days you'll eat. <span className="font-semibold text-foreground">₹{MEAL_PRICE_FULL}/meal</span> for full tiffin or dining; <span className="font-semibold text-foreground">₹{MEAL_PRICE_HALF}/meal</span> for half tiffin.</p>
 
-            {/* Iter-52: Service + tiffin-size in a single horizontal row so
-                both toggles sit side-by-side for a cleaner, professional look. */}
-            <div className="mt-6 flex flex-col sm:flex-row items-start sm:items-end justify-center gap-6 sm:gap-10 flex-wrap">
+            {/* Iter-52: Service + tiffin-size in a single horizontal row.
+                On sm+, force a row (no flex-wrap) so both toggles sit
+                side-by-side. On xs (<640px), stack vertically for room. */}
+            <div className="mt-6 flex flex-col sm:flex-row sm:items-end items-start justify-center gap-6 sm:gap-10">
               <div className="text-center">
                 <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Service</label>
                 <div className="mt-2 inline-flex gap-2 flex-wrap justify-center" data-testid="custom-service">
