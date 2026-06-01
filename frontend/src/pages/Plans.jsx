@@ -33,9 +33,16 @@ export default function Plans() {
     })();
   }, []);
 
-  // Filter plans by current service tab. Fall back: legacy plans without service_type are dining.
+  // Filter plans by current service tab. Map "dining" tab -> dining category,
+  // "tiffin" tab -> tiffin category. Plans persisted via /admin/plans set
+  // `category` (iter-51). Older plans without `category` fall back to
+  // `service_type` (pre-iter-51) and finally to "dining" so legacy data
+  // doesn't disappear.
   const visiblePlans = useMemo(
-    () => plans.filter((p) => (p.service_type || "dining") === service),
+    () => plans.filter((p) => {
+      const cat = (p.category || p.service_type || "dining").toLowerCase();
+      return cat === service;
+    }),
     [plans, service]
   );
 
@@ -150,38 +157,42 @@ export default function Plans() {
             <h2 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-3 leading-tight">Pick any number of days.</h2>
             <p className="text-muted-foreground mt-3 leading-relaxed">Pay exactly for the days you'll eat. <span className="font-semibold text-foreground">₹{MEAL_PRICE_FULL}/meal</span> for full tiffin or dining; <span className="font-semibold text-foreground">₹{MEAL_PRICE_HALF}/meal</span> for half tiffin.</p>
 
-            <div className="mt-6 text-center">
-              <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Service</label>
-              <div className="mt-2 inline-flex gap-2 flex-wrap justify-center" data-testid="custom-service">
-                {SERVICES.map((s) => (
-                  <button
-                    key={s.id} type="button" onClick={() => setService(s.id)}
-                    data-testid={`custom-service-${s.id}`}
-                    className={`px-4 h-10 rounded-full text-sm font-semibold border transition-colors flex items-center gap-1.5 ${service === s.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
-                  >
-                    <s.icon className="h-3.5 w-3.5" /> {s.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {service === "tiffin" && (
-              <div className="mt-5 text-center" data-testid="custom-tiffin-size">
-                <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Tiffin size</label>
-                <div className="mt-2 inline-flex gap-2 flex-wrap justify-center">
-                  {[
-                    { id: "full", label: "Full · 5 chapati" },
-                    { id: "half", label: "Half · 3 chapati" },
-                  ].map((t) => (
+            {/* Iter-52: Service + tiffin-size in a single horizontal row so
+                both toggles sit side-by-side for a cleaner, professional look. */}
+            <div className="mt-6 flex flex-col sm:flex-row items-start sm:items-end justify-center gap-6 sm:gap-10 flex-wrap">
+              <div className="text-center">
+                <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Service</label>
+                <div className="mt-2 inline-flex gap-2 flex-wrap justify-center" data-testid="custom-service">
+                  {SERVICES.map((s) => (
                     <button
-                      key={t.id} type="button" onClick={() => setTiffinSize(t.id)}
-                      className={`px-4 h-10 rounded-full text-sm font-semibold border transition-colors ${tiffinSize === t.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
-                      data-testid={`custom-tiffin-${t.id}`}
-                    >{t.label}</button>
+                      key={s.id} type="button" onClick={() => setService(s.id)}
+                      data-testid={`custom-service-${s.id}`}
+                      className={`px-4 h-10 rounded-full text-sm font-semibold border transition-colors flex items-center gap-1.5 ${service === s.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
+                    >
+                      <s.icon className="h-3.5 w-3.5" /> {s.label}
+                    </button>
                   ))}
                 </div>
               </div>
-            )}
+
+              {service === "tiffin" && (
+                <div className="text-center" data-testid="custom-tiffin-size">
+                  <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Tiffin size</label>
+                  <div className="mt-2 inline-flex gap-2 flex-wrap justify-center">
+                    {[
+                      { id: "full", label: "Full · 5 chapati" },
+                      { id: "half", label: "Half · 3 chapati" },
+                    ].map((t) => (
+                      <button
+                        key={t.id} type="button" onClick={() => setTiffinSize(t.id)}
+                        className={`px-4 h-10 rounded-full text-sm font-semibold border transition-colors ${tiffinSize === t.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
+                        data-testid={`custom-tiffin-${t.id}`}
+                      >{t.label}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div className="mt-6 flex flex-wrap gap-2 justify-center" data-testid="day-presets">
               {[3, 5, 7, 10, 15, 21].map((d) => (

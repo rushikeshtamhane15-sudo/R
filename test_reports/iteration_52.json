@@ -1,0 +1,47 @@
+{
+  "summary": "Iter-52 backend + frontend testing. Backend: 78 passed / 3 skipped (full regression of iter43,46,47,51,7,8,9 + new iter52 suite). ZERO regressions vs iter-51 baseline (73P/1S). New iter-52 tests (7 added): GET /restaurant/serviceable-area public 200, GET/PUT /my/tiffin/preferences auth + tiffin-only gate + chapati_count clamp 0..8 + 400 for dining/eat-in subs + 404 for no-sub, daily_rosters tiffin_preferences snapshot on roster/generate. Frontend: marquee REGRESSION FIXED (16 spans visible, track firstChild offsetWidth=2626px — was 0 in iter-51). Hindi quote marks now white rgb(255,255,255). GeoServiceabilityBanner verified in-range (Pune 18.5204,73.8567) + out-of-range (mock 19.5,75.5 → 204km). Plans horizontal toggle row FAILED: [data-testid=custom-service] and [data-testid=custom-tiffin-size] have yDiff=80px (stacked vertically), expected ≤10px on 1440x900 desktop.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Plans.jsx (custom plan builder)",
+        "issue": "Service and Tiffin-size toggles are NOT in a single horizontal row on desktop 1440x900. Bounding-rect Y delta = 80px (svcY=1225, tiffinSizeY=1305) — they're stacked vertically, not side-by-side. flex sm:flex-row gap-10 wrapper does not appear to be applied to both toggles' shared parent.",
+        "selector": "[data-testid=custom-service] + [data-testid=custom-tiffin-size]",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter52.py",
+    "/app/test_reports/pytest/iter52_results.xml"
+  ],
+  "action_items": [
+    "Fix Plans.jsx: ensure the shared parent of [data-testid=custom-service] and [data-testid=custom-tiffin-size] applies `flex sm:flex-row gap-10` (or equivalent) so both toggles render in the same row on ≥sm viewports. Currently their bounding boxes are 80px apart vertically.",
+    "FYI (skipped due to token budget, not blocked): /checkout admin-only banner gate and /dashboard TiffinPreferencesCard end-to-end flow were not run via Playwright in this iteration — relevant code reviewed in spec. Main agent can self-verify these two flows via OTP login chain (phones 9970705391 admin / 9876543210 subscriber)."
+  ],
+  "critical_code_review_comments": [
+    "routes/subscription.py /my/tiffin/preferences correctly clamps chapati_count to 0..8 via max(0,min(8,int(cnt))) — robust against negative + overflow input. Good.",
+    "routes/subscription.py: 400 detail string for non-tiffin subs mentions 'tiffin (home-delivery)' — matches the spec's exact substring requirement. Good.",
+    "delivery/admin.py _generate_roster_for_date correctly reads sub.get('tiffin_preferences') or None onto each daily_rosters doc — snapshot survives even if subscriber edits prefs later. Idempotent re-runs preserve original snapshot because the `exists` check short-circuits. Good.",
+    "routes/restaurant.py /restaurant/serviceable-area is a public GET (no Depends(get_current_user)) — matches spec. Falls back to radius=15 if admin hasn't pinned dispatch. Good.",
+    "BadStuffMarquee inline-styles approach: works (firstChild offsetWidth=2626px). Recommend: keep CSS animation class but make track width inline-derived — current rewrite trades reusability for correctness; acceptable."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter52.py (created)"
+  ],
+  "success_rate": {
+    "backend": "100% (78/78 active, 3 baseline skipped)",
+    "frontend": "80% (4/5 visual checks pass; Plans horizontal-row layout fails)"
+  },
+  "test_credentials": "Admin OTP phone=9970705391 (dev_otp via /api/auth/send-otp). Subscriber OTP phone=9876543210.",
+  "seed_data_creation": "Synthetic tiffin sub for subscriber inserted directly into mongo for TestTiffinPreferences + TestRosterTiffinPrefsSnapshot (bypasses Razorpay LIVE-key failures). Synthetic dining sub for TestTiffinPrefsForDiningSub. All fixtures auto-teardown (delete sub + tomorrow's roster docs).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter-52 test file is /app/backend/tests/test_iter52.py — covers serviceable-area public endpoint + my/tiffin/preferences GET/PUT + roster snapshot. Source BOTH /app/backend/.env (MONGO_URL, DB_NAME) AND /app/frontend/.env (REACT_APP_BACKEND_URL) before pytest. The synthetic-sub fixtures REPLACE any existing active sub for phone 9876543210 (sets status=expired) — if a real test sub matters, recreate it post-run. Geo banner Playwright pattern works: ctx.grant_permissions(['geolocation'], origin=...) + ctx.set_geolocation({lat,lng}) BEFORE page.goto. The /plans horizontal-row regression needs main agent attention — confirmed yDiff=80px on 1440x900.",
+  "rca of the issue": "Plans horizontal-row failure: /app/frontend/src/pages/Plans.jsx likely wraps [data-testid=custom-service] and [data-testid=custom-tiffin-size] in separate parents OR the flex container is missing 'sm:flex-row' OR they're rendered conditionally (custom-tiffin-size only mounts when Service=Tiffin, but the wrapping flex row collapses). Repro: viewport 1440x900, navigate to /plans, click 'Tiffin delivery' pill, inspect getBoundingClientRect of both testids. Expected same top ±10px; actual delta=80px. Fix: ensure both testids share a single parent <div class='flex sm:flex-row gap-10'> rendered unconditionally with custom-tiffin-size visibility toggled via conditional rendering INSIDE that parent (not by remounting the parent)."
+}

@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import QRTicket from "../components/QRTicket";
 import PendingDeliveriesBanner from "../components/PendingDeliveriesBanner";
+import TiffinPreferencesCard from "../components/TiffinPreferencesCard";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
 import {
@@ -103,7 +104,12 @@ export default function SubscriberDashboard() {
           </div>
         );
       case "tiffin_tracker":
-        return isTiffin ? <PendingDeliveriesBanner /> : null;
+        return isTiffin ? (
+          <>
+            <PendingDeliveriesBanner />
+            <TiffinPreferencesCard />
+          </>
+        ) : null;
       default:
         return null;
     }

@@ -180,12 +180,18 @@ export default function Checkout() {
             <p className="text-xs text-primary-foreground/80 mt-3">Ticks down by ₹{perDay}/day</p>
           </div>
 
-          <div className="bg-secondary/10 border border-secondary/20 rounded-2xl p-4 text-sm flex items-start gap-3" data-testid="mock-payment-notice">
-            <AlertCircle className="h-4 w-4 text-secondary mt-0.5 shrink-0" />
-            <p className="text-secondary-foreground/80">
-              <span className="font-bold">Razorpay demo mode.</span> Add <code className="bg-muted/60 px-1 rounded">RAZORPAY_KEY_ID</code> & <code className="bg-muted/60 px-1 rounded">SECRET</code> in backend .env to enable live UPI.
-            </p>
-          </div>
+          {/* Demo-mode notice — admin-only. End users never need to see
+              Razorpay configuration warnings; the backend silently uses a
+              mock pipeline when keys aren't live, and the order completes
+              normally for the customer. */}
+          {user?.role === "admin" && (
+            <div className="bg-secondary/10 border border-secondary/20 rounded-2xl p-4 text-sm flex items-start gap-3" data-testid="mock-payment-notice">
+              <AlertCircle className="h-4 w-4 text-secondary mt-0.5 shrink-0" />
+              <p className="text-secondary-foreground/80">
+                <span className="font-bold">Razorpay demo mode.</span> Add <code className="bg-muted/60 px-1 rounded">RAZORPAY_KEY_ID</code> & <code className="bg-muted/60 px-1 rounded">SECRET</code> in backend .env to enable live UPI.
+              </p>
+            </div>
+          )}
 
           <Button onClick={handlePay} disabled={submitting || status === "success"} data-testid="pay-button" className="w-full h-12 rounded-full bg-primary hover:bg-primary/90 font-semibold text-base">
             {status === "idle" && `Pay ₹${fees.total.toFixed(2)}`}

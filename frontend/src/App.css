@@ -471,12 +471,14 @@
     pointer-events: none;
 }
 .bad-stuff-marquee-track {
-    display: inline-flex;
+    display: flex;
     gap: 12px;
     width: max-content;
+    min-width: max-content;
     /* `animation-duration` is set inline by the React component so admin
        can tune speed live. Fallback below in case style is missing. */
     animation: bad-stuff-marquee-scroll 12s linear infinite;
+    will-change: transform;
 }
 @media (prefers-reduced-motion: reduce) {
     .bad-stuff-marquee-track { animation: none; }

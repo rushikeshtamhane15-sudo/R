@@ -171,6 +171,11 @@ def make_router(db) -> APIRouter:
                     "otp": gen_otp(),
                     "delivered_at": None,
                     "notes": "",
+                    # Iter-52: snapshot the user's tiffin food preferences
+                    # so dispatch staff packs exactly what was requested.
+                    # Reads back via the existing /admin/delivery/roster
+                    # endpoint without schema changes.
+                    "tiffin_preferences": sub.get("tiffin_preferences") or None,
                 }
                 await db.daily_rosters.insert_one(doc.copy())
                 if meal == "lunch":

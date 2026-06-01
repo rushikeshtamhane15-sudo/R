@@ -166,6 +166,28 @@ export default function StaffDeliveries() {
                     <span className={`text-[10px] tracking-overline uppercase font-bold px-2 py-0.5 rounded-full ${r.tiffin_size === "full" ? "bg-primary/10 text-primary" : "bg-secondary/15 text-secondary"}`}>
                       {r.tiffin_size}
                     </span>
+                    {/* Iter-52: per-user food preferences snapshot */}
+                    {r.tiffin_preferences && (
+                      <div className="mt-1.5 flex flex-wrap gap-1" data-testid={`prefs-${r.roster_id}`}>
+                        {["rice", "dal", "chapati", "sabji"].map((k) => {
+                          const on = r.tiffin_preferences[k] !== false;
+                          return (
+                            <span
+                              key={k}
+                              className={`text-[9px] tracking-wide font-bold px-1.5 py-0.5 rounded ${on ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700 line-through"}`}
+                              title={`${k}: ${on ? "Yes" : "Skip"}`}
+                            >
+                              {on ? "✓" : "✗"} {k}
+                            </span>
+                          );
+                        })}
+                        {r.tiffin_preferences.chapati_count != null && r.tiffin_preferences.chapati !== false && (
+                          <span className="text-[9px] tracking-wide font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                            {r.tiffin_preferences.chapati_count}× chapati
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`text-[10px] tracking-overline uppercase font-bold ${r.status === "delivered" ? "text-emerald-600" : r.status === "out" ? "text-amber-600" : r.status === "returned" ? "text-destructive" : "text-muted-foreground"}`}>

@@ -278,6 +278,22 @@ def _compute_totals(menu_by_id: dict, items: list[CartLine]) -> tuple[list[dict]
 # ---------------------------------------------------------------------------
 # Public — menu read
 # ---------------------------------------------------------------------------
+@router.get("/restaurant/serviceable-area")
+async def restaurant_serviceable_area():
+    """Public — returns the kitchen's dispatch lat/lng + serviceable radius.
+    Iter-52: front-end uses this to check the geolocated customer position
+    against the brand's delivery range. Falls back to a 15km radius if the
+    admin hasn't pinned the kitchen yet.
+    """
+    from shared import server as _s
+    settings_doc = await _s.db.delivery_settings.find_one({"_id": "active"}, {"_id": 0}) or {}
+    return {
+        "dispatch_lat": settings_doc.get("dispatch_lat"),
+        "dispatch_lng": settings_doc.get("dispatch_lng"),
+        "dispatch_radius_km": settings_doc.get("dispatch_radius_km", 15),
+    }
+
+
 @router.get("/restaurant/menu")
 async def public_menu():
     items = await _load_menu()

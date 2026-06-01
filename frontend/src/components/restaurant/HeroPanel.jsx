@@ -150,9 +150,9 @@ export default function HeroPanel({ theme, meta }) {
             data-testid="hero-hindi-quote"
             lang="hi"
           >
-            <span aria-hidden className="mr-1 text-yellow-200">“</span>
+            <span aria-hidden className="mr-1 text-white">“</span>
             {theme?.hero_promise_line1 || "हम टाइम लेते हैं पर फ्रेश लातें हैं"}
-            <span aria-hidden className="ml-1 text-yellow-200">”</span>
+            <span aria-hidden className="ml-1 text-white">”</span>
           </p>
         );
       case "tagline":
