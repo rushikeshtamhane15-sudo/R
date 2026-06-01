@@ -515,6 +515,49 @@ Backend: 14/14 new (test_iter27_app_cms.py) + 110/114 regression (4 timeouts unr
 - **Iteration 36 testing**: 10/10 backend pytest + 9/9 frontend checks pass.
 
 
+## Iteration 53 (Feb 11, 2026) — Cash + Partial Payments · Tiffin Stock · AI 3D Pref Images
+
+### Features delivered
+
+**1. Admin Tiffin Preferences AI 3D image gen + upload** (Task A complete)
+- `AdminTiffinPreferences.jsx` extended with `AI 3D image` button per row that calls the existing `POST /api/admin/restaurant/menu/generate-image` endpoint (Gemini Nano Banana via emergent universal key) — generates a plated tiffin-side photo.
+- Admin can ALSO upload manually via `POST /api/admin/tiffin-preferences/upload-image`.
+- Optional `description` field surfaces and is used to enrich the AI prompt.
+
+**2. Cash subscription with Staff/Admin OTP verification** (Task B complete)
+- `POST /api/payments/cash-order` — subscriber-side; creates pending_cash order + sends 6-digit OTP (stub-WA, dev_otp echoed in DEV mode).
+- `POST /api/admin/payments/cash-collect/assign` — admin assigns specific staff (optional).
+- `POST /api/admin/payments/cash-collect/resend-otp` — admin/staff trigger fresh OTP.
+- `POST /api/staff/cash-collect/verify-otp` — admin OR staff (user choice **1c**) enters OTP; on match, subscription activates with `payment_mode=cash`, auto-generates `deposit_slip_no=SLIP-YYYYMMDD-XXXX`. 5-attempt rate limit per order.
+- `GET /api/admin/payments/pending-cash` — list pending rows, customer name+phone enriched, **cash_otp NEVER exposed**.
+- New admin page `/admin/cash-collections` — pending list, assign dropdown, OTP entry + slip + verify, resend.
+- Checkout.jsx — new `Pay in cash` mode card; success screen shows OTP for subscriber to hand staff.
+
+**3. Partial / split payments (50% minimum)** (Task C complete)
+- `POST /api/payments/partial-order` — accepts `down_payment` ≥ 50% of plan amount (user choice **2b**). Razorpay (mock fallback) order for the down + platform fee.
+- After standard `/payments/verify`, subscription is created with `amount_paid=down`, `pending_amount=total-down`, `payment_mode=online_partial`.
+- `GET /api/my/partial-balance` — subscriber view of open balances.
+- `POST /api/payments/clear-partial-balance` — subscriber pays any amount toward an outstanding sub. After verify, `pending_amount` reduces, `amount_paid` + wallet credit increases.
+- `GET /api/admin/payments/pending-partials` — admin view with totals.
+- New admin page `/admin/partial-payments`.
+- Checkout.jsx — partial mode with range slider + minimum-50% guard; bill summary shows "Paying now" + "Pending balance" rows.
+
+**4. Physical raw tiffin stock tracking** (Task D complete)
+- New singleton `db.tiffin_stock` + audit `db.tiffin_stock_movements`.
+- `GET /api/admin/tiffin-stock` — current state including `active_tiffin_subs` + `expected_daily_use` + `low_stock` flag.
+- `POST /api/admin/tiffin-stock/topup` (admin/staff), `POST /api/admin/tiffin-stock/adjust` (admin only), `PUT /api/admin/tiffin-stock/threshold` (admin), `GET /api/admin/tiffin-stock/history`.
+- **Auto-decrement** (user choice **3a**) — `decrement_stock_db()` helper called from `delivery/admin.py` AND `delivery/customer.py` whenever a daily roster flips to `delivered`. Floors at 0 (never negative).
+- New admin page `/admin/tiffin-stock` with stat tiles + topup + adjust + threshold + movements log + low-stock banner.
+
+**5. Plans horizontal-toggle layout** (iter-52 follow-up FIX)
+- Both `[data-testid=custom-service]` and `[data-testid=custom-tiffin-size]` now on the **outer** wrapper of each toggle column. yDiff = 0px on desktop ≥sm (was 80px in iter-52).
+
+### Backend
+- New `/app/backend/routes/tiffin_stock.py` (~165 LOC; CRUD + decrement_stock_db helper)
+- New `/app/backend/routes/subscription_payment.py` (~365 LOC; cash + partial)
+- `_activate_subscription` (`server.py`) extended: handles partial orders (sets `pending_amount`), handles `is_partial_clear` orders (top-up flow that does NOT create a new sub).
+- `delivery/admin.py` + `delivery/customer.py` — auto-decrement hooks on delivered status.
+
 ## Iteration 52 (Jun 1, 2026) — 7 fixes batch: quote color, hide razorpay banner, marquee regression, horiz toggles, tab filter, tiffin prefs, geo-serviceability
 
 ### Features delivered

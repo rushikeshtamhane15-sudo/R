@@ -128,7 +128,10 @@ export default function AdminCashCollections() {
                     <label className="block text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Assign staff</label>
                     <select className="w-full mt-1 h-9 rounded-xl border border-input bg-background px-2 text-sm" defaultValue={r.assigned_staff_id || ""} onChange={(e) => assign(r.order_id, e.target.value)} data-testid={`assign-${r.order_id}`}>
                       <option value="">— select —</option>
-                      {staff.map((s) => <option key={s.user_id} value={s.user_id}>{s.name || s.phone} ({s.role})</option>)}
+                      {staff.map((s) => {
+                        const label = `${s.name || s.phone} (${s.role})`;
+                        return <option key={s.user_id} value={s.user_id}>{label}</option>;
+                      })}
                     </select>
                   </div>
                 )}
