@@ -164,7 +164,12 @@ export default function RestaurantCheckout() {
       const rzp = new window.Razorpay(opt);
       rzp.open();
     } catch (e) {
-      toast.error(e?.response?.data?.detail || "Could not place order");
+      const detail = e?.response?.data?.detail || "Could not place order";
+      toast.error(detail);
+      if (e?.response?.status === 400 && /(service area|pin your delivery|cannot deliver)/i.test(detail)) {
+        // Iter-54 #6: hard-block out-of-area; nudge user to update location
+        setTimeout(() => navigate(`/restaurant?pickLocation=1`), 800);
+      }
       setSubmitting(false);
     }
   };

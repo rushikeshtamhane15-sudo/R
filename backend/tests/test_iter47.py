@@ -186,6 +186,9 @@ class TestRestaurantOrderFlow:
         payload = {
             "items": [{"id": item_id, "qty": 1}],
             "apply_wallet": False,
+            # Iter-54: include Pune coords so geo-block passes
+            "customer_lat": 18.5204,
+            "customer_lng": 73.8567,
         }
         r = requests.post(f"{API}/restaurant/order", json=payload, headers=h, timeout=20)
         # Accept 200/201 success; also allow 400 if menu items lack price (won't fail entire iter)

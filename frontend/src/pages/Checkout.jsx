@@ -91,8 +91,11 @@ export default function Checkout() {
     const base = payMode === "partial" ? effectiveBase : fees.base;
     const fee = Math.round(base * PLATFORM_FEE_PCT) / 100;
     const total = Math.round((base + fee) * 100) / 100;
-    const pending = payMode === "partial" ? Math.max(0, Math.round((fees.base - base) * 100) / 100) : 0;
-    return { base, fee, total, pending, planTotal: fees.base };
+    // Iter-54 #2: ₹200 partial surcharge added to pending balance
+    const PARTIAL_SURCHARGE = 200;
+    const surcharge = payMode === "partial" ? PARTIAL_SURCHARGE : 0;
+    const pending = payMode === "partial" ? Math.max(0, Math.round((fees.base - base) * 100) / 100) + surcharge : 0;
+    return { base, fee, total, pending, surcharge, planTotal: fees.base };
   }, [fees, effectiveBase, payMode]);
 
   // ---- Submit handlers ----
@@ -108,7 +111,14 @@ export default function Checkout() {
       toast.success("Cash order created · staff will collect cash");
     } catch (e) {
       setStatus("error");
-      toast.error(e?.response?.data?.detail || "Could not create cash order");
+      const detail = e?.response?.data?.detail || "Could not create cash order";
+      toast.error(detail);
+      const next = isCustom ? `/checkout/custom?days=${days}` : `/checkout/${planId}`;
+      if (e?.response?.status === 400 && /Profile incomplete/i.test(detail)) {
+        navigate(`/profile?next=${encodeURIComponent(next)}`);
+      } else if (e?.response?.status === 400 && /(service area|pin your delivery|cannot deliver)/i.test(detail)) {
+        setTimeout(() => navigate(`/profile?next=${encodeURIComponent(next)}&pickLocation=1`), 800);
+      }
     } finally { setSubmitting(false); }
   };
 
@@ -163,10 +173,13 @@ export default function Checkout() {
       }
     } catch (e) {
       setStatus("error");
-      toast.error(e?.response?.data?.detail || "Payment failed");
-      if (e?.response?.status === 400 && /Profile incomplete/.test(e?.response?.data?.detail || "")) {
-        const next = isCustom ? `/checkout/custom?days=${days}` : `/checkout/${planId}`;
+      const detail = e?.response?.data?.detail || "Payment failed";
+      toast.error(detail);
+      const next = isCustom ? `/checkout/custom?days=${days}` : `/checkout/${planId}`;
+      if (e?.response?.status === 400 && /Profile incomplete/i.test(detail)) {
         navigate(`/profile?next=${encodeURIComponent(next)}`);
+      } else if (e?.response?.status === 400 && /(service area|pin your delivery|cannot deliver)/i.test(detail)) {
+        setTimeout(() => navigate(`/profile?next=${encodeURIComponent(next)}&pickLocation=1`), 800);
       }
     } finally { setSubmitting(false); }
   };
@@ -290,7 +303,11 @@ export default function Checkout() {
                     <dd className="font-semibold tabular-nums text-primary" data-testid="partial-now-amt">₹{finalFees.base.toFixed(2)}</dd>
                   </div>
                   <div className="flex items-baseline justify-between">
-                    <dt className="text-muted-foreground">Pending balance</dt>
+                    <dt className="text-muted-foreground">Partial-payment surcharge</dt>
+                    <dd className="font-semibold tabular-nums text-amber-800" data-testid="partial-surcharge">+ ₹{finalFees.surcharge.toFixed(2)}</dd>
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <dt className="text-muted-foreground">Pending balance (incl. surcharge)</dt>
                     <dd className="font-semibold tabular-nums text-amber-700" data-testid="partial-pending-amt">₹{finalFees.pending.toFixed(2)}</dd>
                   </div>
                 </>

@@ -29,6 +29,7 @@ async def _make_session(role="admin"):
         "role": role, "address": "Pune", "photo_url": "data:image/png;base64,iV",
         "qr_token": f"qr_{uuid.uuid4().hex}",
         "wallet_balance": 0.0,
+        "lat": 18.5204, "lng": 73.8567,
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
     tok = "sess_" + uuid.uuid4().hex

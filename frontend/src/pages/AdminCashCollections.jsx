@@ -3,7 +3,7 @@ import { api } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
-import { Loader2, Banknote, KeyRound, Send, UserCheck, RefreshCw } from "lucide-react";
+import { Loader2, Banknote, KeyRound, Send, UserCheck, RefreshCw, Trash2 } from "lucide-react";
 
 /**
  * AdminCashCollections — admin/staff can:
@@ -78,6 +78,15 @@ export default function AdminCashCollections() {
       load();
     } catch (e) { toast.error(e?.response?.data?.detail || "Verify failed"); }
     finally { setSubmitting(false); }
+  };
+
+  const remove = async (orderId) => {
+    if (!window.confirm("Delete this pending-cash entry? This cannot be undone — used only for mistaken entries.")) return;
+    try {
+      await api.delete(`/admin/payments/cash-collect/${orderId}`);
+      toast.success("Entry deleted");
+      load();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Delete failed"); }
   };
 
   if (loading) return <div className="p-12 text-center text-muted-foreground flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>;
@@ -159,6 +168,11 @@ export default function AdminCashCollections() {
                 <Button onClick={() => resend(r.order_id)} variant="outline" className="rounded-full" data-testid={`resend-${r.order_id}`}>
                   <Send className="h-3.5 w-3.5 mr-1.5" /> Resend OTP
                 </Button>
+                {isAdmin && (
+                  <Button onClick={() => remove(r.order_id)} variant="outline" className="rounded-full text-destructive border-destructive/40 hover:bg-destructive/5" data-testid={`delete-${r.order_id}`}>
+                    <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete entry
+                  </Button>
+                )}
                 {(r.cash_otp_attempts || 0) > 0 && (
                   <span className="text-[11px] text-muted-foreground">Attempts: {r.cash_otp_attempts}/5</span>
                 )}

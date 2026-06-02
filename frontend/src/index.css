@@ -90,3 +90,6 @@ iframe[src*="emergent"] {
     pointer-events: none !important;
     opacity: 0 !important;
 }
+
+/* iter-54: hide Leaflet + MapLibre attribution branding on every map */
+.leaflet-control-attribution, .maplibregl-ctrl-attrib, .mapboxgl-ctrl-attrib { display: none !important; }

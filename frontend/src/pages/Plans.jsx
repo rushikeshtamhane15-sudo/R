@@ -80,16 +80,16 @@ export default function Plans() {
         <p className="text-muted-foreground mt-4 leading-relaxed">All plans cover 2 meals per day — wallet auto-pauses when you skip 3+ days in a row.</p>
       </div>
 
-      {/* Service tabs */}
-      <div className="mt-10 flex justify-center" data-testid="service-tabs">
-        <div className="inline-flex bg-muted/50 rounded-full p-1 gap-1">
+      {/* Service tabs — explicit horizontal row, compact on mobile */}
+      <div className="mt-10 flex justify-center px-2" data-testid="service-tabs">
+        <div className="inline-flex flex-row bg-muted/50 rounded-full p-1 gap-1 w-full max-w-md">
           {SERVICES.map((s) => (
             <button
               key={s.id} type="button" onClick={() => setService(s.id)}
               data-testid={`service-tab-${s.id}`}
-              className={`px-5 h-10 rounded-full text-sm font-semibold transition-colors flex items-center gap-2 ${service === s.id ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              className={`flex-1 px-3 sm:px-5 h-10 rounded-full text-xs sm:text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap ${service === s.id ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
             >
-              <s.icon className="h-3.5 w-3.5" /> {s.label}
+              <s.icon className="h-3.5 w-3.5 shrink-0" /> {s.label}
             </button>
           ))}
         </div>
@@ -175,6 +175,8 @@ export default function Plans() {
                     </button>
                   ))}
                 </div>
+                {/* Iter-54: thin red rectangular divider below Service tabs */}
+                <hr className="mt-4 mx-auto w-32 h-0.5 border-0 bg-primary rounded-sm" data-testid="service-divider" />
               </div>
 
               <div className={`text-center flex-1 ${service !== "tiffin" ? "opacity-40 pointer-events-none" : ""}`} data-testid="custom-tiffin-size">
@@ -191,6 +193,8 @@ export default function Plans() {
                     >{t.label}</button>
                   ))}
                 </div>
+                {/* Iter-54: thin red rectangular divider below Tiffin size tabs */}
+                <hr className="mt-4 mx-auto w-32 h-0.5 border-0 bg-primary rounded-sm" data-testid="tiffin-size-divider" />
               </div>
             </div>
 

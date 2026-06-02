@@ -32,6 +32,8 @@ class PrefItem(BaseModel):
 
 class PrefCatalog(BaseModel):
     items: List[PrefItem]
+    page_title: Optional[str] = None
+    page_subtitle: Optional[str] = None
 
 
 DEFAULTS: List[dict] = [
@@ -41,18 +43,26 @@ DEFAULTS: List[dict] = [
     {"key": "sabji",   "label": "Sabji",   "emoji": "🥬", "image_url": None, "active": True, "order": 3},
 ]
 
+DEFAULT_TITLE = "Today's tiffin preferences"
+DEFAULT_SUBTITLE = "Tell us what you'd love on the plate today."
 
-async def _load_catalog() -> List[dict]:
-    doc = await server.db.tiffin_pref_catalog.find_one({"_id": "active"}, {"_id": 0})
-    items = (doc or {}).get("items") or DEFAULTS
-    return sorted(items, key=lambda x: int(x.get("order") or 0))
+
+async def _load_catalog() -> dict:
+    doc = await server.db.tiffin_pref_catalog.find_one({"_id": "active"}, {"_id": 0}) or {}
+    items = doc.get("items") or DEFAULTS
+    return {
+        "items": sorted(items, key=lambda x: int(x.get("order") or 0)),
+        "page_title": doc.get("page_title") or DEFAULT_TITLE,
+        "page_subtitle": doc.get("page_subtitle") or DEFAULT_SUBTITLE,
+    }
 
 
 # === Public — subscriber dashboard reads this =================================
 @router.get("/tiffin-preferences/catalog")
 async def get_catalog():
-    items = await _load_catalog()
-    return {"items": [i for i in items if i.get("active") is not False]}
+    data = await _load_catalog()
+    data["items"] = [i for i in data["items"] if i.get("active") is not False]
+    return data
 
 
 # === Admin CRUD ===============================================================
@@ -60,7 +70,7 @@ async def get_catalog():
 async def admin_get_catalog(user: server.User = Depends(server.get_current_user)):
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
-    return {"items": await _load_catalog()}
+    return await _load_catalog()
 
 
 @router.put("/admin/tiffin-preferences/catalog")
@@ -86,12 +96,16 @@ async def admin_set_catalog(payload: PrefCatalog, user: server.User = Depends(se
             "active": bool(it.active),
             "order": int(it.order or i),
         })
+    update_doc = {
+        "items": cleaned,
+        "page_title": (payload.page_title or DEFAULT_TITLE).strip()[:120],
+        "page_subtitle": (payload.page_subtitle or DEFAULT_SUBTITLE).strip()[:300],
+        "updated_at": server.iso(server.now_utc()),
+    }
     await server.db.tiffin_pref_catalog.update_one(
-        {"_id": "active"},
-        {"$set": {"items": cleaned, "updated_at": server.iso(server.now_utc())}},
-        upsert=True,
+        {"_id": "active"}, {"$set": update_doc}, upsert=True,
     )
-    return {"items": cleaned}
+    return {"items": cleaned, "page_title": update_doc["page_title"], "page_subtitle": update_doc["page_subtitle"]}
 
 
 @router.post("/admin/tiffin-preferences/reset")
@@ -100,10 +114,15 @@ async def admin_reset_catalog(user: server.User = Depends(server.get_current_use
         raise HTTPException(status_code=403, detail="Admin only")
     await server.db.tiffin_pref_catalog.update_one(
         {"_id": "active"},
-        {"$set": {"items": DEFAULTS, "updated_at": server.iso(server.now_utc())}},
+        {"$set": {
+            "items": DEFAULTS,
+            "page_title": DEFAULT_TITLE,
+            "page_subtitle": DEFAULT_SUBTITLE,
+            "updated_at": server.iso(server.now_utc()),
+        }},
         upsert=True,
     )
-    return {"items": DEFAULTS}
+    return {"items": DEFAULTS, "page_title": DEFAULT_TITLE, "page_subtitle": DEFAULT_SUBTITLE}
 
 
 _PREF_EXT_BY_MIME = {

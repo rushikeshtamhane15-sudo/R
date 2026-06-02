@@ -141,18 +141,55 @@ async def auth_logout(response: Response, request: Request, session_token: Optio
     return {"ok": True}
 
 
+import re
+
+# Iter-54 #3: profile-validation regexes
+_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z\.\'\- ]{1,49}$")  # letters + space + . - ' (Indian names)
+_PHONE_RE = re.compile(r"^[6-9]\d{9}$")                    # 10-digit India mobile, starts 6-9
+
+
+def _validate_profile_fields(name: str, phone: str, address: str):
+    """Iter-54 #3 — strict server-side validation."""
+    name = (name or "").strip()
+    phone = (phone or "").strip().replace("+91", "").replace(" ", "").replace("-", "")
+    addr = (address or "").strip()
+    if not _NAME_RE.match(name):
+        raise HTTPException(status_code=400, detail="Name must be 2–50 letters (alphabets, spaces, apostrophes only)")
+    if not _PHONE_RE.match(phone):
+        raise HTTPException(status_code=400, detail="Phone must be exactly 10 digits starting 6–9 (we add +91 automatically)")
+    if len(addr) < 12:
+        raise HTTPException(status_code=400, detail="Address must be at least 12 characters (include house no., area, city)")
+    return name, phone, addr
+
+
 @router.post("/auth/profile")
 async def update_profile(payload: server.ProfileUpdate, user: server.User = Depends(server.get_current_user)):
     if not payload.name.strip() or not payload.phone.strip() or not payload.address.strip():
         raise HTTPException(status_code=400, detail="Name, phone and address are required")
+    # Iter-54 #3 strict validation
+    name, phone, addr = _validate_profile_fields(payload.name, payload.phone, payload.address)
     update = {
-        "name": payload.name.strip(),
-        "phone": payload.phone.strip(),
-        "address": payload.address.strip(),
+        "name": name,
+        "phone": phone,
+        "address": addr,
     }
     if payload.photo_url is not None:
         if payload.photo_url and len(payload.photo_url) > 1_200_000:
             raise HTTPException(status_code=413, detail="Photo too large; please use a smaller image")
+        # Iter-54 #3: best-effort selfie face detection via Gemini Vision.
+        # If detector says "not a human face", reject. If detector errors out
+        # (key budget, network), we ALLOW the upload so users aren't blocked
+        # by transient infra issues — the photo can still be reviewed manually.
+        if payload.photo_url and payload.photo_url.startswith("data:image"):
+            try:
+                from face_check import is_valid_face_data_url
+                ok, reason = await is_valid_face_data_url(payload.photo_url)
+                if not ok:
+                    raise HTTPException(status_code=400, detail=f"Selfie rejected: {reason}. Please upload a clear photo of your face only.")
+            except HTTPException:
+                raise
+            except Exception as e:  # noqa: BLE001
+                server.logger.warning(f"[FACE-CHECK] skipped due to error: {e}")
         update["photo_url"] = payload.photo_url
     if payload.lat is not None and payload.lng is not None:
         update["lat"] = float(payload.lat)

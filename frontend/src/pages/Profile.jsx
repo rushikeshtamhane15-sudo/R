@@ -166,15 +166,45 @@ export default function Profile() {
 
         <div>
           <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground flex items-center gap-1.5"><UserIcon className="h-3 w-3" /> Full name</label>
-          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-2 rounded-xl" data-testid="profile-name" placeholder="e.g. Aman Gupta" />
+          <Input
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value.replace(/[^A-Za-z\.\'\- ]/g, "") })}
+            className="mt-2 rounded-xl"
+            data-testid="profile-name"
+            placeholder="e.g. Aman Gupta"
+            maxLength={50}
+          />
+          <p className="text-[11px] text-muted-foreground mt-1">Letters, spaces, hyphens and apostrophes only · 2–50 chars.</p>
         </div>
         <div>
           <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground flex items-center gap-1.5"><Phone className="h-3 w-3" /> Phone</label>
-          <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="mt-2 rounded-xl" data-testid="profile-phone" placeholder="+91 98XXXXXXXX" />
+          <div className="mt-2 flex rounded-xl border border-input bg-background overflow-hidden focus-within:ring-2 focus-within:ring-ring">
+            <span className="px-3 inline-flex items-center bg-muted/50 text-sm font-semibold text-muted-foreground border-r border-input select-none" data-testid="phone-prefix">+91</span>
+            <input
+              type="tel"
+              inputMode="numeric"
+              maxLength={10}
+              value={form.phone.replace(/^\+?91/, "").replace(/\D/g, "").slice(0, 10)}
+              onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })}
+              className="flex-1 h-9 px-3 text-sm bg-transparent outline-none placeholder:text-muted-foreground"
+              data-testid="profile-phone"
+              placeholder="98XXXXXXXX"
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-1">10 digits — Indian mobile starting 6, 7, 8 or 9.</p>
         </div>
         <div>
           <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground flex items-center gap-1.5"><MapPin className="h-3 w-3" /> Delivery address</label>
-          <Textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="mt-2 rounded-xl" data-testid="profile-address" placeholder="Flat / house no., street, city, pincode" rows={3} />
+          <Textarea
+            value={form.address}
+            onChange={(e) => setForm({ ...form, address: e.target.value })}
+            className="mt-2 rounded-xl"
+            data-testid="profile-address"
+            placeholder="Flat / house no., street, area, city, pincode"
+            rows={3}
+            maxLength={300}
+          />
+          <p className="text-[11px] text-muted-foreground mt-1">Min 12 chars — include house no., area & city.</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <Button onClick={save} disabled={submitting} className="rounded-full bg-primary hover:bg-primary/90 flex-1 min-w-[200px]" data-testid="save-profile-button">

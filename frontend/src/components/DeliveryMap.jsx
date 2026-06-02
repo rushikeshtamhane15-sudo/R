@@ -6,7 +6,7 @@ import "./delivery-map.css";
 
 // CartoDB Voyager — clean, polished, free, no API key
 const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
-const TILE_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> · CARTO';
+const TILE_ATTR = '';
 const KM = 1000;
 
 function makeIcon({ color = "#a02323", text = "" } = {}) {
@@ -122,7 +122,7 @@ export default function DeliveryMap({
 
   return (
     <div className="rounded-2xl overflow-hidden border border-border shadow-sm" style={{ height }} data-testid="delivery-map">
-      <MapContainer center={center} zoom={13} scrollWheelZoom style={{ height: "100%", width: "100%" }}>
+      <MapContainer center={center} zoom={13} scrollWheelZoom style={{ height: "100%", width: "100%" }} attributionControl={false}>
         <TileLayer url={TILE_URL} attribution={TILE_ATTR} subdomains="abcd" />
         {shouldBound && <ApplyMaxBounds center={[dispatch.lat, dispatch.lng]} radiusKm={radiusKm} />}
         <FitBounds points={points} />

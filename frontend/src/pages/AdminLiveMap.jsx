@@ -11,7 +11,7 @@ import { haversineKm, etaMinutes } from "../lib/geo";
 
 const REFRESH_MS = 10000;
 const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
-const TILE_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> · CARTO';
+const TILE_ATTR = '';
 
 function makePinIcon({ color, label }) {
   const html = `
@@ -227,7 +227,7 @@ export default function AdminLiveMap() {
               No live boys yet — dispatch + active runs will appear here.
             </div>
           ) : (
-            <MapContainer center={hasDispatch ? [dispatch.lat, dispatch.lng] : points[0]} zoom={12} scrollWheelZoom style={{ height: "100%", width: "100%" }}>
+            <MapContainer center={hasDispatch ? [dispatch.lat, dispatch.lng] : points[0]} zoom={12} scrollWheelZoom style={{ height: "100%", width: "100%" }} attributionControl={false}>
               <TileLayer url={TILE_URL} attribution={TILE_ATTR} subdomains="abcd" />
               {hasDispatch && <ApplyBounds center={[dispatch.lat, dispatch.lng]} radiusKm={radiusKm} />}
               <FitAll points={points} />

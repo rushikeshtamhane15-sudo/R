@@ -47,6 +47,13 @@ async def create_restaurant_order(payload: CreateRestaurantOrder, user: server.U
 
     user_doc = await server.db.users.find_one({"user_id": user.user_id}, {"_id": 0})
 
+    # Iter-54 #6: enforce serviceable area before order creation
+    from routes.subscription_payment import _enforce_serviceable_area
+    # Allow checkout-supplied lat/lng to override saved profile (LocationPicker)
+    if payload.customer_lat is not None and payload.customer_lng is not None:
+        user_doc = {**(user_doc or {}), "lat": payload.customer_lat, "lng": payload.customer_lng}
+    await _enforce_serviceable_area(user_doc or {})
+
     # Wallet redemption: cap at wallet_balance, applied BEFORE Razorpay so
     # the gateway only ever charges the remaining amount.
     wallet_avail = round(float((user_doc or {}).get("wallet_balance") or 0), 2)

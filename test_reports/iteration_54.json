@@ -1,0 +1,27 @@
+{
+  "summary": "iter-54 fully tested. Backend: 32 passed / 0 failed across iter-54 (8) + iter-53 (7) + iter-53_extra (6) + iter-52/51 (skipped) + iter-47 (after geo fix). Frontend: verified mobile side-by-side service tabs (yDiff=0), red dividers (service + tiffin-size), PendingDuesCard with ₹1600 due (=plan-down+200 surcharge), PendingCashOtpFlash with persistent 6-digit OTP (237844), admin /cash-collections delete buttons (18 visible, data-testid=delete-{order_id}), admin /tiffin-preferences page-title/subtitle editors persist, /profile strict inputs (+91 prefix, letter-only name hint, address min-12 hint), Leaflet attribution removed from /admin/live-map and /profile location picker. Minor fix: added lat/lng to test_iter53_extra.py _make_session helper so geo-guard passes (pattern matches iter-47 fix). No functional regressions detected.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter54.py",
+    "/app/backend/tests/test_iter53.py",
+    "/app/backend/tests/test_iter53_extra.py",
+    "/app/test_reports/pytest/iter54_results.xml",
+    "/app/test_reports/pytest/iter54_full_regression.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Geo-guard (_enforce_serviceable_area) correctly emits 'service area' in detail for frontend redirect heuristic; helper is centralized in routes/subscription_payment.py and reused across payments/restaurant - good.",
+    "Partial surcharge ₹200 is hard-coded as PARTIAL_PAYMENT_SURCHARGE_INR constant in server.py - consider exposing via db.delivery_settings or admin CMS for future tunability.",
+    "PendingCashOtpFlash polling at 8s on subscriber dashboard - lightweight but could use SSE/WS in future for instant clear after admin verify.",
+    "Face validator (face_check.is_valid_face_data_url) allows on detector exception - documented and intentional per requirements (Gemini outage shouldn't block profile save), but consider rate-limiting Gemini calls."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter53_extra.py"],
+  "success_rate": {"backend": "100% (32/32 non-skipped pass)", "frontend": "100% (all 6 frontend checks pass)"},
+  "test_credentials": "Synthetic users created via direct mongo insert + session_token cookie (pattern from tests/test_iter54.py::_make_session). Cleaned up after test.",
+  "seed_data_creation": "Created and then deleted: subscriber user (Premium Dining partial sub with ₹1600 dues + cash order on 2nd plan), admin user. Cash collection orders persist in db (18 visible) from accumulated test runs.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Geo-block is now enforced on all payment endpoints. Any new test fixture inserting a user MUST set lat=18.5204, lng=73.8567 (or any point inside 15km of dispatch). iter-53_extra.py was patched accordingly. session_token is a httpOnly cookie; for playwright auth use page.context.add_cookies with sameSite=None, secure=True. Frontend uses withCredentials axios — do NOT use Authorization header.",
+  "rca_of_the_issue": "N/A - no issues found. The 3 initial iter-53_extra failures were caused by the new iter-54 geo-guard rejecting users without lat/lng; fixed by adding default Pune coords to the test fixture (mirrors iter-47 patch)."
+}

@@ -56,6 +56,10 @@ async def create_payment_order(payload: server.CreateOrderRequest, user: server.
     plan = await server.db.plans.find_one({"plan_id": payload.plan_id, "active": True}, {"_id": 0})
     if not plan:
         raise HTTPException(status_code=400, detail="Invalid or inactive plan")
+    # Iter-54: geo + duplicate-plan guards (shared with cash + partial flows)
+    from routes.subscription_payment import _enforce_serviceable_area, _block_duplicate_active_plan
+    await _enforce_serviceable_area(user_doc)
+    await _block_duplicate_active_plan(user.user_id, plan["plan_id"])
 
     return await server._create_order_record(
         user=user, user_doc=user_doc,
@@ -75,6 +79,9 @@ async def create_custom_order(payload: server.CustomOrderRequest, user: server.U
     days = int(payload.days)
     if days < server.CUSTOM_MIN_DAYS or days > server.CUSTOM_MAX_DAYS:
         raise HTTPException(status_code=400, detail=f"Days must be between {server.CUSTOM_MIN_DAYS} and {server.CUSTOM_MAX_DAYS}")
+    # Iter-54: geo guard (custom plans have unique plan_id per request so dedup check skipped)
+    from routes.subscription_payment import _enforce_serviceable_area
+    await _enforce_serviceable_area(user_doc)
     meals = days * server.MEALS_PER_DAY
     service_type = payload.service_type or "dining"
     tiffin_size = payload.tiffin_size if service_type == "tiffin" else None

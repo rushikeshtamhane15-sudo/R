@@ -14,6 +14,8 @@ const BLANK = { key: "", label: "", emoji: "", image_url: "", description: "", a
 
 export default function AdminTiffinPreferences() {
   const [items, setItems] = useState([]);
+  const [pageTitle, setPageTitle] = useState("");
+  const [pageSubtitle, setPageSubtitle] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [genIdx, setGenIdx] = useState(null);
@@ -23,6 +25,8 @@ export default function AdminTiffinPreferences() {
     try {
       const r = await api.get("/admin/tiffin-preferences/catalog");
       setItems(r.data?.items || []);
+      setPageTitle(r.data?.page_title || "");
+      setPageSubtitle(r.data?.page_subtitle || "");
     } catch (e) { toast.error("Load failed"); }
     setLoading(false);
   };
@@ -72,7 +76,11 @@ export default function AdminTiffinPreferences() {
   const save = async () => {
     setSaving(true);
     try {
-      await api.put("/admin/tiffin-preferences/catalog", { items: items.map((it, i) => ({ ...it, order: i })) });
+      await api.put("/admin/tiffin-preferences/catalog", {
+        items: items.map((it, i) => ({ ...it, order: i })),
+        page_title: pageTitle,
+        page_subtitle: pageSubtitle,
+      });
       toast.success("Saved");
       load();
     } catch (e) { toast.error(e?.response?.data?.detail || "Save failed"); }
@@ -106,7 +114,21 @@ export default function AdminTiffinPreferences() {
       {loading ? (
         <div className="text-center py-12 text-muted-foreground">Loading…</div>
       ) : (
-        <div className="space-y-3">
+        <>
+          {/* Iter-54 #11: editable page headings */}
+          <div className="rounded-2xl border border-border bg-card p-5 space-y-3" data-testid="pref-headings-editor">
+            <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Section headings (on subscriber dashboard)</p>
+            <label className="block">
+              <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Heading</span>
+              <Input value={pageTitle} onChange={(e) => setPageTitle(e.target.value)} className="mt-1 rounded-xl" maxLength={120} data-testid="pref-page-title" />
+            </label>
+            <label className="block">
+              <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Subheading</span>
+              <Input value={pageSubtitle} onChange={(e) => setPageSubtitle(e.target.value)} className="mt-1 rounded-xl" maxLength={300} data-testid="pref-page-subtitle" />
+            </label>
+          </div>
+
+          <div className="space-y-3">
           {items.map((it, idx) => (
             <div key={idx} className="rounded-2xl border border-border bg-card p-4 sm:p-5 grid grid-cols-1 md:grid-cols-[110px_1fr_auto] gap-4 items-center" data-testid={`pref-row-${idx}`}>
               <div className="text-center">
@@ -161,7 +183,8 @@ export default function AdminTiffinPreferences() {
           <Button variant="outline" onClick={add} className="w-full rounded-2xl border-dashed h-12" data-testid="pref-add">
             <Plus className="h-4 w-4 mr-1.5" /> Add custom preference
           </Button>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

@@ -25,6 +25,8 @@ const FALLBACK_ITEMS = [
 export default function TiffinPreferencesCard() {
   const [prefs, setPrefs] = useState({ rice: true, dal: true, chapati: true, sabji: true, chapati_count: null });
   const [catalog, setCatalog] = useState(FALLBACK_ITEMS);
+  const [pageTitle, setPageTitle] = useState("Tiffin food preferences");
+  const [pageSubtitle, setPageSubtitle] = useState("Customize what comes in your tiffin. Same plan price — just helps us cook less waste. Changes apply from the next dispatch.");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -37,6 +39,8 @@ export default function TiffinPreferencesCard() {
         ]);
         const items = (c.data?.items && c.data.items.length > 0) ? c.data.items : FALLBACK_ITEMS;
         setCatalog(items);
+        if (c.data?.page_title) setPageTitle(c.data.page_title);
+        if (c.data?.page_subtitle) setPageSubtitle(c.data.page_subtitle);
         // Seed prefs with all catalog keys as 'on' unless explicit false stored
         const stored = r.data || {};
         const seeded = {};
@@ -69,12 +73,9 @@ export default function TiffinPreferencesCard() {
     <div className="rounded-3xl border border-border bg-card p-6 md:p-7 space-y-4" data-testid="tiffin-preferences-card">
       <div className="flex items-center gap-2">
         <Utensils className="h-4 w-4 text-primary" />
-        <p className="font-display font-extrabold">Tiffin food preferences</p>
+        <p className="font-display font-extrabold" data-testid="tiffin-pref-title">{pageTitle}</p>
       </div>
-      <p className="text-xs text-muted-foreground">
-        Customize what comes in your tiffin. Same plan price — just helps us cook less waste.
-        Changes apply from the <strong>next</strong> dispatch.
-      </p>
+      <p className="text-xs text-muted-foreground" data-testid="tiffin-pref-subtitle">{pageSubtitle}</p>
 
       <div className="grid grid-cols-2 gap-2.5">
         {catalog.map((it) => {

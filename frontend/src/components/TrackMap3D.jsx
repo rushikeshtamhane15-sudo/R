@@ -58,10 +58,10 @@ function LeafletTrackMap({ rider, customer }) {
   const riderIcon = L.divIcon({ className: "trackmap-rider", html: RIDER_DIV, iconSize: [54, 60], iconAnchor: [27, 32] });
   const customerIcon = customer ? L.divIcon({ className: "trackmap-customer", html: CUSTOMER_DIV, iconSize: [34, 34], iconAnchor: [17, 17] }) : null;
   return (
-    <MapContainer center={[rider.lat, rider.lng]} zoom={15} className="h-full w-full">
+    <MapContainer center={[rider.lat, rider.lng]} zoom={15} className="h-full w-full" attributionControl={false}>
       <TileLayer
         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; OpenStreetMap contributors'
+        attribution=''
       />
       <Marker position={[rider.lat, rider.lng]} icon={riderIcon}>
         <Popup>{rider.name || "Rider"} on the way</Popup>
@@ -98,7 +98,7 @@ function MapLibreTrackMap({ rider, customer }) {
       pitch: PITCH,
       bearing: BEARING,
       antialias: true,
-      attributionControl: true,
+      attributionControl: false,
     });
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
 

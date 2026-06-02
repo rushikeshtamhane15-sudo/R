@@ -26,8 +26,10 @@ async def _make_session(role="admin", phone=None):
     uid = f"user_{uuid.uuid4().hex[:12]}"
     await db.users.insert_one({
         "user_id": uid, "phone": phone, "name": f"Test {phone[-4:]}",
-        "role": role, "address": "Pune", "photo_url": "data:image/png;base64,iV",
+        "role": role, "address": "Test address Pune 411001",
+        "photo_url": "data:image/png;base64,iV",
         "qr_token": f"qr_{uuid.uuid4().hex}",
+        "lat": 18.5204, "lng": 73.8567,  # Pune coords inside default 15km service radius
         "wallet_balance": 0.0, "created_at": datetime.now(timezone.utc).isoformat(),
     })
     tok = "sess_" + uuid.uuid4().hex
@@ -135,12 +137,13 @@ async def test_partial_verify_creates_pending_balance():
                            json={"order_id": order["order_id"], "razorpay_payment_id": "m", "razorpay_signature": "s"},
                            headers=sub_h)
         assert r.status_code == 200
-        # Pending balance present
+        # Pending balance present + ₹200 surcharge (iter-54 #2)
         r = await cli.get("/api/my/partial-balance", headers=sub_h)
         assert r.status_code == 200
         rows = r.json()["items"]
         assert len(rows) == 1
-        assert abs(rows[0]["pending_amount"] - (plan["amount"] - down)) < 1
+        expected = (plan["amount"] - down) + 200.0  # surcharge
+        assert abs(rows[0]["pending_amount"] - expected) < 1
 
 
 @pytest.mark.asyncio

@@ -59,6 +59,69 @@ def _gen_slip_no() -> str:
     return "SLIP-" + datetime.now(timezone.utc).strftime("%Y%m%d") + "-" + uuid.uuid4().hex[:4].upper()
 
 
+def _haversine_km(lat1, lon1, lat2, lon2):
+    """Return great-circle distance in km."""
+    from math import radians, sin, cos, asin, sqrt
+    R = 6371.0
+    dlat = radians(lat2 - lat1)
+    dlon = radians(lon2 - lon1)
+    a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
+    return 2 * R * asin(min(1.0, sqrt(a)))
+
+
+async def _enforce_serviceable_area(user_doc: dict):
+    """Iter-54 #6: block subscription/restaurant purchase if user's saved
+    location is outside the kitchen dispatch radius. Forces the customer to
+    re-pin via /restaurant or profile flow."""
+    lat = user_doc.get("lat")
+    lng = user_doc.get("lng")
+    if lat is None or lng is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Please pin your delivery location first — we need to confirm you are in our service area.",
+            headers={"X-Action-Required": "update-location"},
+        )
+    settings = await server.db.delivery_settings.find_one({"_id": "active"}, {"_id": 0}) or {}
+    klat = settings.get("dispatch_lat", 18.5204)
+    klng = settings.get("dispatch_lng", 73.8567)
+    radius_km = float(settings.get("dispatch_radius_km") or 15)
+    d = _haversine_km(float(lat), float(lng), float(klat), float(klng))
+    if d > radius_km:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Sorry — your location is {round(d, 1)} km from our kitchen, "
+                f"outside our {round(radius_km)} km serviceable area. We currently "
+                "cannot deliver to your address."
+            ),
+            headers={"X-Action-Required": "update-location"},
+        )
+
+
+async def _block_duplicate_active_plan(user_id: str, plan_id: str):
+    """Iter-54 #7: a user cannot have two ACTIVE subscriptions of the same plan
+    or two pending_cash orders for the same plan."""
+    sub = await server.db.subscriptions.find_one(
+        {"user_id": user_id, "plan_id": plan_id, "status": "active"}, {"_id": 0, "sub_id": 1},
+    )
+    if sub:
+        raise HTTPException(
+            status_code=400,
+            detail=f"You already have an active '{plan_id}' subscription. Pick a different plan or wait until this one ends.",
+        )
+    pending = await server.db.payment_orders.find_one(
+        {"user_id": user_id, "plan_id": plan_id, "status": "pending_cash"}, {"_id": 0, "order_id": 1},
+    )
+    if pending:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "You already have a pending cash payment for this plan — please share "
+                "the OTP with our staff to complete it, or ask an admin to cancel it before re-subscribing."
+            ),
+        )
+
+
 async def _plan_from_payload(payload):
     """Resolve plan attributes from either standard plan_id OR custom-order kwargs."""
     if payload.plan_id and not payload.plan_id.startswith("custom_"):
@@ -137,6 +200,9 @@ async def create_cash_order(payload: CashOrPartialIn, user: server.User = Depend
     if missing:
         raise HTTPException(status_code=400, detail=f"Profile incomplete: missing {', '.join(missing)}")
     plan = await _plan_from_payload(payload)
+    # Iter-54: geo + duplicate-plan guards
+    await _enforce_serviceable_area(user_doc)
+    await _block_duplicate_active_plan(user.user_id, plan["plan_id"])
     otp = _gen_otp()
     order_id = f"cash_{uuid.uuid4().hex[:14]}"
     receipt = f"rcpt_{uuid.uuid4().hex[:12]}"
@@ -278,6 +344,9 @@ async def create_partial_order(payload: PartialOrderIn, user: server.User = Depe
     if missing:
         raise HTTPException(status_code=400, detail=f"Profile incomplete: missing {', '.join(missing)}")
     plan = await _plan_from_payload(payload)
+    # Iter-54: geo + duplicate-plan guards
+    await _enforce_serviceable_area(user_doc)
+    await _block_duplicate_active_plan(user.user_id, plan["plan_id"])
     total = float(plan["amount"])
     down = round(float(payload.down_payment), 2)
     if down < total * MIN_PARTIAL_FRACTION:
@@ -341,6 +410,8 @@ async def create_partial_order(payload: PartialOrderIn, user: server.User = Depe
         "plan_name": plan["plan_name"],
         "duration_days": plan["duration_days"], "meals": plan["meals"],
         "partial_total": total, "partial_pending": pending,
+        "partial_surcharge": float(server.PARTIAL_PAYMENT_SURCHARGE_INR),
+        "partial_pending_with_surcharge": round(pending + float(server.PARTIAL_PAYMENT_SURCHARGE_INR), 2),
         "prefill": {"name": user_doc.get("name", ""), "email": user_doc.get("email", ""), "contact": user_doc.get("phone", "")},
     }
 
@@ -456,3 +527,96 @@ async def admin_staff_roster(user: server.User = Depends(server.get_current_user
         {"_id": 0, "user_id": 1, "name": 1, "phone": 1, "role": 1},
     ).sort("name", 1).to_list(200)
     return {"staff": staff}
+
+
+# ---------------------------------------------------------------------------
+# Iter-54 #8: Admin can delete a stale pending_cash entry
+# ---------------------------------------------------------------------------
+@router.delete("/admin/payments/cash-collect/{order_id}")
+async def admin_cancel_cash_entry(order_id: str, user: server.User = Depends(server.get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    order = await server.db.payment_orders.find_one({"order_id": order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.get("status") != "pending_cash":
+        raise HTTPException(status_code=400, detail=f"Cannot delete — order status is '{order.get('status')}'")
+    await server.db.payment_orders.update_one(
+        {"order_id": order_id},
+        {"$set": {
+            "status": "cancelled",
+            "cancelled_at": server.iso(server.now_utc()),
+            "cancelled_by": user.user_id,
+        }, "$unset": {"cash_otp": ""}},
+    )
+    return {"ok": True, "order_id": order_id}
+
+
+# ---------------------------------------------------------------------------
+# Iter-54 #1: My active pending-OTP cash order — surfaced on subscriber dash
+# ---------------------------------------------------------------------------
+@router.get("/my/pending-cash-otp")
+async def my_pending_cash_otp(user: server.User = Depends(server.get_current_user)):
+    """The subscriber's open pending_cash order(s) with the OTP so the
+    dashboard can keep flashing it until staff verify. Limited to current
+    user only — own data only."""
+    rows = await server.db.payment_orders.find(
+        {"user_id": user.user_id, "status": "pending_cash"}, {"_id": 0},
+    ).sort("created_at", -1).to_list(20)
+    return {"items": rows, "count": len(rows)}
+
+
+# ---------------------------------------------------------------------------
+# Iter-54 #9: Cash payment to clear partial-balance dues
+# ---------------------------------------------------------------------------
+@router.post("/payments/clear-partial-balance-cash")
+async def clear_partial_balance_cash(sub_id: str = Body(..., embed=True), amount: float = Body(..., embed=True), user: server.User = Depends(server.get_current_user)):
+    sub = await server.db.subscriptions.find_one({"sub_id": sub_id, "user_id": user.user_id}, {"_id": 0})
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+    pending = round(float(sub.get("pending_amount") or 0), 2)
+    if pending <= 0:
+        raise HTTPException(status_code=400, detail="No pending balance")
+    pay_amount = round(min(float(amount), pending), 2)
+    if pay_amount < 1:
+        raise HTTPException(status_code=400, detail="Amount too small")
+    # Block duplicate pending cash-clear for the same sub
+    dup = await server.db.payment_orders.find_one(
+        {"user_id": user.user_id, "linked_sub_id": sub_id, "is_partial_clear": True, "status": "pending_cash"},
+        {"_id": 0},
+    )
+    if dup:
+        raise HTTPException(
+            status_code=400,
+            detail="You already have a pending cash payment for this subscription — share the OTP with staff to complete it.",
+        )
+    otp = _gen_otp()
+    order_id = f"cash_{uuid.uuid4().hex[:14]}"
+    receipt = f"rcpt_{uuid.uuid4().hex[:12]}"
+    await server.db.payment_orders.insert_one({
+        "order_id": order_id, "receipt": receipt,
+        "user_id": user.user_id, "plan_id": sub["plan_id"], "plan_name": sub["plan_name"],
+        "amount": pay_amount, "base_amount": pay_amount,
+        "platform_fee": 0.0, "platform_fee_pct": 0.0,
+        "amount_paise": int(round(pay_amount * 100)),
+        "currency": "INR",
+        "status": "pending_cash", "mock": False, "payment_mode": "cash",
+        "linked_sub_id": sub_id,
+        "is_partial_clear": True,
+        "clear_amount": pay_amount,
+        "cash_otp": otp, "cash_otp_attempts": 0,
+        "assigned_staff_id": None,
+        "deposit_slip_no": None,
+        "collected_by": None,
+        "collected_at": None,
+        "created_at": server.iso(server.now_utc()),
+    })
+    return {
+        "order_id": order_id,
+        "amount": pay_amount,
+        "currency": "INR",
+        "status": "pending_cash",
+        "dev_otp": otp if server.OTP_DEV_MODE else None,
+        "message": "Hand cash to staff. Staff will verify the OTP we sent to your phone.",
+    }
+

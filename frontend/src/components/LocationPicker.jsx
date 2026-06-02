@@ -95,10 +95,10 @@ export default function LocationPicker({ value, onChange, height = "h-56" }) {
   return (
     <div className="rounded-xl overflow-hidden border border-border bg-muted relative" data-testid="location-picker">
       <div className={`${height} w-full relative`}>
-        <MapContainer center={[center.lat, center.lng]} zoom={pos ? 16 : 13} className="h-full w-full" scrollWheelZoom>
+        <MapContainer center={[center.lat, center.lng]} zoom={pos ? 16 : 13} className="h-full w-full" scrollWheelZoom attributionControl={false}>
           <TileLayer
             url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; OpenStreetMap contributors'
+            attribution=''
           />
           {pos && <PinDragger pos={pos} setPos={handleSetPos} />}
           {pos && <FlyTo pos={pos} />}

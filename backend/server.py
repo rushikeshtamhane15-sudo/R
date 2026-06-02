@@ -68,6 +68,11 @@ MEALS_PER_DAY = 2
 CUSTOM_MIN_DAYS = 1
 CUSTOM_MAX_DAYS = 90
 
+# Iter-54: surcharge for partial / split-payment subscriptions. Added to the
+# user's pending_amount so admin sees full dues + user pays it as part of
+# clearing balance. NOT added to wallet (it's a service fee).
+PARTIAL_PAYMENT_SURCHARGE_INR = 200.0
+
 DEFAULT_PLANS = [
     {"plan_id": "premium_60", "name": "Premium Dining", "description": "Eat at our hall · 60 home-style meals across 30 days · scan QR at counter", "amount": 2800.0, "currency": "INR", "duration_days": 30, "meals": 60, "active": True, "sort_order": 1, "plan_type": "kiosk", "service_type": "dining", "tiffin_size": None, "tiffins_per_day": 0},
     {"plan_id": "classic_60", "name": "Classic Full Tiffin", "description": "Full home-style tiffin — 5 chapati + sabzi/dal/rice, delivered twice daily", "amount": 2600.0, "currency": "INR", "duration_days": 30, "meals": 60, "active": True, "sort_order": 2, "plan_type": "delivery", "service_type": "tiffin", "tiffin_size": "full", "tiffins_per_day": 2},
@@ -561,9 +566,13 @@ async def _activate_subscription(order: dict):
 
     user_id = order["user_id"]
 
-    # Build plan-shape from either DB plan or the order itself (custom flow).
-    # Use base_amount so the wallet loads the actual plan value, not the platform fee.
-    plan_amount = float(order.get("base_amount") or order["amount"])
+    # Iter-54: For partial/split orders, FULL plan amount drives wallet load
+    # + per-day deduction. base_amount stays = down-payment paid. Surcharge
+    # ₹200 is added to pending_amount so user owes (pending + surcharge) total.
+    is_partial = bool(order.get("is_partial"))
+    full_plan_amount = float(order.get("partial_total") or order.get("base_amount") or order["amount"])
+    plan_amount = full_plan_amount  # used for wallet + per_day calcs
+    down_paid = float(order.get("partial_down") or order.get("base_amount") or order["amount"])
     # For custom orders, fields come from the order; for standard, from the DB plan doc.
     if order.get("custom"):
         plan = {
@@ -585,23 +594,34 @@ async def _activate_subscription(order: dict):
 
     start = now_utc()
     end = start + timedelta(days=plan["duration_days"])
+    # Wallet deduction per day always = full plan / duration (NOT down/duration).
     per_day = round(float(plan["amount"]) / max(1, plan["duration_days"]), 2)
-    # Partial / cash flow markers
-    pending_amount = round(float(order.get("partial_pending") or 0), 2) if order.get("is_partial") else 0.0
+    # Pending: for partial = remaining + surcharge. Else 0.
+    if is_partial:
+        partial_surcharge = float(PARTIAL_PAYMENT_SURCHARGE_INR)
+        pending_amount = round(float(order.get("partial_pending") or 0) + partial_surcharge, 2)
+        wallet_load = round(down_paid, 2)  # only what user paid sits in wallet
+    else:
+        partial_surcharge = 0.0
+        pending_amount = 0.0
+        wallet_load = round(float(plan["amount"]), 2)
     payment_mode = order.get("payment_mode") or ("cash" if order.get("status") == "pending_cash" else "online")
     sub = {
         "sub_id": f"sub_{uuid.uuid4().hex[:12]}",
         "user_id": user_id,
         "plan_id": plan["plan_id"],
         "plan_name": plan["name"],
-        "amount_paid": float(plan["amount"]),
+        "amount_paid": round(down_paid, 2),
+        "plan_amount": round(float(plan["amount"]), 2),
         "pending_amount": pending_amount,
+        "partial_surcharge": partial_surcharge,
+        "is_partial": is_partial,
         "payment_mode": payment_mode,
         "deposit_slip_no": order.get("deposit_slip_no"),
         "currency": plan["currency"],
         "meals_total": plan["meals"],
         "meals_used": 0,
-        "wallet_balance": float(plan["amount"]),
+        "wallet_balance": wallet_load,
         "per_day_amount": per_day,
         "start_date": iso(start),
         "end_date": iso(end),
@@ -622,12 +642,12 @@ async def _activate_subscription(order: dict):
         "created_at": iso(start),
     }
     await db.subscriptions.insert_one(sub.copy())
-    await db.users.update_one({"user_id": user_id}, {"$inc": {"wallet_balance": float(plan["amount"])}})
-    await _log_wallet_txn(user_id, sub["sub_id"], "credit", float(plan["amount"]), float(plan["amount"]), f"{plan['name']} subscription")
+    await db.users.update_one({"user_id": user_id}, {"$inc": {"wallet_balance": wallet_load}})
+    await _log_wallet_txn(user_id, sub["sub_id"], "credit", wallet_load, wallet_load, f"{plan['name']} subscription{' (partial)' if is_partial else ''}")
     # Record the platform fee as a separate informational entry (does not affect wallet balance)
     fee_amt = float(order.get("platform_fee") or 0)
     if fee_amt > 0:
-        await _log_wallet_txn(user_id, sub["sub_id"], "fee", fee_amt, float(plan["amount"]), f"Platform fee ({order.get('platform_fee_pct', 2)}%)")
+        await _log_wallet_txn(user_id, sub["sub_id"], "fee", fee_amt, wallet_load, f"Platform fee ({order.get('platform_fee_pct', 2)}%)")
     await db.payment_orders.update_one({"order_id": order["order_id"]}, {"$set": {"status": "paid", "sub_id": sub["sub_id"], "paid_at": iso(start)}})
     logger.info(f"[SUB ACTIVATED] user={user_id} plan={plan['plan_id']} amount={plan['amount']} per_day={per_day}")
 
@@ -994,6 +1014,58 @@ async def run_expiry_reminders() -> dict:
 
     if sent_sms or failed:
         logger.info(f"[EXPIRY REMINDERS] sms={sent_sms} skipped={skipped} failed={failed}")
+
+    # ----- Iter-54 #1: partial-balance dues reminder (T-3 + T-1) -----
+    try:
+        partial_subs = await db.subscriptions.find(
+            {"status": "active", "pending_amount": {"$gt": 0}}, {"_id": 0},
+        ).to_list(5000)
+        partial_user_ids = list({s["user_id"] for s in partial_subs})
+        partial_user_map = user_map.copy()
+        if partial_user_ids:
+            async for u in db.users.find({"user_id": {"$in": partial_user_ids}}, {"_id": 0}):
+                partial_user_map[u["user_id"]] = u
+        partial_lead = [3, 1]
+        dues_sent = 0
+        for sub in partial_subs:
+            try:
+                end_dt = parse_dt(sub["end_date"])
+                days_left = (end_dt.date() - today).days
+                if days_left not in partial_lead:
+                    continue
+                user = partial_user_map.get(sub["user_id"])
+                if not user or not user.get("phone"):
+                    continue
+                dedupe = {"sub_id": sub["sub_id"], "kind": "partial_dues", "days_left": days_left, "sent_date": today.isoformat()}
+                if await db.expiry_reminders_sent.find_one(dedupe, {"_id": 0}):
+                    continue
+                msg = (
+                    f"Hi {user.get('name') or 'there'}! Your eFoodCare plan '{sub.get('plan_name')}' "
+                    f"has ₹{round(float(sub['pending_amount']), 2):.0f} pending. Plan ends in {days_left} day(s). "
+                    "Clear dues now from your dashboard → Clear pending balance, or pay cash to staff."
+                )
+                try:
+                    from whatsapp import send_payment_success as _wa_send  # reuse channel; brand-safe
+                    await _wa_send(db, phone=user["phone"], name=user.get("name") or "there",
+                                   amount=float(sub["pending_amount"]),
+                                   plan_name=sub.get("plan_name") or "Subscription",
+                                   invoice_url=None)
+                except Exception:
+                    pass
+                logger.info(f"[PARTIAL DUES] reminder for sub={sub['sub_id']} pending=₹{sub['pending_amount']:.0f} (T-{days_left}) · {msg[:80]}")
+                await db.expiry_reminders_sent.insert_one({
+                    **dedupe, "user_id": user["user_id"], "phone": user.get("phone"),
+                    "plan_name": sub.get("plan_name"), "pending_amount": sub.get("pending_amount"),
+                    "ts": iso(now_utc()),
+                })
+                dues_sent += 1
+            except Exception as e:  # noqa: BLE001
+                logger.exception(f"[PARTIAL DUES] error sub={sub.get('sub_id')}: {e}")
+        if dues_sent:
+            logger.info(f"[PARTIAL DUES] reminders fired: {dues_sent}")
+    except Exception as e:  # noqa: BLE001
+        logger.exception(f"[PARTIAL DUES] loop error: {e}")
+
     return {"sms_sent": sent_sms, "skipped": skipped, "failed": failed}
 
 

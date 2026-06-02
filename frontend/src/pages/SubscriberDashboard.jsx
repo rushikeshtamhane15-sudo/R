@@ -5,6 +5,8 @@ import { useAuth } from "../context/AuthContext";
 import QRTicket from "../components/QRTicket";
 import PendingDeliveriesBanner from "../components/PendingDeliveriesBanner";
 import TiffinPreferencesCard from "../components/TiffinPreferencesCard";
+import PendingDuesCard from "../components/PendingDuesCard";
+import PendingCashOtpFlash from "../components/PendingCashOtpFlash";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
 import {
@@ -25,7 +27,7 @@ const FALLBACK_TEXTS = {
 };
 
 export default function SubscriberDashboard() {
-  const { user } = useAuth();
+  const { user, checkAuth } = useAuth();
   const [sub, setSub] = useState(null);
   const [walletInfo, setWalletInfo] = useState(null);
   const [qr, setQr] = useState(null);
@@ -106,10 +108,17 @@ export default function SubscriberDashboard() {
       case "tiffin_tracker":
         return isTiffin ? (
           <>
+            <PendingCashOtpFlash />
+            <PendingDuesCard onRefreshUser={checkAuth} />
             <PendingDeliveriesBanner />
             <TiffinPreferencesCard />
           </>
-        ) : null;
+        ) : (
+          <>
+            <PendingCashOtpFlash />
+            <PendingDuesCard onRefreshUser={checkAuth} />
+          </>
+        );
       default:
         return null;
     }
