@@ -515,6 +515,52 @@ Backend: 14/14 new (test_iter27_app_cms.py) + 110/114 regression (4 timeouts unr
 - **Iteration 36 testing**: 10/10 backend pytest + 9/9 frontend checks pass.
 
 
+## Iteration 54 (Feb 11, 2026) — 11-feature batch: partial dues + ₹200 surcharge + multi-sub + geo block + cash dedup + profile strictness + face detection + UI polish
+
+### Features delivered
+
+**#1 Partial dues reminders + dashboard "Clear dues" card + correct wallet**
+- Hooked `partial_dues_reminder_loop` into existing `run_expiry_reminders` (T-3 + T-1 days). Dedupe key includes `kind="partial_dues"` so reminders don't conflict with regular expiry reminders. Fires WhatsApp (stub) with one-tap clear-balance hint.
+- Wallet load now = full plan amount on non-partial, = down payment on partial. **Per-day deduction always = plan/duration** (regardless of partial down) — `_activate_subscription` rewritten.
+- New `PendingDuesCard.jsx` on subscriber dashboard — pay online or generate cash OTP, supports clearing any amount up to pending.
+
+**#2 ₹200 partial-payment surcharge**
+- New constant `PARTIAL_PAYMENT_SURCHARGE_INR=200` in server.py.
+- `pending_amount = (plan-down) + 200` on partial subs. Visible in checkout bill summary (`data-testid=partial-surcharge`) and admin partial-payments dashboard.
+
+**#3 Profile strictness + face validation**
+- Regex-validated name (letters/space/dot/apostrophe/hyphen, 2-50), phone (10 digits starting 6-9, +91 auto-stripped), address (min 12 chars).
+- Selfie sent to Gemini Vision via `face_check.is_valid_face_data_url` — VALID/INVALID classifier. Allow-on-detector-error so transient infra issues don't lock out users.
+- Frontend Profile.jsx: name input strips invalid chars in real time, phone has hard +91 prefix label + 10-digit numeric cap, address has min hint.
+
+**#4 Red horizontal dividers** under Service + Tiffin Size toggles on Plans custom section (`bg-primary h-0.5 rounded-sm w-32`).
+
+**#5 Dining/Tiffin top tabs side-by-side on mobile** — `flex flex-row` w/ compact padding; verified yDiff=0 at 390×844.
+
+**#6 Hard geo-block**
+- New helper `_enforce_serviceable_area()` calls Haversine vs `db.delivery_settings` (default Pune 18.5204/73.8567 / 15km).
+- Wired into ALL purchase endpoints: `/payments/order`, `/payments/custom-order`, `/payments/cash-order`, `/payments/partial-order`, `/restaurant/order`.
+- 400 detail contains "service area"/"pin your delivery" → frontend Checkout + RestaurantCheckout auto-redirect to location-picker.
+
+**#7 Multi-subscription rules**
+- New helper `_block_duplicate_active_plan()` — blocks 2nd active subscription with same plan_id; blocks 2nd `pending_cash` order for same plan_id. Different plan_id always allowed.
+- Wired into all subscription-purchase endpoints.
+
+**#8 Cash collection persistence + admin delete**
+- `PendingCashOtpFlash.jsx` polls `/api/my/pending-cash-otp` every 8s → flashes the active OTP on subscriber dashboard until verified.
+- New `DELETE /api/admin/payments/cash-collect/{order_id}` (admin-only) marks order as `cancelled` + unsets `cash_otp`. Frontend admin /admin/cash-collections shows Delete button per row for admins only.
+- Duplicate cash orders for same plan now blocked (see #7 helper).
+
+**#9 Cash option to clear partial balance**
+- New `POST /api/payments/clear-partial-balance-cash` (subscriber-side) — creates `pending_cash` order with `is_partial_clear=true, linked_sub_id`. Same OTP/verify flow as regular cash. Duplicate-block guard for same `sub_id`.
+- Wired into `PendingDuesCard` mode-selector dropdown (online/cash).
+
+**#10 Leaflet © attribution removed** — `TILE_ATTR=''`, `attributionControl={false}` on every MapContainer (TrackMap3D, LocationPicker, DeliveryMap, AdminLiveMap). Global CSS rule `.leaflet-control-attribution { display: none !important; }` in index.css for belt-and-suspenders.
+
+**#11 Tiffin preferences editable headings**
+- `tiffin_pref_catalog` doc now carries `page_title` + `page_subtitle`. `GET /tiffin-preferences/catalog` (public) returns them. Admin can edit on `/admin/tiffin-preferences` (data-testid=pref-page-title / pref-page-subtitle).
+- `TiffinPreferencesCard.jsx` reads & displays dynamic title + subtitle (data-testid=tiffin-pref-title / tiffin-pref-subtitle).
+
 ## Iteration 53 (Feb 11, 2026) — Cash + Partial Payments · Tiffin Stock · AI 3D Pref Images
 
 ### Features delivered
