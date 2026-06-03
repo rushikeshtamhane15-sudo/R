@@ -266,6 +266,38 @@ export default function Checkout() {
               ))}
             </div>
 
+            {payMode === "mix" && fees && (
+              <div className="mt-4 rounded-xl bg-muted/30 border border-border p-4" data-testid="mix-block">
+                <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Mix online + cash</p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <label className="block">
+                    <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Online now</span>
+                    <Input type="number" min={1} max={fees.base - 1} value={mixOnline}
+                           onChange={(e) => {
+                             const v = Math.max(1, Math.min(fees.base - 1, Number(e.target.value) || 0));
+                             setMixOnline(v);
+                             setMixCash(Math.round((fees.base - v) * 100) / 100);
+                           }}
+                           className="mt-1 rounded-xl tabular-nums" data-testid="mix-online-input" />
+                  </label>
+                  <label className="block">
+                    <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Cash to staff (via OTP)</span>
+                    <Input type="number" min={1} max={fees.base - 1} value={mixCash}
+                           onChange={(e) => {
+                             const v = Math.max(1, Math.min(fees.base - 1, Number(e.target.value) || 0));
+                             setMixCash(v);
+                             setMixOnline(Math.round((fees.base - v) * 100) / 100);
+                           }}
+                           className="mt-1 rounded-xl tabular-nums" data-testid="mix-cash-input" />
+                  </label>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-2">
+                  Pay ₹{Number(mixOnline).toFixed(0)} online + ₹{Number(mixCash).toFixed(0)} cash to staff via OTP. Total ₹{fees.base.toFixed(0)}.
+                  Cash portion gets ₹200 partial-payment surcharge added to your pending balance.
+                </p>
+              </div>
+            )}
+
             {payMode === "partial" && (
               <div className="mt-4 rounded-xl bg-muted/30 border border-border p-4" data-testid="partial-down-block">
                 <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Down payment now (any amount ≥ 50%)</label>

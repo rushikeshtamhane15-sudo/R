@@ -72,7 +72,7 @@ export default function AdminCashAnalytics() {
         <Stat label="Today" value={totals?.today} testid="cash-today" />
         <Stat label="This month" value={totals?.month} testid="cash-month" />
         <Stat label="This year" value={totals?.year} testid="cash-year" />
-        <Stat label="Pending bank deposit" value={totals?.pending_bank_deposit} sub={`${totals?.pending_bank_deposit_count || 0} orders`} testid="cash-pending-bank" tone="warn" icon={Building2} />
+        <Stat label="Pending bank deposit" value={totals?.pending_bank_deposit} sub={`${totals?.pending_bank_deposit_count || 0} orders not yet deposited`} testid="cash-pending-bank" tone="warn" icon={Building2} />
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-5">

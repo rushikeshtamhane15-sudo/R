@@ -515,6 +515,29 @@ Backend: 14/14 new (test_iter27_app_cms.py) + 110/114 regression (4 timeouts unr
 - **Iteration 36 testing**: 10/10 backend pytest + 9/9 frontend checks pass.
 
 
+## Iteration 55 (Feb 11, 2026) — 12-feature batch: image persistence + mix payment + 3D cards + PWA polish + kitchen CMS + cash analytics
+
+### Critical fix (root cause)
+
+**#1 Images disappearing after every production deploy** — was caused by uploaded + AI-generated images being saved to the container's local `/api/uploads/` directory. Each redeploy = fresh container = wiped disk. Switched ALL upload + generation endpoints to **store images as `data:image/...;base64,...` URLs directly in MongoDB**:
+- `image_gen.generate_3d_image()` returns a data-URL
+- `optimize_to_webp_bytes()` new in-memory helper (`image_optim.py`)
+- Updated routes: menu image upload, tiffin-pref upload, landing CMS upload, landing-promotion upload
+- Result: images now survive every redeploy forever
+
+### Other features delivered
+- **#2 Plans Dining/Tiffin mobile side-by-side** — already correct on preview (yDiff=0). Production needs redeploy to inherit iter-54 fix.
+- **#3 Free-amount input** for partial-payment — slider supplemented by direct numeric Input (since iter-54).
+- **#4 Mix payment** — `POST /api/payments/mix-order` lets users split between online + cash in one go. Creates two payment orders atomically (online → Razorpay, cash → OTP). On `/payments/verify`, subscription activates with `pending_amount = cash_amount + ₹200 surcharge`. Checkout shows new "Mix online + cash" tile with two mirror-updating inputs (data-testid: pay-mode-mix, mix-block, mix-online-input, mix-cash-input).
+- **#5/#12 3D-card style** — new CSS utilities `.card-3d`, `.card-3d-amber`, `.card-3d-primary` (gradient + inner highlight + soft outer shadow + hover lift). Applied to PendingDuesCard + PendingCashOtpFlash + admin stat tiles.
+- **#6 No flash of old theme** — inline pre-paint script in `public/index.html` reads CSS-var tokens from `localStorage.ef_theme_tokens` and applies them synchronously BEFORE React mounts. Body opacity stays 0 until `html.theme-loaded` class. ThemeContext now persists tokens.
+- **#7 PWA opening screen polished** — manifest `background_color` from `#a02323` (loud red) → `#ffffff` (matches app shell so transition is invisible). Maskable icon split into its own entry.
+- **#8 Profile** name placeholder → "Enter full name".
+- **#9 PWA auto-update** — service worker handles `SKIP_WAITING` message, `sw-register.js` listens for `updatefound` + `controllerchange` and reloads once; installed apps update on next open.
+- **#10 Kitchen-radius CMS** — `GET /api/kitchen-location` (public) + `GET/PUT /api/admin/kitchen-settings`. LocationPicker now reads kitchen settings, draws a red service-area circle, and clamps panning via `maxBounds`. New page `/admin/kitchen-settings`.
+- **#11 Cash analytics + bank-deposit tracking** — `/api/admin/payments/cash-totals` (today/month/year/pending-bank-deposit), `/cash-pending-deposit` (list), `/mark-deposited` (batch). New page `/admin/cash-analytics` with stat tiles + checkbox list + bank-ref input.
+- **#12 Header LocationPill** — 3D-styled pill in app header shows area, city, pincode via Nominatim reverse-geocode; CTA for un-pinned/un-logged users. Visible across all pages.
+
 ## Iteration 54 (Feb 11, 2026) — 11-feature batch: partial dues + ₹200 surcharge + multi-sub + geo block + cash dedup + profile strictness + face detection + UI polish
 
 ### Features delivered
