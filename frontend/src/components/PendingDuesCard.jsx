@@ -23,6 +23,16 @@ export default function PendingDuesCard({ onRefreshUser }) {
   const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [cashOtp, setCashOtp] = useState(null); // {order_id, amount, dev_otp}
+  // iter-56 #1: admin-editable tile colors
+  const [duesStyles, setDuesStyles] = useState({});
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await api.get("/dashboard-styles");
+        if (r.data?.dues_bg) setDuesStyles({ background: r.data.dues_bg, color: r.data.dues_text || undefined });
+      } catch { /* defaults */ }
+    })();
+  }, []);
 
   const load = async () => {
     setLoading(true);
@@ -90,12 +100,12 @@ export default function PendingDuesCard({ onRefreshUser }) {
   };
 
   return (
-    <div className="rounded-2xl card-3d card-3d-amber p-5 space-y-3" data-testid="pending-dues-card">
+    <div className="rounded-xl card-3d card-3d-amber p-3 space-y-2" data-testid="pending-dues-card" style={duesStyles}>
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <p className="text-[11px] tracking-overline uppercase font-bold text-amber-700 flex items-center gap-1.5"><AlertCircle className="h-3.5 w-3.5" /> Pending balance</p>
-          <p className="font-display font-extrabold text-2xl mt-1 text-amber-900 tabular-nums">₹{totalPending.toFixed(0)} due</p>
-          <p className="text-xs text-amber-800 mt-1">Clear it now to avoid service interruption when wallet runs out.</p>
+          <p className="text-[10px] tracking-overline uppercase font-bold flex items-center gap-1.5 opacity-80"><AlertCircle className="h-3 w-3" /> Pending balance</p>
+          <p className="font-display font-extrabold text-xl mt-0.5 tabular-nums">₹{totalPending.toFixed(0)} due</p>
+          <p className="text-[10px] mt-0.5 opacity-70">Clear before wallet runs out.</p>
         </div>
       </div>
 

@@ -2362,6 +2362,8 @@ api_router.include_router(_tiffin_prefs_router)
 api_router.include_router(_tiffin_stock_router)
 api_router.include_router(_sub_payment_router)
 api_router.include_router(_cash_analytics_router)
+api_router.include_router(_dash_styles_router)
+api_router.include_router(_bank_deposit_router)
 
 app.include_router(api_router)
 
@@ -2404,4 +2406,6 @@ async def on_startup():
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
+    mongo_client.close()
+lient():
     mongo_client.close()

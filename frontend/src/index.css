@@ -103,7 +103,7 @@ iframe[src*="emergent"] {
     0 14px 30px -10px rgba(0,0,0,0.18),
     0 2px 4px rgba(0,0,0,0.04);
   border-radius: 1.25rem;
-  border: 1px solid color-mix(in srgb, var(--border) 100%, transparent 0%);
+  border: 1px solid transparent; /* iter-56: shadow-only — no visible border */
   transition: box-shadow 220ms ease, transform 220ms ease;
 }
 .card-3d:hover {
@@ -133,3 +133,16 @@ iframe[src*="emergent"] {
 
 /* iter-55 #6: prevent flash-of-old-theme — body fades in from background, NO orphan theme paint */
 html.theme-loaded body { opacity: 1; transition: opacity 0.18s ease-in; }
+
+/* iter-56 #1: shadow-only variants used on user dashboard payment tiles */
+.card-3d-amber { border-color: transparent !important; }
+.card-3d-primary { border-color: transparent !important; }
+
+/* iter-56 #2: red horizontal divider between dashboard sections */
+.dash-divider {
+  height: 2px;
+  border: 0;
+  background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--primary) 80%, transparent) 50%, transparent 100%);
+  border-radius: 999px;
+  margin: 18px 0;
+}

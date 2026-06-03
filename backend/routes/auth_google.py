@@ -64,12 +64,18 @@ async def google_verify(payload: GoogleSignInIn, response: Response):
     if not email or not idinfo.get("email_verified"):
         raise HTTPException(status_code=400, detail="Google account has no verified email")
 
-    name = idinfo.get("name") or email.split("@", 1)[0]
+    # Iter-56 #3: do NOT auto-fill the user's name from Google. Forcing the
+    # user to type it themselves prevents accidental "John Smith" defaults
+    # and ensures the address-book label matches what they want printed on
+    # the tiffin slip / invoice. We still keep the Google `picture` as a
+    # provisional avatar.
+    name = None
     picture: Optional[str] = idinfo.get("picture")
 
     # Find-or-create via the existing helper that also handles phone fallbacks
-    # and qr_token issuance. We pass email + name + picture; phone stays None
-    # so the user can still link a phone via /profile later.
+    # and qr_token issuance. We pass email + picture only; phone stays None
+    # so the user can still link a phone via /profile later, and `name` is
+    # blank so the profile page surfaces the "Enter full name" placeholder.
     user_doc = await server.create_or_get_user(email=email, phone=None, name=name, picture=picture)
 
     # Record the Google subject so we can do fast google_sub-only lookups

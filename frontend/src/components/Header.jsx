@@ -53,6 +53,13 @@ export default function Header() {
       className="sticky top-0 z-30 bg-primary text-primary-foreground border-b border-primary/40 shadow-sm"
       data-testid="app-header"
     >
+      {/* iter-56 #5: thin location strip ABOVE the brand row.
+          Auto-detects + reverse-geocodes; visible pre-login and post-login. */}
+      <div className="bg-primary/95 border-b border-white/10" data-testid="header-location-strip">
+        <div className="max-w-7xl mx-auto px-3 md:px-8 lg:px-12 py-1.5 flex items-center justify-end">
+          <LocationPill variant="strip" />
+        </div>
+      </div>
       <div className="max-w-7xl mx-auto flex items-center justify-between px-3 md:px-8 lg:px-12 py-3 md:py-4 gap-3">
         <Link to="/" className="flex items-center gap-1 min-w-0" data-testid="logo-link">
           <span
@@ -73,7 +80,6 @@ export default function Header() {
         </Link>
 
         <div className="flex items-center gap-1.5 md:gap-3 shrink-0">
-          <LocationPill />
           {showWallet && <WalletPill compact />}
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
@@ -194,6 +200,17 @@ export default function Header() {
                     data-testid="menu-login-link"
                   >
                     <Button className="w-full rounded-full bg-primary hover:bg-primary/90">Sign In</Button>
+                  </Link>
+                )}
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+      </div>
+    </header>
+  );
+}
+n className="w-full rounded-full bg-primary hover:bg-primary/90">Sign In</Button>
                   </Link>
                 )}
               </div>

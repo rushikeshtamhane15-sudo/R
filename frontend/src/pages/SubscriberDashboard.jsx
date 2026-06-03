@@ -108,15 +108,17 @@ export default function SubscriberDashboard() {
       case "tiffin_tracker":
         return isTiffin ? (
           <>
-            <div className="space-y-5 mb-6" data-testid="dashboard-payment-stack">
+            <div className="space-y-3 mb-3" data-testid="dashboard-payment-stack">
               <PendingCashOtpFlash />
               <PendingDuesCard onRefreshUser={checkAuth} />
             </div>
+            <hr className="dash-divider" data-testid="dash-divider-1" />
             <PendingDeliveriesBanner />
+            <hr className="dash-divider" data-testid="dash-divider-2" />
             <TiffinPreferencesCard />
           </>
         ) : (
-          <div className="space-y-5 mb-6" data-testid="dashboard-payment-stack">
+          <div className="space-y-3 mb-3" data-testid="dashboard-payment-stack">
             <PendingCashOtpFlash />
             <PendingDuesCard onRefreshUser={checkAuth} />
           </div>
