@@ -35,6 +35,16 @@ def _llm_chat():
 UPLOAD_ROOT = Path(__file__).resolve().parent / "uploads"
 DEFAULT_MODEL = "gemini-3.1-flash-image-preview"  # "Nano Banana" — latest
 
+# Iter-55: Persist images as data-URLs in MongoDB (caller stores the returned
+# string into `image_url` field). Production redeploys wipe the container's
+# filesystem, so local `/api/uploads/...` paths used to vanish each release.
+# Storing the bytes inline in MongoDB makes images survive forever.
+STORE_IMAGES_AS_DATA_URL = True
+
+
+def _to_data_url(image_bytes: bytes, mime: str = "image/png") -> str:
+    return "data:" + mime + ";base64," + base64.b64encode(image_bytes).decode("ascii")
+
 
 async def generate_3d_image(
     prompt: str,
@@ -45,16 +55,10 @@ async def generate_3d_image(
 ) -> tuple[str, int]:
     """Generate a single 3D PNG via Gemini Nano Banana.
 
-    Args:
-        prompt: Free-text description (we prepend a strict "3D studio render"
-                framing so output is consistent with brand aesthetic).
-        subdir: Sub-folder under /app/backend/uploads/. Created if missing.
-        session_id: Optional session id for the SDK; we randomise per-call.
-        model: Override the model name.
-
-    Returns:
-        (public_url, bytes_written) — public_url is path-based, prefixed with
-        `/api/uploads/...` so callers can store it directly on the resource.
+    Iter-55: returns the image as a `data:image/png;base64,...` URL so callers
+    can persist it directly inside MongoDB. Old call-sites still work — the
+    only thing that changes is `public_url` is now a data-URL instead of a
+    static path. The /app/backend/uploads directory is no longer used.
     """
     api_key = os.getenv("EMERGENT_LLM_KEY")
     if not api_key:
@@ -83,13 +87,7 @@ async def generate_3d_image(
     img = images[0]
     image_bytes = base64.b64decode(img["data"])
 
-    target_dir = UPLOAD_ROOT / subdir
-    target_dir.mkdir(parents=True, exist_ok=True)
-    # Always save as .png — Gemini returns image/png by default.
-    fname = f"{uuid.uuid4().hex}.png"
-    fpath = target_dir / fname
-    fpath.write_bytes(image_bytes)
-
-    public_url = f"/api/uploads/{subdir}/{fname}"
-    log.info("[image-gen] saved %s (%d bytes) for prompt='%.80s'", public_url, len(image_bytes), prompt)
-    return public_url, len(image_bytes)
+    # Iter-55: return a base64 data-URL so the caller stores it inside Mongo.
+    data_url = _to_data_url(image_bytes, "image/png")
+    log.info("[image-gen] generated %d bytes for prompt='%.80s' (returning data-url len=%d)", len(image_bytes), prompt, len(data_url))
+    return data_url, len(image_bytes)

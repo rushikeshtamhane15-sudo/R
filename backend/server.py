@@ -2343,6 +2343,7 @@ from routes.subscription import router as _subscription_router
 from routes.tiffin_prefs_admin import router as _tiffin_prefs_router
 from routes.tiffin_stock import router as _tiffin_stock_router
 from routes.subscription_payment import router as _sub_payment_router
+from routes.cash_analytics import router as _cash_analytics_router
 api_router.include_router(_auth_router)
 api_router.include_router(_auth_google_router)
 api_router.include_router(_payments_router)
@@ -2360,6 +2361,7 @@ api_router.include_router(_subscription_router)
 api_router.include_router(_tiffin_prefs_router)
 api_router.include_router(_tiffin_stock_router)
 api_router.include_router(_sub_payment_router)
+api_router.include_router(_cash_analytics_router)
 
 app.include_router(api_router)
 

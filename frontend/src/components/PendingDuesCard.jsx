@@ -90,7 +90,7 @@ export default function PendingDuesCard({ onRefreshUser }) {
   };
 
   return (
-    <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5 space-y-3" data-testid="pending-dues-card">
+    <div className="rounded-2xl card-3d card-3d-amber p-5 space-y-3" data-testid="pending-dues-card">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <p className="text-[11px] tracking-overline uppercase font-bold text-amber-700 flex items-center gap-1.5"><AlertCircle className="h-3.5 w-3.5" /> Pending balance</p>

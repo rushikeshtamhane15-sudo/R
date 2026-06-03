@@ -8,12 +8,35 @@
  * Falls back to a default city center if permission denied.
  */
 import React, { useEffect, useRef, useState } from "react";
-import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Circle, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import { Locate, MapPin, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
+import { api } from "../lib/api";
 
 const DEFAULT_CENTER = { lat: 18.5204, lng: 73.8567 }; // Pune fallback
+
+// Iter-55 #10: Kitchen location + radius pulled from backend (admin CMS).
+// Cached so the picker can initialise instantly on next visit.
+function useKitchenSettings() {
+  const [k, setK] = useState(() => {
+    try {
+      const c = JSON.parse(window.localStorage.getItem("ef_kitchen") || "null");
+      if (c && typeof c.dispatch_lat === "number") return c;
+    } catch { /* ignore */ }
+    return { dispatch_lat: DEFAULT_CENTER.lat, dispatch_lng: DEFAULT_CENTER.lng, dispatch_radius_km: 15 };
+  });
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await api.get("/kitchen-location");
+        setK(r.data);
+        try { window.localStorage.setItem("ef_kitchen", JSON.stringify(r.data)); } catch { /* ignore */ }
+      } catch { /* network fail → keep default */ }
+    })();
+  }, []);
+  return k;
+}
 
 const PIN_HTML = `
   <div style="position:relative;width:36px;height:36px">
@@ -61,6 +84,15 @@ export default function LocationPicker({ value, onChange, height = "h-56" }) {
   const [pos, setPos] = useState(value || null);
   const [busy, setBusy] = useState(false);
   const [denied, setDenied] = useState(false);
+  const kitchen = useKitchenSettings();
+  const radiusM = (kitchen.dispatch_radius_km || 15) * 1000;
+  // Build a bounding box around the kitchen for the picker.
+  // Leaflet `maxBounds` is [[swLat, swLng], [neLat, neLng]].
+  const padDeg = (kitchen.dispatch_radius_km || 15) / 111;
+  const maxBounds = [
+    [kitchen.dispatch_lat - padDeg, kitchen.dispatch_lng - padDeg],
+    [kitchen.dispatch_lat + padDeg, kitchen.dispatch_lng + padDeg],
+  ];
 
   // Auto-detect on first mount if no value supplied
   useEffect(() => {
@@ -91,15 +123,13 @@ export default function LocationPicker({ value, onChange, height = "h-56" }) {
     );
   };
 
-  const center = pos || DEFAULT_CENTER;
+  const center = pos || { lat: kitchen.dispatch_lat, lng: kitchen.dispatch_lng };
   return (
     <div className="rounded-xl overflow-hidden border border-border bg-muted relative" data-testid="location-picker">
       <div className={`${height} w-full relative`}>
-        <MapContainer center={[center.lat, center.lng]} zoom={pos ? 16 : 13} className="h-full w-full" scrollWheelZoom attributionControl={false}>
-          <TileLayer
-            url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution=''
-          />
+        <MapContainer center={[center.lat, center.lng]} zoom={pos ? 16 : 12} minZoom={11} maxBounds={maxBounds} maxBoundsViscosity={1.0} className="h-full w-full" scrollWheelZoom attributionControl={false}>
+          <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='' />
+          <Circle center={[kitchen.dispatch_lat, kitchen.dispatch_lng]} radius={radiusM} pathOptions={{ color: "#a02323", weight: 1.5, fillOpacity: 0.05 }} />
           {pos && <PinDragger pos={pos} setPos={handleSetPos} />}
           {pos && <FlyTo pos={pos} />}
         </MapContainer>

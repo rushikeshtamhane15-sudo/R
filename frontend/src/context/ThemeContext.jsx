@@ -33,6 +33,12 @@ export function applyTokens(tokens) {
     const cssVar = TOKEN_VAR_MAP[k];
     if (cssVar && v) root.style.setProperty(cssVar, v);
   });
+  // Iter-55 #6: cache the resolved tokens so the inline pre-paint script in
+  // index.html can apply them BEFORE React mounts on the next page load —
+  // eliminates the "flash of old theme" on reload / PWA cold start.
+  try {
+    window.localStorage.setItem("ef_theme_tokens", JSON.stringify(tokens));
+  } catch { /* non-critical: storage unavailable */ }
 }
 
 export function ThemeProvider({ children }) {
@@ -43,8 +49,13 @@ export function ThemeProvider({ children }) {
       const r = await api.get("/theme");
       setTheme(r.data);
       applyTokens(r.data?.tokens);
+      try { window.localStorage.setItem("ef_theme_brand", JSON.stringify({ name: r.data?.brand_name, tagline: r.data?.brand_tagline })); } catch { /* non-critical */ }
       if (r.data?.brand_name) document.title = `${r.data.brand_name} · ${r.data.brand_tagline || ""}`.trim();
-    } catch (e) {}
+      // Mark theme as loaded so body can fade in.
+      document.documentElement.classList.add("theme-loaded");
+    } catch (e) {
+      document.documentElement.classList.add("theme-loaded");
+    }
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);

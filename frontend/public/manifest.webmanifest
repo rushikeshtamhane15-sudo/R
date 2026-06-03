@@ -2,11 +2,11 @@
   "name": "efoodcare — ghar se achha khana",
   "short_name": "efoodcare",
   "description": "Your monthly mess + tiffin app. Pay once, eat 30 days. Track tiffin live.",
-  "start_url": "/",
+  "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#a02323",
+  "background_color": "#ffffff",
   "theme_color": "#a02323",
   "categories": ["food", "lifestyle", "productivity"],
   "icons": [
@@ -20,7 +20,13 @@
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "shortcuts": [

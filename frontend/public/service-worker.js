@@ -11,10 +11,16 @@
  * - Everything else (third-party, /api, POST/PUT/DELETE): pass-through.
  */
 
-const VERSION = "v1";
+const VERSION = "v3-iter55";
 const APP_SHELL = `efoodcare-shell-${VERSION}`;
 const STATIC = `efoodcare-static-${VERSION}`;
 const PRECACHE = ["/", "/index.html", "/manifest.webmanifest"];
+
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

@@ -31,7 +31,7 @@ export default function PendingCashOtpFlash() {
   if (loading || items.length === 0) return null;
 
   return (
-    <div className="rounded-2xl border-2 border-primary bg-primary/5 p-5 animate-pulse-slow" data-testid="cash-otp-flash">
+    <div className="rounded-2xl card-3d card-3d-primary p-5 animate-pulse-slow" data-testid="cash-otp-flash">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11px] tracking-overline uppercase font-bold text-primary flex items-center gap-1.5">

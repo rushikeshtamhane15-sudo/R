@@ -59,3 +59,34 @@ def optimize_to_webp(
         log.warning("[image_optim] failed (%s) — falling back to original bytes", e)
         dest.write_bytes(raw)
         return len(raw)
+
+
+def optimize_to_webp_bytes(
+    raw: bytes,
+    *,
+    max_dim: int = 1600,
+    quality: int = 80,
+) -> bytes:
+    """Iter-55: in-memory variant. Returns the optimized WebP bytes instead
+    of writing to disk, so callers can store the image inline (data-URL in
+    MongoDB). Falls back to raw bytes if PIL fails."""
+    try:
+        from PIL import Image  # type: ignore
+    except ImportError:
+        return raw
+    try:
+        im = Image.open(io.BytesIO(raw))
+        im.load()
+        if im.mode in ("P", "RGBA"):
+            bg = Image.new("RGB", im.size, (255, 255, 255))
+            bg.paste(im, mask=im.split()[-1] if im.mode == "RGBA" else None)
+            im = bg
+        elif im.mode != "RGB":
+            im = im.convert("RGB")
+        im.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+        out = io.BytesIO()
+        im.save(out, format="WEBP", quality=quality, method=4)
+        return out.getvalue()
+    except Exception as e:
+        log.warning("[image_optim_bytes] failed (%s) — returning raw", e)
+        return raw

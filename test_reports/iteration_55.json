@@ -1,0 +1,43 @@
+{
+  "summary": "Iter-55 backend: 32/32 pytest assertions pass (27 cross-file regression on test_iter53/54/55 + 5 new in test_iter55_extra.py covering tiffin-prefs/landing upload data-URLs, public /kitchen-location, /admin/payments/cash-totals numeric shape, admin/subscriber gating on /admin/kitchen-settings). Iter-55 frontend: 8/9 features verified live on the preview URL — pre-paint inline theme bootstrap, manifest #ffffff + maskable, SW v3-iter55 SKIP_WAITING + sw-register controllerchange reload, subscriber dashboard payment-stack + LocationPill, profile placeholder 'Enter full name', /admin/cash-analytics (cash-today/month/year/pending-bank tiles + mark-deposited list), /admin/kitchen-settings (lat/lng/radius/address-label inputs + Save). ONE BUG FOUND on iter-55-#4: Checkout.jsx wires the pay-mode-mix tile + state defaults but is MISSING the `data-testid='mix-block'` JSX block with the two mirror-updating number inputs — the user cannot view or edit the online/cash split. Pay-mode tile selects mix correctly and defaults to 50/50, but no UI surfaces to adjust it.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Checkout.jsx (Mix payment mode)", "issue": "Selecting pay-mode-mix does NOT reveal the [data-testid='mix-block'] panel with the two number inputs (online_amount + cash_amount). The state hooks (mixOnline/mixCash) and submit-routing to /payments/mix-order exist (lines 77-87, 142-146) but the JSX render block (analogous to the `payMode==='partial'` block at lines 269-294) is missing. Users cannot view or edit the split.", "selector": "[data-testid='mix-block']", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter55.py",
+    "/app/backend/tests/test_iter55_extra.py",
+    "/app/test_reports/pytest/iter55_results.xml",
+    "/app/test_reports/pytest/iter55_extra.xml",
+    "/app/test_reports/pytest/iter55_full_regression.xml"
+  ],
+  "action_items": [
+    "Add a `{payMode === 'mix' && fees && ( ...mix-block JSX... )}` render block inside Checkout.jsx (around line 295, alongside the partial-down-block) containing two <Input type='number' data-testid='mix-online-input' / 'mix-cash-input'> inputs wrapped in a <div data-testid='mix-block'>. On change of either input, mirror-update the other so online+cash === fees.base. Currently the state hooks default to 50/50 and submission works, but the user has no UI to adjust the split."
+  ],
+  "critical_code_review_comments": [
+    "Checkout.jsx state comment at line 22 still says 'online_full | partial | cash' — mix is missing from the comment, which suggests the mix-block UI was inadvertently omitted during this iteration.",
+    "Cash analytics tile 'cash-pending-bank' text concatenates the orders-count next to the rupee figure without a separator ('₹4284015 orders' is hard to parse) — consider a line-break or a smaller subtitle for the count.",
+    "/api/kitchen-location is public (correct) but currently returns no Cache-Control header — adding `Cache-Control: public, max-age=300` would let CDNs cache the 4 fields and improve cold-load of the location pill on the header.",
+    "Manifest icons declare only one purpose per entry (good); the maskable PNG should ideally be at least 512x512 with safe-zone padding for Android adaptive icons."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter55_extra.py (new — 5 extra tests, all pass)",
+    "/app/test_reports/pytest/iter55_results.xml",
+    "/app/test_reports/pytest/iter55_extra.xml",
+    "/app/test_reports/pytest/iter55_full_regression.xml"
+  ],
+  "success_rate": {"backend": "100% (32/32)", "frontend": "89% (8/9 verified features)"},
+  "test_credentials": "Synthesized via direct DB insert (mirrors tests/test_iter55.py::_make_session): admin user_53fb5454b8c8 (sess_318fa45bc0934a108f8638374b85b106), subscriber user_a1411b1308cb (sess_647ab6811cd7459c9729ed0b51f1e3a3) — both ephemeral in test_database.",
+  "seed_data_creation": "Two ephemeral users (1 admin, 1 subscriber) + matching user_sessions rows inserted into Mongo `test_database` for the UI walkthrough; can be cleaned via `db.users.delete_many({'user_id': {'$in': ['user_53fb5454b8c8','user_a1411b1308cb']}})`.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend is fully green (32/32). The single open bug is the missing mix-block JSX in /app/frontend/src/pages/Checkout.jsx — once the main agent adds the render block with data-testid='mix-block' and two number inputs, retest by: navigate to /checkout/premium_60 with a subscriber session cookie, click [data-testid='pay-mode-mix'], assert [data-testid='mix-block'] is visible, change online input to '100' and assert cash auto-updates so the sum equals plan total (₹2800). Backend /api/payments/mix-order is already verified by test_iter55.py::test_mix_order_*.",
+  "rca of the issue": "iter-55-#4 mix-block UI: the developer added state hooks (mixOnline, mixCash), the 50/50 init useEffect (lines 80-87), the pay-mode tile (id 'mix', line 256), and the API submit branch (lines 142-146), but skipped wiring the actual JSX panel that exposes the two number inputs. The check `grep -n 'mix-block' /app/frontend/src/pages/Checkout.jsx` returns zero matches. Mitigation: insert a new conditional block immediately after the existing `payMode === 'partial'` block (line 294) — pattern: render a <div data-testid='mix-block'> with two Inputs whose onChange handlers cross-update via `setMixOnline(v); setMixCash(fees.base - v)` and the reverse."
+}

@@ -73,6 +73,19 @@ export default function Checkout() {
     return { base, minDown };
   }, [plan]);
 
+  // For mix mode
+  const [mixOnline, setMixOnline] = useState(0);
+  const [mixCash, setMixCash] = useState(0);
+
+  useEffect(() => {
+    if (payMode === "mix" && fees) {
+      // Init: 50/50 split as a sensible default
+      const half = Math.round(fees.base / 2);
+      setMixOnline(half);
+      setMixCash(fees.base - half);
+    }
+  }, [payMode, fees]);  // eslint-disable-line react-hooks/exhaustive-deps
+
   // Initialise partial-down to min when user toggles to partial
   useEffect(() => {
     if (payMode === "partial" && fees && (!partialDown || partialDown < fees.minDown)) {
@@ -126,7 +139,12 @@ export default function Checkout() {
     setSubmitting(true); setStatus("creating");
     try {
       let orderRes;
-      if (payMode === "partial") {
+      if (payMode === "mix") {
+        const body = isCustom
+          ? { days, service_type: customServiceType, tiffin_size: customTiffinSize, online_amount: mixOnline, cash_amount: mixCash }
+          : { plan_id: planId, online_amount: mixOnline, cash_amount: mixCash };
+        orderRes = await api.post("/payments/mix-order", body);
+      } else if (payMode === "partial") {
         const body = isCustom
           ? { days, service_type: customServiceType, tiffin_size: customTiffinSize, down_payment: effectiveBase }
           : { plan_id: planId, down_payment: effectiveBase };
@@ -231,25 +249,26 @@ export default function Checkout() {
           {/* Payment mode selector */}
           <div className="mt-6 border-t border-border pt-5" data-testid="payment-mode">
             <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Payment mode</p>
-            <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[
                 { id: "online_full", label: "Pay fully online", icon: CreditCard, hint: "UPI, card, netbanking" },
-                { id: "partial",     label: "Pay 50% now",     icon: SplitSquareHorizontal, hint: "Settle the rest later" },
+                { id: "partial",     label: "Pay 50%+ now",     icon: SplitSquareHorizontal, hint: "Online · settle rest later" },
+                { id: "mix",         label: "Mix online + cash", icon: SplitSquareHorizontal, hint: "Split payment in one go" },
                 { id: "cash",        label: "Pay in cash",     icon: Banknote, hint: "Hand cash to staff with OTP" },
               ].map((m) => (
                 <button key={m.id} type="button" onClick={() => setPayMode(m.id)}
                   data-testid={`pay-mode-${m.id}`}
-                  className={`text-left rounded-xl border px-3.5 py-3 transition-colors ${payMode === m.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}>
+                  className={`text-left rounded-xl border px-3 py-2.5 transition-colors ${payMode === m.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}>
                   <m.icon className={`h-4 w-4 ${payMode === m.id ? "text-primary" : "text-muted-foreground"}`} />
-                  <p className="font-semibold text-sm mt-1.5">{m.label}</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">{m.hint}</p>
+                  <p className="font-semibold text-xs mt-1.5">{m.label}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{m.hint}</p>
                 </button>
               ))}
             </div>
 
             {payMode === "partial" && (
               <div className="mt-4 rounded-xl bg-muted/30 border border-border p-4" data-testid="partial-down-block">
-                <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Down payment now</label>
+                <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Down payment now (any amount ≥ 50%)</label>
                 <div className="mt-2 flex items-center gap-3">
                   <Input
                     type="number"

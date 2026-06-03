@@ -135,7 +135,8 @@ async def admin_pref_upload_image(
     file: UploadFile = File(...),
     user: server.User = Depends(server.get_current_user),
 ):
-    """Upload an image for a preference item. Returns the public URL."""
+    """Iter-55: upload preference image as data-URL stored in Mongo (survives
+    production redeploys)."""
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
     ext = _PREF_EXT_BY_MIME.get((file.content_type or "").lower())
@@ -144,14 +145,8 @@ async def admin_pref_upload_image(
     data = await file.read()
     if len(data) > 4 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="Max 4 MB")
-    from pathlib import Path
-    import uuid
-    from image_optim import optimize_to_webp
-
-    folder = Path(__file__).resolve().parent.parent / "uploads" / "tiffin_pref_images"
-    folder.mkdir(parents=True, exist_ok=True)
-    fname = f"{uuid.uuid4().hex}{ext}"
-    written = optimize_to_webp(data, folder / fname)
-    final = (folder / fname.replace(ext, ".webp"))
-    final_name = final.name if final.exists() else fname
-    return {"url": f"/api/uploads/tiffin_pref_images/{final_name}", "bytes": written}
+    import base64 as _b64
+    from image_optim import optimize_to_webp_bytes
+    webp = optimize_to_webp_bytes(data)
+    data_url = "data:image/webp;base64," + _b64.b64encode(webp).decode("ascii")
+    return {"url": data_url, "bytes": len(webp)}

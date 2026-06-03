@@ -93,3 +93,43 @@ iframe[src*="emergent"] {
 
 /* iter-54: hide Leaflet + MapLibre attribution branding on every map */
 .leaflet-control-attribution, .maplibregl-ctrl-attrib, .mapboxgl-ctrl-attrib { display: none !important; }
+
+/* iter-55 #5/#12: 3D card utility — soft outer shadow + light inner highlight + subtle gradient */
+.card-3d {
+  background: linear-gradient(180deg, var(--card) 0%, color-mix(in srgb, var(--card) 92%, var(--muted) 8%) 100%);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.65) inset,
+    0 6px 0 -2px rgba(0,0,0,0.04),
+    0 14px 30px -10px rgba(0,0,0,0.18),
+    0 2px 4px rgba(0,0,0,0.04);
+  border-radius: 1.25rem;
+  border: 1px solid color-mix(in srgb, var(--border) 100%, transparent 0%);
+  transition: box-shadow 220ms ease, transform 220ms ease;
+}
+.card-3d:hover {
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.7) inset,
+    0 6px 0 -2px rgba(0,0,0,0.05),
+    0 18px 36px -12px rgba(0,0,0,0.22),
+    0 3px 6px rgba(0,0,0,0.05);
+  transform: translateY(-1px);
+}
+.card-3d-amber {
+  background: linear-gradient(180deg, #fff8e1 0%, #ffefc4 100%);
+  border-color: #fcd34d;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.8) inset,
+    0 6px 0 -2px rgba(180,83,9,0.10),
+    0 14px 30px -10px rgba(180,83,9,0.22);
+}
+.card-3d-primary {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 10%, var(--card)) 0%, color-mix(in srgb, var(--primary) 18%, var(--card)) 100%);
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.6) inset,
+    0 6px 0 -2px color-mix(in srgb, var(--primary) 16%, transparent),
+    0 14px 30px -10px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+/* iter-55 #6: prevent flash-of-old-theme — body fades in from background, NO orphan theme paint */
+html.theme-loaded body { opacity: 1; transition: opacity 0.18s ease-in; }

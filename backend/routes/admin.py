@@ -31,10 +31,8 @@ async def admin_landing_upload_image(
     file: UploadFile = File(...),
     user: server.User = Depends(server.get_current_user),
 ):
-    """Upload an image for the /home (landing) CMS. Saves to
-    /api/uploads/landing_images/<uuid>.<ext> and returns the public URL.
-    Mirrors the menu image upload pipeline (WebP optimization + size cap).
-    """
+    """Iter-55: upload landing CMS image as a data-URL stored in Mongo
+    (survives production redeploys)."""
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
     ext = _LANDING_EXT_BY_MIME.get((file.content_type or "").lower())
@@ -45,21 +43,11 @@ async def admin_landing_upload_image(
         raise HTTPException(status_code=400, detail="Empty file")
     if len(data) > _LANDING_MAX_BYTES:
         raise HTTPException(status_code=413, detail="File too large (max 5 MB)")
-    from pathlib import Path
-    from image_optim import optimize_to_webp
-
-    upload_root = Path(__file__).resolve().parent.parent / "uploads"
-    folder = upload_root / "landing_images"
-    folder.mkdir(parents=True, exist_ok=True)
-    fname = f"{uuid.uuid4().hex}{ext}"
-    fpath = folder / fname
-    written = optimize_to_webp(data, fpath)
-    final_name = (
-        fpath.with_suffix(".webp").name
-        if (folder / fname.replace(ext, ".webp")).exists()
-        else fname
-    )
-    return {"url": f"/api/uploads/landing_images/{final_name}", "bytes": written}
+    import base64 as _b64
+    from image_optim import optimize_to_webp_bytes
+    webp = optimize_to_webp_bytes(data)
+    data_url = "data:image/webp;base64," + _b64.b64encode(webp).decode("ascii")
+    return {"url": data_url, "bytes": len(webp)}
 
 
 class RiderApplyRequest(BaseModel):

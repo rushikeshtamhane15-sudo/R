@@ -171,7 +171,7 @@ export default function Profile() {
             onChange={(e) => setForm({ ...form, name: e.target.value.replace(/[^A-Za-z\.\'\- ]/g, "") })}
             className="mt-2 rounded-xl"
             data-testid="profile-name"
-            placeholder="e.g. Aman Gupta"
+            placeholder="Enter full name"
             maxLength={50}
           />
           <p className="text-[11px] text-muted-foreground mt-1">Letters, spaces, hyphens and apostrophes only · 2–50 chars.</p>

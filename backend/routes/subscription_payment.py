@@ -177,6 +177,11 @@ class PartialOrderIn(CashOrPartialIn):
     down_payment: float = Field(..., gt=0, description="INR upfront (>= 50% of total)")
 
 
+class MixPaymentIn(CashOrPartialIn):
+    online_amount: float = Field(..., gt=0, description="Pay this amount via Razorpay")
+    cash_amount: float = Field(..., gt=0, description="Pay this amount in cash to staff (OTP)")
+
+
 class VerifyCashOtpIn(BaseModel):
     order_id: str
     otp: str
@@ -620,3 +625,107 @@ async def clear_partial_balance_cash(sub_id: str = Body(..., embed=True), amount
         "message": "Hand cash to staff. Staff will verify the OTP we sent to your phone.",
     }
 
+
+
+# ---------------------------------------------------------------------------
+# Iter-55 #4: Mix payment — pay X online + Y in cash for the same subscription
+# ---------------------------------------------------------------------------
+@router.post("/payments/mix-order")
+async def create_mix_order(payload: MixPaymentIn, user: server.User = Depends(server.get_current_user)):
+    """User pays `online_amount` via Razorpay AND owes `cash_amount` to staff
+    via OTP. Activates subscription with `amount_paid=online_amount`,
+    `pending_amount=cash_amount`. The cash OTP is generated immediately."""
+    user_doc = await server.db.users.find_one({"user_id": user.user_id}, {"_id": 0})
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="User not found")
+    missing = [f for f in ("name", "phone", "address") if not (user_doc.get(f) or "")]
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Profile incomplete: missing {', '.join(missing)}")
+    plan = await _plan_from_payload(payload)
+    await _enforce_serviceable_area(user_doc)
+    await _block_duplicate_active_plan(user.user_id, plan["plan_id"])
+
+    total = float(plan["amount"])
+    online = round(float(payload.online_amount), 2)
+    cash = round(float(payload.cash_amount), 2)
+    summed = round(online + cash, 2)
+    if abs(summed - total) > 0.5:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Mix amounts must sum to plan total ₹{total:.2f} (got ₹{summed:.2f})",
+        )
+    if online <= 0 or cash <= 0:
+        raise HTTPException(status_code=400, detail="Both online and cash portions must be > 0")
+
+    # Online piece: behave like a partial-order; pending_amount = cash side + ₹200 surcharge
+    fee_pct = float(server.PLATFORM_FEE_PCT)
+    platform_fee = round(online * fee_pct / 100.0, 2)
+    payable = round(online + platform_fee, 2)
+    receipt = f"rcpt_{uuid.uuid4().hex[:12]}"
+    rzp_order = None
+    if server.RZP_ENABLED:
+        try:
+            rzp_order = server.rzp_client.order.create({
+                "amount": int(round(payable * 100)),
+                "currency": plan["currency"],
+                "receipt": receipt, "payment_capture": 1,
+                "notes": {"plan_id": plan["plan_id"], "user_id": user.user_id, "mix": "true"},
+            })
+        except Exception as e:  # noqa: BLE001
+            server.logger.warning(f"[RZP mix] {e}")
+            rzp_order = None
+    order_id = rzp_order["id"] if rzp_order else f"order_mock_{uuid.uuid4().hex[:14]}"
+    mock = rzp_order is None
+    await server.db.payment_orders.insert_one({
+        "order_id": order_id, "receipt": receipt,
+        "user_id": user.user_id, "plan_id": plan["plan_id"], "plan_name": plan["plan_name"],
+        "amount": payable, "base_amount": online,
+        "platform_fee": platform_fee, "platform_fee_pct": fee_pct,
+        "amount_paise": int(round(payable * 100)),
+        "currency": plan["currency"],
+        "duration_days": plan["duration_days"], "meals": plan["meals"],
+        "custom": plan["custom"],
+        "status": "created", "mock": mock, "payment_mode": "mix",
+        "service_type": plan["service_type"], "tiffin_size": plan["tiffin_size"],
+        "plan_type": plan["plan_type"],
+        # Mix-specific
+        "is_partial": True,                # so activation puts the cash into pending_amount
+        "partial_down": online,
+        "partial_total": total,
+        "partial_pending": cash,           # cash portion + later +₹200 surcharge in activation
+        "mix_cash_amount": cash,
+        "created_at": server.iso(server.now_utc()),
+    })
+
+    # Cash side: open the OTP record up-front so user can hand it to staff
+    cash_otp = _gen_otp()
+    cash_order_id = f"cash_{uuid.uuid4().hex[:14]}"
+    await server.db.payment_orders.insert_one({
+        "order_id": cash_order_id, "receipt": f"rcpt_{uuid.uuid4().hex[:12]}",
+        "user_id": user.user_id, "plan_id": plan["plan_id"], "plan_name": plan["plan_name"] + " (cash leg)",
+        "amount": cash, "base_amount": cash,
+        "platform_fee": 0.0, "platform_fee_pct": 0.0,
+        "amount_paise": int(round(cash * 100)),
+        "currency": "INR",
+        "status": "pending_cash", "mock": False, "payment_mode": "cash",
+        "linked_online_order": order_id,
+        "is_mix_cash_leg": True,
+        "cash_otp": cash_otp, "cash_otp_attempts": 0,
+        "assigned_staff_id": None, "deposit_slip_no": None,
+        "collected_by": None, "collected_at": None,
+        "created_at": server.iso(server.now_utc()),
+    })
+
+    return {
+        "order_id": order_id,
+        "amount": payable, "base_amount": online, "platform_fee": platform_fee,
+        "currency": plan["currency"],
+        "amount_paise": int(round(payable * 100)),
+        "key_id": server.RZP_KEY_ID if server.RZP_ENABLED else "rzp_test_MOCK",
+        "mock": mock,
+        "plan_name": plan["plan_name"],
+        "duration_days": plan["duration_days"], "meals": plan["meals"],
+        "mix_cash_amount": cash, "mix_cash_otp": cash_otp if server.OTP_DEV_MODE else None,
+        "mix_cash_order_id": cash_order_id,
+        "prefill": {"name": user_doc.get("name", ""), "email": user_doc.get("email", ""), "contact": user_doc.get("phone", "")},
+    }

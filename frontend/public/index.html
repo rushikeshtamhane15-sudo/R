@@ -9,6 +9,28 @@
         <meta name="apple-mobile-web-app-title" content="efoodcare" />
         <link rel="manifest" href="/manifest.webmanifest" />
 
+        <!-- iter-55 #6: pre-paint theme bootstrap. Applies CSS variables from
+             the last cached theme tokens BEFORE React mounts so users never
+             see a flash of old/default colors. Body is hidden until React
+             flips the `theme-loaded` class. -->
+        <style id="pre-paint-style">
+          body { opacity: 0; transition: opacity 0.18s ease-in; }
+          html.theme-loaded body { opacity: 1; }
+        </style>
+        <script>
+          (function () {
+            try {
+              var raw = window.localStorage.getItem("ef_theme_tokens");
+              if (!raw) { document.documentElement.classList.add("theme-loaded"); return; }
+              var t = JSON.parse(raw);
+              var map = {background:"--background",foreground:"--foreground",card:"--card",card_foreground:"--card-foreground",popover:"--popover",popover_foreground:"--popover-foreground",primary:"--primary",primary_foreground:"--primary-foreground",secondary:"--secondary",secondary_foreground:"--secondary-foreground",muted:"--muted",muted_foreground:"--muted-foreground",accent:"--accent",accent_foreground:"--accent-foreground",destructive:"--destructive",destructive_foreground:"--destructive-foreground",border:"--border",input:"--input",ring:"--ring",radius:"--radius"};
+              for (var k in t) { if (map[k] && t[k]) document.documentElement.style.setProperty(map[k], t[k]); }
+              // Ready: fade in immediately, ThemeContext refresh later patches any drift.
+              document.documentElement.classList.add("theme-loaded");
+            } catch (e) { document.documentElement.classList.add("theme-loaded"); }
+          })();
+        </script>
+
         <!-- =================================================================
              SEO: title + description + Open Graph + Twitter card.
              These are managed PER-PAGE by `react-helmet-async` via the shared

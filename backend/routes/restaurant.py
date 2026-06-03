@@ -530,11 +530,9 @@ async def admin_upload_menu_image(
     file: UploadFile = File(...),
     user: server.User = Depends(server.get_current_user),
 ):
-    """Save an admin-uploaded menu item image to local disk "object storage"
-    and return a public URL the admin form can paste into `image_url`.
-
-    The static mount in server.py exposes /api/uploads/menu_images/<file>.
-    """
+    """Iter-55: Persist admin-uploaded menu images as base64 data-URLs so they
+    survive production redeploys (local disk gets wiped each release). We
+    still optimise to WebP first for bandwidth, then encode."""
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
     ext = _EXT_BY_MIME.get((file.content_type or "").lower())
@@ -545,15 +543,17 @@ async def admin_upload_menu_image(
         raise HTTPException(status_code=400, detail="Empty file")
     if len(data) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail=f"File too large (max {MAX_UPLOAD_BYTES // (1024 * 1024)} MB)")
-    # WebP optimization — bandwidth saver for cellular users. optimize_to_webp
-    # falls back to writing raw bytes if Pillow chokes, so this never breaks
-    # an upload.
-    from image_optim import optimize_to_webp
-    fname = f"{uuid.uuid4().hex}{ext}"
-    fpath = MENU_IMAGE_DIR / fname
-    written = optimize_to_webp(data, fpath)
-    final_name = fpath.with_suffix(".webp").name if (MENU_IMAGE_DIR / fname.replace(ext, ".webp")).exists() else fname
-    return {"url": f"/api/uploads/menu_images/{final_name}", "bytes": written}
+    # WebP optimization — bandwidth saver.
+    from image_optim import optimize_to_webp_bytes
+    try:
+        webp_bytes = optimize_to_webp_bytes(data)
+        mime = "image/webp"
+    except Exception:  # noqa: BLE001
+        webp_bytes = data
+        mime = file.content_type or "image/jpeg"
+    import base64 as _b64
+    data_url = "data:" + mime + ";base64," + _b64.b64encode(webp_bytes).decode("ascii")
+    return {"url": data_url, "bytes": len(webp_bytes)}
 
 
 # ---------------------------------------------------------------------------

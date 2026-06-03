@@ -62,6 +62,8 @@ import AdminTiffinPreferences from "./pages/AdminTiffinPreferences";
 import AdminTiffinStock from "./pages/AdminTiffinStock";
 import AdminCashCollections from "./pages/AdminCashCollections";
 import AdminPartialPayments from "./pages/AdminPartialPayments";
+import AdminCashAnalytics from "./pages/AdminCashAnalytics";
+import AdminKitchenSettings from "./pages/AdminKitchenSettings";
 import { Privacy, Refund } from "./pages/PolicyPage";
 
 function RequireAuth({ children, roles }) {
@@ -144,6 +146,8 @@ function AppRoutes() {
             <Route path="tiffin-preferences" element={<AdminTiffinPreferences />} />
             <Route path="tiffin-stock" element={<AdminTiffinStock />} />
             <Route path="cash-collections" element={<AdminCashCollections />} />
+            <Route path="cash-analytics" element={<AdminCashAnalytics />} />
+            <Route path="kitchen-settings" element={<AdminKitchenSettings />} />
             <Route path="partial-payments" element={<AdminPartialPayments />} />
             <Route path="theme" element={<AdminTheme />} />
             <Route path="landing" element={<AdminLanding />} />

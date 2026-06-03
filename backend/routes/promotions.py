@@ -133,16 +133,15 @@ async def admin_upload(file: UploadFile = File(...), user: server.User = Depends
         raise HTTPException(status_code=400, detail="Empty file")
     if len(data) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail=f"File too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)")
-    from image_optim import optimize_to_webp
-    fname = f"{uuid.uuid4().hex}{ext}"
-    fpath = UPLOAD_ROOT / fname
-    written = optimize_to_webp(data, fpath)
-    final_name = fpath.with_suffix(".webp").name if (UPLOAD_ROOT / fname.replace(ext, ".webp")).exists() else fname
-    public_url = f"/api/uploads/promotions/{final_name}"
+    # Iter-55: persist as data-URL in Mongo for cross-deployment durability.
+    import base64 as _b64
+    from image_optim import optimize_to_webp_bytes
+    webp = optimize_to_webp_bytes(data)
+    data_url = "data:image/webp;base64," + _b64.b64encode(webp).decode("ascii")
     cur = await _load()
-    cur["image_url"] = public_url
+    cur["image_url"] = data_url
     await _save(cur)
-    return {"url": public_url, "bytes": written}
+    return {"url": data_url, "bytes": len(webp)}
 
 
 class PromoImagePromptIn(BaseModel):
