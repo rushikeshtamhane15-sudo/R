@@ -4,7 +4,9 @@ import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { Check, Loader2, Sparkles, Utensils, Truck } from "lucide-react";
+import { toast } from "sonner";
+import { Check, Loader2, Sparkles, Utensils, Truck, MapPin, AlertTriangle } from "lucide-react";
+import { ensureServiceableFix } from "../lib/serviceability";
 
 const MEAL_PRICE_FULL = 70;
 const MEAL_PRICE_HALF = 50;
@@ -25,6 +27,44 @@ export default function Plans() {
   const [service, setService] = useState("dining");
   const [days, setDays] = useState(7);
   const [tiffinSize, setTiffinSize] = useState("full");
+  // iter-61 #1: serviceable PIN inline on the hero. Auto-detect silently on
+  // mount via the same helper used by the action-time gate. If we already
+  // have a cached fix we render it; otherwise this kicks off detection.
+  const [hero, setHero] = useState(null); // {km, label} | null
+  const [gateOpen, setGateOpen] = useState(false);
+  const [gateMsg, setGateMsg] = useState("");
+  const [gateAction, setGateAction] = useState(null); // closure to retry
+
+  useEffect(() => {
+    (async () => {
+      // Background detect — no popup if denied, no block; just no hero pill.
+      const fix = await ensureServiceableFix({ persistToUser: !!user });
+      if (fix.ok) setHero({ km: fix.km, label: fix.label });
+      else if (fix.reason === "out-of-range") setHero({ km: fix.km, label: fix.label, oor: true, radius: fix.radius });
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  const requireServiceableThen = async (next) => {
+    const fix = await ensureServiceableFix({ persistToUser: !!user });
+    if (fix.ok) { setHero({ km: fix.km, label: fix.label }); next(); return; }
+    if (fix.reason === "out-of-range") {
+      setHero({ km: fix.km, label: fix.label, oor: true, radius: fix.radius });
+      setGateMsg(`Sorry — you're ${fix.km} km from our kitchen, outside our ${fix.radius} km zone. We can't deliver here.`);
+      setGateAction(null);
+      setGateOpen(true);
+      return;
+    }
+    setGateMsg(
+      fix.reason === "permission-denied"
+        ? "Please enable location access — we need it to confirm we deliver in your area. Tap Allow when your browser prompts you."
+        : fix.reason === "no-gps"
+        ? "Your device doesn't support location. Please contact us at +91 90213 26739."
+        : "Couldn't read your location. Tap retry."
+    );
+    setGateAction(() => () => requireServiceableThen(next));
+    setGateOpen(true);
+  };
 
   useEffect(() => {
     (async () => {
@@ -56,18 +96,22 @@ export default function Plans() {
   const profileIncomplete = (u) => !u || !u.name || !u.phone || !u.address || !u.photo_url;
 
   const startCheckout = (planId) => {
-    if (!user) return navigate(`/login?next=${encodeURIComponent(`/checkout/${planId}`)}`);
-    if (profileIncomplete(user)) return navigate(`/profile?next=/checkout/${planId}`);
-    navigate(`/checkout/${planId}`);
+    requireServiceableThen(() => {
+      if (!user) return navigate(`/login?next=${encodeURIComponent(`/checkout/${planId}`)}`);
+      if (profileIncomplete(user)) return navigate(`/profile?next=/checkout/${planId}`);
+      navigate(`/checkout/${planId}`);
+    });
   };
 
   const startCustomCheckout = () => {
     const params = new URLSearchParams({ days: String(customPreview.days), service });
     if (service === "tiffin") params.set("tiffin_size", tiffinSize);
     const next = `/checkout/custom?${params.toString()}`;
-    if (!user) return navigate(`/login?next=${encodeURIComponent(next)}`);
-    if (profileIncomplete(user)) return navigate(`/profile?next=${encodeURIComponent(next)}`);
-    navigate(next);
+    requireServiceableThen(() => {
+      if (!user) return navigate(`/login?next=${encodeURIComponent(next)}`);
+      if (profileIncomplete(user)) return navigate(`/profile?next=${encodeURIComponent(next)}`);
+      navigate(next);
+    });
   };
 
   if (loading) return <div className="p-12 text-center text-muted-foreground flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading plans…</div>;
@@ -78,6 +122,26 @@ export default function Plans() {
         <p className="text-xs tracking-overline uppercase font-bold text-secondary">Subscription plans</p>
         <h1 className="font-display font-extrabold text-3xl sm:text-4xl md:text-5xl tracking-tight mt-2 leading-[1.05]">Pick a plan. Eat <span className="text-primary">ghar se achha khana.</span></h1>
         <p className="text-sm sm:text-base text-muted-foreground mt-3 leading-relaxed">All plans cover 2 meals per day — wallet auto-pauses when you skip 3+ days in a row.</p>
+        {/* iter-61 #1: inline serviceable PIN — boosts trust before Subscribe */}
+        {hero && !hero.oor && (
+          <div
+            className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-full text-[11px] sm:text-xs font-semibold text-emerald-900"
+            style={{
+              background: "linear-gradient(145deg, #ecfdf5 0%, #d1fae5 100%)",
+              border: "1px solid rgba(16, 185, 129, 0.35)",
+              boxShadow: "0 2px 8px -2px rgba(16, 185, 129, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.6)",
+            }}
+            data-testid="plans-serviceable-hero"
+          >
+            <MapPin className="h-3.5 w-3.5 text-emerald-700" />
+            <span>Delivering to <b>{hero.label || "your area"}</b> · <span className="tabular-nums">{hero.km} km</span></span>
+          </div>
+        )}
+        {hero && hero.oor && (
+          <div className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-full text-[11px] sm:text-xs font-semibold text-amber-900 bg-amber-50 border border-amber-300" data-testid="plans-out-of-range-hero">
+            <AlertTriangle className="h-3.5 w-3.5" /> {hero.label || "Your area"} · {hero.km} km — outside our {hero.radius} km zone
+          </div>
+        )}
       </div>
 
       {/* Service tabs — explicit horizontal row, compact on mobile */}
@@ -113,9 +177,9 @@ export default function Plans() {
               }`}
               style={isPopular ? {
                 background: "linear-gradient(155deg, #c92626 0%, #a02323 40%, #7a1a1a 100%)",
-                boxShadow: "0 20px 44px -16px rgba(160,35,35,0.55), 0 6px 14px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.32), inset 0 -2px 6px rgba(0,0,0,0.22)",
+                boxShadow: "0 20px 44px -16px rgba(160,35,35,0.55), 0 6px 14px rgba(0,0,0,0.18), inset 0 0 0 2px rgba(255,255,255,0.5), inset 0 1px 0 rgba(255,255,255,0.32), inset 0 -2px 6px rgba(0,0,0,0.22)",
               } : {
-                boxShadow: "0 8px 24px -16px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.6)",
+                boxShadow: "0 8px 24px -16px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04), inset 0 0 0 2px rgba(160,35,35,0.35), inset 0 1px 0 rgba(255,255,255,0.6)",
               }}
             >
               {/* Decorative gloss & accent corner */}
@@ -127,7 +191,7 @@ export default function Plans() {
               )}
 
               {isPopular && (
-                <span className="relative z-10 inline-flex items-center gap-1 bg-amber-400/95 text-amber-950 text-[10px] tracking-overline uppercase font-extrabold px-3 py-1 rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.18)]">
+                <span className="relative z-10 inline-flex items-center gap-1 bg-white text-primary text-[10px] tracking-overline uppercase font-extrabold px-3 py-1 rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.18)]">
                   Most popular
                 </span>
               )}
@@ -189,7 +253,7 @@ export default function Plans() {
             {/* Iter-58 #3: stack — Service tabs first (row), Tiffin size tabs UNDER as a 2nd row. */}
             <div className="mt-6 flex flex-col items-stretch gap-5">
               <div className="text-center" data-testid="custom-service">
-                <label className="text-xs sm:text-sm tracking-overline uppercase font-bold text-muted-foreground">Service</label>
+                <label className="text-sm sm:text-base tracking-overline uppercase font-extrabold text-muted-foreground">Service</label>
                 <div className="mt-2.5 flex flex-row gap-2 justify-center flex-nowrap">
                   {SERVICES.map((s) => (
                     <button
@@ -206,7 +270,7 @@ export default function Plans() {
               </div>
 
               <div className={`text-center transition-opacity ${service !== "tiffin" ? "opacity-40 pointer-events-none" : ""}`} data-testid="custom-tiffin-size">
-                <label className="text-xs sm:text-sm tracking-overline uppercase font-bold text-muted-foreground">Tiffin size</label>
+                <label className="text-sm sm:text-base tracking-overline uppercase font-extrabold text-muted-foreground">Tiffin size</label>
                 <div className="mt-2.5 flex flex-row gap-2 justify-center flex-nowrap">
                   {[
                     { id: "half", label: "3 chapati" },
@@ -262,6 +326,30 @@ export default function Plans() {
           </div>
         </div>
       </div>
+
+      {/* iter-61 #5: action-time location gate modal */}
+      {gateOpen && (
+        <div className="fixed inset-0 z-[80] bg-black/60 flex items-center justify-center p-4" onClick={() => setGateOpen(false)} data-testid="action-location-gate">
+          <div className="bg-card rounded-3xl max-w-sm w-full p-5 sm:p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="inline-flex h-11 w-11 rounded-2xl bg-primary/12 text-primary items-center justify-center">
+              <MapPin className="h-5 w-5" />
+            </div>
+            <h3 className="font-display font-extrabold text-lg sm:text-xl mt-3 leading-tight">Location needed to subscribe</h3>
+            <p className="text-sm text-muted-foreground mt-2 leading-relaxed" data-testid="action-gate-msg">{gateMsg}</p>
+            <div className="mt-4 flex gap-2 justify-end">
+              <button type="button" onClick={() => setGateOpen(false)} className="px-4 py-2 rounded-full text-xs font-bold border border-border hover:bg-muted/60">Close</button>
+              {gateAction && (
+                <button
+                  type="button"
+                  onClick={() => { setGateOpen(false); gateAction(); }}
+                  className="px-4 py-2 rounded-full text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90"
+                  data-testid="action-gate-retry"
+                >Allow & retry</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

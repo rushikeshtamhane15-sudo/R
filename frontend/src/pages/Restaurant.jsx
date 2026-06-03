@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { readCmsCache, writeCmsCache } from "../lib/cms-cache";
+import { ensureServiceableFix } from "../lib/serviceability";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
@@ -120,10 +121,28 @@ export default function Restaurant() {
   const onAdd = (it, variant = "regular") => setCart((c) => bumpQty(c, it.id, 1, variant));
   const onSub = (it, variant = "regular") => setCart((c) => bumpQty(c, it.id, -1, variant));
 
+  // iter-61 #5: gate buy-now / checkout on a serviceable location fix. If
+  // the user already has a cached in-range fix this resolves instantly; if
+  // not, the helper triggers a fresh GPS read and persists lat/lng so the
+  // backend's _enforce_serviceable_area check passes.
+  const requireServiceable = async () => {
+    const fix = await ensureServiceableFix({ persistToUser: !!user });
+    if (fix.ok) return true;
+    if (fix.reason === "out-of-range") {
+      toast.error(`You're ${fix.km} km away — outside our ${fix.radius} km zone. We can't deliver here.`);
+    } else if (fix.reason === "permission-denied") {
+      toast.error("Enable location access to continue. Open browser site settings → unblock Location.");
+    } else {
+      toast.error("Couldn't read your location. Try again with GPS on.");
+    }
+    return false;
+  };
+
   // Buy now: stash one-item cart in sessionStorage and jump to checkout
   // (login wall handles redirect). The dish detail modal passes the chosen
   // portion variant so checkout shows "Butter Chicken · Large" not just qty.
-  const buyNow = (it, variant = "regular") => {
+  const buyNow = async (it, variant = "regular") => {
+    if (!(await requireServiceable())) return;
     const v = (variant || "regular").toLowerCase();
     try {
       sessionStorage.setItem(
@@ -139,8 +158,9 @@ export default function Restaurant() {
     navigate("/restaurant/checkout?buynow=1");
   };
 
-  const goCheckout = () => {
+  const goCheckout = async () => {
     if (totalCount === 0) { toast.error("Your cart is empty"); return; }
+    if (!(await requireServiceable())) return;
     if (!user) {
       try { sessionStorage.setItem("efc_pending_action_v1", "/restaurant/checkout"); } catch { /* sessionStorage unavailable — non-critical */ }
       navigate(`/login?next=${encodeURIComponent("/restaurant/checkout")}`);

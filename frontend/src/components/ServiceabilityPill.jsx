@@ -139,27 +139,27 @@ export default function ServiceabilityPill() {
   return (
     <div className={wrap} data-testid={isIn ? "serviceability-pill-in-range" : "serviceability-pill-out-of-range"}>
       <div
-        className="relative w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl overflow-hidden text-white"
+        className="relative w-full flex items-center gap-1.5 px-2 py-[3px] rounded-lg overflow-hidden text-white"
         style={{ background: gradient, boxShadow: shadow }}
       >
         <span aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.06] bg-[linear-gradient(transparent_50%,_rgba(255,255,255,1)_50%)] bg-[length:100%_3px]" />
         <span
-          className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-white/22 shrink-0 z-10"
+          className="inline-flex h-4 w-4 items-center justify-center rounded-md bg-white/22 shrink-0 z-10"
           style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.4), 0 2px 4px rgba(0,0,0,0.22)" }}
         >
-          {isIn ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
+          {isIn ? <CheckCircle2 className="h-2.5 w-2.5" /> : <AlertTriangle className="h-2.5 w-2.5" />}
         </span>
         {/* Marquee ticker */}
         <div className="relative flex-1 min-w-0 overflow-hidden z-10">
           <div className="efc-pill-marquee flex whitespace-nowrap will-change-transform">
-            <span className="text-[11px] sm:text-[12px] font-extrabold tracking-wide tabular-nums opacity-95 mr-10">{tickerText}</span>
-            <span className="text-[11px] sm:text-[12px] font-extrabold tracking-wide tabular-nums opacity-95 mr-10" aria-hidden="true">{tickerText}</span>
+            <span className="text-[10px] sm:text-[11px] font-bold tracking-wide tabular-nums opacity-95 mr-10">{tickerText}</span>
+            <span className="text-[10px] sm:text-[11px] font-bold tracking-wide tabular-nums opacity-95 mr-10" aria-hidden="true">{tickerText}</span>
           </div>
           {/* fade edges so text doesn't visually clip */}
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-4" style={{ background: `linear-gradient(to right, ${isIn ? "#065f46" : "#92400e"} 0%, transparent 100%)` }} />
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-4" style={{ background: `linear-gradient(to left, ${isIn ? "#065f46" : "#92400e"} 0%, transparent 100%)` }} />
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-3" style={{ background: `linear-gradient(to right, ${isIn ? "#065f46" : "#92400e"} 0%, transparent 100%)` }} />
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-3" style={{ background: `linear-gradient(to left, ${isIn ? "#065f46" : "#92400e"} 0%, transparent 100%)` }} />
         </div>
-        <MapPin className="h-3.5 w-3.5 opacity-70 z-10 shrink-0" />
+        <MapPin className="h-2.5 w-2.5 opacity-70 z-10 shrink-0" />
       </div>
       {/* Marquee CSS — scoped via global keyframes class. Kept inline so the
           component is self-contained and doesn't bloat tailwind config. */}

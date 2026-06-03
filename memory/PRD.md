@@ -515,7 +515,33 @@ Backend: 14/14 new (test_iter27_app_cms.py) + 110/114 regression (4 timeouts unr
 - **Iteration 36 testing**: 10/10 backend pytest + 9/9 frontend checks pass.
 
 
-###### Iteration 60 (Feb 11, 2026) — Pill marquee + compulsory location gate + subscribe-error fix + Plans page polish + Privacy Zone
+####### Iteration 61 (Feb 11, 2026) — Plans hero PIN + action-time gate + smaller pill + Most-popular white pill + cash-OTP self-cancel + plan card insets
+
+#### Completed in this pass
+- **#1 Inline serviceable PIN on Plans hero** — green chip below the H1 shows "Delivering to {Area, City · PIN} · {km} km" the instant we have a cached or fresh fix. Auto-detects silently on mount (no popup). Out-of-range users see an amber chip instead. Verified live: `Delivering to Kasba Peth, Pune City Subdistrict · 411001 · 0 km`.
+- **#2 Most-popular pill recolor** — yellow `bg-amber-400` → `bg-white` with red text. Better contrast against the metallic red card body and matches the brand more cleanly.
+- **#3 Service / Tiffin-size headings** — `text-xs sm:text-sm font-bold` → `text-sm sm:text-base font-extrabold` under build-your-own.
+- **#4 Pill even tinier** — vertical padding `py-1.5 → py-[3px]`, gap `gap-2 → gap-1.5`, rounded `rounded-xl → rounded-lg`, icon chips `h-6 w-6 → h-4 w-4`, marquee font `12 → 10/11px font-bold`. Still readable; ~24-28px total height now.
+- **#5 Don't block browsing — gate ONLY on action** — removed the compulsory `LocationPermissionGate` modal from App.js. New `lib/serviceability.js::ensureServiceableFix()` runs on Subscribe / Buy-now / Cart-checkout clicks; persists `lat/lng` to user before navigating. Failure modes:
+  - `permission-denied` → toast + retry CTA modal on Plans / `toast.error("Enable location access…")` on Restaurant.
+  - `out-of-range` → friendly message with km delta.
+  - `no-gps` / `gps-error` → retry CTA.
+  Pages auto-detect silently in the background so the hero pill / pill marquee still populate, but failed detection does NOT block browsing.
+- **#6 Plan card inside borders** — added `inset 0 0 0 2px rgba(255,255,255,0.5)` to the red "Most popular" card (white inset) and `inset 0 0 0 2px rgba(160,35,35,0.35)` to the standard card (red inset). Premium feel; both halos visible without overpowering the content.
+- **#7 Cash OTP self-cancel** — new backend `POST /api/payments/cash-cancel` lets a subscriber cancel their own `pending_cash` order (other users get 403, paid orders get 400). Both the `payment_orders` doc AND the linked `subscriptions{status:pending_payment}` stub get deleted so admin's pending list updates in real time. UI: `Trash2` icon button on each cash-OTP row in `PendingCashOtpFlash` opens a confirm modal that shows the amount before delete.
+
+#### Tests / lint
+- New `test_iter61.py` → **4/4 PASS** (happy path, other-user 403, non-pending 400, ghost 404).
+- Full regression iter56-61 → **28/28 PASS**.
+- ESLint clean on all 5 frontend files (Plans, Restaurant, PendingCashOtpFlash, ServiceabilityPill, App.js).
+
+#### Files
+- New: `/app/frontend/src/lib/serviceability.js`, `/app/backend/tests/test_iter61.py`
+- Modified backend: `routes/subscription_payment.py` (cash-cancel endpoint)
+- Modified frontend: `pages/Plans.jsx`, `pages/Restaurant.jsx`, `components/PendingCashOtpFlash.jsx`, `components/ServiceabilityPill.jsx`, `App.js` (gate removed)
+- Deprecated (unused now): `components/LocationPermissionGate.jsx` — kept for potential reuse
+
+## Iteration 60 (Feb 11, 2026) — Pill marquee + compulsory location gate + subscribe-error fix + Plans page polish + Privacy Zone
 
 #### Completed in this pass
 - **#1a Serviceability pill redesign** — vertical footprint halved (was ~64px, now 44px). Inner text shrunk to 11/12px font. Most importantly: text scrolls as a **CSS marquee** ("WE DELIVER HERE · X km · Area, City · PIN" + "OUTSIDE DELIVERY ZONE · …") so long addresses always read in full on narrow screens. Edges fade out with linear gradients matching the gradient backdrop so the loop is visually seamless. Honors `prefers-reduced-motion`.

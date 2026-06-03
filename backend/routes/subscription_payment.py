@@ -303,6 +303,27 @@ async def cash_resend_otp(order_id: str = Body(..., embed=True), user: server.Us
     return {"ok": True, "dev_otp": otp if server.OTP_DEV_MODE else None}
 
 
+@router.post("/payments/cash-cancel")
+async def cancel_my_cash_order(order_id: str = Body(..., embed=True), user: server.User = Depends(server.get_current_user)):
+    """Iter-61 #7: subscriber can cancel their own pending_cash order if they
+    raised it by mistake. Removes both the payment order entry AND the
+    pending_payment subscription stub so the admin's pending list stays
+    truthful in real time."""
+    order = await server.db.payment_orders.find_one({"order_id": order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.get("user_id") != user.user_id:
+        raise HTTPException(status_code=403, detail="Not your order")
+    if order.get("status") != "pending_cash":
+        raise HTTPException(status_code=400, detail=f"Cannot cancel — order is in '{order.get('status')}' state")
+    # Best-effort: nuke the matching pending subscription stub too
+    sub_id = order.get("sub_id")
+    if sub_id:
+        await server.db.subscriptions.delete_one({"sub_id": sub_id, "status": "pending_payment"})
+    await server.db.payment_orders.delete_one({"order_id": order_id})
+    return {"ok": True, "order_id": order_id}
+
+
 @router.post("/staff/cash-collect/verify-otp")
 async def cash_verify_otp(payload: VerifyCashOtpIn, user: server.User = Depends(server.get_current_user)):
     if user.role not in ("admin", "staff"):
