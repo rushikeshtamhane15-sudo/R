@@ -208,15 +208,15 @@ export default function Checkout() {
 
   if (cashSuccess) {
     return (
-      <div className="max-w-xl mx-auto px-6 py-14 text-center" data-testid="cash-pending-confirm">
-        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-8">
+      <div className="max-w-xl mx-auto px-4 sm:px-6 py-8 sm:py-14 text-center" data-testid="cash-pending-confirm">
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5 sm:p-8">
           <Clock className="h-10 w-10 text-amber-600 mx-auto" />
-          <h1 className="font-display font-extrabold text-2xl mt-3 text-amber-900">Cash payment pending</h1>
+          <h1 className="font-display font-extrabold text-xl sm:text-2xl mt-3 text-amber-900">Cash payment pending</h1>
           <p className="text-sm text-amber-800 mt-2">Hand over <span className="font-bold">₹{cashSuccess.amount?.toFixed?.(2)}</span> cash to our staff.</p>
-          <div className="mt-4 rounded-xl bg-white border border-amber-200 p-4 text-left text-sm">
-            <p className="text-xs uppercase tracking-overline font-bold text-amber-700">Your OTP (share with staff)</p>
-            <p className="font-display font-extrabold text-3xl tabular-nums mt-1 text-amber-900" data-testid="cash-otp">{cashSuccess.dev_otp || "Sent on WhatsApp / SMS"}</p>
-            <p className="text-[11px] text-muted-foreground mt-2">Order id: <span className="font-mono">{cashSuccess.order_id}</span></p>
+          <div className="mt-4 rounded-xl bg-white border border-amber-200 p-3 sm:p-4 text-left text-sm">
+            <p className="text-[10px] sm:text-xs uppercase tracking-overline font-bold text-amber-700">Your OTP (share with staff)</p>
+            <p className="font-display font-extrabold text-2xl sm:text-3xl tabular-nums mt-1 text-amber-900" data-testid="cash-otp">{cashSuccess.dev_otp || "Sent on WhatsApp / SMS"}</p>
+            <p className="text-[11px] text-muted-foreground mt-2 break-all">Order id: <span className="font-mono">{cashSuccess.order_id}</span></p>
           </div>
           <Button onClick={() => navigate("/dashboard")} className="rounded-full mt-6" data-testid="cash-go-dashboard">Go to dashboard</Button>
         </div>
@@ -228,13 +228,13 @@ export default function Checkout() {
   const backNext = isCustom ? `/checkout/custom?days=${days}` : `/checkout/${planId}`;
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-10" data-testid="checkout-page">
-      <p className="text-xs tracking-overline uppercase font-bold text-secondary flex items-center gap-1.5">{isCustom && <Sparkles className="h-3.5 w-3.5" />} Checkout</p>
-      <h1 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-2">Review & pay</h1>
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-10" data-testid="checkout-page">
+      <p className="text-[10px] sm:text-xs tracking-overline uppercase font-bold text-secondary flex items-center gap-1.5">{isCustom && <Sparkles className="h-3.5 w-3.5" />} Checkout</p>
+      <h1 className="font-display font-extrabold text-2xl sm:text-3xl md:text-4xl tracking-tight mt-2">Review & pay</h1>
 
-      <div className="mt-8 grid md:grid-cols-5 gap-6">
-        <div className="md:col-span-3 bg-card rounded-2xl border border-border p-6">
-          <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Plan</p>
+      <div className="mt-6 sm:mt-8 grid md:grid-cols-5 gap-4 sm:gap-6">
+        <div className="md:col-span-3 bg-card rounded-2xl border border-border p-4 sm:p-6">
+          <p className="text-[10px] sm:text-xs tracking-overline uppercase font-bold text-muted-foreground">Plan</p>
           <div className="mt-3 flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1 sm:gap-3">
             <h2 className="font-display font-extrabold text-2xl break-words">{plan.name}</h2>
             <span className="font-display font-extrabold text-3xl whitespace-nowrap">₹{fees.base.toFixed(0)}</span>

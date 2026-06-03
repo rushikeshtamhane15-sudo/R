@@ -515,7 +515,39 @@ Backend: 14/14 new (test_iter27_app_cms.py) + 110/114 regression (4 timeouts unr
 - **Iteration 36 testing**: 10/10 backend pytest + 9/9 frontend checks pass.
 
 
-### Iteration 56 (Feb 11, 2026) — Pending bank-deposit warning banner + Iter-56 regression tests
+### Iteration 57 (Feb 11, 2026) — Logo polish + PWA splash fix + side-by-side service tabs + In-grace status + Mobile pass + CMS empty-string honoring
+
+#### Completed in this pass
+- **Header logo container** — white "K" inside red rounded box shrunk to 68% of frame (was 100% minus 2px padding). Less dominant, more balanced. Applied to both top-bar and drawer-brand badges.
+- **PWA splash polish** — `manifest.webmanifest` `background_color` `#ffffff → #a02323` so the OS-rendered PWA splash no longer flashes white before the React app paints. Regenerated `icon-192.png` / `icon-512.png` / `apple-touch-icon.png` via PIL with safe-area padding (logo at 62% of canvas, brand-red rounded-square BG with `corner_pct=0.22`). `SplashScreen.jsx` `HOLD_MS` reduced 1500ms → 800ms so first paint of the actual app comes faster.
+- **Dining / Tiffin service tabs** — Plans page custom-plan section. Outer wrapper changed from `flex flex-col sm:flex-row` to always `flex-row`. Inner buttons changed from `inline-flex flex-wrap` to `flex flex-row flex-nowrap` with `whitespace-nowrap` + shorter `Tiffin` label (was `Tiffin delivery`). Verified at 390×844 mobile — both chips render at y=598 (`same_row=True`).
+- **In-grace status** (P0 user request) — `run_subscription_tick` now sets `in_grace=True` + `in_grace_started_at` + `zero_wallet_grace_until=+24h` when wallet hits 0. If `pending_amount > 0`, fires a final-warning push (`whatsapp.send_in_grace_warning` + `sms.send_in_grace_warning`) with copy "Your tiffin is paused — clear ₹X to resume now". Sentinel `in_grace_warning_sent` makes the warning idempotent (re-tick within grace doesn't re-fire). Wallet top-up clears `in_grace` automatically; grace elapsed → status='expired', expired_reason='wallet_zero'.
+- **CMS empty-string honoring (P0 bug fix)** — `POST /api/admin/content/{key}` previously dropped any empty string field on save as "reset to default". This caused the user's "cleared login heading" to magically reappear on every reload. Fixed: empty strings are now honored as authoritative for text fields (heading, overline, subtitle, terms). Only color/`*_bg`/`*_fg`/`*_size` keys still auto-reset on empty (so an empty CSS color doesn't break rendering). Admin still has `POST /admin/content/{key}/reset` for explicit factory-reset.
+- **Mobile polish (P1)** — focused improvements:
+  - `Checkout.jsx`: page padding `px-6 py-10` → `px-4 sm:px-6 py-6 sm:py-10`. Heading `text-3xl md:text-4xl` → `text-2xl sm:text-3xl md:text-4xl`. Card padding `p-6` → `p-4 sm:p-6`. Cash-success block tightened. Order-id breaks on small screens.
+  - `AdminCashAnalytics.jsx`: page padding `p-6 sm:p-8` → `p-4 sm:p-6 md:p-8`. H1 `text-3xl` → `text-xl sm:text-2xl md:text-3xl`. Stat tiles: padding + font-size step down on mobile (text-2xl → text-lg). Cash-to-deposit card padding tightened. All Stat labels truncate to prevent overflow.
+  - `AdminLayout.jsx`: outer wrapper padding `px-3 py-4` → `px-2 sm:px-4 py-3 md:py-8` on mobile.
+
+#### Tests
+- `test_iter57.py`: **2/2 PASS** (full grace flow + static regression that the helper exists in server.py/whatsapp.py/sms.py).
+- iter56 regression: **12/12 PASS** still green.
+- ESLint clean across Header.jsx, Plans.jsx, AdminLayout.jsx, Checkout.jsx, AdminCashAnalytics.jsx.
+
+#### Files touched
+- `/app/backend/server.py` (in-grace status logic + `_send_in_grace_warning` helper + CMS empty-string bug fix)
+- `/app/backend/whatsapp.py` (`send_in_grace_warning` template)
+- `/app/backend/sms.py` (`send_in_grace_warning` MSG91 flow)
+- `/app/backend/tests/test_iter57.py` (NEW)
+- `/app/frontend/src/components/Header.jsx` (logo 68% size)
+- `/app/frontend/src/components/SplashScreen.jsx` (HOLD_MS 1500→800)
+- `/app/frontend/src/components/AdminLayout.jsx` (mobile padding)
+- `/app/frontend/src/pages/Plans.jsx` (Dining/Tiffin side-by-side)
+- `/app/frontend/src/pages/Checkout.jsx` (mobile polish)
+- `/app/frontend/src/pages/AdminCashAnalytics.jsx` (mobile polish + Stat tile)
+- `/app/frontend/public/manifest.webmanifest` (bg #ffffff → #a02323)
+- `/app/frontend/public/icon-192.png`, `icon-512.png`, `apple-touch-icon.png` (regenerated with safe-area)
+
+## Iteration 56 (Feb 11, 2026) — Pending bank-deposit warning banner + Iter-56 regression tests
 
 #### Completed in this pass
 - **Backend syntax-error fix in `server.py`** — stray `lient():` block after the `shutdown_db_client()` definition (line 2410) was killing backend startup. Removed.

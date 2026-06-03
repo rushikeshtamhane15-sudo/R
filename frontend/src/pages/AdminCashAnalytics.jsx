@@ -87,17 +87,17 @@ export default function AdminCashAnalytics() {
   const deposited = (totals?.all_time || 0) - (totals?.pending_bank_deposit || 0);
 
   return (
-    <div className="max-w-5xl mx-auto p-6 sm:p-8 space-y-6" data-testid="admin-cash-analytics">
+    <div className="max-w-5xl mx-auto p-4 sm:p-6 md:p-8 space-y-5 sm:space-y-6" data-testid="admin-cash-analytics">
       <div className="flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <p className="text-xs tracking-overline uppercase font-bold text-secondary">Payments</p>
-          <h1 className="font-display font-extrabold text-3xl mt-1">Cash analytics & deposits</h1>
-          <p className="text-sm text-muted-foreground mt-1">Daily / monthly / yearly cash collected · pending vs. deposited in bank.</p>
+        <div className="min-w-0">
+          <p className="text-[10px] sm:text-xs tracking-overline uppercase font-bold text-secondary">Payments</p>
+          <h1 className="font-display font-extrabold text-xl sm:text-2xl md:text-3xl mt-1 leading-tight">Cash analytics & deposits</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">Daily / monthly / yearly cash collected · pending vs. deposited in bank.</p>
         </div>
         <Button variant="outline" onClick={load} className="rounded-full" data-testid="refresh-btn"><RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Refresh</Button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5 sm:gap-3">
         <Stat label="Today" value={totals?.today} testid="cash-today" />
         <Stat label="This month" value={totals?.month} testid="cash-month" />
         <Stat label="This year" value={totals?.year} testid="cash-year" />
@@ -107,7 +107,7 @@ export default function AdminCashAnalytics() {
 
       <BankAccountCard bank={bank} onSaved={(b) => setBank(b)} />
 
-      <div className="rounded-2xl card-3d p-5">
+      <div className="rounded-2xl card-3d p-4 sm:p-5">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h2 className="font-display font-bold text-lg flex items-center gap-2"><Banknote className="h-4 w-4" /> Cash to deposit ({pending.length})</h2>
           {pending.length > 0 && (
@@ -228,13 +228,13 @@ function BankAccountCard({ bank, onSaved }) {
 function Stat({ label, value, sub, icon: Icon, tone, testid }) {
   const ring = tone === "warn" ? "card-3d card-3d-amber" : "card-3d";
   return (
-    <div className={`p-4 ${ring}`} data-testid={testid}>
-      <div className="flex items-center justify-between">
-        <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">{label}</p>
-        {Icon && <Icon className="h-3.5 w-3.5 text-muted-foreground" />}
+    <div className={`p-3 sm:p-4 ${ring}`} data-testid={testid}>
+      <div className="flex items-center justify-between gap-1">
+        <p className="text-[9px] sm:text-[10px] tracking-overline uppercase font-bold text-muted-foreground truncate">{label}</p>
+        {Icon && <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
       </div>
-      <p className="font-display font-extrabold text-2xl tabular-nums mt-1">{"\u20B9"}{Number(value || 0).toFixed(0)}</p>
-      {sub && <p className="text-[10px] text-muted-foreground mt-1">{sub}</p>}
+      <p className="font-display font-extrabold text-lg sm:text-2xl tabular-nums mt-1 leading-tight">{"\u20B9"}{Number(value || 0).toFixed(0)}</p>
+      {sub && <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-1 leading-tight">{sub}</p>}
     </div>
   );
 }

@@ -1364,15 +1364,20 @@ async def update_content(key: str, payload: ContentUpdate, user: User = Depends(
     if key not in DEFAULT_CONTENT:
         raise HTTPException(status_code=400, detail="Unknown content key")
     current = await _load_content(key)
-    # Iter-51 polish: treat empty-string overrides on color / numeric keys as
-    # "reset to default" so admin's UI blank-field-and-save naturally returns
-    # to the seed value instead of saving "" which would render no color.
+    # Iter-57 fix: honor whatever the admin saves — including explicit empty
+    # strings. Previously this endpoint silently dropped "" so when an admin
+    # cleared the login heading, the default re-appeared on every reload.
+    # Auto-reset is still available via POST /admin/content/{key}/reset.
+    # We still strip "" for *color* / *bg* / *fg* keys because an empty CSS
+    # value would render no color and break the UI; for text fields, "" means
+    # "I want this gone, don't render it" — exactly what the admin asked for.
     defaults = DEFAULT_CONTENT.get(key, {})
     incoming = dict(payload.data or {})
     for k, v in list(incoming.items()):
         if isinstance(v, str) and v.strip() == "" and k in defaults:
-            # Drop empty overrides so the default from DEFAULT_CONTENT applies
-            incoming.pop(k)
+            kl = k.lower()
+            if ("color" in kl) or kl.endswith("_bg") or kl.endswith("_fg") or kl.endswith("_size"):
+                incoming.pop(k)
     merged = {**current, **incoming}
     await db.site_content.update_one(
         {"key": key}, {"$set": {"key": key, "data": merged, "updated_at": iso(now_utc())}}, upsert=True,

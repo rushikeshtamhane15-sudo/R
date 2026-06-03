@@ -137,7 +137,7 @@ export default function AdminLayout() {
   const currentLabel = current?.label || (role === "staff" ? "Staff workspace" : "Admin");
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-8 lg:px-12 py-4 md:py-8" data-testid="admin-layout">
+    <div className="max-w-7xl mx-auto px-2 sm:px-4 md:px-8 lg:px-12 py-3 md:py-8" data-testid="admin-layout">
       {showBanner && (
         <button
           type="button"
