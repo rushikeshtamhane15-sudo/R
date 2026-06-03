@@ -218,7 +218,7 @@ export default function Profile() {
 
         {!next && (
           <div className="mt-10 pt-6 border-t border-destructive/20" data-testid="danger-zone">
-            <p className="text-xs tracking-overline uppercase font-bold text-destructive flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5" /> Danger zone</p>
+            <p className="text-xs tracking-overline uppercase font-bold text-destructive flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5" /> Privacy zone</p>
             <h3 className="font-display font-extrabold text-lg mt-2">Delete my account</h3>
             <p className="text-xs text-muted-foreground mt-1.5 max-w-md">
               Permanently removes your profile, subscription, wallet history, attendance and deliveries. This cannot be undone.

@@ -73,15 +73,15 @@ export default function Plans() {
   if (loading) return <div className="p-12 text-center text-muted-foreground flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading plans…</div>;
 
   return (
-    <div className="max-w-6xl mx-auto px-6 md:px-8 lg:px-12 py-12" data-testid="plans-page">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 md:px-8 lg:px-12 py-5 sm:py-8" data-testid="plans-page">
       <div className="text-center max-w-2xl mx-auto">
         <p className="text-xs tracking-overline uppercase font-bold text-secondary">Subscription plans</p>
-        <h1 className="font-display font-extrabold text-4xl md:text-5xl tracking-tight mt-3 leading-[1.05]">Pick a plan. Eat <span className="text-primary">ghar se achha khana.</span></h1>
-        <p className="text-muted-foreground mt-4 leading-relaxed">All plans cover 2 meals per day — wallet auto-pauses when you skip 3+ days in a row.</p>
+        <h1 className="font-display font-extrabold text-3xl sm:text-4xl md:text-5xl tracking-tight mt-2 leading-[1.05]">Pick a plan. Eat <span className="text-primary">ghar se achha khana.</span></h1>
+        <p className="text-sm sm:text-base text-muted-foreground mt-3 leading-relaxed">All plans cover 2 meals per day — wallet auto-pauses when you skip 3+ days in a row.</p>
       </div>
 
       {/* Service tabs — explicit horizontal row, compact on mobile */}
-      <div className="mt-10 flex justify-center px-2" data-testid="service-tabs">
+      <div className="mt-6 sm:mt-8 flex justify-center px-2" data-testid="service-tabs">
         <div className="inline-flex flex-row bg-muted/50 rounded-full p-1 gap-1 w-full max-w-md">
           {SERVICES.map((s) => (
             <button
@@ -94,9 +94,11 @@ export default function Plans() {
           ))}
         </div>
       </div>
-      <p className="text-center text-xs text-muted-foreground mt-3">{SERVICES.find((s) => s.id === service)?.hint}</p>
+      <p className="text-center text-xs text-muted-foreground mt-2">{SERVICES.find((s) => s.id === service)?.hint}</p>
 
-      <div className={`mt-10 grid gap-6 mx-auto ${visiblePlans.length === 1 ? "max-w-md" : visiblePlans.length === 2 ? "md:grid-cols-2 max-w-3xl" : "md:grid-cols-3 max-w-5xl"}`}>
+      {/* iter-60 #6: premium plan cards — gradient backdrop, accent ring, gloss highlight,
+          hover lift with shadow halo. Popular card gets richer metallic red gradient. */}
+      <div className={`mt-8 grid gap-5 sm:gap-6 mx-auto ${visiblePlans.length === 1 ? "max-w-md" : visiblePlans.length === 2 ? "md:grid-cols-2 max-w-3xl" : "md:grid-cols-3 max-w-5xl"}`}>
         {visiblePlans.map((p, i) => {
           const isPopular = i === 0 && visiblePlans.length > 1;
           const perDay = (p.amount / p.duration_days).toFixed(0);
@@ -104,30 +106,55 @@ export default function Plans() {
             <div
               key={p.plan_id}
               data-testid={`plan-card-${p.plan_id}`}
-              className={`rounded-3xl border p-8 transition-all hover:-translate-y-1 hover:shadow-lg relative ${
-                isPopular ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border"
+              className={`group relative rounded-[28px] p-6 sm:p-7 transition-all duration-300 hover:-translate-y-1.5 overflow-hidden ${
+                isPopular
+                  ? "text-primary-foreground"
+                  : "bg-gradient-to-br from-card to-muted/30 border border-border/80 hover:border-primary/40"
               }`}
+              style={isPopular ? {
+                background: "linear-gradient(155deg, #c92626 0%, #a02323 40%, #7a1a1a 100%)",
+                boxShadow: "0 20px 44px -16px rgba(160,35,35,0.55), 0 6px 14px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.32), inset 0 -2px 6px rgba(0,0,0,0.22)",
+              } : {
+                boxShadow: "0 8px 24px -16px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.6)",
+              }}
             >
-              {isPopular && (
-                <span className="absolute -top-3 left-8 bg-secondary text-secondary-foreground text-[10px] tracking-overline uppercase font-bold px-3 py-1 rounded-full">Popular</span>
+              {/* Decorative gloss & accent corner */}
+              {!isPopular && (
+                <span aria-hidden className="pointer-events-none absolute -top-12 -right-12 h-32 w-32 rounded-full bg-gradient-to-br from-primary/12 to-transparent blur-2xl" />
               )}
-              <p className={`text-xs tracking-overline uppercase font-bold ${isPopular ? "text-primary-foreground/70" : "text-secondary"}`}>
+              {isPopular && (
+                <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-[radial-gradient(80%_60%_at_50%_0%,_rgba(255,255,255,0.18)_0%,_transparent_70%)]" />
+              )}
+
+              {isPopular && (
+                <span className="relative z-10 inline-flex items-center gap-1 bg-amber-400/95 text-amber-950 text-[10px] tracking-overline uppercase font-extrabold px-3 py-1 rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.18)]">
+                  Most popular
+                </span>
+              )}
+              <p className={`relative z-10 ${isPopular ? "mt-3" : ""} text-[10px] sm:text-xs tracking-overline uppercase font-bold ${isPopular ? "text-primary-foreground/80" : "text-secondary"}`}>
                 {p.meals} meals · {p.duration_days} days
               </p>
-              <h3 className="font-display font-extrabold text-2xl md:text-3xl mt-3 leading-tight">{p.name}</h3>
-              <p className={`mt-2 text-sm ${isPopular ? "text-primary-foreground/80" : "text-muted-foreground"}`}>{p.description}</p>
-              <div className="mt-6 flex items-baseline gap-2">
-                <span className="font-display font-extrabold text-4xl">₹{p.amount.toFixed(0)}</span>
-                <span className={`text-sm ${isPopular ? "text-primary-foreground/70" : "text-muted-foreground"}`}>one-time</span>
+              <h3 className="relative z-10 font-display font-extrabold text-2xl sm:text-[28px] mt-2 leading-tight">{p.name}</h3>
+              <p className={`relative z-10 mt-2 text-[13px] sm:text-sm leading-relaxed ${isPopular ? "text-primary-foreground/85" : "text-muted-foreground"}`}>{p.description}</p>
+
+              {/* Price strip with tabular numerals + per-day micro */}
+              <div className={`relative z-10 mt-5 rounded-2xl p-4 ${isPopular ? "bg-white/12 backdrop-blur-sm" : "bg-muted/40 border border-border/60"}`}>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-display font-extrabold text-[40px] sm:text-[44px] tabular-nums leading-none">₹{p.amount.toFixed(0)}</span>
+                  <span className={`text-[11px] sm:text-xs ${isPopular ? "text-primary-foreground/75" : "text-muted-foreground"}`}>one-time</span>
+                </div>
+                <p className={`text-[11px] mt-1 tabular-nums ${isPopular ? "text-primary-foreground/80" : "text-muted-foreground"}`}>≈ ₹{perDay} per day · ₹{(p.amount / p.meals).toFixed(0)} per meal</p>
               </div>
-              <p className={`text-xs mt-1 ${isPopular ? "text-primary-foreground/70" : "text-muted-foreground"}`}>≈ ₹{perDay} per day</p>
-              <ul className="mt-6 space-y-2.5 text-sm">
+
+              <ul className="relative z-10 mt-5 space-y-2.5 text-[13px] sm:text-sm">
                 {(service === "dining"
                   ? [`${p.meals} total meals`, "Lunch + Dinner at our hall", "Scan QR at counter", "Auto-pause on 3+ skipped days"]
                   : [`${p.meals} tiffins · ${p.duration_days} days`, "Lunch + Dinner delivered daily", "Doorstep geofence verification", "Pause anytime · 7+ days extends plan"]
                 ).map((f) => (
-                  <li key={f} className="flex items-center gap-2">
-                    <Check className={`h-4 w-4 ${isPopular ? "text-primary-foreground" : "text-primary"}`} strokeWidth={2} />
+                  <li key={f} className="flex items-start gap-2">
+                    <span className={`mt-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full ${isPopular ? "bg-white/20" : "bg-primary/10"} shrink-0`}>
+                      <Check className={`h-3 w-3 ${isPopular ? "text-white" : "text-primary"}`} strokeWidth={2.5} />
+                    </span>
                     <span>{f}</span>
                   </li>
                 ))}
@@ -135,11 +162,13 @@ export default function Plans() {
               <Button
                 onClick={() => startCheckout(p.plan_id)}
                 data-testid={`subscribe-button-${p.plan_id}`}
-                className={`mt-8 w-full rounded-full h-12 font-semibold ${
-                  isPopular ? "bg-white text-primary hover:bg-white/90" : "bg-primary text-primary-foreground hover:bg-primary/90"
+                className={`relative z-10 mt-7 w-full rounded-full h-12 font-bold text-sm tracking-wide transition-shadow ${
+                  isPopular
+                    ? "bg-white text-primary hover:bg-white/95 shadow-[0_6px_16px_rgba(0,0,0,0.18)]"
+                    : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_6px_16px_-6px_rgba(160,35,35,0.45)]"
                 }`}
               >
-                Subscribe
+                Subscribe →
               </Button>
             </div>
           );
@@ -160,15 +189,15 @@ export default function Plans() {
             {/* Iter-58 #3: stack — Service tabs first (row), Tiffin size tabs UNDER as a 2nd row. */}
             <div className="mt-6 flex flex-col items-stretch gap-5">
               <div className="text-center" data-testid="custom-service">
-                <label className="text-[10px] sm:text-xs tracking-overline uppercase font-bold text-muted-foreground">Service</label>
-                <div className="mt-2 flex flex-row gap-2 justify-center flex-nowrap">
+                <label className="text-xs sm:text-sm tracking-overline uppercase font-bold text-muted-foreground">Service</label>
+                <div className="mt-2.5 flex flex-row gap-2 justify-center flex-nowrap">
                   {SERVICES.map((s) => (
                     <button
                       key={s.id} type="button" onClick={() => setService(s.id)}
                       data-testid={`custom-service-${s.id}`}
-                      className={`px-4 sm:px-5 h-10 rounded-full text-xs sm:text-sm font-semibold border transition-colors flex items-center gap-1.5 whitespace-nowrap ${service === s.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
+                      className={`px-5 sm:px-6 h-11 rounded-full text-sm sm:text-base font-bold border-2 transition-colors flex items-center gap-2 whitespace-nowrap ${service === s.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
                     >
-                      <s.icon className="h-3.5 w-3.5 shrink-0" /> {s.label}
+                      <s.icon className="h-4 w-4 shrink-0" /> {s.label}
                     </button>
                   ))}
                 </div>
@@ -177,15 +206,15 @@ export default function Plans() {
               </div>
 
               <div className={`text-center transition-opacity ${service !== "tiffin" ? "opacity-40 pointer-events-none" : ""}`} data-testid="custom-tiffin-size">
-                <label className="text-[10px] sm:text-xs tracking-overline uppercase font-bold text-muted-foreground">Tiffin size</label>
-                <div className="mt-2 flex flex-row gap-2 justify-center flex-nowrap">
+                <label className="text-xs sm:text-sm tracking-overline uppercase font-bold text-muted-foreground">Tiffin size</label>
+                <div className="mt-2.5 flex flex-row gap-2 justify-center flex-nowrap">
                   {[
                     { id: "half", label: "3 chapati" },
                     { id: "full", label: "5 chapati" },
                   ].map((t) => (
                     <button
                       key={t.id} type="button" onClick={() => setTiffinSize(t.id)}
-                      className={`px-4 sm:px-5 h-10 rounded-full text-xs sm:text-sm font-semibold border transition-colors whitespace-nowrap ${tiffinSize === t.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
+                      className={`px-5 sm:px-6 h-11 rounded-full text-sm sm:text-base font-bold border-2 transition-colors whitespace-nowrap ${tiffinSize === t.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
                       data-testid={`custom-tiffin-${t.id}`}
                     >{t.label}</button>
                   ))}

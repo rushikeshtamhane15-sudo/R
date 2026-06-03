@@ -22,6 +22,7 @@ import AdminPlans from "./pages/AdminPlans";
 import AdminDelivery from "./pages/AdminDelivery";
 import AdminLiveMap from "./pages/AdminLiveMap";
 import AdminControlTower from "./pages/AdminControlTower";
+import LocationPermissionGate from "./components/LocationPermissionGate";
 import DeliveryBoyDashboard from "./pages/DeliveryBoyDashboard";
 import Track from "./pages/Track";
 import AdminCounter from "./pages/AdminCounter";
@@ -98,8 +99,19 @@ function AppRoutes() {
     );
   }
 
+  // iter-60 #1: compulsory location permission gate on customer surfaces.
+  // We deliberately exclude admin / staff / rider / boy paths because those
+  // are operator views and don't need the customer-side geofence.
+  const p = location.pathname;
+  const showLocationGate = !(
+    p.startsWith("/admin") || p.startsWith("/staff") || p.startsWith("/rider") ||
+    p.startsWith("/boy") || p.startsWith("/k/") || p.startsWith("/scan") ||
+    p.startsWith("/counter") || p === "/become-a-rider"
+  );
+
   return (
     <div className="min-h-screen flex flex-col">
+      {showLocationGate && <LocationPermissionGate />}
       <Header />
       <AnnouncementBar />
       <main className="flex-1 pb-16 md:pb-0">

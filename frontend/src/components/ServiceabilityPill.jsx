@@ -1,23 +1,22 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../lib/api";
+import { useAuth } from "../context/AuthContext";
 import { MapPin, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 
 /**
- * ServiceabilityPill — iter-58 #1
+ * ServiceabilityPill — iter-60 #1 redesign
  *
- * Compact 3D-digital pill that lives UNDER the restaurant hero. Combines
- * geolocation, accurate reverse-geocode (Nominatim + India Post PIN
- * verification), and serviceability check against the kitchen dispatch pin.
+ * Compact 3D-digital pill UNDER the restaurant hero. Smaller vertical
+ * footprint, marquee-style scrolling text inside (think "100% pure veg"
+ * ticker) so long labels stay readable on narrow screens.
  *
- * Three states:
- *   • detecting   — animated loader with "detecting your location…"
- *   • in-range    — green pill "We deliver here · X km · Area, City – PIN"
- *   • out-of-range — amber pill "Sorry, X km away · outside Y km zone"
- *   • permission-needed — red CTA "Enable location to continue"
+ * In-range pill height shrunk to py-1.5 + 10/11px label & 12px digital text.
+ * The scroll-animation is CSS-driven so it stays smooth on low-end Androids.
  *
- * Detected coords are stashed in sessionStorage so checkout can reuse them.
- * This is ONLY for serviceability — actual delivery address is still pinned
- * separately at checkout / subscription.
+ * On successful in-range detection we BOTH cache to sessionStorage AND
+ * persist {lat,lng} to the user record via /auth/location — that way the
+ * subscribe flow's _enforce_serviceable_area passes without forcing the user
+ * to re-pin in Profile.
  */
 const SS_KEY = "efc_user_geo_v2";
 
@@ -31,14 +30,12 @@ function haversineKm(lat1, lng1, lat2, lng2) {
 }
 
 export default function ServiceabilityPill() {
-  const [state, setState] = useState("detecting"); // detecting | in-range | out-of-range | permission-needed | error
-  const [info, setInfo] = useState(null); // {km, radius, label, pincode, area, city, pincodeVerified}
+  const { user } = useAuth();
+  const [state, setState] = useState("detecting");
+  const [info, setInfo] = useState(null);
   const [retryNonce, setRetryNonce] = useState(0);
 
-  const detect = () => {
-    setState("detecting");
-    setRetryNonce((n) => n + 1);
-  };
+  const detect = () => { setState("detecting"); setRetryNonce((n) => n + 1); };
 
   useEffect(() => {
     let done = false;
@@ -58,12 +55,8 @@ export default function ServiceabilityPill() {
             const lng = pos.coords.longitude;
             const km = haversineKm(lat, lng, dispatch_lat, dispatch_lng);
 
-            // Resolve human-readable label with India Post PIN verification
             let label = `${lat.toFixed(3)}, ${lng.toFixed(3)}`;
-            let pincode = "";
-            let area = "";
-            let city = "";
-            let pincodeVerified = false;
+            let pincode = ""; let area = ""; let city = ""; let pincodeVerified = false;
             try {
               const g = await api.get(`/geo/reverse?lat=${lat}&lng=${lng}`);
               label = g.data.label || label;
@@ -71,11 +64,16 @@ export default function ServiceabilityPill() {
               area = g.data.area || "";
               city = g.data.city || "";
               pincodeVerified = !!g.data.pincode_verified;
-            } catch {/* fall through to coord label */}
+            } catch {/* fall through */}
 
-            try {
-              sessionStorage.setItem(SS_KEY, JSON.stringify({ lat, lng, km, label, pincode, pincodeVerified }));
-            } catch {/* ignore */}
+            try { sessionStorage.setItem(SS_KEY, JSON.stringify({ lat, lng, km, label, pincode, pincodeVerified })); } catch {}
+
+            // iter-60 #2 fix: persist lat/lng to the user record so the
+            // subscribe /payments endpoints don't fire the "pin your delivery
+            // location first" error after a successful in-range detection.
+            if (user && km <= radius) {
+              try { await api.post("/auth/location", { lat, lng }); } catch {/* ignore */}
+            }
 
             if (done) return;
             setInfo({ km: Number(km.toFixed(1)), radius, label, pincode, area, city, pincodeVerified });
@@ -83,28 +81,22 @@ export default function ServiceabilityPill() {
           },
           (err) => {
             if (done) return;
-            if (err && err.code === err.PERMISSION_DENIED) {
-              setState("permission-needed");
-            } else {
-              setState("error");
-            }
+            setState(err && err.code === err.PERMISSION_DENIED ? "permission-needed" : "error");
           },
           { enableHighAccuracy: true, timeout: 12000, maximumAge: 5 * 60 * 1000 }
         );
-      } catch {
-        setState("error");
-      }
+      } catch { setState("error"); }
     })();
     return () => { done = true; };
-  }, [retryNonce]);
+  }, [retryNonce, user]);
 
-  const wrap = "max-w-6xl mx-auto px-3 sm:px-5 pt-3";
+  const wrap = "max-w-6xl mx-auto px-3 sm:px-5 pt-2";
 
   if (state === "detecting") {
     return (
       <div className={wrap} data-testid="serviceability-pill-detecting">
-        <div className="inline-flex items-center gap-2 px-3 py-2 rounded-2xl border border-border bg-card text-xs text-muted-foreground shadow-[0_2px_0_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.6)]">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Detecting your location to confirm we deliver here…
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border border-border bg-card text-[10px] text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin" /> Detecting location…
         </div>
       </div>
     );
@@ -114,19 +106,16 @@ export default function ServiceabilityPill() {
     return (
       <div className={wrap} data-testid="serviceability-pill-permission">
         <button
-          type="button"
-          onClick={detect}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 border-red-300 bg-gradient-to-r from-red-50 to-rose-50 text-left shadow-[0_8px_22px_-12px_rgba(220,38,38,0.45)]"
+          type="button" onClick={detect}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border-2 border-red-300 bg-gradient-to-r from-red-50 to-rose-50 text-left"
         >
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-red-600 text-white shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_4px_10px_rgba(220,38,38,0.4)]">
-            <AlertTriangle className="h-5 w-5" />
+          <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-red-600 text-white shrink-0">
+            <AlertTriangle className="h-3.5 w-3.5" />
           </span>
           <span className="flex-1 min-w-0">
-            <span className="block text-[10px] tracking-[0.18em] uppercase font-extrabold text-red-700">Location required</span>
-            <span className="block text-sm font-bold text-red-900 leading-tight">
-              {state === "permission-needed"
-                ? "Enable location access — we need it to confirm delivery in your area."
-                : "Couldn't read your location. Tap to retry."}
+            <span className="block text-[9px] tracking-[0.18em] uppercase font-extrabold text-red-700">Location required</span>
+            <span className="block text-[11px] font-bold text-red-900 leading-tight">
+              {state === "permission-needed" ? "Enable location to confirm we deliver here. Tap to retry." : "Couldn't read location. Tap to retry."}
             </span>
           </span>
         </button>
@@ -134,80 +123,51 @@ export default function ServiceabilityPill() {
     );
   }
 
-  if (state === "in-range") {
-    return (
-      <div className={wrap} data-testid="serviceability-pill-in-range">
-        <div
-          className="relative w-full flex items-center gap-3 px-4 py-3 rounded-2xl border border-emerald-300 text-emerald-50 overflow-hidden"
-          style={{
-            background: "linear-gradient(145deg, #047857 0%, #059669 45%, #065f46 100%)",
-            boxShadow:
-              "0 12px 28px -10px rgba(5, 95, 70, 0.55)," +
-              " 0 4px 10px rgba(0, 0, 0, 0.18)," +
-              " inset 0 1px 0 rgba(255,255,255,0.35)," +
-              " inset 0 -2px 4px rgba(0,0,0,0.18)",
-          }}
-        >
-          {/* subtle digital scan-line overlay */}
-          <span aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.07] bg-[linear-gradient(transparent_50%,_rgba(255,255,255,1)_50%)] bg-[length:100%_4px]" />
-          <span
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 text-white shrink-0 z-10"
-            style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.4), 0 3px 8px rgba(0,0,0,0.25)" }}
-          >
-            <CheckCircle2 className="h-5 w-5" />
-          </span>
-          <div className="flex-1 min-w-0 z-10">
-            <p className="text-[10px] tracking-[0.18em] uppercase font-extrabold text-emerald-200/95">We deliver here</p>
-            <p className="font-display font-extrabold text-sm sm:text-base leading-snug tabular-nums truncate">
-              <span className="inline-block">{info.km} km</span>
-              {info.label && (
-                <>
-                  <span className="opacity-70 mx-1.5">·</span>
-                  <span className="opacity-95">{info.label}</span>
-                </>
-              )}
-            </p>
-            {info.pincode && !info.pincodeVerified && (
-              <p className="text-[10px] text-amber-100/80 mt-0.5">PIN approximate — re-pin at checkout for exact delivery</p>
-            )}
-          </div>
-          <MapPin className="h-4 w-4 text-emerald-100/70 z-10 shrink-0" />
-        </div>
-      </div>
-    );
-  }
+  const isIn = state === "in-range";
+  const gradient = isIn
+    ? "linear-gradient(145deg, #047857 0%, #059669 45%, #065f46 100%)"
+    : "linear-gradient(145deg, #b45309 0%, #d97706 45%, #92400e 100%)";
+  const shadow = isIn
+    ? "0 6px 16px -6px rgba(5,95,70,0.45), 0 2px 6px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.32), inset 0 -1px 2px rgba(0,0,0,0.18)"
+    : "0 6px 16px -6px rgba(146,64,14,0.45), 0 2px 6px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.32), inset 0 -1px 2px rgba(0,0,0,0.18)";
 
-  // out-of-range
+  // iter-60 #1: marquee ticker — repeat the content twice so the loop is seamless.
+  const tickerText = isIn
+    ? `WE DELIVER HERE  ·  ${info.km} km from kitchen  ·  ${info.label || "—"}`
+    : `OUTSIDE DELIVERY ZONE  ·  ${info.km} km away  ·  ${(info.km - info.radius).toFixed(1)} km past our ${info.radius} km radius`;
+
   return (
-    <div className={wrap} data-testid="serviceability-pill-out-of-range">
+    <div className={wrap} data-testid={isIn ? "serviceability-pill-in-range" : "serviceability-pill-out-of-range"}>
       <div
-        className="relative w-full flex items-start gap-3 px-4 py-3 rounded-2xl border border-amber-300 text-amber-50 overflow-hidden"
-        style={{
-          background: "linear-gradient(145deg, #b45309 0%, #d97706 45%, #92400e 100%)",
-          boxShadow:
-            "0 12px 28px -10px rgba(146, 64, 14, 0.55)," +
-            " 0 4px 10px rgba(0, 0, 0, 0.18)," +
-            " inset 0 1px 0 rgba(255,255,255,0.35)," +
-            " inset 0 -2px 4px rgba(0,0,0,0.18)",
-        }}
+        className="relative w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl overflow-hidden text-white"
+        style={{ background: gradient, boxShadow: shadow }}
       >
-        <span aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.07] bg-[linear-gradient(transparent_50%,_rgba(255,255,255,1)_50%)] bg-[length:100%_4px]" />
+        <span aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.06] bg-[linear-gradient(transparent_50%,_rgba(255,255,255,1)_50%)] bg-[length:100%_3px]" />
         <span
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 text-white shrink-0 z-10"
-          style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.4), 0 3px 8px rgba(0,0,0,0.25)" }}
+          className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-white/22 shrink-0 z-10"
+          style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.4), 0 2px 4px rgba(0,0,0,0.22)" }}
         >
-          <AlertTriangle className="h-5 w-5" />
+          {isIn ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
         </span>
-        <div className="flex-1 min-w-0 z-10">
-          <p className="text-[10px] tracking-[0.18em] uppercase font-extrabold text-amber-200/95">Outside delivery zone</p>
-          <p className="font-display font-extrabold text-sm sm:text-base leading-snug tabular-nums truncate">
-            <span className="inline-block">{info.km} km</span>
-            <span className="opacity-70 mx-1.5">·</span>
-            <span className="opacity-95">{info.label}</span>
-          </p>
-          <p className="text-[11px] text-amber-100/85 mt-0.5">You're {info.km - info.radius > 0 ? `${(info.km - info.radius).toFixed(1)} km` : ""} outside our {info.radius} km zone — you can still browse the menu.</p>
+        {/* Marquee ticker */}
+        <div className="relative flex-1 min-w-0 overflow-hidden z-10">
+          <div className="efc-pill-marquee flex whitespace-nowrap will-change-transform">
+            <span className="text-[11px] sm:text-[12px] font-extrabold tracking-wide tabular-nums opacity-95 mr-10">{tickerText}</span>
+            <span className="text-[11px] sm:text-[12px] font-extrabold tracking-wide tabular-nums opacity-95 mr-10" aria-hidden="true">{tickerText}</span>
+          </div>
+          {/* fade edges so text doesn't visually clip */}
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-4" style={{ background: `linear-gradient(to right, ${isIn ? "#065f46" : "#92400e"} 0%, transparent 100%)` }} />
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-4" style={{ background: `linear-gradient(to left, ${isIn ? "#065f46" : "#92400e"} 0%, transparent 100%)` }} />
         </div>
+        <MapPin className="h-3.5 w-3.5 opacity-70 z-10 shrink-0" />
       </div>
+      {/* Marquee CSS — scoped via global keyframes class. Kept inline so the
+          component is self-contained and doesn't bloat tailwind config. */}
+      <style>{`
+        @keyframes efc-pill-marquee-kf { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+        .efc-pill-marquee { animation: efc-pill-marquee-kf 18s linear infinite; }
+        @media (prefers-reduced-motion: reduce) { .efc-pill-marquee { animation: none; } }
+      `}</style>
     </div>
   );
 }

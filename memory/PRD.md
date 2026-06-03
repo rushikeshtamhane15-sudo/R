@@ -515,7 +515,36 @@ Backend: 14/14 new (test_iter27_app_cms.py) + 110/114 regression (4 timeouts unr
 - **Iteration 36 testing**: 10/10 backend pytest + 9/9 frontend checks pass.
 
 
-##### Iteration 59 (Feb 11, 2026) — P1 batch: face-check speed, CMS cache, bulk-delete users, Control Tower + Kitchen close-out anti-fraud
+###### Iteration 60 (Feb 11, 2026) — Pill marquee + compulsory location gate + subscribe-error fix + Plans page polish + Privacy Zone
+
+#### Completed in this pass
+- **#1a Serviceability pill redesign** — vertical footprint halved (was ~64px, now 44px). Inner text shrunk to 11/12px font. Most importantly: text scrolls as a **CSS marquee** ("WE DELIVER HERE · X km · Area, City · PIN" + "OUTSIDE DELIVERY ZONE · …") so long addresses always read in full on narrow screens. Edges fade out with linear gradients matching the gradient backdrop so the loop is visually seamless. Honors `prefers-reduced-motion`.
+- **#1b Compulsory location permission gate** — new `LocationPermissionGate.jsx` mounted globally in `App.js` on all customer surfaces (excludes `/admin`, `/staff`, `/rider`, `/boy`, `/k/*`, `/scan`, `/counter`, `/become-a-rider`). Uses Permissions API to probe state, then a modal overlay (z-100, blocks page interaction) that re-asks until the user allows. If denied, the modal stays up with a stronger "you need to update browser site settings" message + retry CTA. Granted state cached in `sessionStorage` so the gate only fires once per session.
+- **#2 Subscribe error fix** — ServiceabilityPill now persists `{lat, lng}` to the user record via `POST /api/auth/location` after a successful in-range detection. This unblocks `_enforce_serviceable_area` in `routes/subscription_payment.py` which was raising HTTP 400 "Please pin your delivery location first" because the pill had only saved coords to sessionStorage.
+- **#3 Plans page spacing** — page padding `py-12 → py-5 sm:py-8`. Heading margin `mt-3 → mt-2`. Service tab margin `mt-10 → mt-6 sm:mt-8`. The big gap between the announcement bar and the H1 is gone.
+- **#4 Build-your-own tab sizes** — Service / Tiffin-size tab labels stepped up `text-[10px] sm:text-xs → text-xs sm:text-sm`. Buttons grew `px-4 h-10 text-xs → px-5 sm:px-6 h-11 text-sm sm:text-base font-bold`. Border thickness bumped `border → border-2` so the selected state pops harder. Alignment preserved (vertical stack, centered) per user instruction.
+- **#5 Privacy Zone** — Profile.jsx "Danger zone" label renamed to "Privacy zone" (softer phrasing, same destructive-color cue + same delete-account action).
+- **#6 Premium plan cards** — full redesign:
+  - "Most popular" card: metallic red gradient (155deg from `#c92626` → `#a02323` → `#7a1a1a`) + deep red shadow halo (`0 20px 44px -16px rgba(160,35,35,0.55)`) + amber "Most popular" pill replacing the old secondary pill + radial-highlight gloss at top.
+  - All cards: rounded-[28px] (softer), inner price strip with separated bg (`bg-white/12 backdrop-blur` on popular, `bg-muted/40 border` on standard), price font `text-4xl → text-[40-44px] tabular-nums`, per-day micro adds "₹X per meal" alongside "₹Y per day".
+  - Bullets: `<Check>` icons now sit inside circle chip (`bg-primary/10` or `bg-white/20`) for visual hierarchy.
+  - Subscribe button shadow: red halo (`shadow-[0_6px_16px_-6px_rgba(160,35,35,0.45)]`).
+
+#### Tests / lint
+- Full regression: iter56 (12) + 57 (2) + 58 (3) + 59 (7) = **24/24 PASS**.
+- ESLint clean on all 5 frontend files touched (ServiceabilityPill, LocationPermissionGate, Plans, App.js, Profile).
+
+#### Smoke verified live at 390×844 mobile
+- `/plans`: premium red card with amber pill + price strip + Subscribe → button — looks designer.
+- `/restaurant`: pill renders at 44px height with marquee ticker showing full label "WE DELIVER HERE · 0 km from kitchen · Kasba Peth, Pune City Subdistrict · 411001".
+- LocationPermissionGate: confirmed mounted but dormant when permission already granted.
+
+#### Files
+- New: `/app/frontend/src/components/LocationPermissionGate.jsx`
+- Rewritten: `/app/frontend/src/components/ServiceabilityPill.jsx`
+- Modified: `Plans.jsx`, `Profile.jsx`, `App.js`
+
+## Iteration 59 (Feb 11, 2026) — P1 batch: face-check speed, CMS cache, bulk-delete users, Control Tower + Kitchen close-out anti-fraud
 
 #### Completed in this pass
 - **#7 Face detection speed** — shrunk `face_check.py` system prompt + user prompt to single-letter Y/N response (was 8-line verbose template demanding "VALID/INVALID"). Same `gemini-2.5-flash` model but ~30-40% fewer tokens to generate → faster reject path. Backwards-compat with old VALID/INVALID strings preserved.
