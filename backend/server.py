@@ -2344,6 +2344,8 @@ from routes.tiffin_prefs_admin import router as _tiffin_prefs_router
 from routes.tiffin_stock import router as _tiffin_stock_router
 from routes.subscription_payment import router as _sub_payment_router
 from routes.cash_analytics import router as _cash_analytics_router
+from routes.dashboard_styles import router as _dash_styles_router
+from routes.bank_deposit import router as _bank_deposit_router
 api_router.include_router(_auth_router)
 api_router.include_router(_auth_google_router)
 api_router.include_router(_payments_router)
@@ -2406,6 +2408,4 @@ async def on_startup():
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
-    mongo_client.close()
-lient():
     mongo_client.close()

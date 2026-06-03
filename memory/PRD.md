@@ -515,6 +515,21 @@ Backend: 14/14 new (test_iter27_app_cms.py) + 110/114 regression (4 timeouts unr
 - **Iteration 36 testing**: 10/10 backend pytest + 9/9 frontend checks pass.
 
 
+### Iteration 56 (Feb 11, 2026) — Pending bank-deposit warning banner + Iter-56 regression tests
+
+#### Completed in this pass
+- **Backend syntax-error fix in `server.py`** — stray `lient():` block after the `shutdown_db_client()` definition (line 2410) was killing backend startup. Removed.
+- **Missing router imports added** — `from routes.dashboard_styles import router as _dash_styles_router` and `from routes.bank_deposit import router as _bank_deposit_router`. The `api_router.include_router(...)` calls existed but the imports were missing, so the endpoints were 404-ing in production. Backend now starts cleanly.
+- **Pending bank-deposit warning banner** (`AdminLayout.jsx`) — top of every admin/staff page now polls `GET /api/admin/notifications/bank-deposit` every 60 s. When `pending > ₹10,000`, renders a red-gradient pulsing banner with three test-ids: `pending-deposit-banner` (clickable → `/admin/cash-analytics`), `pending-deposit-message`, `pending-deposit-dismiss`. Admin-only Dismiss button calls `POST /api/admin/notifications/mark-read` and hides the banner client-side too. Smoke-tested with seeded ₹60,696 / 19-order pending state — banner appeared and routed to cash analytics.
+- **Cleanup of Header.jsx** — removed 12 lines of stray duplicate JSX after `export default` that were causing a `SyntaxError: Missing semicolon` build failure. Fully ESLint clean.
+- **`/app/backend/tests/test_iter56.py`** — 12 new pytest cases covering dashboard styles GET/PUT/role-gating, bank-account CMS, upload-deposit-proof data-URL response, pending-deposit notification (under + over threshold + mark-read), subscriber-forbidden paths, Google verify rejecting bogus credentials, and a static regression that `auth_google.py` never reads `idinfo['name']` (auto-fill regression guard). **12/12 PASS** locally.
+
+#### Files changed
+- `/app/backend/server.py` (syntax + 2 imports)
+- `/app/frontend/src/components/AdminLayout.jsx` (banner wiring + poll)
+- `/app/frontend/src/components/Header.jsx` (stray-JSX cleanup)
+- `/app/backend/tests/test_iter56.py` (new — 12 tests)
+
 ## Iteration 55 (Feb 11, 2026) — 12-feature batch: image persistence + mix payment + 3D cards + PWA polish + kitchen CMS + cash analytics
 
 ### Critical fix (root cause)

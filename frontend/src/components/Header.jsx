@@ -210,14 +210,3 @@ export default function Header() {
     </header>
   );
 }
-n className="w-full rounded-full bg-primary hover:bg-primary/90">Sign In</Button>
-                  </Link>
-                )}
-              </div>
-            </SheetContent>
-          </Sheet>
-        </div>
-      </div>
-    </header>
-  );
-}

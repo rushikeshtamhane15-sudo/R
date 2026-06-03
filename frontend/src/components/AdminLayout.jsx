@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
-import { LayoutDashboard, Package, Truck, ScanLine, QrCode, Utensils, Users, Palette, Home, Shield, FileText, MapPin, FootprintsIcon, LogIn, Megaphone, Radio, Layout, Wheat, ClipboardList, Menu, MessageSquareQuote, UtensilsCrossed, MessageCircle, ChefHat, Bike } from "lucide-react";
+import { api } from "../lib/api";
+import { LayoutDashboard, Package, Truck, ScanLine, QrCode, Utensils, Users, Palette, Home, Shield, FileText, MapPin, FootprintsIcon, LogIn, Megaphone, Radio, Layout, Wheat, ClipboardList, Menu, MessageSquareQuote, UtensilsCrossed, MessageCircle, ChefHat, Bike, AlertTriangle, X } from "lucide-react";
 
 // `roles`: which roles can see the item. Default: admin only.
 const SECTIONS = [
@@ -93,11 +94,38 @@ function NavList({ filteredSections, onItemClick }) {
 export default function AdminLayout() {
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const role = user?.role || "subscriber";
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [pendingDeposit, setPendingDeposit] = useState(null);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   // Auto-close drawer on route change
   useEffect(() => { setDrawerOpen(false); }, [location.pathname]);
+
+  // Poll the pending-bank-deposit notification every 60s for admin/staff
+  useEffect(() => {
+    if (role !== "admin" && role !== "staff") return;
+    let mounted = true;
+    const fetchNotice = async () => {
+      try {
+        const r = await api.get("/admin/notifications/bank-deposit");
+        if (mounted) setPendingDeposit(r.data || null);
+      } catch (_e) { /* ignore — endpoint may 403 for non-admin */ }
+    };
+    fetchNotice();
+    const id = setInterval(fetchNotice, 60_000);
+    return () => { mounted = false; clearInterval(id); };
+  }, [role, location.pathname]);
+
+  const dismissBanner = async () => {
+    setBannerDismissed(true);
+    if (role === "admin") {
+      try { await api.post("/admin/notifications/mark-read"); } catch (_e) { /* ignore */ }
+    }
+  };
+
+  const showBanner = !bannerDismissed && pendingDeposit && pendingDeposit.show && role !== "subscriber";
 
   // Filter sections per role; hide a section when it ends up with zero visible items.
   const filteredSections = SECTIONS
@@ -110,6 +138,37 @@ export default function AdminLayout() {
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-8 lg:px-12 py-4 md:py-8" data-testid="admin-layout">
+      {showBanner && (
+        <button
+          type="button"
+          onClick={() => navigate("/admin/cash-analytics")}
+          className="w-full flex items-start gap-3 mb-4 px-4 py-3 rounded-2xl border border-red-300 bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-[0_8px_22px_-8px_rgba(220,38,38,0.55)] hover:shadow-[0_12px_28px_-10px_rgba(220,38,38,0.65)] transition-all text-left animate-pulse"
+          data-testid="pending-deposit-banner"
+        >
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 shrink-0">
+            <AlertTriangle className="h-5 w-5" />
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className="block text-[10px] tracking-[0.2em] uppercase font-extrabold opacity-90">Action required</span>
+            <span className="block text-sm sm:text-base font-bold leading-snug" data-testid="pending-deposit-message">
+              ₹{Math.round(pendingDeposit.pending).toLocaleString("en-IN")} cash collected but not yet deposited to bank ({pendingDeposit.count} orders). Tap to reconcile.
+            </span>
+          </span>
+          {role === "admin" && (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => { e.stopPropagation(); dismissBanner(); }}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); dismissBanner(); } }}
+              className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/15 hover:bg-white/25 transition-colors cursor-pointer"
+              aria-label="Dismiss"
+              data-testid="pending-deposit-dismiss"
+            >
+              <X className="h-4 w-4" />
+            </span>
+          )}
+        </button>
+      )}
       {role === "staff" && (
         <p className="text-xs tracking-overline uppercase font-bold text-secondary mb-3 hidden lg:inline-flex items-center gap-1.5" data-testid="staff-mode-tag">
           <Shield className="h-3.5 w-3.5" /> Staff workspace
