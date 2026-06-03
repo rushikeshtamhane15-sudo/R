@@ -61,6 +61,24 @@ async def send_expiry_reminder(*, phone: str, name: str, days_left: int, plan_na
     return await _send_via_msg91(phone, payload_vars, flow_env="MSG91_FLOW_EXPIRY", label="expiry-reminder")
 
 
+async def send_in_grace_warning(*, phone: str, name: str, pending_amount: float, plan_name: str = "tiffin plan") -> dict:
+    """Iter-57: final-warning SMS when a sub enters 24h grace with pending dues.
+
+    Re-uses the expiry-reminder MSG91 flow because operators limit DLT
+    template registrations. Body slot text re-purposed to convey grace state.
+    """
+    amt = int(round(pending_amount))
+    payload_vars = {
+        "name": (name or "")[:30],
+        "days": "in-grace",
+        "plan": (plan_name or "tiffin plan")[:30],
+        "end": f"clear-Rs-{amt}-in-24h",
+    }
+    return await _send_via_msg91(phone, payload_vars, flow_env="MSG91_FLOW_EXPIRY", label="in-grace-warning")
+
+
+
+
 async def _send_via_msg91(phone: str, payload_vars: dict, *, flow_env: str, label: str) -> dict:
     if is_stub_mode() or not os.environ.get(flow_env):
         logger.info(f"[SMS · STUB] {label} → {phone} · {payload_vars}")

@@ -14,7 +14,7 @@ const MAX_DAYS = 90;
 
 const SERVICES = [
   { id: "dining", label: "Dining", icon: Utensils, hint: "Eat at our hall — scan QR at counter" },
-  { id: "tiffin", label: "Tiffin delivery", icon: Truck, hint: "Delivered to your doorstep · twice daily" },
+  { id: "tiffin", label: "Tiffin", icon: Truck, hint: "Delivered to your doorstep · twice daily" },
 ];
 
 export default function Plans() {
@@ -161,17 +161,17 @@ export default function Plans() {
                 its own heading + chips. Tiffin Size column is shown always
                 (just disabled when Service !== tiffin) so the layout shape
                 stays stable as user flips between Dining and Tiffin. */}
-            <div className="mt-6 flex flex-col sm:flex-row items-stretch justify-center gap-6 sm:gap-10">
-              <div className="text-center flex-1" data-testid="custom-service">
+            <div className="mt-6 flex flex-row items-stretch justify-center gap-3 sm:gap-10">
+              <div className="text-center flex-1 min-w-0" data-testid="custom-service">
                 <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Service</label>
-                <div className="mt-2 inline-flex gap-2 flex-wrap justify-center">
+                <div className="mt-2 flex flex-row gap-1.5 sm:gap-2 justify-center flex-nowrap">
                   {SERVICES.map((s) => (
                     <button
                       key={s.id} type="button" onClick={() => setService(s.id)}
                       data-testid={`custom-service-${s.id}`}
-                      className={`px-4 h-10 rounded-full text-sm font-semibold border transition-colors flex items-center gap-1.5 ${service === s.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
+                      className={`px-2.5 sm:px-4 h-10 rounded-full text-xs sm:text-sm font-semibold border transition-colors flex items-center gap-1 sm:gap-1.5 whitespace-nowrap ${service === s.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
                     >
-                      <s.icon className="h-3.5 w-3.5" /> {s.label}
+                      <s.icon className="h-3.5 w-3.5 shrink-0" /> {s.label}
                     </button>
                   ))}
                 </div>
@@ -179,16 +179,16 @@ export default function Plans() {
                 <hr className="mt-4 mx-auto w-32 h-0.5 border-0 bg-primary rounded-sm" data-testid="service-divider" />
               </div>
 
-              <div className={`text-center flex-1 ${service !== "tiffin" ? "opacity-40 pointer-events-none" : ""}`} data-testid="custom-tiffin-size">
+              <div className={`text-center flex-1 min-w-0 ${service !== "tiffin" ? "opacity-40 pointer-events-none" : ""}`} data-testid="custom-tiffin-size">
                 <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Tiffin size</label>
-                <div className="mt-2 inline-flex gap-2 flex-wrap justify-center">
+                <div className="mt-2 flex flex-row gap-1.5 sm:gap-2 justify-center flex-nowrap">
                   {[
                     { id: "half", label: "3 chapati" },
                     { id: "full", label: "5 chapati" },
                   ].map((t) => (
                     <button
                       key={t.id} type="button" onClick={() => setTiffinSize(t.id)}
-                      className={`px-4 h-10 rounded-full text-sm font-semibold border transition-colors ${tiffinSize === t.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
+                      className={`px-2.5 sm:px-4 h-10 rounded-full text-xs sm:text-sm font-semibold border transition-colors whitespace-nowrap ${tiffinSize === t.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
                       data-testid={`custom-tiffin-${t.id}`}
                     >{t.label}</button>
                   ))}

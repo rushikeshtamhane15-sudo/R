@@ -69,7 +69,7 @@ export default function Header() {
             <img
               src={BRAND_LOGO_URL}
               alt={brandName}
-              className="h-full w-full object-contain p-0.5"
+              className="h-[68%] w-[68%] object-contain"
               data-testid="brand-logo"
             />
           </span>
@@ -102,7 +102,7 @@ export default function Header() {
               <div className="bg-primary text-primary-foreground px-6 py-6" data-testid="drawer-brand">
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center h-12 w-16 rounded-md bg-primary shrink-0 overflow-hidden">
-                    <img src={BRAND_LOGO_URL} alt={brandName} className="h-full w-full object-contain p-0.5" />
+                    <img src={BRAND_LOGO_URL} alt={brandName} className="h-[68%] w-[68%] object-contain" />
                   </span>
                   <div className="flex flex-col leading-none">
                     <span className="font-display font-extrabold text-xl text-primary-foreground" data-testid="drawer-brand-name">{brandName}</span>

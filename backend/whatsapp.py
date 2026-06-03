@@ -243,3 +243,35 @@ async def send_delivery_otp(db, *, phone: str, name: str, otp: str, order_id: st
     if is_stub_mode():
         logger.warning(f"[WA STUB] delivery_otp {order_id} → {phone_n} OTP={otp}")
     return res
+
+
+
+async def send_in_grace_warning(db, *, phone: str, name: str, pending_amount: float, plan_name: str = "tiffin plan") -> dict:
+    """Iter-57: final-warning push when a sub enters 24h grace with money owed.
+
+    Re-uses the EXPIRY template because operator portals limit how many DLT
+    templates we register; the body string is rewritten client-side so the
+    user sees the in-grace copy.
+    """
+    phone_n = _normalize_phone(phone)
+    amt = int(round(pending_amount))
+    title = f"Your tiffin is paused, {name}"
+    body = (
+        f"Heads-up — your <b>{plan_name}</b> just paused because your wallet hit zero "
+        f"and there's still <b>₹{amt:,}</b> pending. Clear it within 24 hours to resume "
+        f"meals automatically. After that the plan will expire."
+    )
+    preview = _branded_preview(title, body, cta_label=f"Clear ₹{amt:,}", cta_url="/wallet")
+    # Reuse expiry template (closest semantic) — components match the 4-slot shape MSG91 expects.
+    res = await _send_via_msg91(
+        phone=phone_n, template_name=TEMPLATE_EXPIRY,
+        components=[name, plan_name, f"₹{amt}", "grace"],
+    ) if not is_stub_mode() else {"ok": False, "status": "stub_mode"}
+    await _persist_outbox(
+        db, phone=phone_n, kind="in_grace_warning",
+        vars_={"name": name, "plan_name": plan_name, "pending_amount": amt, "preview_html": preview},
+        status=res.get("status", "stub_mode"), response=res,
+    )
+    if is_stub_mode():
+        logger.warning(f"[WA STUB] in_grace_warning ₹{amt} → {phone_n} ({name})")
+    return res

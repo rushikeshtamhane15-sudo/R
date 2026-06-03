@@ -15,7 +15,7 @@ import React, { useEffect, useState } from "react";
 const LOGO_URL =
   "https://customer-assets.emergentagent.com/job_dining-pass-scan/artifacts/uzs344m6_9a705f5a-b3a0-4286-b51d-b9bd6f55b7bb_20260504_011957_0000.png";
 
-const HOLD_MS = 1500;
+const HOLD_MS = 800;
 const FADE_MS = 350;
 const SS_KEY = "efc_splash_seen_v2";
 

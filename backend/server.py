@@ -794,6 +794,40 @@ async def get_active_subscription(user_id: str) -> Optional[dict]:
     return None
 
 
+async def _send_in_grace_warning(sub: dict, fresh: dict, pending_amount: float) -> None:
+    """Iter-57: dispatch a final-warning push (WhatsApp + SMS) the moment a
+    paid subscription with pending dues enters its 24h in-grace window.
+
+    Idempotent: writes a sentinel onto the sub doc so duplicate ticks within
+    the grace window won't re-fire.
+    """
+    if fresh.get("in_grace_warning_sent"):
+        return
+    uid = sub.get("user_id")
+    if not uid:
+        return
+    user = await db.users.find_one({"user_id": uid}, {"_id": 0}) or {}
+    phone = user.get("phone")
+    name = user.get("name") or "there"
+    plan_name = sub.get("plan_name") or "tiffin plan"
+    if phone:
+        try:
+            import whatsapp
+            await whatsapp.send_in_grace_warning(db, phone=phone, name=name, pending_amount=pending_amount, plan_name=plan_name)
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"[GRACE] WhatsApp send failed sub={sub.get('sub_id')}: {e}")
+        try:
+            from sms import send_in_grace_warning as sms_grace
+            await sms_grace(phone=phone, name=name, pending_amount=pending_amount, plan_name=plan_name)
+        except Exception as e:  # noqa: BLE001
+            logger.info(f"[GRACE] SMS send skipped sub={sub.get('sub_id')}: {e}")
+    await db.subscriptions.update_one(
+        {"sub_id": sub["sub_id"]},
+        {"$set": {"in_grace_warning_sent": True, "in_grace_warning_sent_at": iso(now_utc())}},
+    )
+
+
+
 # ---------------------------
 # Background scheduler — daily subscription tick (3-day inactivity extension)
 # ---------------------------
@@ -820,20 +854,32 @@ async def run_subscription_tick() -> dict:
             fresh = await db.subscriptions.find_one({"sub_id": s["sub_id"]}, {"_id": 0})
             if fresh and float(fresh.get("wallet_balance") or 0) <= 0.005:
                 grace_until_iso = fresh.get("zero_wallet_grace_until")
+                pending_amt = float(fresh.get("pending_amount") or 0)
                 if not grace_until_iso:
-                    # Start the 24h grace window
+                    # Start the 24h grace window — subscription stays ACTIVE but flagged in_grace
                     grace_until = now_utc() + timedelta(hours=24)
                     await db.subscriptions.update_one(
                         {"sub_id": s["sub_id"]},
-                        {"$set": {"zero_wallet_grace_until": iso(grace_until)}},
+                        {"$set": {
+                            "zero_wallet_grace_until": iso(grace_until),
+                            "in_grace": True,
+                            "in_grace_started_at": iso(now_utc()),
+                        }},
                     )
                     grace_started += 1
-                    logger.info(f"[TICK] sub={s['sub_id']} wallet=0 → grace until {grace_until.isoformat()}")
+                    # Fire a final-warning push when there's still money owed —
+                    # the partial-payment cohort is at highest churn risk here.
+                    if pending_amt > 0:
+                        try:
+                            await _send_in_grace_warning(s, fresh, pending_amt)
+                        except Exception as e:  # noqa: BLE001
+                            logger.warning(f"[TICK] grace-warning send failed sub={s['sub_id']}: {e}")
+                    logger.info(f"[TICK] sub={s['sub_id']} wallet=0 → IN-GRACE until {grace_until.isoformat()} · pending=₹{pending_amt}")
                 else:
                     if parse_dt(grace_until_iso) <= now_utc():
                         await db.subscriptions.update_one(
                             {"sub_id": s["sub_id"]},
-                            {"$set": {"status": "expired", "expired_at": iso(now_utc()), "expired_reason": "wallet_zero"}},
+                            {"$set": {"status": "expired", "expired_at": iso(now_utc()), "expired_reason": "wallet_zero", "in_grace": False}},
                         )
                         expired += 1
                         logger.info(f"[TICK] sub={s['sub_id']} EXPIRED · wallet=0 + grace elapsed")
@@ -843,7 +889,8 @@ async def run_subscription_tick() -> dict:
                 if fresh and fresh.get("zero_wallet_grace_until"):
                     await db.subscriptions.update_one(
                         {"sub_id": s["sub_id"]},
-                        {"$unset": {"zero_wallet_grace_until": ""}},
+                        {"$unset": {"zero_wallet_grace_until": "", "in_grace_started_at": ""},
+                         "$set": {"in_grace": False}},
                     )
             processed += 1
         except Exception as e:
