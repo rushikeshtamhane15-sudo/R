@@ -515,7 +515,38 @@ Backend: 14/14 new (test_iter27_app_cms.py) + 110/114 regression (4 timeouts unr
 - **Iteration 36 testing**: 10/10 backend pytest + 9/9 frontend checks pass.
 
 
-### Iteration 57 (Feb 11, 2026) — Logo polish + PWA splash fix + side-by-side service tabs + In-grace status + Mobile pass + CMS empty-string honoring
+#### Iteration 58 (Feb 11, 2026) — Accurate geo + 3D digital serviceability pill + Plans stack fix + Profile no-auto-fill + Logo bump
+
+#### Completed in this pass (P0 batch)
+- **#1 Location flow rework** — biggest change in this iter:
+  - **New backend `GET /api/geo/reverse`** (`routes/geo.py`) — Nominatim reverse-geocode + India Post Pincode API cross-verification. Returns `{area, city, state, country, pincode, pincode_verified, label}`. PIN that doesn't validate against India Post is replaced via `postoffice/<name>` fallback. 24h Mongo cache on `geocode_v2_cache` keyed at 4-decimal precision (~10 m). Verified live: Pune (18.5204, 73.8567) → "Kasba Peth, Pune City Subdistrict · 411001" (`pincode_verified: true`).
+  - **New `ServiceabilityPill.jsx`** — 3D-digital pill component with scan-line overlay, gradient bevel, inner highlight shadow. Three states:
+    1. `detecting` — animated loader
+    2. `in-range` — emerald gradient "WE DELIVER HERE · X km · Area, City · PIN"
+    3. `out-of-range` — amber gradient with km delta + "outside Y km zone"
+    4. `permission-needed` — red CTA "Enable location access — we need it to confirm delivery"
+  - **Header location strip removed** — moved from above-header to UNDER `<HeroPanel>` on `/restaurant` per user request. `LocationPill.jsx` deprecated (unused, kept for backward compatibility).
+  - Compulsory permission UX: when GPS denied, pill becomes a prominent red retry CTA. Geolocation API called with `enableHighAccuracy: true` and `timeout: 12000ms` for better fix accuracy.
+- **#2 Logo size bump** — header + drawer brand-logo `h-[68%] w-[68%]` → `h-[80%] w-[80%]`. Better balance with the wordmark.
+- **#3 Plans page custom plan section** — service tabs (Dining / Tiffin) on TOP row, tiffin-size tabs (3 chapati / 5 chapati) STACKED BELOW as 2nd row (was side-by-side which broke on narrow screens). Heading `text-3xl md:text-4xl` → `text-xl sm:text-3xl md:text-4xl` + `break-words` so "Pick any number of days." no longer overflows the card on mobile. Card padding `p-8` → `p-4 sm:p-8`.
+- **#6 Profile name no-auto-fill** — `Profile.jsx` `useEffect` now seeds `name: ""` instead of `user.name || ""`. Phone / address / photo still pre-filled.
+- **Iter-57 in-grace WhatsApp template re-used** — `send_in_grace_warning` reuses MSG91_FLOW_EXPIRY (no new DLT template needed).
+
+#### Tests
+- `test_iter58.py`: **3/3 PASS** (reverse-geocode returns Indian PIN, cache hits on 2nd call, invalid coords rejected with 422)
+- Frontend smoke verified at 390×844 mobile:
+  - Restaurant page: in-range pill renders with India Post-verified label `"WE DELIVER HERE · 0 km · Kasba Peth, Pune City Subdistrict · 411001"` · header strip NOT present
+  - Plans page: Service y=496, TiffinSize y=602 (vertically stacked)
+- ESLint clean across all touched files.
+
+#### P1 backlog (next iter — user-approved deferral)
+- #4 Bulk select + delete users on `/admin/users`
+- #7 Face detection speed (switch Gemini to `gemini-2.5-flash` + relax thresholds)
+- #5 CSS / CMS first-paint flash — cache CMS payloads in `localStorage` so cold loads render the persisted values immediately instead of defaults
+- #8 Unified `/admin/control-tower` tracking dashboard (tiffin boys + restaurant riders + orders + customer pins + ETA all on one map)
+- #9 Anti-staff-fraud strategy (i) — daily kitchen close-out: kitchen lead enters dispatched-tiffin count, system compares to QR scans + cash collections, alerts owner if delta > 3%
+
+## Iteration 57 (Feb 11, 2026) — Logo polish + PWA splash fix + side-by-side service tabs + In-grace status + Mobile pass + CMS empty-string honoring
 
 #### Completed in this pass
 - **Header logo container** — white "K" inside red rounded box shrunk to 68% of frame (was 100% minus 2px padding). Less dominant, more balanced. Applied to both top-bar and drawer-brand badges.

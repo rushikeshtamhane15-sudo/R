@@ -14,7 +14,7 @@ import CategoryStrip from "../components/restaurant/CategoryStrip";
 import DishCard from "../components/restaurant/DishCard";
 import DishDetailModal from "../components/restaurant/DishDetailModal";
 import PromotionPopup from "../components/PromotionPopup";
-import GeoServiceabilityBanner from "../components/GeoServiceabilityBanner";
+import ServiceabilityPill from "../components/ServiceabilityPill";
 import SEO from "../components/SEO";
 
 // 8 trust chips — what we promise (and don't) about the food. Brand-defining
@@ -182,7 +182,7 @@ export default function Restaurant() {
         description="Order zero-adulteration home-style meals from efoodcare — 90-minute fresh delivery. No Ajinomoto, No Maida, No Refined or Palm oil. Subscription meal plans and à-la-carte tiffins."
       />
       <HeroPanel theme={theme} meta={meta} />
-      <GeoServiceabilityBanner />
+      <ServiceabilityPill />
 
       <div className="max-w-6xl mx-auto px-3 sm:px-5">
         {/* Trust chips — auto-scrolling horizontal marquee. */}

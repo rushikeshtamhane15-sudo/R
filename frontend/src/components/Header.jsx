@@ -5,7 +5,6 @@ import { useTheme } from "../context/ThemeContext";
 import { Button } from "./ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "./ui/sheet";
 import WalletPill from "./WalletPill";
-import LocationPill from "./LocationPill";
 import { BRAND_LOGO_URL } from "../lib/brand";
 import { api } from "../lib/api";
 import { LogOut, Menu, X, Wallet } from "lucide-react";
@@ -53,13 +52,8 @@ export default function Header() {
       className="sticky top-0 z-30 bg-primary text-primary-foreground border-b border-primary/40 shadow-sm"
       data-testid="app-header"
     >
-      {/* iter-56 #5: thin location strip ABOVE the brand row.
-          Auto-detects + reverse-geocodes; visible pre-login and post-login. */}
-      <div className="bg-primary/95 border-b border-white/10" data-testid="header-location-strip">
-        <div className="max-w-7xl mx-auto px-3 md:px-8 lg:px-12 py-1.5 flex items-center justify-end">
-          <LocationPill variant="strip" />
-        </div>
-      </div>
+      {/* iter-58 #1: location pill moved from header to /restaurant page
+          (under the hero) per user request. Header is now clean. */}
       <div className="max-w-7xl mx-auto flex items-center justify-between px-3 md:px-8 lg:px-12 py-3 md:py-4 gap-3">
         <Link to="/" className="flex items-center gap-1 min-w-0" data-testid="logo-link">
           <span
@@ -69,7 +63,7 @@ export default function Header() {
             <img
               src={BRAND_LOGO_URL}
               alt={brandName}
-              className="h-[68%] w-[68%] object-contain"
+              className="h-[80%] w-[80%] object-contain"
               data-testid="brand-logo"
             />
           </span>
@@ -102,7 +96,7 @@ export default function Header() {
               <div className="bg-primary text-primary-foreground px-6 py-6" data-testid="drawer-brand">
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center h-12 w-16 rounded-md bg-primary shrink-0 overflow-hidden">
-                    <img src={BRAND_LOGO_URL} alt={brandName} className="h-[68%] w-[68%] object-contain" />
+                    <img src={BRAND_LOGO_URL} alt={brandName} className="h-[80%] w-[80%] object-contain" />
                   </span>
                   <div className="flex flex-col leading-none">
                     <span className="font-display font-extrabold text-xl text-primary-foreground" data-testid="drawer-brand-name">{brandName}</span>

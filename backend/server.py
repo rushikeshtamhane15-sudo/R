@@ -2398,6 +2398,7 @@ from routes.subscription_payment import router as _sub_payment_router
 from routes.cash_analytics import router as _cash_analytics_router
 from routes.dashboard_styles import router as _dash_styles_router
 from routes.bank_deposit import router as _bank_deposit_router
+from routes.geo import router as _geo_router
 api_router.include_router(_auth_router)
 api_router.include_router(_auth_google_router)
 api_router.include_router(_payments_router)
@@ -2418,6 +2419,7 @@ api_router.include_router(_sub_payment_router)
 api_router.include_router(_cash_analytics_router)
 api_router.include_router(_dash_styles_router)
 api_router.include_router(_bank_deposit_router)
+api_router.include_router(_geo_router)
 
 app.include_router(api_router)
 

@@ -151,50 +151,47 @@ export default function Plans() {
 
       {/* Custom subscription */}
       <div className="mt-14 max-w-5xl mx-auto" data-testid="custom-plan-section">
-        <div className="rounded-3xl border border-border bg-card p-8 md:p-10 grid lg:grid-cols-5 gap-8">
-          <div className="lg:col-span-3">
-            <p className="text-xs tracking-overline uppercase font-bold text-secondary flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5" /> Build your own</p>
-            <h2 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-3 leading-tight">Pick any number of days.</h2>
-            <p className="text-muted-foreground mt-3 leading-relaxed">Pay exactly for the days you'll eat. <span className="font-semibold text-foreground">₹{MEAL_PRICE_FULL}/meal</span> for full tiffin or dining; <span className="font-semibold text-foreground">₹{MEAL_PRICE_HALF}/meal</span> for half tiffin.</p>
+        <div className="rounded-3xl border border-border bg-card p-4 sm:p-8 md:p-10 grid lg:grid-cols-5 gap-6 sm:gap-8">
+          <div className="lg:col-span-3 min-w-0">
+            <p className="text-[10px] sm:text-xs tracking-overline uppercase font-bold text-secondary flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5" /> Build your own</p>
+            <h2 className="font-display font-extrabold text-xl sm:text-3xl md:text-4xl tracking-tight mt-3 leading-tight break-words">Pick any number of days.</h2>
+            <p className="text-sm sm:text-base text-muted-foreground mt-3 leading-relaxed">Pay exactly for the days you'll eat. <span className="font-semibold text-foreground">₹{MEAL_PRICE_FULL}/meal</span> for full tiffin or dining; <span className="font-semibold text-foreground">₹{MEAL_PRICE_HALF}/meal</span> for half tiffin.</p>
 
-            {/* Iter-53: Two independent toggle COLUMNS side-by-side. Each has
-                its own heading + chips. Tiffin Size column is shown always
-                (just disabled when Service !== tiffin) so the layout shape
-                stays stable as user flips between Dining and Tiffin. */}
-            <div className="mt-6 flex flex-row items-stretch justify-center gap-3 sm:gap-10">
-              <div className="text-center flex-1 min-w-0" data-testid="custom-service">
-                <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Service</label>
-                <div className="mt-2 flex flex-row gap-1.5 sm:gap-2 justify-center flex-nowrap">
+            {/* Iter-58 #3: stack — Service tabs first (row), Tiffin size tabs UNDER as a 2nd row. */}
+            <div className="mt-6 flex flex-col items-stretch gap-5">
+              <div className="text-center" data-testid="custom-service">
+                <label className="text-[10px] sm:text-xs tracking-overline uppercase font-bold text-muted-foreground">Service</label>
+                <div className="mt-2 flex flex-row gap-2 justify-center flex-nowrap">
                   {SERVICES.map((s) => (
                     <button
                       key={s.id} type="button" onClick={() => setService(s.id)}
                       data-testid={`custom-service-${s.id}`}
-                      className={`px-2.5 sm:px-4 h-10 rounded-full text-xs sm:text-sm font-semibold border transition-colors flex items-center gap-1 sm:gap-1.5 whitespace-nowrap ${service === s.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
+                      className={`px-4 sm:px-5 h-10 rounded-full text-xs sm:text-sm font-semibold border transition-colors flex items-center gap-1.5 whitespace-nowrap ${service === s.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
                     >
                       <s.icon className="h-3.5 w-3.5 shrink-0" /> {s.label}
                     </button>
                   ))}
                 </div>
-                {/* Iter-54: thin red rectangular divider below Service tabs */}
-                <hr className="mt-4 mx-auto w-32 h-0.5 border-0 bg-primary rounded-sm" data-testid="service-divider" />
+                {/* thin red divider below Service tabs */}
+                <hr className="mt-3 mx-auto w-32 h-0.5 border-0 bg-primary rounded-sm" data-testid="service-divider" />
               </div>
 
-              <div className={`text-center flex-1 min-w-0 ${service !== "tiffin" ? "opacity-40 pointer-events-none" : ""}`} data-testid="custom-tiffin-size">
-                <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Tiffin size</label>
-                <div className="mt-2 flex flex-row gap-1.5 sm:gap-2 justify-center flex-nowrap">
+              <div className={`text-center transition-opacity ${service !== "tiffin" ? "opacity-40 pointer-events-none" : ""}`} data-testid="custom-tiffin-size">
+                <label className="text-[10px] sm:text-xs tracking-overline uppercase font-bold text-muted-foreground">Tiffin size</label>
+                <div className="mt-2 flex flex-row gap-2 justify-center flex-nowrap">
                   {[
                     { id: "half", label: "3 chapati" },
                     { id: "full", label: "5 chapati" },
                   ].map((t) => (
                     <button
                       key={t.id} type="button" onClick={() => setTiffinSize(t.id)}
-                      className={`px-2.5 sm:px-4 h-10 rounded-full text-xs sm:text-sm font-semibold border transition-colors whitespace-nowrap ${tiffinSize === t.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
+                      className={`px-4 sm:px-5 h-10 rounded-full text-xs sm:text-sm font-semibold border transition-colors whitespace-nowrap ${tiffinSize === t.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
                       data-testid={`custom-tiffin-${t.id}`}
                     >{t.label}</button>
                   ))}
                 </div>
-                {/* Iter-54: thin red rectangular divider below Tiffin size tabs */}
-                <hr className="mt-4 mx-auto w-32 h-0.5 border-0 bg-primary rounded-sm" data-testid="tiffin-size-divider" />
+                {/* thin red divider below Tiffin size tabs */}
+                <hr className="mt-3 mx-auto w-32 h-0.5 border-0 bg-primary rounded-sm" data-testid="tiffin-size-divider" />
               </div>
             </div>
 

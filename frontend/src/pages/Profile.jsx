@@ -59,7 +59,10 @@ export default function Profile() {
 
   useEffect(() => {
     if (user) setForm({
-      name: user.name || "",
+      // Iter-58 #6: don't auto-fill the user's name — leave the field as a
+      // placeholder so the user types it intentionally. Phone / address /
+      // photo are still pre-filled because those are utility data.
+      name: "",
       phone: user.phone || "",
       address: user.address || "",
       photo_url: user.photo_url || "",
