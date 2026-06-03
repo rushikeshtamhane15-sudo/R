@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
+import { readCmsCache, writeCmsCache } from "../lib/cms-cache";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
@@ -47,7 +48,7 @@ export default function Restaurant() {
   const [activeCat, setActiveCat] = useState("All");
   const [lastOrder, setLastOrder] = useState(null);
   const [reorderDismissed, setReorderDismissed] = useState(false);
-  const [theme, setTheme] = useState(null);
+  const [theme, setTheme] = useState(() => readCmsCache("/restaurant/theme"));
   const [activeOrder, setActiveOrder] = useState(null);
   // Admin-curated category list (CMS) — falls back to deriving from menu items
   // if the categories doc is empty / hasn't been bootstrapped yet.
@@ -64,7 +65,7 @@ export default function Restaurant() {
     api.get("/restaurant/menu")
       .then((r) => { setMenu(r.data.items || []); setMeta({ delivery_fee_flat: r.data.delivery_fee_flat, delivery_free_over: r.data.delivery_free_over }); })
       .catch(() => toast.error("Could not load menu"));
-    api.get("/restaurant/theme").then((r) => setTheme(r.data || null)).catch((err) => console.warn("[restaurant] theme load failed", err));
+    api.get("/restaurant/theme").then((r) => { setTheme(r.data || null); writeCmsCache("/restaurant/theme", r.data); }).catch((err) => console.warn("[restaurant] theme load failed", err));
     api.get("/restaurant/categories").then((r) => setCmsCategories(r.data?.categories || null)).catch((err) => console.warn("[restaurant] categories load failed", err));
     hydrateGuestCart().then((merged) => setCart(merged)).catch((err) => console.warn("[restaurant] guest-cart hydrate failed", err));
   }, []);

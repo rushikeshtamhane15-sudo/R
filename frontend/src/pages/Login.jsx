@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { readCmsCache, writeCmsCache } from "../lib/cms-cache";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
@@ -137,7 +138,9 @@ export default function Login() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const [content, setContent] = useState(DEFAULTS);
+  // iter-59 #5: read cached CMS payload synchronously on first paint so the
+  // hardcoded DEFAULTS don't flash before the network response.
+  const [content, setContent] = useState(() => ({ ...DEFAULTS, ...(readCmsCache("/content/login") || {}) }));
   const [mode, setMode] = useState("phone"); // phone | verify
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
@@ -150,6 +153,7 @@ export default function Login() {
       try {
         const r = await api.get("/content/login");
         setContent({ ...DEFAULTS, ...r.data });
+        writeCmsCache("/content/login", r.data);
       } catch {}
     })();
   }, []);

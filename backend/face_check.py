@@ -40,22 +40,18 @@ async def is_valid_face_data_url(data_url: str) -> tuple[bool, str]:
 
     LlmChat, UserMessage, ImageContent = _llm_classes()
     sid = f"face-check-{uuid.uuid4().hex[:10]}"
+    # Iter-59 #7: tighter prompt → fewer tokens → ~1-2s faster classification.
     chat = (
         LlmChat(api_key=api_key, session_id=sid,
                 system_message=(
-                    "You are a strict identity-document face validator. "
-                    "Reply with EXACTLY one of the keywords: VALID, INVALID. "
-                    "Reply VALID only when the image shows ONE clearly visible human face, "
-                    "no obstruction (no sunglasses covering eyes, no heavy mask covering nose+mouth), "
-                    "reasonable lighting, and the face is the primary subject (not a tiny part of a larger scene). "
-                    "Reply INVALID for: animals, cartoons, screenshots of text, photos with no recognisable face, "
-                    "blurry/abstract images, group photos with >1 face, or images where the face is heavily obscured. "
-                    "If borderline (low quality, partial face), reply INVALID."
+                    "Reply EXACTLY one letter:\n"
+                    "Y = one clear human face, eyes/nose/mouth visible, primary subject.\n"
+                    "N = no face / cartoon / animal / screenshot / blurry / heavy obstruction / >1 face."
                 ))
         .with_model("gemini", "gemini-2.5-flash")
     )
     msg = UserMessage(
-        text="Is this a valid single-face selfie? Reply VALID or INVALID.",
+        text="Valid selfie? Y or N.",
         file_contents=[ImageContent(image_base64=b64)],
     )
     try:
@@ -64,9 +60,10 @@ async def is_valid_face_data_url(data_url: str) -> tuple[bool, str]:
         log.warning(f"[FACE-CHECK] LLM error → re-raise so caller decides: {e}")
         raise
     text = (resp or "").strip().upper()
-    if "VALID" in text and "INVALID" not in text:
+    # Accept either letter form or word form for backwards compat
+    if text.startswith("Y") or ("VALID" in text and "INVALID" not in text):
         return True, "ok"
-    if "INVALID" in text:
+    if text.startswith("N") or "INVALID" in text:
         return False, "no valid single face detected"
     log.warning(f"[FACE-CHECK] ambiguous response: {text[:80]} → allow")
     return True, "ambiguous-allowed"

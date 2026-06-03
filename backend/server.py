@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Cookie, Depends
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Cookie, Depends, Body
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
@@ -1758,6 +1758,47 @@ async def admin_delete_user(user_id: str, user: User = Depends(get_current_user)
     return {"ok": True, **res}
 
 
+@api_router.post("/admin/users/bulk-delete")
+async def admin_bulk_delete_users(payload: dict = Body(...), user: User = Depends(get_current_user)):
+    """Iter-59 #4: bulk-delete up to 100 users in one call.
+
+    Same safety rules as the single-delete endpoint:
+      - admin role required
+      - cannot delete self
+      - cannot delete other admins
+    Skipped users are returned in `skipped` with a reason so the UI can show them.
+    """
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    ids = payload.get("user_ids") or []
+    if not isinstance(ids, list) or not ids:
+        raise HTTPException(status_code=400, detail="user_ids must be a non-empty list")
+    if len(ids) > 100:
+        raise HTTPException(status_code=400, detail="Cap is 100 users per call — split your selection")
+
+    deleted, skipped = [], []
+    for uid in ids:
+        if not isinstance(uid, str) or not uid:
+            skipped.append({"user_id": uid, "reason": "invalid id"})
+            continue
+        if uid == user.user_id:
+            skipped.append({"user_id": uid, "reason": "self"})
+            continue
+        target = await db.users.find_one({"user_id": uid}, {"_id": 0})
+        if not target:
+            skipped.append({"user_id": uid, "reason": "not found"})
+            continue
+        if target.get("role") == "admin":
+            skipped.append({"user_id": uid, "reason": "is admin"})
+            continue
+        try:
+            await _purge_user(uid)
+            deleted.append(uid)
+        except Exception as e:  # noqa: BLE001
+            skipped.append({"user_id": uid, "reason": f"error: {e}"})
+    return {"ok": True, "deleted_count": len(deleted), "deleted": deleted, "skipped": skipped}
+
+
 @api_router.delete("/auth/me")
 async def delete_my_account(user: User = Depends(get_current_user)):
     """User-initiated account deletion."""
@@ -2399,6 +2440,8 @@ from routes.cash_analytics import router as _cash_analytics_router
 from routes.dashboard_styles import router as _dash_styles_router
 from routes.bank_deposit import router as _bank_deposit_router
 from routes.geo import router as _geo_router
+from routes.kitchen_closeout import router as _kitchen_closeout_router
+from routes.control_tower import router as _control_tower_router
 api_router.include_router(_auth_router)
 api_router.include_router(_auth_google_router)
 api_router.include_router(_payments_router)
@@ -2420,6 +2463,8 @@ api_router.include_router(_cash_analytics_router)
 api_router.include_router(_dash_styles_router)
 api_router.include_router(_bank_deposit_router)
 api_router.include_router(_geo_router)
+api_router.include_router(_kitchen_closeout_router)
+api_router.include_router(_control_tower_router)
 
 app.include_router(api_router)
 

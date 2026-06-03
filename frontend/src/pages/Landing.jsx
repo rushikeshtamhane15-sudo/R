@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { api } from "../lib/api";
+import { readCmsCache, writeCmsCache } from "../lib/cms-cache";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
 import TestimonialsSection from "../components/TestimonialsSection";
@@ -25,7 +26,9 @@ const ALWAYS_BG_CLASSES = {
 };
 
 export default function Landing() {
-  const [content, setContent] = useState(null);
+  // iter-59 #5: hydrate from localStorage cache on first paint so the
+  // page renders with the admin's saved hero text immediately.
+  const [content, setContent] = useState(() => readCmsCache("/content/landing"));
   const { user } = useAuth();
   const ctaTarget = user
     ? user.role === "admin" ? "/admin" : user.role === "staff" ? "/staff/scanner" : "/dashboard"
@@ -37,6 +40,7 @@ export default function Landing() {
       try {
         const r = await api.get("/content/landing");
         setContent(r.data);
+        writeCmsCache("/content/landing", r.data);
       } catch {}
     })();
   }, []);

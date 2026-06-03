@@ -515,7 +515,55 @@ Backend: 14/14 new (test_iter27_app_cms.py) + 110/114 regression (4 timeouts unr
 - **Iteration 36 testing**: 10/10 backend pytest + 9/9 frontend checks pass.
 
 
-#### Iteration 58 (Feb 11, 2026) — Accurate geo + 3D digital serviceability pill + Plans stack fix + Profile no-auto-fill + Logo bump
+##### Iteration 59 (Feb 11, 2026) — P1 batch: face-check speed, CMS cache, bulk-delete users, Control Tower + Kitchen close-out anti-fraud
+
+#### Completed in this pass
+- **#7 Face detection speed** — shrunk `face_check.py` system prompt + user prompt to single-letter Y/N response (was 8-line verbose template demanding "VALID/INVALID"). Same `gemini-2.5-flash` model but ~30-40% fewer tokens to generate → faster reject path. Backwards-compat with old VALID/INVALID strings preserved.
+- **#5 CMS first-paint flash** — new `lib/cms-cache.js` (read/write/clear, 30-day TTL, localStorage-backed). Wired into:
+  - `Login.jsx` (`/content/login`) — heading flash gone
+  - `Landing.jsx` (`/content/landing`) — hero text + healthy-always strip flash gone
+  - `Restaurant.jsx` (`/restaurant/theme`) — restaurant theme + hero flash gone
+  Hydration is synchronous via `useState(() => readCmsCache(...))` so the first paint already has the admin's last-saved values; the network refresh overwrites within 1 s.
+- **#4 Bulk select + delete users** (`/admin/users`):
+  - New backend `POST /api/admin/users/bulk-delete` accepting `{user_ids: [...]}` (cap 100/call). Same safety rules as single-delete: cannot delete self, cannot delete other admins, ghost IDs are skipped with a reason.
+  - Frontend: checkbox column per row, "Select all on screen" CTA, sticky bulk-actions toolbar that surfaces only when ≥1 selected, confirmation modal with explicit count.
+  - Reuses existing `_purge_user` so cascade deletion (subscriptions, wallet, scans, deliveries) stays consistent with single-row delete.
+- **#9 Anti-staff-fraud — Daily kitchen close-out** (the user-approved approach (i)):
+  - New backend `routes/kitchen_closeout.py`:
+    - `POST /api/kitchen/close-out` — kitchen lead enters tiffins_dispatched + plates_served; backend reconciles against `db.scans` count for the date + cash + online collected; if `|delta| > max(3 units, 3% of dispatched)` it upserts a `kitchen_fraud_alert` admin notification.
+    - `GET /api/kitchen/close-out?date=` — returns saved close-out + live reconciliation (or pre-fill mode if nothing saved).
+    - `GET /api/admin/kitchen/recent?days=` — admin recent close-outs feed.
+    - `GET /api/admin/kitchen/reconcile?date=&tiffins=` — live reconciliation preview without saving.
+  - Frontend `KitchenCloseOutCard.jsx` — date picker + 3 input fields + reconciliation strip showing dispatched / scanned / delta / cash live. Toast + alert when fraud signal fires.
+- **#8 Unified admin Control Tower** (new `/admin/control-tower`):
+  - New backend `routes/control_tower.py` → `GET /api/admin/control-tower` aggregates today's tiffins-shipped + scans + cash + online · live tiffin/restaurant deliveries · riders online · staff online · pending bank deposit · unread kitchen-fraud alerts.
+  - New page `AdminControlTower.jsx` auto-refreshing every 60 s. 4 KPI tiles + 3 live-ops cards + 2 alert cards + embedded kitchen close-out card.
+  - Added to the admin nav (Radio icon, second item).
+
+#### Tests
+- `test_iter59.py`: **7/7 PASS** — bulk-delete happy + skip-self/admin/ghost, control-tower shape + 403 subscriber, kitchen close-out clean + fraud-alert + 403 subscriber.
+- Regression: iter56 (12) + iter57 (2) + iter58 (3) + iter59 (7) = **24/24 PASS**.
+- ESLint clean on all 6 frontend files touched.
+- Live smoke screenshot of `/admin/control-tower` verified: all KPIs render, kitchen close-out card visible with full reconciliation strip, iter-56 banner still fires at top.
+
+#### New files
+- `/app/backend/routes/geo.py` (iter-58, mentioned for completeness)
+- `/app/backend/routes/kitchen_closeout.py`
+- `/app/backend/routes/control_tower.py`
+- `/app/backend/tests/test_iter59.py`
+- `/app/frontend/src/lib/cms-cache.js`
+- `/app/frontend/src/pages/AdminControlTower.jsx`
+- `/app/frontend/src/components/KitchenCloseOutCard.jsx`
+
+#### Modified files
+- `/app/backend/server.py` (import Body, register 2 new routers, bulk-delete endpoint)
+- `/app/backend/face_check.py` (tighter prompt)
+- `/app/frontend/src/App.js` (control-tower route)
+- `/app/frontend/src/components/AdminLayout.jsx` (Control Tower nav entry)
+- `/app/frontend/src/pages/Login.jsx` + `Landing.jsx` + `Restaurant.jsx` (CMS cache hydration)
+- `/app/frontend/src/pages/AdminUsers.jsx` (bulk select + delete UI)
+
+## Iteration 58 (Feb 11, 2026) — Accurate geo + 3D digital serviceability pill + Plans stack fix + Profile no-auto-fill + Logo bump
 
 #### Completed in this pass (P0 batch)
 - **#1 Location flow rework** — biggest change in this iter:

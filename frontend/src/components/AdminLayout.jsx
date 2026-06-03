@@ -11,6 +11,7 @@ const SECTIONS = [
     title: "Overview",
     items: [
       { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true, roles: ["admin"] },
+      { to: "/admin/control-tower", label: "Control Tower", icon: Radio, roles: ["admin"] },
       { to: "/admin/plans", label: "Plans", icon: Package, roles: ["admin"] },
       { to: "/admin/users", label: "Users & Roles", icon: Users, roles: ["admin"] },
       { to: "/admin/rider-applications", label: "Rider applications", icon: Bike, roles: ["admin"] },

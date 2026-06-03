@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
-import { Trash2, Search, Wallet, Bike } from "lucide-react";
+import { Trash2, Search, Wallet, Bike, CheckSquare, Square } from "lucide-react";
 
 export default function AdminUsers() {
   const { user: me } = useAuth();
@@ -16,6 +16,10 @@ export default function AdminUsers() {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [walletTarget, setWalletTarget] = useState(null);
+  // iter-59 #4: bulk-select state. Stores a Set<user_id> of selected rows.
+  const [selected, setSelected] = useState(new Set());
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const load = async () => {
     try { const r = await api.get("/admin/users"); setUsers(r.data.users || []); }
@@ -54,6 +58,52 @@ export default function AdminUsers() {
     (u.phone || "").includes(q)
   );
 
+  // ids of rows that can actually be selected (not me, not other admins)
+  const selectableIds = useMemo(
+    () => filtered.filter((u) => !(me && u.user_id === me.user_id) && u.role !== "admin").map((u) => u.user_id),
+    [filtered, me],
+  );
+  const allFilteredSelected = selectableIds.length > 0 && selectableIds.every((id) => selected.has(id));
+
+  const toggleOne = (uid) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(uid)) next.delete(uid); else next.add(uid);
+      return next;
+    });
+  };
+  const toggleAllFiltered = () => {
+    setSelected((prev) => {
+      if (allFilteredSelected) {
+        // Deselect just the filtered set
+        const next = new Set(prev);
+        selectableIds.forEach((id) => next.delete(id));
+        return next;
+      }
+      const next = new Set(prev);
+      selectableIds.forEach((id) => next.add(id));
+      return next;
+    });
+  };
+  const clearSelection = () => setSelected(new Set());
+
+  const runBulkDelete = async () => {
+    if (selected.size === 0) return;
+    setBulkDeleting(true);
+    try {
+      const r = await api.post("/admin/users/bulk-delete", { user_ids: Array.from(selected) });
+      const { deleted_count, skipped } = r.data || {};
+      if (deleted_count > 0) toast.success(`Deleted ${deleted_count} user${deleted_count === 1 ? "" : "s"}`);
+      if (skipped && skipped.length) toast.warning(`${skipped.length} skipped — see console`);
+      console.log("[bulk-delete] skipped:", skipped);
+      setBulkConfirmOpen(false);
+      clearSelection();
+      load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Bulk delete failed");
+    } finally { setBulkDeleting(false); }
+  };
+
   return (
     <div data-testid="admin-users-page">
       <p className="text-xs tracking-overline uppercase font-bold text-secondary">Admin · Users</p>
@@ -61,18 +111,66 @@ export default function AdminUsers() {
 
       <div className="mt-6 grid lg:grid-cols-3 gap-6">
         <div className="bg-card rounded-2xl border border-border p-6 lg:col-span-2">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
             <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">All users · {users.length}</p>
             <div className="relative w-56">
               <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" className="rounded-full h-9 pl-9 text-sm" data-testid="user-search" />
             </div>
           </div>
-          <div className="mt-4 max-h-[60vh] overflow-auto divide-y divide-border">
+
+          {/* iter-59 #4: bulk-action toolbar — appears whenever any row is selected */}
+          {selected.size > 0 && (
+            <div className="mt-3 flex items-center justify-between gap-3 px-3 py-2 rounded-xl bg-primary/5 border border-primary/20" data-testid="bulk-actions-toolbar">
+              <p className="text-xs font-bold text-primary" data-testid="bulk-selected-count">
+                {selected.size} selected
+              </p>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" className="rounded-full h-8 text-xs" onClick={clearSelection} data-testid="bulk-clear">Clear</Button>
+                <Button size="sm" variant="destructive" className="rounded-full h-8 text-xs" onClick={() => setBulkConfirmOpen(true)} data-testid="bulk-delete-btn">
+                  <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete {selected.size}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Select-all row (only shown if any selectable rows exist) */}
+          {selectableIds.length > 0 && (
+            <button
+              type="button"
+              onClick={toggleAllFiltered}
+              className="mt-3 flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+              data-testid="bulk-select-all"
+            >
+              {allFilteredSelected
+                ? <CheckSquare className="h-4 w-4 text-primary" />
+                : <Square className="h-4 w-4" />
+              }
+              {allFilteredSelected ? "Deselect all" : `Select all ${selectableIds.length} on screen`}
+            </button>
+          )}
+
+          <div className="mt-3 max-h-[60vh] overflow-auto divide-y divide-border">
             {filtered.map((u) => {
               const isMe = me && u.user_id === me.user_id;
+              const canSelect = !isMe && u.role !== "admin";
+              const isSelected = selected.has(u.user_id);
               return (
                 <div key={u.user_id} className="flex items-center justify-between py-3 text-sm gap-3" data-testid={`user-row-${u.user_id}`}>
+                  <button
+                    type="button"
+                    onClick={() => canSelect && toggleOne(u.user_id)}
+                    disabled={!canSelect}
+                    className={`shrink-0 ${canSelect ? "cursor-pointer hover:opacity-80" : "opacity-30 cursor-not-allowed"}`}
+                    aria-label={isSelected ? "Deselect" : "Select"}
+                    title={!canSelect ? "Cannot select admin or yourself" : (isSelected ? "Deselect" : "Select")}
+                    data-testid={`select-user-${u.user_id}`}
+                  >
+                    {isSelected
+                      ? <CheckSquare className="h-4 w-4 text-primary" />
+                      : <Square className="h-4 w-4 text-muted-foreground" />
+                    }
+                  </button>
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold truncate">{u.name} {isMe && <span className="text-[10px] tracking-overline uppercase font-bold text-secondary ml-1">you</span>}</p>
                     <p className="text-xs text-muted-foreground truncate">{u.email || u.phone || "—"}</p>
@@ -151,6 +249,24 @@ export default function AdminUsers() {
               <Button variant="outline" className="rounded-full" onClick={() => setConfirmDelete(null)} disabled={deleting} data-testid="cancel-delete-user">Cancel</Button>
               <Button className="rounded-full bg-destructive hover:bg-destructive/90 text-destructive-foreground" onClick={removeUser} disabled={deleting} data-testid="confirm-delete-user">
                 {deleting ? "Deleting…" : "Yes, delete user"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {bulkConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !bulkDeleting && setBulkConfirmOpen(false)} data-testid="bulk-confirm-modal">
+          <div className="bg-card rounded-3xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="inline-flex h-11 w-11 rounded-xl bg-destructive/10 text-destructive items-center justify-center"><Trash2 className="h-5 w-5" /></div>
+            <h3 className="font-display font-extrabold text-2xl mt-4">Delete {selected.size} user{selected.size === 1 ? "" : "s"}?</h3>
+            <p className="text-sm text-muted-foreground mt-2">
+              All <b className="text-foreground">{selected.size}</b> selected accounts and every record tied to them — subscriptions, wallets, attendance, deliveries — will be erased. <span className="text-destructive font-semibold">This cannot be undone.</span>
+            </p>
+            <div className="mt-6 flex gap-3 justify-end">
+              <Button variant="outline" className="rounded-full" onClick={() => setBulkConfirmOpen(false)} disabled={bulkDeleting} data-testid="cancel-bulk-delete">Cancel</Button>
+              <Button className="rounded-full bg-destructive hover:bg-destructive/90 text-destructive-foreground" onClick={runBulkDelete} disabled={bulkDeleting} data-testid="confirm-bulk-delete">
+                {bulkDeleting ? "Deleting…" : `Yes, delete ${selected.size}`}
               </Button>
             </div>
           </div>
