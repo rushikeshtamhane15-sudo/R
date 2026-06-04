@@ -9,7 +9,6 @@ import TestimonialsSection from "../components/TestimonialsSection";
 import PromotionPopup from "../components/PromotionPopup";
 import SEO from "../components/SEO";
 import ServiceabilityPill from "../components/ServiceabilityPill";
-import BadStuffMarquee from "../components/login/BadStuffMarquee";
 import * as Icons from "lucide-react";
 
 const DEFAULT_HERO = "https://images.unsplash.com/photo-1600488999806-8efb986d87b1?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600";
@@ -92,9 +91,6 @@ export default function Landing() {
         {/* iter-62 #3: serviceability pill at the BOTTOM of the top container, full-width */}
         <ServiceabilityPill />
       </section>
-
-      {/* iter-62 #4: bad-stuff marquee — copy of the restaurant page marquee */}
-      <BadStuffMarquee speedSeconds={14} />
 
       {/* How it works */}
       <section className="max-w-7xl mx-auto px-6 md:px-8 lg:px-12 py-20 md:py-28">

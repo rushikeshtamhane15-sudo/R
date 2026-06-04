@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, User as UserIcon, KeyRound } from "lucide-react";
 import { GoogleLogin, useGoogleOneTapLogin } from "@react-oauth/google";
 import BadStuffMarquee from "../components/login/BadStuffMarquee";
+import TrustChipsMarquee from "../components/TrustChipsMarquee";
 import SEO from "../components/SEO";
 
 const HERO_FOOD_IMG = "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?crop=entropy&cs=srgb&fm=jpg&q=85&w=1400";
@@ -266,27 +267,8 @@ export default function Login() {
             pills sweep across the full viewport width. All visuals are
             admin-editable via /admin/content/login (iter-51). */}
         {c.marquee_show !== false && (
-          <div className="w-screen -mx-3 sm:-mx-6 max-w-none login-marquee-wrap" aria-hidden data-testid="login-top-marquee">
-            <BadStuffMarquee
-              pills={c.marquee_pills}
-              bgColor={c.marquee_bg_color}
-              textColor={c.marquee_text_color}
-              pillBgColor={c.marquee_pill_bg_color}
-              pillBorderColor={c.marquee_pill_border_color}
-              speedSeconds={c.marquee_speed_seconds}
-            />
-            {/* iter-62 #1: shrink the login-page marquee — was overpowering
-                the auth card. Scoped via wrapper so the marquee on landing /
-                restaurant pages stays at its larger size. */}
-            <style>{`
-              .login-marquee-wrap [data-testid='bad-stuff-marquee'] { padding: 5px 0 !important; }
-              .login-marquee-wrap [data-testid='bad-stuff-marquee'] span {
-                padding: 3px 9px !important;
-                font-size: 10px !important;
-                letter-spacing: 0.04em !important;
-              }
-              .login-marquee-wrap [data-testid='bad-stuff-marquee'] > div { gap: 8px !important; }
-            `}</style>
+          <div className="w-screen -mx-3 sm:-mx-6 max-w-none" aria-hidden data-testid="login-top-marquee">
+            <TrustChipsMarquee className="py-1.5" testid="login-trust-marquee" />
           </div>
         )}
         {/* Compensation spacer — tuned to land the form card at ~Y=170px

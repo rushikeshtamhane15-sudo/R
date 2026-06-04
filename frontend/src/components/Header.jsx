@@ -55,7 +55,7 @@ export default function Header() {
       {/* iter-58 #1: location pill moved from header to /restaurant page
           (under the hero) per user request. Header is now clean. */}
       <div className="max-w-7xl mx-auto flex items-center justify-between px-3 md:px-8 lg:px-12 py-3 md:py-4 gap-3">
-        <Link to="/" className="flex items-center gap-1 min-w-0" data-testid="logo-link">
+        <Link to="/" className="flex items-center gap-2 min-w-0" data-testid="logo-link">
           <span
             className="inline-flex items-center justify-center h-10 w-14 md:h-11 md:w-16 rounded-md bg-primary shrink-0 overflow-hidden"
             data-testid="brand-logo-frame"
@@ -67,9 +67,12 @@ export default function Header() {
               data-testid="brand-logo"
             />
           </span>
-          <div className="flex flex-col leading-none min-w-0">
-            <span className="font-display font-extrabold text-base md:text-lg text-primary-foreground truncate">{brandName}</span>
-            <span className="text-[9px] md:text-[10px] tracking-overline uppercase font-bold text-primary-foreground/85 mt-1 truncate" data-testid="header-tagline">{brandTagline}</span>
+          {/* iter-63 #3: align brand text optical-center with logo using
+              flex h-10 md:h-11 + justify-center. Tagline is line-height-tight
+              so the two-line stack sits squarely inside the logo's height. */}
+          <div className="flex flex-col justify-center h-10 md:h-11 min-w-0">
+            <span className="font-display font-extrabold text-base md:text-lg text-primary-foreground truncate leading-tight">{brandName}</span>
+            <span className="text-[9px] md:text-[10px] tracking-overline uppercase font-bold text-primary-foreground/85 truncate leading-tight" data-testid="header-tagline">{brandTagline}</span>
           </div>
         </Link>
 

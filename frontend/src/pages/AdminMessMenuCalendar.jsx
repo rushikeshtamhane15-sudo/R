@@ -3,7 +3,7 @@ import { api } from "../lib/api";
 import { toast } from "sonner";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { CalendarDays, ChefHat, Save, Trash2, Copy } from "lucide-react";
+import { CalendarDays, ChefHat, Save, Trash2, Copy, Printer, Share2 } from "lucide-react";
 
 /**
  * AdminMessMenuCalendar — iter-62 #8
@@ -105,6 +105,9 @@ export default function AdminMessMenuCalendar() {
       <h1 className="font-display font-extrabold text-xl sm:text-2xl md:text-3xl mt-1">Plan the whole month, flash daily before 7 AM</h1>
       <p className="text-xs sm:text-sm text-muted-foreground mt-1">Users see today's lunch + dinner on the dashboard and restaurant page. Before 7 AM IST we also surface tomorrow's preview.</p>
 
+      {/* iter-63 #1: Weekly poster generator */}
+      <WeeklyPosterCard />
+
       <div className="mt-5 grid lg:grid-cols-5 gap-4 sm:gap-5">
         {/* Calendar */}
         <div className="lg:col-span-3 bg-card rounded-2xl border border-border p-4 sm:p-5">
@@ -187,6 +190,76 @@ export default function AdminMessMenuCalendar() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+
+function WeeklyPosterCard() {
+  const [start, setStart] = React.useState(isoToday());
+  const [format, setFormat] = React.useState("a4");
+  const [preview, setPreview] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+
+  const generate = async (download = false, asJpg = false) => {
+    setLoading(true);
+    try {
+      const url = `/api/admin/mess-menu/poster?start=${start}&format=${format}&fmt=${asJpg ? "jpg" : "png"}`;
+      // Fetch via axios's underlying base so cookies are sent; then make a blob URL
+      const base = (process.env.REACT_APP_BACKEND_URL || "").replace(/\/$/, "");
+      const r = await fetch(base + url, { credentials: "include" });
+      if (!r.ok) { toast.error("Could not generate poster"); return; }
+      const blob = await r.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      setPreview(blobUrl);
+      if (download) {
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = `mess-menu-${start}-${format}.${asJpg ? "jpg" : "png"}`;
+        a.click();
+      }
+    } catch (e) {
+      toast.error("Could not generate poster");
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="mt-5 bg-card rounded-2xl border border-border p-4 sm:p-5" data-testid="weekly-poster-card">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <p className="text-[10px] sm:text-xs tracking-overline uppercase font-bold text-secondary flex items-center gap-1.5"><Printer className="h-3.5 w-3.5" /> Weekly poster · #1</p>
+          <h2 className="font-display font-extrabold text-base sm:text-lg mt-1 leading-tight">Print a 7-day menu poster for the kitchen wall</h2>
+          <p className="text-xs text-muted-foreground mt-1">One click → A4 print or WhatsApp-ready square. Pulls 7 consecutive days starting from the date picker.</p>
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1.5">
+          <label className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Start</label>
+          <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="rounded-xl h-9 text-sm w-auto tabular-nums" data-testid="poster-start-date" />
+        </div>
+        <div className="inline-flex flex-row bg-muted/50 rounded-full p-1 gap-1">
+          {[{ id: "a4", label: "A4 print" }, { id: "square", label: "WhatsApp" }].map((f) => (
+            <button
+              key={f.id} type="button" onClick={() => setFormat(f.id)}
+              className={`px-3 h-8 rounded-full text-xs font-bold transition-colors ${format === f.id ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              data-testid={`poster-format-${f.id}`}
+            >{f.label}</button>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2 ml-auto">
+          <Button variant="outline" size="sm" className="rounded-full h-9 text-xs" onClick={() => generate(false, false)} disabled={loading} data-testid="poster-preview">
+            <Printer className="h-3.5 w-3.5 mr-1.5" /> {loading ? "Rendering…" : "Preview"}
+          </Button>
+          <Button size="sm" className="rounded-full h-9 text-xs" onClick={() => generate(true, format === "square")} disabled={loading} data-testid="poster-download">
+            <Share2 className="h-3.5 w-3.5 mr-1.5" /> Download {format === "square" ? "JPG" : "PNG"}
+          </Button>
+        </div>
+      </div>
+      {preview && (
+        <div className="mt-4 border border-border rounded-xl p-2 bg-muted/20 inline-block max-w-full" data-testid="poster-preview-pane">
+          <img src={preview} alt="poster preview" className="max-w-full max-h-[420px] rounded-md" />
+        </div>
+      )}
     </div>
   );
 }

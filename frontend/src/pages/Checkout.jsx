@@ -208,17 +208,17 @@ export default function Checkout() {
 
   if (cashSuccess) {
     return (
-      <div className="max-w-xl mx-auto px-4 sm:px-6 py-8 sm:py-14 text-center" data-testid="cash-pending-confirm">
-        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5 sm:p-8">
-          <Clock className="h-10 w-10 text-amber-600 mx-auto" />
-          <h1 className="font-display font-extrabold text-xl sm:text-2xl mt-3 text-amber-900">Cash payment pending</h1>
-          <p className="text-sm text-amber-800 mt-2">Hand over <span className="font-bold">₹{cashSuccess.amount?.toFixed?.(2)}</span> cash to our staff.</p>
-          <div className="mt-4 rounded-xl bg-white border border-amber-200 p-3 sm:p-4 text-left text-sm">
-            <p className="text-[10px] sm:text-xs uppercase tracking-overline font-bold text-amber-700">Your OTP (share with staff)</p>
-            <p className="font-display font-extrabold text-2xl sm:text-3xl tabular-nums mt-1 text-amber-900" data-testid="cash-otp">{cashSuccess.dev_otp || "Sent on WhatsApp / SMS"}</p>
-            <p className="text-[11px] text-muted-foreground mt-2 break-all">Order id: <span className="font-mono">{cashSuccess.order_id}</span></p>
+      <div className="max-w-sm mx-auto px-4 py-6 sm:py-10 text-center" data-testid="cash-pending-confirm">
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 sm:p-5">
+          <Clock className="h-8 w-8 text-amber-600 mx-auto" />
+          <h1 className="font-display font-extrabold text-base sm:text-lg mt-2 text-amber-900">Cash payment pending</h1>
+          <p className="text-xs text-amber-800 mt-1.5">Hand over <span className="font-bold">₹{cashSuccess.amount?.toFixed?.(2)}</span> cash to our staff.</p>
+          <div className="mt-3 rounded-xl bg-white border border-amber-200 p-3 text-left text-xs">
+            <p className="text-[9px] uppercase tracking-overline font-bold text-amber-700">Your OTP (share with staff)</p>
+            <p className="font-display font-extrabold text-xl sm:text-2xl tabular-nums mt-1 text-amber-900" data-testid="cash-otp">{cashSuccess.dev_otp || "Sent on WhatsApp / SMS"}</p>
+            <p className="text-[10px] text-muted-foreground mt-1.5 break-all">Order: <span className="font-mono">{cashSuccess.order_id}</span></p>
           </div>
-          <Button onClick={() => navigate("/dashboard")} className="rounded-full mt-6" data-testid="cash-go-dashboard">Go to dashboard</Button>
+          <Button onClick={() => navigate("/dashboard")} className="rounded-full mt-4 h-9 text-xs" data-testid="cash-go-dashboard">Go to dashboard</Button>
         </div>
       </div>
     );

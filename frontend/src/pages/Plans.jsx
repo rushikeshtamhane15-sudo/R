@@ -160,9 +160,8 @@ export default function Plans() {
       </div>
       <p className="text-center text-xs text-muted-foreground mt-2">{SERVICES.find((s) => s.id === service)?.hint}</p>
 
-      {/* iter-60 #6: premium plan cards — gradient backdrop, accent ring, gloss highlight,
-          hover lift with shadow halo. Popular card gets richer metallic red gradient. */}
-      <div className={`mt-8 grid gap-5 sm:gap-6 mx-auto ${visiblePlans.length === 1 ? "max-w-md" : visiblePlans.length === 2 ? "md:grid-cols-2 max-w-3xl" : "md:grid-cols-3 max-w-5xl"}`}>
+      {/* iter-63 #4: shrink subscription plan cards on mobile */}
+      <div className={`mt-7 sm:mt-8 grid gap-4 sm:gap-5 mx-auto ${visiblePlans.length === 1 ? "max-w-sm" : visiblePlans.length === 2 ? "md:grid-cols-2 max-w-2xl" : "md:grid-cols-3 max-w-4xl"}`}>
         {visiblePlans.map((p, i) => {
           const isPopular = i === 0 && visiblePlans.length > 1;
           const perDay = (p.amount / p.duration_days).toFixed(0);
@@ -170,16 +169,16 @@ export default function Plans() {
             <div
               key={p.plan_id}
               data-testid={`plan-card-${p.plan_id}`}
-              className={`group relative rounded-[28px] p-6 sm:p-7 transition-all duration-300 hover:-translate-y-1.5 overflow-hidden ${
+              className={`group relative rounded-3xl p-4 sm:p-5 transition-all duration-300 hover:-translate-y-1.5 overflow-hidden ${
                 isPopular
                   ? "text-primary-foreground"
                   : "bg-gradient-to-br from-card to-muted/30 border border-border/80 hover:border-primary/40"
               }`}
               style={isPopular ? {
                 background: "linear-gradient(155deg, #c92626 0%, #a02323 40%, #7a1a1a 100%)",
-                boxShadow: "0 20px 44px -16px rgba(160,35,35,0.55), 0 6px 14px rgba(0,0,0,0.18), inset 0 0 0 3px rgba(255,255,255,0.55), inset 0 1px 0 rgba(255,255,255,0.32), inset 0 -2px 6px rgba(0,0,0,0.22)",
+                boxShadow: "0 16px 36px -16px rgba(160,35,35,0.55), 0 4px 10px rgba(0,0,0,0.18), inset 0 0 0 3px rgba(255,255,255,0.55), inset 0 1px 0 rgba(255,255,255,0.32), inset 0 -2px 6px rgba(0,0,0,0.22)",
               } : {
-                boxShadow: "0 8px 24px -16px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04), inset 0 0 0 2px rgba(160,35,35,0.35), inset 0 1px 0 rgba(255,255,255,0.6)",
+                boxShadow: "0 6px 18px -12px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04), inset 0 0 0 2px rgba(160,35,35,0.35), inset 0 1px 0 rgba(255,255,255,0.6)",
               }}
             >
               {/* Decorative gloss & accent corner */}
@@ -191,33 +190,33 @@ export default function Plans() {
               )}
 
               {isPopular && (
-                <span className="relative z-10 inline-flex items-center gap-1 bg-white text-primary text-[10px] tracking-overline uppercase font-extrabold px-3 py-1 rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.18)]">
+                <span className="relative z-10 inline-flex items-center gap-1 bg-white text-primary text-[9px] tracking-overline uppercase font-extrabold px-2.5 py-0.5 rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.18)]">
                   Most popular
                 </span>
               )}
-              <p className={`relative z-10 ${isPopular ? "mt-3" : ""} text-[10px] sm:text-xs tracking-overline uppercase font-bold ${isPopular ? "text-primary-foreground/80" : "text-secondary"}`}>
+              <p className={`relative z-10 ${isPopular ? "mt-2" : ""} text-[9px] sm:text-[10px] tracking-overline uppercase font-bold ${isPopular ? "text-primary-foreground/80" : "text-secondary"}`}>
                 {p.meals} meals · {p.duration_days} days
               </p>
-              <h3 className="relative z-10 font-display font-extrabold text-2xl sm:text-[28px] mt-2 leading-tight">{p.name}</h3>
-              <p className={`relative z-10 mt-2 text-[13px] sm:text-sm leading-relaxed ${isPopular ? "text-primary-foreground/85" : "text-muted-foreground"}`}>{p.description}</p>
+              <h3 className="relative z-10 font-display font-extrabold text-lg sm:text-xl mt-1.5 leading-tight">{p.name}</h3>
+              <p className={`relative z-10 mt-1.5 text-[12px] sm:text-[13px] leading-snug ${isPopular ? "text-primary-foreground/85" : "text-muted-foreground"}`}>{p.description}</p>
 
               {/* Price strip with tabular numerals + per-day micro */}
-              <div className={`relative z-10 mt-5 rounded-2xl p-4 ${isPopular ? "bg-white/12 backdrop-blur-sm" : "bg-muted/40 border border-border/60"}`}>
-                <div className="flex items-baseline gap-2">
-                  <span className="font-display font-extrabold text-[40px] sm:text-[44px] tabular-nums leading-none">₹{p.amount.toFixed(0)}</span>
-                  <span className={`text-[11px] sm:text-xs ${isPopular ? "text-primary-foreground/75" : "text-muted-foreground"}`}>one-time</span>
+              <div className={`relative z-10 mt-3.5 rounded-xl p-3 ${isPopular ? "bg-white/12 backdrop-blur-sm" : "bg-muted/40 border border-border/60"}`}>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="font-display font-extrabold text-[28px] sm:text-[32px] tabular-nums leading-none">₹{p.amount.toFixed(0)}</span>
+                  <span className={`text-[10px] sm:text-[11px] ${isPopular ? "text-primary-foreground/75" : "text-muted-foreground"}`}>one-time</span>
                 </div>
-                <p className={`text-[11px] mt-1 tabular-nums ${isPopular ? "text-primary-foreground/80" : "text-muted-foreground"}`}>≈ ₹{perDay} per day · ₹{(p.amount / p.meals).toFixed(0)} per meal</p>
+                <p className={`text-[10px] mt-1 tabular-nums ${isPopular ? "text-primary-foreground/80" : "text-muted-foreground"}`}>≈ ₹{perDay} per day · ₹{(p.amount / p.meals).toFixed(0)} per meal</p>
               </div>
 
-              <ul className="relative z-10 mt-5 space-y-2.5 text-[13px] sm:text-sm">
+              <ul className="relative z-10 mt-3.5 space-y-1.5 text-[12px] sm:text-[13px]">
                 {(service === "dining"
                   ? [`${p.meals} total meals`, "Lunch + Dinner at our hall", "Scan QR at counter", "Auto-pause on 3+ skipped days"]
                   : [`${p.meals} tiffins · ${p.duration_days} days`, "Lunch + Dinner delivered daily", "Doorstep geofence verification", "Pause anytime · 7+ days extends plan"]
                 ).map((f) => (
-                  <li key={f} className="flex items-start gap-2">
-                    <span className={`mt-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full ${isPopular ? "bg-white/20" : "bg-primary/10"} shrink-0`}>
-                      <Check className={`h-3 w-3 ${isPopular ? "text-white" : "text-primary"}`} strokeWidth={2.5} />
+                  <li key={f} className="flex items-start gap-1.5">
+                    <span className={`mt-0.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full ${isPopular ? "bg-white/20" : "bg-primary/10"} shrink-0`}>
+                      <Check className={`h-2.5 w-2.5 ${isPopular ? "text-white" : "text-primary"}`} strokeWidth={2.5} />
                     </span>
                     <span>{f}</span>
                   </li>
@@ -226,10 +225,10 @@ export default function Plans() {
               <Button
                 onClick={() => startCheckout(p.plan_id)}
                 data-testid={`subscribe-button-${p.plan_id}`}
-                className={`relative z-10 mt-7 w-full rounded-full h-12 font-bold text-sm tracking-wide transition-shadow ${
+                className={`relative z-10 mt-5 w-full rounded-full h-10 font-bold text-xs sm:text-sm tracking-wide transition-shadow ${
                   isPopular
-                    ? "bg-white text-primary hover:bg-white/95 shadow-[0_6px_16px_rgba(0,0,0,0.18)]"
-                    : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_6px_16px_-6px_rgba(160,35,35,0.45)]"
+                    ? "bg-white text-primary hover:bg-white/95 shadow-[0_4px_12px_rgba(0,0,0,0.18)]"
+                    : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_4px_12px_-4px_rgba(160,35,35,0.45)]"
                 }`}
               >
                 Subscribe →
@@ -243,15 +242,15 @@ export default function Plans() {
       </div>
 
       {/* Custom subscription */}
-      <div className="mt-14 max-w-5xl mx-auto" data-testid="custom-plan-section">
+      <div className="mt-10 max-w-3xl mx-auto" data-testid="custom-plan-section">
         <div
-          className="rounded-3xl border border-border bg-card p-4 sm:p-8 md:p-10 grid lg:grid-cols-5 gap-6 sm:gap-8"
-          style={{ boxShadow: "0 8px 24px -16px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04), inset 0 0 0 2px rgba(160,35,35,0.35), inset 0 1px 0 rgba(255,255,255,0.6)" }}
+          className="rounded-2xl border border-border bg-card p-4 sm:p-6 grid lg:grid-cols-5 gap-4 sm:gap-6"
+          style={{ boxShadow: "0 6px 18px -12px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04), inset 0 0 0 2px rgba(160,35,35,0.35), inset 0 1px 0 rgba(255,255,255,0.6)" }}
         >
           <div className="lg:col-span-3 min-w-0">
-            <p className="text-[10px] sm:text-xs tracking-overline uppercase font-bold text-secondary flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5" /> Build your own</p>
-            <h2 className="font-display font-extrabold text-xl sm:text-3xl md:text-4xl tracking-tight mt-3 leading-tight break-words">Pick any number of days.</h2>
-            <p className="text-sm sm:text-base text-muted-foreground mt-3 leading-relaxed">Pay exactly for the days you'll eat. <span className="font-semibold text-foreground">₹{MEAL_PRICE_FULL}/meal</span> for full tiffin or dining; <span className="font-semibold text-foreground">₹{MEAL_PRICE_HALF}/meal</span> for half tiffin.</p>
+            <p className="text-[10px] sm:text-xs tracking-overline uppercase font-bold text-secondary flex items-center gap-1.5"><Sparkles className="h-3 w-3" /> Build your own</p>
+            <h2 className="font-display font-extrabold text-lg sm:text-2xl md:text-3xl tracking-tight mt-2 leading-tight break-words">Pick any number of days.</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-2 leading-snug">Pay exactly for the days you'll eat. <span className="font-semibold text-foreground">₹{MEAL_PRICE_FULL}/meal</span> for full tiffin or dining; <span className="font-semibold text-foreground">₹{MEAL_PRICE_HALF}/meal</span> for half tiffin.</p>
 
             {/* Iter-58 #3: stack — Service tabs first (row), Tiffin size tabs UNDER as a 2nd row. */}
             <div className="mt-6 flex flex-col items-stretch gap-5">

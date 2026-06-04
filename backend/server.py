@@ -2443,6 +2443,7 @@ from routes.geo import router as _geo_router
 from routes.kitchen_closeout import router as _kitchen_closeout_router
 from routes.control_tower import router as _control_tower_router
 from routes.mess_menu_cal import router as _mess_menu_cal_router
+from routes.mess_menu_poster import router as _mess_menu_poster_router
 api_router.include_router(_auth_router)
 api_router.include_router(_auth_google_router)
 api_router.include_router(_payments_router)
@@ -2467,6 +2468,7 @@ api_router.include_router(_geo_router)
 api_router.include_router(_kitchen_closeout_router)
 api_router.include_router(_control_tower_router)
 api_router.include_router(_mess_menu_cal_router)
+api_router.include_router(_mess_menu_poster_router)
 
 app.include_router(api_router)
 

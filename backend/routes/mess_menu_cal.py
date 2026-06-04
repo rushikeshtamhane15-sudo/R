@@ -131,10 +131,11 @@ async def admin_month(month: str = Query(..., description="YYYY-MM"), user: serv
 
 
 @router.get("/mess-menu/today")
-async def public_today():
+async def public_today(include_next: int = Query(0, ge=0, le=1)):
     """Returns today's menu. Before 07:00 IST, also returns the preview for
     today (i.e. what's coming for the day ahead). After 07:00 IST we just
-    return today's record.
+    return today's record — unless ?include_next=1 forces the next-day fetch
+    for the dashboard / restaurant Today vs Tomorrow toggle (#7).
     """
     now = _now_ist()
     today = now.date().isoformat()
@@ -145,7 +146,8 @@ async def public_today():
     early_bird = now.hour < 7
     return {
         "today": today,
+        "tomorrow": tomorrow,
         "early_bird": early_bird,
         "current": today_doc,
-        "next": tomorrow_doc if early_bird else None,
+        "next": tomorrow_doc if (early_bird or include_next) else None,
     }

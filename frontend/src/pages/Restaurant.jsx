@@ -18,20 +18,12 @@ import DishDetailModal from "../components/restaurant/DishDetailModal";
 import PromotionPopup from "../components/PromotionPopup";
 import ServiceabilityPill from "../components/ServiceabilityPill";
 import TodayMessMenuFlash from "../components/TodayMessMenuFlash";
+import TrustChipsMarquee from "../components/TrustChipsMarquee";
 import SEO from "../components/SEO";
 
 // 8 trust chips — what we promise (and don't) about the food. Brand-defining
 // commitment, intentionally kept in code (not CMS-editable).
-const TRUST_CHIPS = [
-  "0% Ajinomoto",
-  "0% Maida",
-  "No Artificial Flavours",
-  "No Artificial Colour",
-  "No Refined & Palm Oil",
-  "0% Polished Grains",
-  "100% Fresh Vegetables",
-  "No Pre Made Gravy",
-];
+const TRUST_CHIPS_DEPRECATED = []; // moved to components/TrustChipsMarquee.jsx
 
 /**
  * Restaurant browse — Zomato-style:
@@ -211,20 +203,8 @@ export default function Restaurant() {
         <div className="mt-3">
           <TodayMessMenuFlash compact />
         </div>
-        {/* Trust chips — auto-scrolling horizontal marquee. */}
-        <section className="mt-3 -mb-1 overflow-hidden" data-testid="trust-chips">
-          <div className="flex items-center gap-2 animate-trust-marquee py-1" style={{ width: "max-content" }}>
-            {[...TRUST_CHIPS, ...TRUST_CHIPS].map((label, i) => (
-              <span
-                key={`${label}-${i}`}
-                className="flex-shrink-0 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wide rounded-full px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 whitespace-nowrap dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900/40"
-                data-testid={i < TRUST_CHIPS.length ? `trust-chip-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}` : undefined}
-              >
-                {label}
-              </span>
-            ))}
-          </div>
-        </section>
+        {/* Trust chips — reusable marquee */}
+        <TrustChipsMarquee className="mt-3 -mb-1" />
 
         {/* Live tracking pill — when a restaurant order is in-flight */}
         {user && activeOrder && (

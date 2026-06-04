@@ -130,9 +130,9 @@ export default function HeroPanel({ theme, meta }) {
                 data-testid="pure-veg-logo"
               />
               <span aria-hidden className="opacity-60 text-[10px] leading-none">·</span>
-              <span className="pure-veg-label-3d">{theme?.pure_veg_label || "200% Pure Veg"}</span>
+              <span className="pure-veg-label-3d">{theme?.pure_veg_label || "101% Pure Veg"}</span>
             </span>
-            <span className="sr-only" data-testid="zero-bad-stuff">200% Pure Veg</span>
+            <span className="sr-only" data-testid="zero-bad-stuff">101% Pure Veg</span>
           </div>
         );
       case "title":
