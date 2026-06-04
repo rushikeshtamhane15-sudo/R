@@ -8,6 +8,7 @@ import { Button } from "../components/ui/button";
 import { Loader2, RefreshCw, Truck, MapPin, Settings as SettingsIcon, Bike, ChefHat } from "lucide-react";
 import { Link } from "react-router-dom";
 import { haversineKm, etaMinutes } from "../lib/geo";
+import MapBrandCaption from "../components/MapBrandCaption";
 
 const REFRESH_MS = 10000;
 const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
@@ -220,7 +221,7 @@ export default function AdminLiveMap() {
       </div>
 
       <div className="grid lg:grid-cols-[1fr_280px] gap-5">
-        <div className="rounded-2xl overflow-hidden border border-border bg-card shadow-sm" style={{ height: 540 }}>
+        <div className="relative rounded-2xl overflow-hidden border border-border bg-card shadow-sm" style={{ height: 540 }}>
           {points.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-6 text-sm text-muted-foreground">
               <MapPin className="h-8 w-8 mb-2" />
@@ -323,6 +324,7 @@ export default function AdminLiveMap() {
               })}
             </MapContainer>
           )}
+          {points.length > 0 && <MapBrandCaption />}
         </div>
 
         <aside className="space-y-2" data-testid="boys-sidebar">

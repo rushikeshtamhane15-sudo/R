@@ -61,35 +61,43 @@ export default function Landing() {
         path="/home"
         description="India's first zero adulteration meal app · 30-day subscription tiffin plans with smart wallet & QR check-in. No Ajinomoto, No Maida, No Refined or Palm oil. Subscribe in minutes via UPI."
       />
-      {/* Hero */}
-      <section className="relative overflow-hidden">
+      {/* Hero — iter-64 #1: full-viewport landing hero with serviceability
+          pill anchored at the TOP, generous spacing, fluid type so the whole
+          hero card fits one screen on mobile. */}
+      <section className="relative overflow-hidden min-h-[calc(100svh-64px)] md:min-h-[calc(100svh-72px)] flex flex-col">
         <div className="absolute inset-0 -z-10">
           <img src={heroImg} alt="dining" className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-background/85"></div>
         </div>
-        <div className="max-w-7xl mx-auto px-6 md:px-8 lg:px-12 py-8 sm:py-12 md:py-16 lg:py-20">
-          <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="text-xs tracking-overline uppercase font-bold text-secondary mb-3 sm:mb-4">
+        {/* iter-64 #1: pill at TOP of hero, full-width, breathing room */}
+        <div className="pt-3 sm:pt-4">
+          <ServiceabilityPill />
+        </div>
+        <div className="flex-1 flex items-center">
+          <div className="w-full max-w-7xl mx-auto px-6 md:px-8 lg:px-12 py-6 sm:py-10 md:py-14">
+          <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="text-[11px] sm:text-xs tracking-overline uppercase font-bold text-secondary mb-3 sm:mb-4">
             {c.hero_overline || "UPI · WALLET · E-MEAL PASS"}
           </motion.p>
-          <motion.h1 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="font-display font-extrabold text-3xl sm:text-5xl lg:text-7xl tracking-tight leading-[0.95] max-w-4xl">
+          <motion.h1 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="font-display font-extrabold text-[28px] leading-[1.02] sm:text-5xl lg:text-7xl tracking-tight max-w-4xl">
             <span className="text-primary">{c.hero_title_line1 || "ghar se achha khana,"}</span>{" "}
             <br className="hidden md:block" />
             {c.hero_title_line2 || "ab ek e-Meal Pass pe."}
           </motion.h1>
-          <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mt-4 sm:mt-6 text-base sm:text-lg max-w-xl text-muted-foreground leading-relaxed">
+          <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mt-3 sm:mt-6 text-[13px] sm:text-lg max-w-xl text-muted-foreground leading-relaxed">
             {c.hero_subtitle || "30-day tiffin subscriptions with a smart wallet. Pay once by UPI, check-in by QR, skip a few days — we pause your wallet, no meals wasted."}
           </motion.p>
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mt-6 sm:mt-8 flex flex-wrap gap-3 sm:gap-4">
-            <Link to={ctaTarget} data-testid="hero-cta-start">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mt-5 sm:mt-8 flex flex-wrap gap-3 sm:gap-4">
+            {/* iter-64 #3: 'Get your e-Meal Pass' should always go to /plans
+                so users can compare and choose before sign-up. */}
+            <Link to="/plans" data-testid="hero-cta-start">
               <Button size="lg" className="rounded-full bg-primary hover:bg-primary/90 px-7 sm:px-8 h-11 sm:h-12 text-sm sm:text-base">{ctaLabelOverride || c.hero_cta_primary || "Get your e-Meal Pass"}</Button>
             </Link>
-            <Link to="/plans" data-testid="hero-cta-plans">
-              <Button size="lg" variant="outline" className="rounded-full px-7 sm:px-8 h-11 sm:h-12 text-sm sm:text-base">{c.hero_cta_secondary || "View plans"}</Button>
+            <Link to={ctaTarget} data-testid="hero-cta-plans">
+              <Button size="lg" variant="outline" className="rounded-full px-7 sm:px-8 h-11 sm:h-12 text-sm sm:text-base">{c.hero_cta_secondary || (user ? "Go to dashboard" : "Sign in")}</Button>
             </Link>
           </motion.div>
+          </div>
         </div>
-        {/* iter-62 #3: serviceability pill at the BOTTOM of the top container, full-width */}
-        <ServiceabilityPill />
       </section>
 
       {/* How it works */}

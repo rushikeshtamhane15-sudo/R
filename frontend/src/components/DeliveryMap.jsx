@@ -3,6 +3,7 @@ import L from "leaflet";
 import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap, Circle } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import "./delivery-map.css";
+import MapBrandCaption from "./MapBrandCaption";
 
 // CartoDB Voyager — clean, polished, free, no API key
 const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
@@ -121,7 +122,7 @@ export default function DeliveryMap({
     : points[0];
 
   return (
-    <div className="rounded-2xl overflow-hidden border border-border shadow-sm" style={{ height }} data-testid="delivery-map">
+    <div className="relative rounded-2xl overflow-hidden border border-border shadow-sm" style={{ height }} data-testid="delivery-map">
       <MapContainer center={center} zoom={13} scrollWheelZoom style={{ height: "100%", width: "100%" }} attributionControl={false}>
         <TileLayer url={TILE_URL} attribution={TILE_ATTR} subdomains="abcd" />
         {shouldBound && <ApplyMaxBounds center={[dispatch.lat, dispatch.lng]} radiusKm={radiusKm} />}
@@ -178,6 +179,7 @@ export default function DeliveryMap({
           );
         })}
       </MapContainer>
+      <MapBrandCaption />
     </div>
   );
 }

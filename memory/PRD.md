@@ -1053,3 +1053,13 @@ See `/app/memory/test_credentials.md`.
 - **Testing**: 4/4 backend pytest pass (`test_iter63.py` — poster PNG/JPG, 403 non-admin, 400 bad-date, include_next). Frontend E2E 13/13 review items pass via testing agent (iteration_56.json) on both 390×844 mobile + 1440×900 desktop. localStorage CMS cache verified — no FOUC on reload.
 - **Open / future**: (a) Tighten the home/admin Hindi adulteration ticker on mobile (loops 4x before content). (b) Replace empty Today/Tomorrow state with a placeholder card instead of `return null`. (c) Razorpay LIVE keys remain BLOCKED on user action (4th recurrence — keys reject with `Authentication failed`; user must regenerate).
 
+### Iteration 64 (Jun 4, 2026) — Hero polish · CTA fix · Map brand caption
+- **Landing hero refresh** (`Landing.jsx`): serviceability pill MOVED from bottom of hero to TOP (above the EXPERIENCE THE PREMIUM overline). Hero is now `min-h-[calc(100svh-64px)]` flex column so it cleanly covers the first screen on mobile + desktop; fluid type clamps (h1 `28→48→72px`, body `13→18px`) so the whole hero panel fits one screen on 390×844 phones.
+- **CTA route fix** (#3): primary "Get your e-Meal Pass" button now always navigates to `/plans` (was sending logged-in users straight to /dashboard, which felt like a "restaurant" redirect). Secondary button still goes to ctaTarget (sign-in / dashboard).
+- **Brand text hierarchy** (`Header.jsx`): brand name bumped from `text-base md:text-lg` → `text-lg→2xl` extrabold with `leading-none`; tagline shrunk to `text-[8.5px] md:text-[10px]` with `0.18em` letter-spacing — much clearer visual hierarchy between brand and slogan, optical-aligned to the logo height.
+- **Plans serviceable pill single-line** (#4): added `truncate min-w-0` + `max-w-[92vw] sm:max-w-md` to the hero pill so long "Delivering to <area>" addresses no longer wrap onto a second line on phones.
+- **Tighter plan cards** (#5): subscription grid max-w shrunk (`sm/xl/3xl` ladder), custom-plan max-w `3xl→2xl`, with `px-3` mobile gutter so cards feel hand-held.
+- **Map brand caption** (#6) — new component `MapBrandCaption.jsx`. White overlay ribbon pinned to bottom of any map container saying "efoodcare nearby kitchen location" — replaces the OpenStreetMap "Report a problem · © OSM contributors · Make a Donation" attribution on the Contact iframe (iframe rendered ~28px taller and clipped via overflow-hidden so the OSM bar is cropped). Caption also added to `DeliveryMap.jsx`, `TrackMap3D.jsx`, and `AdminLiveMap.jsx` for brand consistency.
+- **No backend changes**. Lint clean. Visual verification on `/home`, `/plans`, `/contact`.
+
+

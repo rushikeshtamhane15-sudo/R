@@ -67,12 +67,12 @@ export default function Header() {
               data-testid="brand-logo"
             />
           </span>
-          {/* iter-63 #3: align brand text optical-center with logo using
-              flex h-10 md:h-11 + justify-center. Tagline is line-height-tight
-              so the two-line stack sits squarely inside the logo's height. */}
+          {/* iter-64 #2: brand text noticeably larger than tagline so users
+              can tell them apart at a glance. Tagline shrunk + tracked wider
+              to read as a clear secondary line, optical-aligned to logo. */}
           <div className="flex flex-col justify-center h-10 md:h-11 min-w-0">
-            <span className="font-display font-extrabold text-base md:text-lg text-primary-foreground truncate leading-tight">{brandName}</span>
-            <span className="text-[9px] md:text-[10px] tracking-overline uppercase font-bold text-primary-foreground/85 truncate leading-tight" data-testid="header-tagline">{brandTagline}</span>
+            <span className="font-display font-extrabold text-xl md:text-2xl text-primary-foreground truncate leading-none">{brandName}</span>
+            <span className="text-[8.5px] md:text-[10px] tracking-[0.18em] uppercase font-semibold text-primary-foreground/80 truncate leading-tight mt-0.5" data-testid="header-tagline">{brandTagline}</span>
           </div>
         </Link>
 

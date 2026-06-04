@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { MapPin, Phone, Mail, Clock, Building2 } from "lucide-react";
 import SEO from "../components/SEO";
+import MapBrandCaption from "../components/MapBrandCaption";
 
 export default function Contact() {
   const [data, setData] = useState(null);
@@ -48,15 +49,23 @@ export default function Contact() {
         </div>
         <div className="md:col-span-3 surface-3d rounded-2xl overflow-hidden border border-border bg-card" data-testid="contact-map">
           {liveMapSrc ? (
-            <iframe
-              title="efoodcare location"
-              src={liveMapSrc}
-              className="w-full h-[420px] border-0"
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              allowFullScreen
-              data-testid="contact-map-iframe"
-            />
+            // iter-64 #6: hide the OpenStreetMap "Report a problem · © OSM
+            // contributors · Make a donation" attribution row and replace it
+            // with our own brand caption. We make the iframe ~28px taller
+            // and clip it via the relative wrapper's overflow-hidden, then
+            // overlay a 1-line brand caption ribbon at the bottom.
+            <div className="relative h-[420px]">
+              <iframe
+                title="efoodcare location"
+                src={liveMapSrc}
+                className="absolute inset-x-0 top-0 w-full h-[448px] border-0"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                allowFullScreen
+                data-testid="contact-map-iframe"
+              />
+              <MapBrandCaption />
+            </div>
           ) : (
             <div className="h-[420px] flex items-center justify-center text-muted-foreground text-sm">Map not configured</div>
           )}

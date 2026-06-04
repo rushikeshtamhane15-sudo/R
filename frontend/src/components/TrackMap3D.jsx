@@ -17,6 +17,7 @@ import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import MapBrandCaption from "./MapBrandCaption";
 
 const PITCH = 60;
 const BEARING = -17.6;
@@ -218,6 +219,7 @@ export default function TrackMap3D({ rider, customer, className = "" }) {
       >
         <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Live · {isDesktop ? "3D Buildings" : "smooth"}
       </span>
+      <MapBrandCaption />
     </div>
   );
 }

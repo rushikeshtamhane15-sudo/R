@@ -122,10 +122,12 @@ export default function Plans() {
         <p className="text-xs tracking-overline uppercase font-bold text-secondary">Subscription plans</p>
         <h1 className="font-display font-extrabold text-3xl sm:text-4xl md:text-5xl tracking-tight mt-2 leading-[1.05]">Pick a plan. Eat <span className="text-primary">ghar se achha khana.</span></h1>
         <p className="text-sm sm:text-base text-muted-foreground mt-3 leading-relaxed">All plans cover 2 meals per day — wallet auto-pauses when you skip 3+ days in a row.</p>
-        {/* iter-61 #1: inline serviceable PIN — boosts trust before Subscribe */}
+        {/* iter-61 #1 / iter-64 #4: serviceable PIN pill — keep it on a SINGLE
+            line on narrow phones; long addresses now truncate with ellipsis
+            instead of wrapping onto a second row that breaks the layout. */}
         {hero && !hero.oor && (
           <div
-            className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-full text-[11px] sm:text-xs font-semibold text-emerald-900"
+            className="inline-flex items-center gap-1.5 mt-3 px-3 py-1 rounded-full text-[10.5px] sm:text-xs font-semibold text-emerald-900 max-w-[92vw] sm:max-w-md"
             style={{
               background: "linear-gradient(145deg, #ecfdf5 0%, #d1fae5 100%)",
               border: "1px solid rgba(16, 185, 129, 0.35)",
@@ -133,13 +135,13 @@ export default function Plans() {
             }}
             data-testid="plans-serviceable-hero"
           >
-            <MapPin className="h-3.5 w-3.5 text-emerald-700" />
-            <span>Delivering to <b>{hero.label || "your area"}</b> · <span className="tabular-nums">{hero.km} km</span></span>
+            <MapPin className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-700 shrink-0" />
+            <span className="truncate min-w-0">Delivering to <b>{hero.label || "your area"}</b> · <span className="tabular-nums">{hero.km} km</span></span>
           </div>
         )}
         {hero && hero.oor && (
-          <div className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-full text-[11px] sm:text-xs font-semibold text-amber-900 bg-amber-50 border border-amber-300" data-testid="plans-out-of-range-hero">
-            <AlertTriangle className="h-3.5 w-3.5" /> {hero.label || "Your area"} · {hero.km} km — outside our {hero.radius} km zone
+          <div className="inline-flex items-center gap-1.5 mt-3 px-3 py-1 rounded-full text-[10.5px] sm:text-xs font-semibold text-amber-900 bg-amber-50 border border-amber-300 max-w-[92vw] sm:max-w-md" data-testid="plans-out-of-range-hero">
+            <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" /> <span className="truncate min-w-0">{hero.label || "Your area"} · {hero.km} km — outside our {hero.radius} km zone</span>
           </div>
         )}
       </div>
@@ -160,8 +162,10 @@ export default function Plans() {
       </div>
       <p className="text-center text-xs text-muted-foreground mt-2">{SERVICES.find((s) => s.id === service)?.hint}</p>
 
-      {/* iter-63 #4: shrink subscription plan cards on mobile */}
-      <div className={`mt-7 sm:mt-8 grid gap-4 sm:gap-5 mx-auto ${visiblePlans.length === 1 ? "max-w-sm" : visiblePlans.length === 2 ? "md:grid-cols-2 max-w-2xl" : "md:grid-cols-3 max-w-4xl"}`}>
+      {/* iter-63 #4 / iter-64 #5: shrink subscription plan cards further on
+          mobile so they don't feel bloated. Max widths now: single→xs,
+          two→xl, three→3xl with px-4 inner gutter. */}
+      <div className={`mt-7 sm:mt-8 grid gap-3.5 sm:gap-5 mx-auto px-3 sm:px-0 ${visiblePlans.length === 1 ? "max-w-xs" : visiblePlans.length === 2 ? "md:grid-cols-2 max-w-xl" : "md:grid-cols-3 max-w-3xl"}`}>
         {visiblePlans.map((p, i) => {
           const isPopular = i === 0 && visiblePlans.length > 1;
           const perDay = (p.amount / p.duration_days).toFixed(0);
@@ -241,8 +245,8 @@ export default function Plans() {
         )}
       </div>
 
-      {/* Custom subscription */}
-      <div className="mt-10 max-w-3xl mx-auto" data-testid="custom-plan-section">
+      {/* Custom subscription — iter-64 #5: tighter horizontal footprint */}
+      <div className="mt-10 max-w-2xl mx-auto px-3 sm:px-0" data-testid="custom-plan-section">
         <div
           className="rounded-2xl border border-border bg-card p-4 sm:p-6 grid lg:grid-cols-5 gap-4 sm:gap-6"
           style={{ boxShadow: "0 6px 18px -12px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04), inset 0 0 0 2px rgba(160,35,35,0.35), inset 0 1px 0 rgba(255,255,255,0.6)" }}
