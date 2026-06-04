@@ -25,7 +25,7 @@ export default function Footer() {
           <div className="flex flex-col leading-tight">
             <span className="text-[10px] tracking-overline uppercase font-bold text-emerald-800 dark:text-emerald-300">FSSAI Licensed · Govt of India</span>
             <span className="text-sm font-mono font-extrabold tabular-nums mt-0.5" data-testid="fssai-license-no">Lic. No. 21521243000086</span>
-            <span className="text-[10px] text-muted-foreground mt-0.5">100% Pure Veg · Approved kitchen</span>
+            <span className="text-[10px] text-muted-foreground mt-0.5">200% Pure Veg · Approved kitchen</span>
           </div>
         </div>
 

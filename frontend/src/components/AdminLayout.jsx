@@ -39,6 +39,7 @@ const SECTIONS = [
       { to: "/admin/scanner", label: "QR Scanner", icon: ScanLine, roles: ["admin", "staff"] },
       { to: "/admin/counter", label: "Counter QR", icon: QrCode, roles: ["admin", "staff"] },
       { to: "/admin/menu", label: "Daily Menu", icon: Utensils, roles: ["admin"] },
+      { to: "/admin/mess-menu", label: "Mess Menu Calendar", icon: ClipboardList, roles: ["admin"] },
     ],
   },
   {

@@ -177,7 +177,7 @@ export default function Plans() {
               }`}
               style={isPopular ? {
                 background: "linear-gradient(155deg, #c92626 0%, #a02323 40%, #7a1a1a 100%)",
-                boxShadow: "0 20px 44px -16px rgba(160,35,35,0.55), 0 6px 14px rgba(0,0,0,0.18), inset 0 0 0 2px rgba(255,255,255,0.5), inset 0 1px 0 rgba(255,255,255,0.32), inset 0 -2px 6px rgba(0,0,0,0.22)",
+                boxShadow: "0 20px 44px -16px rgba(160,35,35,0.55), 0 6px 14px rgba(0,0,0,0.18), inset 0 0 0 3px rgba(255,255,255,0.55), inset 0 1px 0 rgba(255,255,255,0.32), inset 0 -2px 6px rgba(0,0,0,0.22)",
               } : {
                 boxShadow: "0 8px 24px -16px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04), inset 0 0 0 2px rgba(160,35,35,0.35), inset 0 1px 0 rgba(255,255,255,0.6)",
               }}
@@ -244,7 +244,10 @@ export default function Plans() {
 
       {/* Custom subscription */}
       <div className="mt-14 max-w-5xl mx-auto" data-testid="custom-plan-section">
-        <div className="rounded-3xl border border-border bg-card p-4 sm:p-8 md:p-10 grid lg:grid-cols-5 gap-6 sm:gap-8">
+        <div
+          className="rounded-3xl border border-border bg-card p-4 sm:p-8 md:p-10 grid lg:grid-cols-5 gap-6 sm:gap-8"
+          style={{ boxShadow: "0 8px 24px -16px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04), inset 0 0 0 2px rgba(160,35,35,0.35), inset 0 1px 0 rgba(255,255,255,0.6)" }}
+        >
           <div className="lg:col-span-3 min-w-0">
             <p className="text-[10px] sm:text-xs tracking-overline uppercase font-bold text-secondary flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5" /> Build your own</p>
             <h2 className="font-display font-extrabold text-xl sm:text-3xl md:text-4xl tracking-tight mt-3 leading-tight break-words">Pick any number of days.</h2>
@@ -259,9 +262,9 @@ export default function Plans() {
                     <button
                       key={s.id} type="button" onClick={() => setService(s.id)}
                       data-testid={`custom-service-${s.id}`}
-                      className={`px-5 sm:px-6 h-11 rounded-full text-sm sm:text-base font-bold border-2 transition-colors flex items-center gap-2 whitespace-nowrap ${service === s.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
+                      className={`px-4 sm:px-5 h-10 rounded-full text-xs sm:text-sm font-bold border-2 transition-colors flex items-center gap-1.5 whitespace-nowrap ${service === s.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
                     >
-                      <s.icon className="h-4 w-4 shrink-0" /> {s.label}
+                      <s.icon className="h-3.5 w-3.5 shrink-0" /> {s.label}
                     </button>
                   ))}
                 </div>
@@ -278,7 +281,7 @@ export default function Plans() {
                   ].map((t) => (
                     <button
                       key={t.id} type="button" onClick={() => setTiffinSize(t.id)}
-                      className={`px-5 sm:px-6 h-11 rounded-full text-sm sm:text-base font-bold border-2 transition-colors whitespace-nowrap ${tiffinSize === t.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
+                      className={`px-4 sm:px-5 h-10 rounded-full text-xs sm:text-sm font-bold border-2 transition-colors whitespace-nowrap ${tiffinSize === t.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
                       data-testid={`custom-tiffin-${t.id}`}
                     >{t.label}</button>
                   ))}

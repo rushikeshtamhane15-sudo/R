@@ -7,6 +7,7 @@ import PendingDeliveriesBanner from "../components/PendingDeliveriesBanner";
 import TiffinPreferencesCard from "../components/TiffinPreferencesCard";
 import PendingDuesCard from "../components/PendingDuesCard";
 import PendingCashOtpFlash from "../components/PendingCashOtpFlash";
+import TodayMessMenuFlash from "../components/TodayMessMenuFlash";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
 import {
@@ -201,6 +202,7 @@ export default function SubscriberDashboard() {
   const menuSection = visible("todays_menu") && (
     <div className="surface-3d bg-card rounded-2xl border border-black/5 p-6" style={sideCardStyle || undefined} data-testid="todays-menu">
       <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Today's menu</p>
+      <TodayMessMenuFlash compact />
       <div className="mt-4 space-y-4">
         <div>
           <p className="text-sm font-display font-bold flex items-center gap-2"><Sun className="h-4 w-4 text-secondary" strokeWidth={1.75} /> Lunch</p>

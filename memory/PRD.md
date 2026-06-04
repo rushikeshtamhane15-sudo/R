@@ -515,7 +515,41 @@ Backend: 14/14 new (test_iter27_app_cms.py) + 110/114 regression (4 timeouts unr
 - **Iteration 36 testing**: 10/10 backend pytest + 9/9 frontend checks pass.
 
 
-####### Iteration 61 (Feb 11, 2026) — Plans hero PIN + action-time gate + smaller pill + Most-popular white pill + cash-OTP self-cancel + plan card insets
+######## Iteration 62 (Feb 11, 2026) — Mess-menu calendar (#8), Contact map sync, Landing hero polish + bad-stuff marquee, full-width pill, "200% pure veg"
+
+#### Completed in this pass
+- **#1 Login-page marquee shrunk** — pills inside `BadStuffMarquee` on `/login` now `padding 3px 9px` + `font-size 10px` + gap `8px` (was full size). Wrapped in a class so the marquee on landing / restaurant stays large. Auth card no longer dominated.
+- **#2a Pill full-width** — `ServiceabilityPill` wrap class `max-w-6xl mx-auto px-3 → w-full px-2` so the pill spans edge-to-edge under the hero on landing, restaurant, plans hero, etc.
+- **#2b "100% pure veg" → "200% pure veg"** in HeroPanel default + sr-only data-testid + Footer copy.
+- **#2c Red inset border on custom-plan card** — `inset 0 0 0 2px rgba(160,35,35,0.35)` matching the standard plan card. Visual cohesion across all plan containers.
+- **#2d Thicker white inset border on Most-popular card** — `inset 0 0 0 2px → 3px` rgba(255,255,255,0.55).
+- **#3 Landing hero spacing tightened** — `py-20 md:py-28 lg:py-36 → py-8 sm:py-12 md:py-16 lg:py-20`. `mt-6 mb-6` between overline / subtitle / CTAs. **NEW: ServiceabilityPill mounted at the BOTTOM of the hero `<section>`** for instant trust signal.
+- **#4 BadStuffMarquee** mounted right after the hero on Landing too (was only on /login + /restaurant). Speed 14s.
+- **#5 Tabs slightly smaller** — `px-5 sm:px-6 h-11 → px-4 sm:px-5 h-10`, `text-sm sm:text-base → text-xs sm:text-sm`, icon `h-4 → h-3.5`. Still readable.
+- **#6 Contact page map auto-syncs with admin kitchen pin** — `Contact.jsx` now fetches `/api/kitchen-location` and builds a live `https://www.openstreetmap.org/export/embed.html?bbox=...&marker=lat,lng` URL centered on the current dispatch coords. Falls back to `data.map_embed_src` only if kitchen pin is unset. So when admin moves the pin via Kitchen Settings (cash analytics page), the Contact map updates automatically — Pune → Amravati without code changes.
+- **#7 Logo size** — `h-[80%] w-[80%] → h-[92%] w-[92%]` in both top-bar and drawer instances.
+- **#8 Day-wise mess menu calendar** — full feature:
+  - **Backend** `routes/mess_menu_cal.py`:
+    - `POST /api/admin/mess-menu/upsert` — admin upsert one date.
+    - `POST /api/admin/mess-menu/bulk` — admin upsert up to 62 dates.
+    - `DELETE /api/admin/mess-menu/{date}` — admin remove.
+    - `GET /api/admin/mess-menu?month=YYYY-MM` — month feed.
+    - `GET /api/mess-menu/today` — public; serves today's `current` and (between 00:00-07:00 IST) tomorrow's `next` so users see what's coming early-bird.
+  - **Frontend**:
+    - `pages/AdminMessMenuCalendar.jsx` — month-grid calendar with dot indicator on saved dates + editor pane (date / lunch / dinner / note + "Copy yesterday" shortcut). Wired into admin nav as **"Mess Menu Calendar"**.
+    - `components/TodayMessMenuFlash.jsx` — emerald gradient card showing today's lunch + dinner + optional note + tomorrow preview during the early-bird window. Mounted on `SubscriberDashboard` (replacing the plain "Today's menu" text) AND at the top of the Restaurant page menu section.
+
+#### Tests
+- `test_iter62.py`: **4/4 PASS** (admin upsert + month feed, bulk upsert, subscriber forbidden, public shape).
+- Full regression iter56-62 → **32/32 PASS**.
+- ESLint clean across all 6 frontend files (AdminMessMenuCalendar, TodayMessMenuFlash, Landing, Plans, Contact, Login).
+- Smoke screenshot @ 390×844 mobile: Landing page renders with the full-width pill (1920×30.5px) at hero bottom + bad-stuff marquee + reduced spacing. Restaurant page renders the mess-menu flash card above the food grid.
+
+#### Files
+- New: `routes/mess_menu_cal.py`, `pages/AdminMessMenuCalendar.jsx`, `components/TodayMessMenuFlash.jsx`, `tests/test_iter62.py`
+- Modified: `Contact.jsx`, `Landing.jsx`, `Plans.jsx`, `Login.jsx`, `HeroPanel.jsx`, `Footer.jsx`, `Header.jsx`, `ServiceabilityPill.jsx`, `SubscriberDashboard.jsx`, `Restaurant.jsx`, `AdminLayout.jsx`, `App.js`
+
+## Iteration 61 (Feb 11, 2026) — Plans hero PIN + action-time gate + smaller pill + Most-popular white pill + cash-OTP self-cancel + plan card insets
 
 #### Completed in this pass
 - **#1 Inline serviceable PIN on Plans hero** — green chip below the H1 shows "Delivering to {Area, City · PIN} · {km} km" the instant we have a cached or fresh fix. Auto-detects silently on mount (no popup). Out-of-range users see an amber chip instead. Verified live: `Delivering to Kasba Peth, Pune City Subdistrict · 411001 · 0 km`.

@@ -5,8 +5,27 @@ import SEO from "../components/SEO";
 
 export default function Contact() {
   const [data, setData] = useState(null);
-  useEffect(() => { (async () => { try { const r = await api.get("/content/contact"); setData(r.data); } catch {} })(); }, []);
+  const [kitchen, setKitchen] = useState(null);
+  useEffect(() => {
+    (async () => {
+      try { const r = await api.get("/content/contact"); setData(r.data); } catch {}
+      try { const r2 = await api.get("/kitchen-location"); setKitchen(r2.data || null); } catch {}
+    })();
+  }, []);
   if (!data) return <div className="p-12 text-center text-muted-foreground">Loading…</div>;
+
+  // iter-62 #6: when admin moves the kitchen pin via the Kitchen Settings
+  // CMS, we build a fresh OpenStreetMap embed centered on that lat/lng so
+  // the Contact map stays in sync without needing the admin to also paste a
+  // new map_embed_src. Fallback to whatever was saved in /content/contact.
+  const buildOsmEmbed = (lat, lng) => {
+    const dLat = 0.012, dLng = 0.012;
+    const bbox = `${(lng - dLng).toFixed(5)},${(lat - dLat).toFixed(5)},${(lng + dLng).toFixed(5)},${(lat + dLat).toFixed(5)}`;
+    return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lng}`;
+  };
+  const liveMapSrc = kitchen && kitchen.dispatch_lat && kitchen.dispatch_lng
+    ? buildOsmEmbed(Number(kitchen.dispatch_lat), Number(kitchen.dispatch_lng))
+    : (data.map_embed_src || "");
 
   return (
     <div className="max-w-5xl mx-auto px-6 md:px-8 py-12" data-testid="contact-page">
@@ -28,14 +47,15 @@ export default function Contact() {
           <ContactRow icon={Clock} label="Hours" value={data.hours} />
         </div>
         <div className="md:col-span-3 surface-3d rounded-2xl overflow-hidden border border-border bg-card" data-testid="contact-map">
-          {data.map_embed_src ? (
+          {liveMapSrc ? (
             <iframe
               title="efoodcare location"
-              src={data.map_embed_src}
+              src={liveMapSrc}
               className="w-full h-[420px] border-0"
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
               allowFullScreen
+              data-testid="contact-map-iframe"
             />
           ) : (
             <div className="h-[420px] flex items-center justify-center text-muted-foreground text-sm">Map not configured</div>

@@ -17,6 +17,7 @@ import DishCard from "../components/restaurant/DishCard";
 import DishDetailModal from "../components/restaurant/DishDetailModal";
 import PromotionPopup from "../components/PromotionPopup";
 import ServiceabilityPill from "../components/ServiceabilityPill";
+import TodayMessMenuFlash from "../components/TodayMessMenuFlash";
 import SEO from "../components/SEO";
 
 // 8 trust chips — what we promise (and don't) about the food. Brand-defining
@@ -206,6 +207,10 @@ export default function Restaurant() {
       <ServiceabilityPill />
 
       <div className="max-w-6xl mx-auto px-3 sm:px-5">
+        {/* Mess menu daily flash — top of the menu container per iter-62 #8 */}
+        <div className="mt-3">
+          <TodayMessMenuFlash compact />
+        </div>
         {/* Trust chips — auto-scrolling horizontal marquee. */}
         <section className="mt-3 -mb-1 overflow-hidden" data-testid="trust-chips">
           <div className="flex items-center gap-2 animate-trust-marquee py-1" style={{ width: "max-content" }}>

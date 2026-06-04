@@ -22,6 +22,7 @@ import AdminPlans from "./pages/AdminPlans";
 import AdminDelivery from "./pages/AdminDelivery";
 import AdminLiveMap from "./pages/AdminLiveMap";
 import AdminControlTower from "./pages/AdminControlTower";
+import AdminMessMenuCalendar from "./pages/AdminMessMenuCalendar";
 import DeliveryBoyDashboard from "./pages/DeliveryBoyDashboard";
 import Track from "./pages/Track";
 import AdminCounter from "./pages/AdminCounter";
@@ -131,6 +132,7 @@ function AppRoutes() {
           <Route path="/admin" element={<RequireAuth roles={["admin", "staff"]}><AdminLayout /></RequireAuth>}>
             <Route index element={<AdminIndex />} />
             <Route path="control-tower" element={<AdminControlTower />} />
+            <Route path="mess-menu" element={<AdminMessMenuCalendar />} />
             <Route path="plans" element={<AdminPlans />} />
             <Route path="delivery" element={<AdminDelivery />} />
             <Route path="live" element={<AdminLiveMap />} />

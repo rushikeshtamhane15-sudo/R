@@ -90,7 +90,7 @@ export default function ServiceabilityPill() {
     return () => { done = true; };
   }, [retryNonce, user]);
 
-  const wrap = "max-w-6xl mx-auto px-3 sm:px-5 pt-2";
+  const wrap = "w-full px-2 pt-2";
 
   if (state === "detecting") {
     return (
