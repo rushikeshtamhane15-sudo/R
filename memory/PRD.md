@@ -1038,3 +1038,18 @@ See `/app/memory/test_credentials.md`.
 - **Testing**: 17/17 pytest pass (test_iter42.py). Frontend code-review verified — Playwright live-render blocked by OTP rate-limit collision with backend tests (cosmetic; the rendering code matches spec exactly).
 
 - **Testing**: 17/17 backend pytest + critical frontend paths verified.
+
+### Iteration 63 (Jun 4, 2026) — Weekly poster generator · Mobile polish · Today/Tomorrow toggle
+- **Weekly mess-menu poster** (`/app/backend/routes/mess_menu_poster.py`): admin-only `GET /api/admin/mess-menu/poster?start=YYYY-MM-DD&format=a4|square&fmt=png|jpg`. Pure-PIL render, no extra deps. A4 portrait 1240×1754 for kitchen-wall printing, square 1080×1080 for WhatsApp share. PNG/JPG output. Wired into Admin → Mess-Menu Calendar page as "Download PNG" + "Print A4" buttons.
+- **`include_next=1` on public menu**: `GET /api/mess-menu/today?include_next=1` always returns tomorrow's record (when seeded) regardless of IST hour, so the user-dashboard Today/Tomorrow toggle works any time of day.
+- **Today/Tomorrow toggle on user dashboard** (`TodayMessMenuFlash.jsx`): toggle pills above the menu flash card; "Tomorrow" tab calls `?include_next=1` and renders next-day lunch+dinner.
+- **Mobile UI polish batch**:
+  - Logo icon + "efoodcare" brand text aligned horizontally in mobile header.
+  - "200% pure veg" → "101% pure veg" copy fix on restaurant hero badge.
+  - Subscription + custom-plan containers shrunk on mobile (no horizontal overflow at 390px).
+  - Cash-OTP verify control made inline per-row (not full-width modal) on `/admin/cash-collections`.
+  - `TrustChipsMarquee.jsx` moved to login page bottom + restaurant page bottom; removed duplicate above home hero.
+- **Backend hardening**: `doc_to_user` (server.py:247) now uses `.get('qr_token','')` to prevent 500 on legacy/synthetic user docs missing the field.
+- **Testing**: 4/4 backend pytest pass (`test_iter63.py` — poster PNG/JPG, 403 non-admin, 400 bad-date, include_next). Frontend E2E 13/13 review items pass via testing agent (iteration_56.json) on both 390×844 mobile + 1440×900 desktop. localStorage CMS cache verified — no FOUC on reload.
+- **Open / future**: (a) Tighten the home/admin Hindi adulteration ticker on mobile (loops 4x before content). (b) Replace empty Today/Tomorrow state with a placeholder card instead of `return null`. (c) Razorpay LIVE keys remain BLOCKED on user action (4th recurrence — keys reject with `Authentication failed`; user must regenerate).
+

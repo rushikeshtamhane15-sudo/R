@@ -244,7 +244,7 @@ def doc_to_user(doc) -> User:
         photo_url=doc.get("photo_url"),
         picture=doc.get("picture"),
         role=doc.get("role", "subscriber"),
-        qr_token=doc["qr_token"],
+        qr_token=doc.get("qr_token", ""),
         created_at=parse_dt(doc["created_at"]),
         lat=doc.get("lat"),
         lng=doc.get("lng"),
