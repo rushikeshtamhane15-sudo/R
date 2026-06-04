@@ -1,0 +1,41 @@
+{
+  "summary": "Iter-63 frontend UX verified on mobile 390x844 and desktop 1440x900. All 13 review items pass except minor concerns. Confirmed: (1) mobile header logo + 'efoodcare' brand are horizontally inline with tagline beneath, no wrapping; (2) red Restaurant hero card shows '101% PURE VEG' (NOT 200%); (3) TrustChipsMarquee renders once on home/restaurant below the hero (data-testid='trust-chips') and again on /login (data-testid='login-trust-marquee') with the same chip set incl. 0% Ajinomoto, 0% Maida, No Artificial Flavours/Colour, No Refined & Palm Oil, 0% Polished Grains, 100% Fresh Vegetables, No Pre Made Gravy — no duplicate on home above hero; (4) /plans on 390px: plan cards width 358px, scrollW==clientW==390 (no horizontal overflow), inner padding tight; (5) /admin/cash-collections — Cash OTP verify is per-row inline (otp-input-cash_*, verify-cash_*, slip-input-cash_*) not a full-width modal, compact desktop layout; (6) Today/Tomorrow toggle ABOVE the menu card on /dashboard (todays-menu wrapper Y=532, toggle Y=577 inside, active card below) — click Tomorrow correctly swaps lunch from 'Paneer Butter Masala' to 'Chana Masala' and shows 'Tomorrow's preview · Fri, 5 Jun' header (calls GET /api/mess-menu/today?include_next=1); (7) /admin/mess-menu (note: route is /admin/mess-menu in App.js not /admin/mess-menu-calendar) loads with date picker (poster-start-date, menu-editor-date), Lunch/Dinner/Note inputs (menu-lunch/dinner/note), Save (menu-save), A4 print + Download PNG buttons hitting /api/admin/mess-menu/poster?fmt=png — endpoint returns 200, 30 KB PNG; (8) /admin/control-tower loads with Overview, Total Users (389), Active Subs (67), Revenue (₹1,46,008), attendance chart, refresh button — no console errors after fix; (9) ServiceabilityPill testid 'serviceability-pill-permission' present on /restaurant — pincode-driven coloured pill works; (10) localStorage CMS cache keys 'efc_cms_v1::/content/login', 'ef_theme_tokens', 'ef_theme_brand' present after first load so subsequent reloads hydrate instantly without white flash.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/auth/me (server.py:247 doc_to_user)", "issue": "Throws 500 KeyError: 'qr_token' when a legacy user_sessions row points to a user document that lacks qr_token. Repro: insert a fresh users row without qr_token, GET /api/auth/me with that session cookie → 500. Fix: use .get('qr_token', '') in doc_to_user or backfill qr_token at session resolve time. Did NOT affect normal users (OTP signup auto-issues qr_token); only synthetic test users."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/admin/control-tower (mobile 390)", "issues": ["Top red announcement banner is very dense — full RTL Hindi sentence repeats 4x and pushes the 'ACTION REQUIRED ₹45,696 cash collected but not yet deposited' banner below the viewport; consider a thinner ticker on small screens"]},
+      {"screen": "/dashboard (subscriber)", "issues": ["TodayMessMenuFlash inside the 'Today's Menu' card uses dark emerald gradient — looks great, but the inline Today/Tomorrow toggle pills (bg-muted/50) on the light card have low contrast against the surrounding section; consider a slightly darker neutral or a thin border for better affordance"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter63.py",
+    "/app/test_reports/iteration_56.json"
+  ],
+  "action_items": [
+    "Backend (low priority): guard doc_to_user against missing 'qr_token' field with `.get('qr_token','')` so synthetic / partially-migrated user docs don't crash /api/auth/me with 500.",
+    "Optional: tighten the home/admin announcement marquee on mobile (Hindi adulteration sentence loops too many times before the page content)."
+  ],
+  "critical_code_review_comments": [
+    "TodayMessMenuFlash.jsx (line 22): early-return `if (!data) return null` means the toggle is not shown until /api/mess-menu/today resolves. Acceptable, but a tiny skeleton would improve perceived speed.",
+    "TodayMessMenuFlash.jsx: when both today AND tomorrow are null (`if (!today && !next) return null`), the toggle disappears entirely — the parent wrapper 'todays-menu' on SubscriberDashboard.jsx (line 203-205) keeps the heading 'Today's menu' visible but no body/toggle below it. Consider rendering an empty-state placeholder so the section doesn't look broken.",
+    "Route mismatch in review brief vs App.js: brief says /admin/mess-menu-calendar but App.js (line 135) registers `path=\"mess-menu\"` under the admin layout so the live URL is /admin/mess-menu. Either rename the route or update navigation/links accordingly to avoid 404s for users following docs.",
+    "server.py:247 doc_to_user uses subscript access (doc['qr_token']) for every key — change to .get(...) with defaults for all optional persisted fields to avoid 500s on schema drift."
+  ],
+  "updated_files": [
+    "/app/test_reports/iteration_56.json"
+  ],
+  "success_rate": {"backend": "N/A (skipped per request; iter63 backend already 100%)", "frontend": "100% (13/13 review items pass)"},
+  "test_credentials": "Synthetic via Mongo: admin user_test_admin_iter63 sess_admin_iter63_b6c5728bb71b471b; subscriber user_test_sub_iter63 sess_sub_iter63_2c4f030f3c074fd3. Both rows in users + user_sessions in DB_NAME from backend/.env. OTP dev flow also works: POST /api/auth/send-otp {phone:9876543210} returns dev_otp in body.",
+  "seed_data_creation": "Inserted today/tomorrow rows into `mess_menu` collection (2026-06-04 + 2026-06-05) so the Today/Tomorrow toggle has real lunch/dinner strings to render. Also created the 2 synthetic users above.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter-63 frontend is fully green. The one open item is a backend hardening nice-to-have: /api/auth/me crashes 500 on synthetic users missing qr_token (server.py:247) — easy fix using .get('qr_token',''). Mess-menu admin route is /admin/mess-menu (NOT /admin/mess-menu-calendar as in the review brief). To reproduce the Tomorrow toggle, seed mess_menu collection with two consecutive date rows then visit /dashboard with a subscriber session cookie and click [data-testid='menu-tab-tomorrow']. Poster endpoint /api/admin/mess-menu/poster?start=YYYY-MM-DD&format=a4&fmt=png returns image/png (30 KB) with admin cookie. TrustChipsMarquee placement: present on /restaurant (testid 'trust-chips') and /login (testid 'login-trust-marquee') only, NOT duplicated on home above hero.",
+  "rca of the issue": "Backend /api/auth/me KeyError 'qr_token' RCA — doc_to_user (server.py:247) accesses doc['qr_token'] with subscript; if any legacy or test-seeded users row is missing the field, FastAPI returns 500 to the client. Reproduction: insert {user_id, email, phone, name, role} only and hit /api/auth/me with a matching session cookie. Mitigation: change all subscript reads in doc_to_user to .get(field, sensible_default). Verified locally: backfilling qr_token on the synthetic admin row immediately made /api/auth/me return 200 and unblocked /admin/control-tower + /admin/mess-menu navigation. Not a regression introduced by iter-63 — pre-existing code, just surfaced by my synthetic seeding."
+}
