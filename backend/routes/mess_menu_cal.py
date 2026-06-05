@@ -14,6 +14,7 @@ Endpoints:
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from pydantic import BaseModel, Field
@@ -296,6 +297,57 @@ async def place_mess_order(payload: MessMenuOrderIn, user: server.User = Depends
             "prefill": {"name": user_doc.get("name", ""), "email": user_doc.get("email", ""), "contact": user_doc.get("phone", "")},
         },
     }
+
+
+class KioskOrderIn(BaseModel):
+    service: str = Field(..., description="delivery | takeaway | dining")
+    qty: int = Field(..., ge=1, le=20)
+    date: str
+    meal_type: str
+    phone: Optional[str] = None
+    note: str = ""
+
+
+@router.post("/admin/kiosk/order")
+async def kiosk_place_order(payload: KioskOrderIn, user: server.User = Depends(server.get_current_user)):
+    """Iter-69 — Walk-in order placed from the admin wall-kiosk. Admin's
+    session is the auth; payment is collected at the counter (cash) so
+    no Razorpay handoff happens here. Status starts as `pending_collection`
+    and admin can mark it paid via the existing cash-collection flow.
+    """
+    if user.role not in ("admin", "staff"):
+        raise HTTPException(status_code=403, detail="Admin or staff only")
+    if payload.service not in {"delivery", "takeaway", "dining"}:
+        raise HTTPException(status_code=400, detail="Invalid service")
+    if payload.meal_type not in {"lunch", "dinner"}:
+        raise HTTPException(status_code=400, detail="Invalid meal_type")
+    menu = await server.db.mess_menu.find_one({"date": payload.date}, {"_id": 0})
+    if not menu or not (menu.get(payload.meal_type) or "").strip():
+        raise HTTPException(status_code=400, detail=f"No {payload.meal_type} planned for {payload.date}")
+    cfg = await _get_config()
+    unit_price = int(cfg.get(f"price_{payload.service}") or 0)
+    total = unit_price * payload.qty
+    import uuid
+    order = {
+        "order_id": f"kio_{uuid.uuid4().hex[:12]}",
+        "kind": "walk_in_kiosk",
+        "user_id": None,
+        "placed_by_admin_id": user.user_id,
+        "phone": (payload.phone or "").strip() or None,
+        "service": payload.service,
+        "qty": payload.qty,
+        "date": payload.date,
+        "meal_type": payload.meal_type,
+        "menu_text": menu.get(payload.meal_type),
+        "unit_price": unit_price,
+        "total": total,
+        "currency": "INR",
+        "status": "pending_collection",  # cash at counter
+        "note": (payload.note or "").strip(),
+        "created_at": server.iso(server.now_utc()),
+    }
+    await server.db.mess_menu_orders.insert_one(order)
+    return {"ok": True, "order": {k: v for k, v in order.items() if k != "_id"}}
 
 
 class MessMenuVerifyIn(BaseModel):

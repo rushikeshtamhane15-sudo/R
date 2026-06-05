@@ -1116,3 +1116,17 @@ See `/app/memory/test_credentials.md`.
 - **Intent logging on form open** — `Order this menu` button now fires `/order-intent` in the background so the banner can resurrect abandoned carts.
 - **Admin CMS card** — `CartSaverConfigCard` under `/admin/mess-menu` with 4-tile stats grid + enabled toggle + threshold/expire/template inputs.
 - **Testing**: 6/6 backend pytest pass (`test_iter68.py`) — intent log, banner before/after threshold, dismiss + 404, expire transition, admin config + 403, verify-clears-intent end-to-end.
+
+
+### Iteration 69 (Jun 5, 2026) — Admin Wall Kiosk + insurance research
+- **New page** `/admin/kiosk` (`AdminKiosk.jsx`) — touchscreen-friendly, dark-themed wall-mount page split top/bottom:
+  - **Top half**: always-on camera scanner (`#kiosk-scanner-region`) using `html5-qrcode`. Auto-starts on page load, auto-restarts when meal toggle changes, de-dupes repeat scans within 2.5 s. The QR region's DOM node stays mounted at all times, so bottom-half re-renders never disturb scanning (satisfies "scan qr must stay stationary"). Shows "Last check-in" card with photo + name + meals-left next to the camera.
+  - **Bottom half**: walk-in self-order container — Today/Tomorrow toggle, gradient menu card (uses iter-65 #11 CMS colours), service tabs with live prices, big touch qty stepper, optional phone field (delivery only), large "Place order" button. State is isolated from the scanner above.
+- **New backend** `POST /api/admin/kiosk/order` — admin/staff-only walk-in order endpoint. Writes to `mess_menu_orders` with `kind=walk_in_kiosk` and `status=pending_collection` (cash at counter — no Razorpay handoff since the customer isn't logged in). `placed_by_admin_id` is recorded for audit. Validates service/meal_type/menu presence; 4/4 pytest pass.
+- **Nav entry** — "Wall Kiosk" link added under "Counter & QR" in `AdminLayout`.
+- **Build fix**: replaced an accidental Python-style `"""docstring"""` at the top of the JSX file with `/** … */` JSDoc.
+
+### Iteration 69 — Insurance research (no integration shipped)
+- Researched Indian micro-insurance for food contamination at ultra-low premium (2 Rs on 100 Rs order).
+- Finding: **No off-the-shelf retail product** at this premium band. Closest fit is **Acko Microinsurance** (explicitly markets "micro premium / micro cover / digital embedded" products) — would need a custom B2B underwriting via their embedded team (`embedded@acko.com`). Bajaj/ICICI Lombard products have minimum yearly premiums too high to pass through per-order.
+- Recommended action for user: get a quote from Acko first; I can then wire opt-in toggle into checkout + webhook in 1 iteration once policy spec is in hand.

@@ -27,6 +27,7 @@ import DeliveryBoyDashboard from "./pages/DeliveryBoyDashboard";
 import Track from "./pages/Track";
 import AdminCounter from "./pages/AdminCounter";
 import AdminScanner from "./pages/AdminScanner";
+import AdminKiosk from "./pages/AdminKiosk";
 import AdminMenu from "./pages/AdminMenu";
 import AdminUsers from "./pages/AdminUsers";
 import AdminTheme from "./pages/AdminTheme";
@@ -137,6 +138,7 @@ function AppRoutes() {
             <Route path="delivery" element={<AdminDelivery />} />
             <Route path="live" element={<AdminLiveMap />} />
             <Route path="scanner" element={<AdminScanner />} />
+            <Route path="kiosk" element={<AdminKiosk />} />
             <Route path="counter" element={<AdminCounter />} />
             <Route path="menu" element={<AdminMenu />} />
             <Route path="users" element={<AdminUsers />} />

@@ -37,6 +37,7 @@ const SECTIONS = [
       { to: "/admin/delivery", label: "Tiffin delivery", icon: Truck, roles: ["admin"] },
       { to: "/admin/live", label: "Live tracking", icon: Radio, roles: ["admin"] },
       { to: "/admin/scanner", label: "QR Scanner", icon: ScanLine, roles: ["admin", "staff"] },
+      { to: "/admin/kiosk", label: "Wall Kiosk", icon: ScanLine, roles: ["admin"] },
       { to: "/admin/counter", label: "Counter QR", icon: QrCode, roles: ["admin", "staff"] },
       { to: "/admin/menu", label: "Daily Menu", icon: Utensils, roles: ["admin"] },
       { to: "/admin/mess-menu", label: "Mess Menu Calendar", icon: ClipboardList, roles: ["admin"] },
