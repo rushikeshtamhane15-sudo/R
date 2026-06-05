@@ -305,22 +305,28 @@ class KioskOrderIn(BaseModel):
     date: str
     meal_type: str
     phone: Optional[str] = None
+    payment_method: str = Field(default="cash", description="cash | upi")
     note: str = ""
 
 
 @router.post("/admin/kiosk/order")
 async def kiosk_place_order(payload: KioskOrderIn, user: server.User = Depends(server.get_current_user)):
-    """Iter-69 — Walk-in order placed from the admin wall-kiosk. Admin's
-    session is the auth; payment is collected at the counter (cash) so
-    no Razorpay handoff happens here. Status starts as `pending_collection`
-    and admin can mark it paid via the existing cash-collection flow.
-    """
+    """Iter-69/70/72 — Walk-in order placed from the admin wall-kiosk."""
     if user.role not in ("admin", "staff"):
         raise HTTPException(status_code=403, detail="Admin or staff only")
     if payload.service not in {"delivery", "takeaway", "dining"}:
         raise HTTPException(status_code=400, detail="Invalid service")
     if payload.meal_type not in {"lunch", "dinner"}:
         raise HTTPException(status_code=400, detail="Invalid meal_type")
+    if payload.payment_method not in {"cash", "upi"}:
+        raise HTTPException(status_code=400, detail="Invalid payment_method")
+    # iter-72 #5: phone is mandatory for delivery so the rider can call.
+    clean_phone = (payload.phone or "").strip()
+    if payload.service == "delivery":
+        digits = "".join(c for c in clean_phone if c.isdigit())
+        if len(digits) < 10:
+            raise HTTPException(status_code=400, detail="Customer phone is required for delivery")
+        clean_phone = digits
     menu = await server.db.mess_menu.find_one({"date": payload.date}, {"_id": 0})
     if not menu or not (menu.get(payload.meal_type) or "").strip():
         raise HTTPException(status_code=400, detail=f"No {payload.meal_type} planned for {payload.date}")
@@ -337,7 +343,7 @@ async def kiosk_place_order(payload: KioskOrderIn, user: server.User = Depends(s
         "kind": "walk_in_kiosk",
         "user_id": None,
         "placed_by_admin_id": user.user_id,
-        "phone": (payload.phone or "").strip() or None,
+        "phone": clean_phone or None,
         "service": payload.service,
         "qty": payload.qty,
         "date": payload.date,
@@ -346,7 +352,8 @@ async def kiosk_place_order(payload: KioskOrderIn, user: server.User = Depends(s
         "unit_price": unit_price,
         "total": total,
         "currency": "INR",
-        "status": "pending_collection",  # cash at counter
+        "status": "pending_collection",  # cash/upi collected at counter
+        "payment_method": payload.payment_method,
         "note": (payload.note or "").strip(),
         "kiosk_token": kiosk_token,
         "kiosk_consumed_at": None,
@@ -417,3 +424,35 @@ async def verify_mess_order(payload: MessMenuVerifyIn, user: server.User = Depen
     except Exception as e:  # noqa: BLE001
         server.logger.warning(f"[iter-68] could not clear cart-saver intent: {e}")
     return {"ok": True, "status": fresh.get("status"), "order": fresh}
+
+
+# -------- iter-72 #6: kiosk Bluetooth printer admin toggle ----------------
+KIOSK_BT_KEY = "kiosk_bt_v1"
+DEFAULT_BT = {"enabled": False}
+
+
+class KioskBtConfigIn(BaseModel):
+    enabled: bool = False
+
+
+@router.get("/admin/kiosk/bt-config")
+async def admin_get_kiosk_bt(user: server.User = Depends(server.get_current_user)):
+    if user.role not in ("admin", "staff"):
+        raise HTTPException(status_code=403, detail="Admin/staff only")
+    doc = await server.db.app_config.find_one({"key": KIOSK_BT_KEY}, {"_id": 0})
+    if not doc:
+        return dict(DEFAULT_BT)
+    return {**DEFAULT_BT, **{k: v for k, v in doc.items() if k != "key"}}
+
+
+@router.put("/admin/kiosk/bt-config")
+async def admin_put_kiosk_bt(payload: KioskBtConfigIn, user: server.User = Depends(server.get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    await server.db.app_config.update_one(
+        {"key": KIOSK_BT_KEY},
+        {"$set": {"key": KIOSK_BT_KEY, "enabled": bool(payload.enabled)}},
+        upsert=True,
+    )
+    return {"enabled": bool(payload.enabled)}
+

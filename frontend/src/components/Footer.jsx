@@ -34,18 +34,19 @@ export default function Footer() {
   return (
     <footer className="border-t border-border bg-muted/40 pb-16 md:pb-0" data-testid="app-footer">
       <div className="max-w-7xl mx-auto px-6 md:px-8 lg:px-12 py-8">
-        {/* iter-65 #4: brand identity block — big logo + brand text, tagline,
-            promise sentence, then corporate contact card. Sits ABOVE the
-            existing FSSAI mark + copyright bar so users always see who we are. */}
-        <div className="flex flex-col items-center text-center gap-3 mb-6" data-testid="footer-brand-block">
-          <div className="inline-flex items-center gap-2.5">
-            <span className="inline-flex items-center justify-center h-12 w-16 rounded-md bg-primary overflow-hidden">
-              <img src={BRAND_LOGO_URL} alt={brandName} className="h-[92%] w-[92%] object-contain" />
-            </span>
-            <span className="font-display font-extrabold text-3xl sm:text-4xl text-foreground tracking-tight" data-testid="footer-brand-name">{brandName}</span>
-          </div>
+        {/* iter-65 #4 + iter-72 #4: brand identity block — logo CENTERED above
+            brand name (was inline). Brand name in white per request, with
+            primary background underlay so it stays readable on light bg too. */}
+        <div className="flex flex-col items-center text-center gap-2 mb-6" data-testid="footer-brand-block">
+          <span className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary overflow-hidden shadow-md">
+            <img src={BRAND_LOGO_URL} alt={brandName} className="h-[88%] w-[88%] object-contain" />
+          </span>
+          <span
+            className="font-display font-extrabold text-3xl sm:text-4xl tracking-tight px-3 py-0.5 rounded-md bg-primary text-white"
+            data-testid="footer-brand-name"
+          >{brandName}</span>
           <span className="text-[11px] sm:text-xs tracking-[0.2em] uppercase font-semibold text-secondary" data-testid="footer-brand-tagline">{tagline}</span>
-          <p className="text-sm sm:text-base max-w-2xl text-muted-foreground leading-relaxed" data-testid="footer-brand-promise">
+          <p className="text-sm sm:text-base max-w-2xl text-muted-foreground leading-relaxed mt-1" data-testid="footer-brand-promise">
             {promise}
           </p>
 

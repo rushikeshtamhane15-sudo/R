@@ -162,7 +162,7 @@ export default function TodayMessMenuFlash({ compact = false }) {
 
       {active ? (
         <div
-          className="rounded-2xl p-3.5 sm:p-4 overflow-hidden relative"
+          className="rounded-2xl p-3 overflow-hidden relative"
           style={{
             background: `linear-gradient(145deg, ${cfg.bg_gradient_from} 0%, ${cfg.bg_gradient_mid} 45%, ${cfg.bg_gradient_to} 100%)`,
             color: cfg.text_color,
@@ -171,29 +171,29 @@ export default function TodayMessMenuFlash({ compact = false }) {
         >
           <span aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.06] bg-[linear-gradient(transparent_50%,_rgba(255,255,255,1)_50%)] bg-[length:100%_3px]" />
           <div className="flex items-center gap-2 z-10 relative">
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/22 shrink-0">
-              {tab === "today" ? <ChefHat className="h-3.5 w-3.5" /> : <Sunrise className="h-3.5 w-3.5" />}
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-white/22 shrink-0">
+              {tab === "today" ? <ChefHat className="h-3 w-3" /> : <Sunrise className="h-3 w-3" />}
             </span>
             <div className="min-w-0">
               <p className="text-[9px] tracking-[0.18em] uppercase font-extrabold opacity-85">{cardLabel}</p>
             </div>
           </div>
-          <div className="mt-2 grid sm:grid-cols-2 gap-2 z-10 relative">
+          <div className="mt-1.5 grid sm:grid-cols-2 gap-1.5 z-10 relative">
             {active.lunch && (
-              <div className="flex items-start gap-1.5 bg-white/8 rounded-xl px-2.5 py-2">
-                <Sun className="h-3.5 w-3.5 text-amber-200 mt-0.5 shrink-0" />
+              <div className="flex items-start gap-1.5 bg-white/8 rounded-xl px-2 py-1.5">
+                <Sun className="h-3 w-3 text-amber-200 mt-0.5 shrink-0" />
                 <div className="min-w-0">
                   <p className="text-[9px] tracking-[0.16em] uppercase font-bold opacity-75">Lunch</p>
-                  <p className="text-[12px] sm:text-[13px] font-bold leading-snug">{active.lunch}</p>
+                  <p className="text-[12px] font-bold leading-tight">{active.lunch}</p>
                 </div>
               </div>
             )}
             {active.dinner && (
-              <div className="flex items-start gap-1.5 bg-white/8 rounded-xl px-2.5 py-2">
-                <Moon className="h-3.5 w-3.5 text-blue-200 mt-0.5 shrink-0" />
+              <div className="flex items-start gap-1.5 bg-white/8 rounded-xl px-2 py-1.5">
+                <Moon className="h-3 w-3 text-blue-200 mt-0.5 shrink-0" />
                 <div className="min-w-0">
                   <p className="text-[9px] tracking-[0.16em] uppercase font-bold opacity-75">Dinner</p>
-                  <p className="text-[12px] sm:text-[13px] font-bold leading-snug">{active.dinner}</p>
+                  <p className="text-[12px] font-bold leading-tight">{active.dinner}</p>
                 </div>
               </div>
             )}
@@ -238,18 +238,19 @@ export default function TodayMessMenuFlash({ compact = false }) {
                       <button type="button" onClick={() => setOrderMeal("dinner")} className={`px-3 h-7 rounded-full text-[10px] font-bold ${orderMeal === "dinner" ? "bg-white text-emerald-900" : "text-white/80"}`} data-testid="order-meal-dinner">Dinner</button>
                     </div>
                   )}
-                  {/* service tabs */}
-                  <div className="flex gap-1.5">
+                  {/* iter-72 #3: service tabs as 3-col grid + price stacked
+                      under label so the third tab no longer clips on 390px. */}
+                  <div className="grid grid-cols-3 gap-1.5">
                     {SERVICE_TABS.map((s) => (
                       <button
                         key={s.id}
                         type="button"
                         onClick={() => setService(s.id)}
                         data-testid={`order-svc-${s.id}`}
-                        className={`flex-1 inline-flex items-center justify-center gap-1 px-2 h-8 rounded-lg text-[10px] font-extrabold tracking-wide ${service === s.id ? "bg-white text-emerald-900" : "bg-white/10 text-white/85 hover:bg-white/20"}`}
+                        className={`inline-flex flex-col items-center justify-center gap-0 px-1 py-1.5 rounded-lg text-[10px] font-extrabold tracking-wide leading-tight ${service === s.id ? "bg-white text-emerald-900" : "bg-white/10 text-white/85 hover:bg-white/20"}`}
                       >
-                        <s.icon className="h-3 w-3" /> {s.label}
-                        <span className="ml-1 opacity-90 tabular-nums">₹{priceFor(s.id)}</span>
+                        <span className="inline-flex items-center gap-1"><s.icon className="h-3 w-3" /> {s.label}</span>
+                        <span className="tabular-nums text-[10px] opacity-90 mt-0.5">₹{priceFor(s.id)}</span>
                       </button>
                     ))}
                   </div>

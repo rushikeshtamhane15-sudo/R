@@ -11,10 +11,16 @@ import { Save, RotateCcw, ArrowLeft } from "lucide-react";
 const SCHEMAS = {
   footer: {
     title: "Footer",
-    description: "Shown at the bottom of every page.",
+    description: "Brand identity block + copyright shown at the bottom of every page.",
     fields: [
-      { key: "copyright", label: "Copyright line", type: "input" },
+      { key: "brand_name", label: "Brand name (white pill)", type: "input" },
       { key: "tagline", label: "Tagline", type: "input" },
+      { key: "promise", label: "Promise line", type: "textarea", rows: 3 },
+      { key: "corporate_address", label: "Corporate address", type: "textarea", rows: 3 },
+      { key: "support_phone", label: "Support phone", type: "input" },
+      { key: "email", label: "Email", type: "input" },
+      { key: "website", label: "Website URL", type: "input" },
+      { key: "copyright", label: "Copyright line", type: "input" },
     ],
   },
   privacy: {

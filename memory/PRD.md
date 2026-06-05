@@ -1152,3 +1152,20 @@ See `/app/memory/test_credentials.md`.
 - **Graceful fallback** — `isBluetoothSupported()` feature-detects `navigator.bluetooth`. On iOS Safari (no Web Bluetooth) the modal shows an amber hint pointing users to Bluefy. Browser-print + OS thermal driver still works as the backup path.
 - **Tests** — 3/3 frontend unit tests pass (`bluetoothPrinter.test.js`) for the public surface + safe error when Web Bluetooth is unavailable. ESC/POS byte construction can't be exercised in jsdom without a paired device — verified manually via byte logs.
 
+
+### Iteration 72 (Jun 5, 2026) — Footer CMS · CSS fix · Kiosk redesign · BT toggle
+- **#1 Footer admin editing**: expanded `/api/content/footer` CMS defaults to `brand_name`, `tagline`, `promise`, `corporate_address`, `support_phone`, `email`, `website`, `copyright`. AdminContent page now lists all 8 fields with textarea types for the long ones. `Footer.jsx` reads each field through its CMS key.
+- **#3 CSS fix on mess-menu container**: service-tabs grid switched from `flex` to `grid-cols-3` and price stacked under label so the 3rd tab no longer clips on 390-px phones. Reduced container padding (p-3 vs p-4) and tighter inner spacing — visually shorter card.
+- **#4 Footer logo above brand text, centered, brand text white**: logo moved to a 64x64 rounded square at the top, brand name now `bg-primary text-white px-3 py-0.5 rounded-md` directly under it — centered for all viewports.
+- **#5 Phone compulsory for kiosk delivery**: backend `POST /api/admin/kiosk/order` now 400s when `service==delivery` and `phone` has fewer than 10 digits. Frontend pre-checks before submit.
+- **#6 Wall-kiosk redesign**:
+  - **Removed camera scanner**. Top half now displays the existing rotating counter QR (`/counter/qr?meal=&location=main`) full-size with instructions. Customers scan it with their phone (already-logged-in subscriber → attendance marked; walk-in → they scan the receipt's `kio:` QR via the same counter route).
+  - **Bluetooth admin toggle**: new `GET/PUT /api/admin/kiosk/bt-config`. Toggle persists in `app_config{key=kiosk_bt_v1}`. When ON, the kiosk auto-prints to the paired Bluetooth printer after each "Place order"; pair-once-per-session is preserved on `window.__efcBtPrinter`. Web Bluetooth security model still requires a user gesture for the *initial* pairing (the "Pair printer now" button) — once paired, all subsequent receipts print silently for the lifetime of the kiosk session.
+  - **Payment method**: Cash / UPI buttons added to kiosk order form; the chosen method is persisted on the `mess_menu_orders` row (`payment_method`).
+- **Tests**: 5/5 backend pytest pass (`test_iter72.py`) — delivery requires phone, takeaway optional, invalid payment 400, BT config CRUD + 403 for non-admin, footer CMS includes new brand fields + admin can update.
+
+### Iteration 72 — Deferred
+- **#2 full standard checkout** (cash + Razorpay/UPI in-app payment for mess-menu orders) — partially shipped (cash + UPI choice at kiosk). For a logged-in user mess-menu order, full Razorpay handoff was wired in iter-66 already; LIVE keys still in `auth_failed` so it falls back to mock. When user regenerates keys, the user-side flow goes live automatically.
+- **Anonymous Razorpay checkout** on the kiosk (no logged-in user) — requires either (a) Razorpay Standard Checkout with a customer_phone field per order or (b) showing a static QR for UPI Intent. Will wire after user supplies fresh Razorpay LIVE keys.
+- **Persistent Bluetooth pairing across reloads** — blocked by Web Bluetooth security model (each new browsing context requires a user gesture). Best-effort solution: keep the kiosk tab open all day (one pair per kiosk power-cycle).
+

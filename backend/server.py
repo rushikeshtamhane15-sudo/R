@@ -1215,6 +1215,13 @@ DEFAULT_CONTENT = {
     "footer": {
         "copyright": "copyright © efoodcare.in all rights reserved",
         "tagline": "ghar se achha khana",
+        # iter-72 #1: full brand identity block — admin editable
+        "brand_name": "efoodcare",
+        "promise": "India's first zero meal adulteration app — proudly made by the genius team of efoodcare.",
+        "corporate_address": "shilangan Road, behind bhaktidham mandir, sai nagar, Amravati 444607, Maharashtra",
+        "support_phone": "+91 91755 60211",
+        "website": "https://efoodcare.in",
+        "email": "hello@efoodcare.in",
     },
     "landing": {
         "hero_overline": "UPI · WALLET · E-MEAL PASS",

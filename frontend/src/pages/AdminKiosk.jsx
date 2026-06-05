@@ -1,27 +1,26 @@
 /**
- * Admin Kiosk — iter-69.
+ * Admin Wall Kiosk — iter-72 redesign.
  *
- * A wall-mounted, touchscreen-friendly page that combines:
- *   • TOP HALF — always-on camera QR scanner for subscriber check-ins.
- *     The scanner re-arms automatically after every scan so the kiosk is
- *     never "frozen" on a previous customer. The QR region stays in the
- *     same DOM position throughout, satisfying the "scan qr must stay
- *     stationary" requirement.
- *   • BOTTOM HALF — walk-in self-order container backed by the existing
- *     mess-menu order endpoints. Updating the order panel never touches
- *     the scanner above it.
+ * Top half: stationary COUNTER QR (rotating HMAC code). Customers scan it
+ * with their phone — no camera needed on the kiosk. Replaces the iter-69
+ * camera scanner per user direction.
+ *
+ * Bottom half: walk-in self-order with editable qty + service + (compulsory)
+ * phone for delivery. Optionally auto-prints to the paired Bluetooth thermal
+ * printer when admin has switched on the Bluetooth toggle. Single-use kiosk
+ * QR is included on the printed receipt for fraud-free counter check-in.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Html5Qrcode } from "html5-qrcode";
+import { QRCodeSVG } from "qrcode.react";
 import { api } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
 import {
-  ScanLine, UserCheck, Sun, Moon, Truck, Utensils, Package, ShoppingCart, Loader2, Minus, Plus, RotateCcw, Camera, AlertCircle,
+  Sun, Moon, Truck, Utensils, Package, ShoppingCart, Loader2, Minus, Plus, RotateCcw, Bluetooth, BluetoothConnected, BluetoothOff, Banknote, ScanLine,
 } from "lucide-react";
-import { playCheckinSuccess, unlockAudio } from "../lib/notify";
 import KioskReceiptModal from "../components/KioskReceiptModal";
+import { connectBluetoothPrinter, isBluetoothSupported } from "../lib/bluetoothPrinter";
 
 const SERVICE_TABS = [
   { id: "delivery", label: "Delivery", icon: Truck },
@@ -29,91 +28,32 @@ const SERVICE_TABS = [
   { id: "dining", label: "Dining", icon: Utensils },
 ];
 
-const RESCAN_COOLDOWN_MS = 2500; // de-dupe rapid double-scans of the same QR
+const LOCATION = "main";
 
 export default function AdminKiosk() {
-  /* ------------------------- TOP: Scanner state ------------------------- */
+  /* ---------------- TOP: Counter QR ---------------- */
   const [meal, setMeal] = useState("lunch");
-  const [scanning, setScanning] = useState(false);
-  const [lastScan, setLastScan] = useState(null);
-  const [scannerError, setScannerError] = useState("");
-  const instanceRef = useRef(null);
-  const lastTokenRef = useRef({ token: "", at: 0 });
-
-  const stopScanner = useCallback(async () => {
-    if (instanceRef.current) {
-      try { await instanceRef.current.stop(); await instanceRef.current.clear(); } catch { /* no-op */ }
-      instanceRef.current = null;
-    }
-    setScanning(false);
-  }, []);
-
-  const handleToken = useCallback(async (qrToken) => {
-    // De-dupe: same QR within cooldown window → ignore (camera fires repeatedly)
-    const now = Date.now();
-    if (qrToken === lastTokenRef.current.token && now - lastTokenRef.current.at < RESCAN_COOLDOWN_MS) return;
-    lastTokenRef.current = { token: qrToken, at: now };
+  const [counter, setCounter] = useState(null);
+  const loadCounter = useCallback(async () => {
     try {
-      const res = await api.post("/attendance/scan", { qr_token: qrToken, meal_type: meal });
-      const d = res.data || {};
-      playCheckinSuccess();
-      setLastScan({
-        name: d.subscriber_name,
-        phone: d.subscriber_phone,
-        photo: d.profile_photo_url,
-        plan: d.plan_name,
-        meals_left: d.meals_left,
-        meals_total: d.meals_total,
-        meal_type: meal,
-        at: new Date().toLocaleTimeString(),
-      });
-      toast.success(`${d.subscriber_name} checked in for ${meal}`);
-    } catch (e) {
-      toast.error(e?.response?.data?.detail || "Scan failed");
-    }
+      const r = await api.get(`/counter/qr?meal=${meal}&location=${LOCATION}`);
+      setCounter(r.data);
+    } catch { /* silent */ }
   }, [meal]);
+  useEffect(() => { loadCounter(); const id = setInterval(loadCounter, 25_000); return () => clearInterval(id); }, [loadCounter]);
 
-  const startScanner = useCallback(async () => {
-    unlockAudio();
-    setScannerError("");
-    setScanning(true);
-    await new Promise((r) => setTimeout(r, 50));
-    try {
-      const html5 = new Html5Qrcode("kiosk-scanner-region");
-      instanceRef.current = html5;
-      await html5.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 260, height: 260 } },
-        (decoded) => handleToken(decoded),
-        () => {},
-      );
-    } catch (e) {
-      setScannerError("Camera not available — check permissions or use a different device.");
-      setScanning(false);
-    }
-  }, [handleToken]);
-
-  useEffect(() => { startScanner(); /* eslint-disable-next-line */ }, []);
-  // When meal changes, restart so new callbacks pick up the right value
-  useEffect(() => {
-    if (scanning) {
-      (async () => { await stopScanner(); await startScanner(); })();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [meal]);
-  useEffect(() => () => { stopScanner(); }, [stopScanner]);
-
-  /* ------------------------- BOTTOM: Mess-menu order ------------------------- */
+  /* ---------------- Mess-menu order state ---------------- */
   const [data, setData] = useState(null);
   const [cfg, setCfg] = useState(null);
-  const [tab, setTab] = useState("today"); // today | tomorrow
+  const [tab, setTab] = useState("today");
   const [orderMeal, setOrderMeal] = useState("lunch");
   const [service, setService] = useState("delivery");
   const [qty, setQty] = useState(1);
-  const [phone, setPhone] = useState(""); // walk-in customer phone (optional, for delivery)
+  const [phone, setPhone] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("cash"); // cash | upi
   const [placing, setPlacing] = useState(false);
   const [lastOrder, setLastOrder] = useState(null);
-  const [receipt, setReceipt] = useState(null); // { order, qrDataUrl, qrText }
+  const [receipt, setReceipt] = useState(null);
 
   const loadMenu = useCallback(async () => {
     try {
@@ -129,25 +69,98 @@ export default function AdminKiosk() {
   const priceFor = (svc) => Number(cfg?.[`price_${svc}`] || 0);
   const total = useMemo(() => priceFor(service) * qty, [service, qty, cfg]); // eslint-disable-line
 
-  const resetOrderForm = () => { setQty(1); setService("delivery"); setPhone(""); };
+  /* ---------------- Bluetooth admin toggle ---------------- */
+  const [btCfg, setBtCfg] = useState(null);
+  const [btStatus, setBtStatus] = useState(() => (
+    typeof window !== "undefined" && window.__efcBtPrinter ? "connected" : "idle"
+  ));
+  const loadBtCfg = useCallback(async () => {
+    try { const r = await api.get("/admin/kiosk/bt-config"); setBtCfg(r.data); }
+    catch { setBtCfg({ enabled: false }); }
+  }, []);
+  useEffect(() => { loadBtCfg(); }, [loadBtCfg]);
+
+  const setBtEnabled = async (enabled) => {
+    try {
+      const r = await api.put("/admin/kiosk/bt-config", { enabled });
+      setBtCfg(r.data);
+      if (!enabled && typeof window !== "undefined") {
+        try { window.__efcBtPrinter?.disconnect(); } catch { /* ignore */ }
+        window.__efcBtPrinter = null;
+        setBtStatus("idle");
+      }
+      toast.success(enabled ? "Bluetooth printing ON" : "Bluetooth printing OFF");
+    } catch { toast.error("Could not save"); }
+  };
+
+  // Auto-pair printer once when BT is ON and no connection yet.
+  // Web Bluetooth requires a user gesture, so we trigger pairing on the
+  // "Pair printer now" button OR on Place Order if auto-print is on.
+  const ensurePrinter = useCallback(async () => {
+    if (typeof window === "undefined") return null;
+    if (window.__efcBtPrinter) return window.__efcBtPrinter;
+    if (!isBluetoothSupported()) {
+      toast.error("Bluetooth not supported in this browser");
+      return null;
+    }
+    try {
+      setBtStatus("connecting");
+      const printer = await connectBluetoothPrinter();
+      window.__efcBtPrinter = printer;
+      printer.device.addEventListener("gattserverdisconnected", () => {
+        if (window.__efcBtPrinter === printer) window.__efcBtPrinter = null;
+        setBtStatus("idle");
+        toast.message("Printer disconnected — pair again next print");
+      });
+      setBtStatus("connected");
+      toast.success(`Paired with ${printer.name}`);
+      return printer;
+    } catch (e) {
+      setBtStatus("idle");
+      toast.error(e?.message || "Could not pair printer");
+      return null;
+    }
+  }, []);
+
+  const resetOrderForm = () => { setQty(1); setService("delivery"); setPhone(""); setPaymentMethod("cash"); };
 
   const placeOrder = async () => {
     if (!active || (!active.lunch && !active.dinner)) { toast.error("No menu for selected day"); return; }
+    // iter-72 #5: phone compulsory for DELIVERY ONLY
+    const phoneClean = phone.replace(/\D/g, "");
+    if (service === "delivery" && phoneClean.length < 10) {
+      toast.error("Customer phone required for delivery");
+      return;
+    }
     setPlacing(true);
     try {
       const r = await api.post("/admin/kiosk/order", {
         service, qty, date: activeDate, meal_type: orderMeal,
-        phone: phone.trim() || null,
+        phone: phoneClean || null,
+        payment_method: paymentMethod,
       });
       const order = r.data?.order;
-      toast.success(`Walk-in order placed · ₹${order?.total || total}`);
+      toast.success(`Order placed · ₹${order?.total || total} · ${paymentMethod.toUpperCase()}`);
       setLastOrder(order);
-      // iter-70: surface the printable receipt + single-use QR
-      setReceipt({
+      const rcpt = {
         order,
         qrDataUrl: r.data?.qr_data_url || "",
         qrText: r.data?.qr_text || "",
-      });
+      };
+      setReceipt(rcpt);
+
+      // Auto-print via Bluetooth if admin has enabled it
+      if (btCfg?.enabled) {
+        const printer = await ensurePrinter();
+        if (printer) {
+          try {
+            await printer.printReceipt(rcpt.order, rcpt.qrText);
+            toast.success("Receipt printed");
+          } catch (e) {
+            toast.error("Auto-print failed — use the modal Print button");
+          }
+        }
+      }
       resetOrderForm();
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Could not place order");
@@ -159,93 +172,98 @@ export default function AdminKiosk() {
       className="min-h-screen bg-[hsl(140,12%,8%)] text-[hsl(40,25%,94%)] grid grid-rows-[1fr_1fr] gap-3 p-3"
       data-testid="admin-kiosk-page"
     >
-      {/* ---------------------------------------------- TOP — Scanner ---------------------------------------------- */}
-      <section className="rounded-3xl border border-[hsl(140,8%,22%)] bg-[hsl(140,8%,12%)] overflow-hidden flex flex-col" data-testid="kiosk-scanner-panel">
+      {/* ---------------- TOP — Counter QR ---------------- */}
+      <section className="rounded-3xl border border-[hsl(140,8%,22%)] bg-[hsl(140,8%,12%)] overflow-hidden flex flex-col" data-testid="kiosk-counter-panel">
         <div className="flex items-center justify-between px-5 py-3 border-b border-[hsl(140,8%,20%)]">
           <div className="flex items-center gap-2">
             <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[hsl(135,25%,55%)] text-[hsl(140,8%,8%)]">
               <ScanLine className="h-5 w-5" />
             </span>
             <div>
-              <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-[hsl(135,25%,72%)]">Subscriber check-in</p>
-              <p className="font-display font-extrabold text-lg sm:text-xl">Scan your QR here</p>
+              <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-[hsl(135,25%,72%)]">Counter QR</p>
+              <p className="font-display font-extrabold text-lg sm:text-xl">Scan with your phone to check in</p>
             </div>
           </div>
           <div className="flex gap-2" data-testid="kiosk-meal-toggle">
-            <Button
-              onClick={() => setMeal("lunch")}
-              data-testid="kiosk-meal-lunch"
-              className={`rounded-full h-11 px-5 text-sm font-extrabold ${meal === "lunch" ? "bg-[hsl(26,43%,57%)] text-white" : "bg-[hsl(140,8%,18%)] text-[hsl(40,25%,92%)]"}`}
-            >
+            <Button onClick={() => setMeal("lunch")} data-testid="kiosk-meal-lunch"
+              className={`rounded-full h-11 px-5 text-sm font-extrabold ${meal === "lunch" ? "bg-[hsl(26,43%,57%)] text-white" : "bg-[hsl(140,8%,18%)] text-[hsl(40,25%,92%)]"}`}>
               <Sun className="h-4 w-4 mr-1.5" /> Lunch
             </Button>
-            <Button
-              onClick={() => setMeal("dinner")}
-              data-testid="kiosk-meal-dinner"
-              className={`rounded-full h-11 px-5 text-sm font-extrabold ${meal === "dinner" ? "bg-[hsl(220,55%,55%)] text-white" : "bg-[hsl(140,8%,18%)] text-[hsl(40,25%,92%)]"}`}
-            >
+            <Button onClick={() => setMeal("dinner")} data-testid="kiosk-meal-dinner"
+              className={`rounded-full h-11 px-5 text-sm font-extrabold ${meal === "dinner" ? "bg-[hsl(220,55%,55%)] text-white" : "bg-[hsl(140,8%,18%)] text-[hsl(40,25%,92%)]"}`}>
               <Moon className="h-4 w-4 mr-1.5" /> Dinner
             </Button>
           </div>
         </div>
 
-        {/* Scanner region — STAYS MOUNTED so QR doesn't disappear on bottom-half re-render */}
-        <div className="flex-1 grid sm:grid-cols-[2fr_1fr] gap-3 p-4">
-          <div className="relative rounded-2xl overflow-hidden bg-[hsl(140,8%,6%)]">
-            <div id="kiosk-scanner-region" className={scanning ? "w-full h-full" : "hidden"} />
-            {!scanning && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
-                {scannerError ? (
-                  <>
-                    <AlertCircle className="h-10 w-10 text-amber-400" />
-                    <p className="text-sm font-semibold text-amber-200">{scannerError}</p>
-                  </>
-                ) : (
-                  <>
-                    <Camera className="h-10 w-10 text-[hsl(135,25%,55%)]" />
-                    <p className="text-sm text-[hsl(40,15%,70%)]">Starting camera…</p>
-                  </>
-                )}
-                <Button onClick={startScanner} className="rounded-full bg-[hsl(135,25%,55%)] text-[hsl(140,8%,10%)] hover:bg-[hsl(135,25%,65%)] mt-2" data-testid="kiosk-scanner-start">
-                  <ScanLine className="h-4 w-4 mr-1.5" /> Start scanner
-                </Button>
-              </div>
-            )}
-            {scanning && (
-              <span className="absolute top-3 right-3 inline-flex items-center gap-1 rounded-full bg-emerald-500 text-white text-[10px] font-extrabold tracking-overline uppercase px-2.5 py-1 pointer-events-none" data-testid="kiosk-scanner-live">
-                <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" /> Live
-              </span>
+        <div className="flex-1 grid sm:grid-cols-[1.4fr_1fr] gap-4 p-5">
+          <div className="rounded-2xl bg-white p-5 flex flex-col items-center justify-center" data-testid="kiosk-counter-qr">
+            {counter ? (
+              <>
+                <QRCodeSVG value={counter.counter_code} size={Math.min(360, 360)} level="M" fgColor="hsl(142 45% 28%)" />
+                <p className="font-mono text-[10px] text-muted-foreground mt-3 break-all max-w-md text-center">{counter.counter_code}</p>
+                <p className="text-xs font-semibold text-foreground mt-1">{meal.toUpperCase()} · {LOCATION}</p>
+              </>
+            ) : (
+              <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
             )}
           </div>
-
-          {/* Last scan card */}
-          <div className="rounded-2xl bg-[hsl(140,8%,16%)] border border-[hsl(140,8%,22%)] p-4 flex flex-col" data-testid="kiosk-last-scan">
-            <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-[hsl(40,15%,70%)] flex items-center gap-1.5"><UserCheck className="h-3.5 w-3.5" /> Last check-in</p>
-            {lastScan ? (
-              <div className="mt-3 flex items-start gap-3">
-                {lastScan.photo ? (
-                  <img src={lastScan.photo} alt="" className="h-14 w-14 rounded-2xl object-cover shrink-0" />
-                ) : (
-                  <span className="h-14 w-14 rounded-2xl bg-[hsl(135,25%,55%)] text-[hsl(140,8%,8%)] inline-flex items-center justify-center font-display font-extrabold text-2xl shrink-0">
-                    {(lastScan.name || "?").slice(0, 1)}
-                  </span>
-                )}
-                <div className="min-w-0">
-                  <p className="font-display font-extrabold text-base leading-tight truncate" data-testid="kiosk-last-scan-name">{lastScan.name}</p>
-                  <p className="text-[11px] text-[hsl(40,15%,70%)] tabular-nums">{lastScan.phone}</p>
-                  <p className="text-[10px] mt-1 text-[hsl(135,25%,72%)]">{lastScan.plan}</p>
-                  <p className="text-[10px] tabular-nums text-[hsl(40,15%,70%)]">{lastScan.meals_left}/{lastScan.meals_total} meals left</p>
-                  <p className="text-[10px] tabular-nums text-[hsl(40,15%,55%)] mt-1">{lastScan.meal_type} · {lastScan.at}</p>
+          <div className="flex flex-col gap-3">
+            <div className="rounded-2xl bg-[hsl(140,8%,16%)] border border-[hsl(140,8%,22%)] p-5">
+              <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-[hsl(135,25%,72%)]">How it works</p>
+              <ol className="mt-2 space-y-2 text-sm text-[hsl(40,15%,82%)] list-decimal list-inside">
+                <li>Open your phone camera.</li>
+                <li>Point it at the QR on the left.</li>
+                <li>Tap the notification to check in for {meal}.</li>
+                <li>Walk-in? Scan the QR on your printed receipt instead.</li>
+              </ol>
+            </div>
+            {/* Bluetooth toggle */}
+            <div className="rounded-2xl bg-[hsl(140,8%,16%)] border border-[hsl(140,8%,22%)] p-4" data-testid="kiosk-bt-card">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  {btCfg?.enabled
+                    ? (btStatus === "connected" ? <BluetoothConnected className="h-4 w-4 text-blue-400" /> : <Bluetooth className="h-4 w-4 text-blue-400" />)
+                    : <BluetoothOff className="h-4 w-4 text-[hsl(40,15%,60%)]" />}
+                  <p className="text-sm font-extrabold">Bluetooth printer</p>
                 </div>
+                <label className="inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!btCfg?.enabled}
+                    onChange={(e) => setBtEnabled(e.target.checked)}
+                    className="sr-only peer"
+                    data-testid="kiosk-bt-toggle"
+                  />
+                  <span className="w-10 h-6 bg-[hsl(140,8%,22%)] peer-checked:bg-blue-600 rounded-full relative transition-colors">
+                    <span className="absolute top-0.5 left-0.5 h-5 w-5 bg-white rounded-full transition-transform peer-checked:translate-x-4 shadow-md" />
+                  </span>
+                </label>
               </div>
-            ) : (
-              <p className="text-xs text-[hsl(40,15%,60%)] mt-4">No scan yet — show your phone QR to the camera.</p>
-            )}
+              {btCfg?.enabled && (
+                <>
+                  <p className="text-[11px] text-[hsl(40,15%,70%)] mt-1.5">
+                    {btStatus === "connected" ? "Paired — auto-print on every order." : "Pair once per kiosk session — receipts auto-print after."}
+                  </p>
+                  {btStatus !== "connected" && (
+                    <Button
+                      onClick={ensurePrinter}
+                      className="mt-2 rounded-full h-9 text-xs bg-blue-600 hover:bg-blue-700 w-full"
+                      disabled={btStatus === "connecting"}
+                      data-testid="kiosk-bt-pair"
+                    >
+                      {btStatus === "connecting" ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Bluetooth className="h-3.5 w-3.5 mr-1.5" />}
+                      {btStatus === "connecting" ? "Pairing…" : "Pair printer now"}
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ---------------------------------------------- BOTTOM — Walk-in order ---------------------------------------------- */}
+      {/* ---------------- BOTTOM — Walk-in order ---------------- */}
       <section className="rounded-3xl border border-[hsl(140,8%,22%)] bg-[hsl(140,8%,12%)] overflow-hidden flex flex-col" data-testid="kiosk-order-panel">
         <div className="flex items-center justify-between px-5 py-3 border-b border-[hsl(140,8%,20%)]">
           <div className="flex items-center gap-2">
@@ -264,7 +282,6 @@ export default function AdminKiosk() {
         </div>
 
         <div className="flex-1 p-4 grid sm:grid-cols-[3fr_2fr] gap-3 overflow-auto">
-          {/* Menu card */}
           <div
             className="rounded-2xl p-4 sm:p-5 relative overflow-hidden"
             style={cfg ? {
@@ -301,10 +318,8 @@ export default function AdminKiosk() {
             )}
           </div>
 
-          {/* Order form */}
           {active ? (
             <div className="rounded-2xl bg-[hsl(140,8%,16%)] border border-[hsl(140,8%,22%)] p-4 flex flex-col gap-3" data-testid="kiosk-order-form">
-              {/* meal */}
               {active.lunch && active.dinner ? (
                 <div className="inline-flex rounded-full bg-[hsl(140,8%,12%)] p-1 gap-1 self-start">
                   <button type="button" onClick={() => setOrderMeal("lunch")} data-testid="kiosk-order-meal-lunch" className={`px-4 h-9 rounded-full text-xs font-extrabold ${orderMeal === "lunch" ? "bg-[hsl(26,43%,57%)] text-white" : "text-[hsl(40,15%,70%)]"}`}>Lunch</button>
@@ -312,7 +327,6 @@ export default function AdminKiosk() {
                 </div>
               ) : null}
 
-              {/* service tabs */}
               <div className="grid grid-cols-3 gap-2">
                 {SERVICE_TABS.map((s) => (
                   <button
@@ -329,7 +343,6 @@ export default function AdminKiosk() {
                 ))}
               </div>
 
-              {/* qty stepper */}
               <div className="flex items-center justify-between gap-2 rounded-xl bg-[hsl(140,8%,12%)] px-2 py-1.5">
                 <span className="text-[10px] tracking-[0.18em] uppercase font-bold text-[hsl(40,15%,70%)] pl-2">Quantity</span>
                 <div className="inline-flex items-center rounded-full bg-[hsl(140,8%,8%)]">
@@ -339,11 +352,30 @@ export default function AdminKiosk() {
                 </div>
               </div>
 
+              {/* Payment method — iter-72 #2 partial: cash + UPI (Razorpay wired later) */}
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: "cash", label: "Cash", icon: Banknote },
+                  { id: "upi", label: "UPI (counter)", icon: ScanLine },
+                ].map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setPaymentMethod(p.id)}
+                    data-testid={`kiosk-pay-${p.id}`}
+                    className={`rounded-xl px-2 py-2 inline-flex items-center justify-center gap-1.5 text-[11px] font-extrabold tracking-wide border ${paymentMethod === p.id ? "bg-[hsl(40,25%,94%)] text-[hsl(140,8%,8%)] border-transparent" : "bg-[hsl(140,8%,12%)] border-[hsl(140,8%,22%)] text-[hsl(40,15%,80%)]"}`}
+                  >
+                    <p.icon className="h-3.5 w-3.5" /> {p.label}
+                  </button>
+                ))}
+              </div>
+
               {service === "delivery" && (
                 <Input
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="Customer phone (for delivery)"
+                  placeholder="Customer phone (required for delivery)"
+                  inputMode="tel"
                   className="h-10 bg-[hsl(140,8%,12%)] border-[hsl(140,8%,22%)] text-[hsl(40,25%,94%)] placeholder:text-[hsl(40,15%,60%)]"
                   data-testid="kiosk-phone"
                 />
@@ -362,12 +394,7 @@ export default function AdminKiosk() {
                 {placing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ShoppingCart className="h-4 w-4 mr-2" />}
                 Place order
               </Button>
-              <Button
-                onClick={resetOrderForm}
-                variant="ghost"
-                className="text-[hsl(40,15%,70%)] hover:text-white text-xs h-9"
-                data-testid="kiosk-order-reset"
-              >
+              <Button onClick={resetOrderForm} variant="ghost" className="text-[hsl(40,15%,70%)] hover:text-white text-xs h-9" data-testid="kiosk-order-reset">
                 <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Reset
               </Button>
 
@@ -377,12 +404,7 @@ export default function AdminKiosk() {
                   <p className="text-xs mt-0.5 font-mono break-all">{lastOrder.order_id}</p>
                   <p className="text-xs">{lastOrder.qty} × {lastOrder.menu_text?.slice(0, 60)}{lastOrder.menu_text?.length > 60 ? "…" : ""} · ₹{lastOrder.total}</p>
                   {receipt && (
-                    <button
-                      type="button"
-                      onClick={() => setReceipt({ ...receipt })}
-                      className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-600 text-white px-3 h-7 text-[11px] font-extrabold hover:bg-emerald-500"
-                      data-testid="kiosk-reprint"
-                    >Re-open receipt</button>
+                    <button type="button" onClick={() => setReceipt({ ...receipt })} className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-600 text-white px-3 h-7 text-[11px] font-extrabold hover:bg-emerald-500" data-testid="kiosk-reprint">Re-open receipt</button>
                   )}
                 </div>
               )}
