@@ -1,33 +1,59 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { Megaphone, X, ShoppingCart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 /**
- * MenuPushBanner — iter-66 #3
+ * MenuPushBanner — iter-66 #3, iter-67 #1
  *
  * Renders today's daily mess-menu broadcast (if any) as a slim banner
  * above the menu-flash card. Dismissal is stored in localStorage so the
  * same user only sees it once per day, even across reloads.
+ *
+ * iter-67 #1: polls /api/mess-menu/push every 90s AND refetches whenever
+ * the tab becomes visible — so an admin "Send now" reaches users already
+ * sitting on /restaurant without a manual refresh.
  */
 const DISMISS_KEY = "efc_menu_push_dismiss_v1";
+const POLL_INTERVAL_MS = 90_000;
 
 export default function MenuPushBanner() {
   const [bc, setBc] = useState(null);
   const navigate = useNavigate();
-  useEffect(() => {
-    (async () => {
-      try {
-        const r = await api.get("/mess-menu/push");
-        const broadcast = r.data?.broadcast;
-        if (!broadcast) return;
-        const dismissedFor = localStorage.getItem(DISMISS_KEY);
-        if (dismissedFor === broadcast.date) return;
-        setBc(broadcast);
-      } catch { /* no-op */ }
-    })();
+
+  const fetchBroadcast = useCallback(async () => {
+    try {
+      const r = await api.get("/mess-menu/push");
+      const broadcast = r.data?.broadcast;
+      if (!broadcast) { setBc(null); return; }
+      const dismissedFor = localStorage.getItem(DISMISS_KEY);
+      if (dismissedFor === broadcast.date) { setBc(null); return; }
+      // Only update state when the broadcast actually changes (cheaper
+      // re-renders + preserves dismissal-in-flight state).
+      setBc((prev) => {
+        if (prev && prev.broadcast_id === broadcast.broadcast_id && prev.sent_at === broadcast.sent_at) return prev;
+        return broadcast;
+      });
+    } catch (e) {
+      // Quiet logging — testing agent flagged silent swallow as a concern.
+      // eslint-disable-next-line no-console
+      console.debug("[MenuPushBanner] /mess-menu/push failed", e?.message || e);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchBroadcast();
+    const id = setInterval(fetchBroadcast, POLL_INTERVAL_MS);
+    const onVisibility = () => { if (document.visibilityState === "visible") fetchBroadcast(); };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [fetchBroadcast]);
+
   if (!bc) return null;
+
   const dismiss = () => {
     try { localStorage.setItem(DISMISS_KEY, bc.date); } catch { /* no-op */ }
     setBc(null);
@@ -36,6 +62,7 @@ export default function MenuPushBanner() {
     dismiss();
     navigate(bc.cta_route || "/dashboard");
   };
+
   return (
     <div
       className="relative rounded-xl border border-emerald-300 bg-gradient-to-r from-emerald-50 to-amber-50 px-3 py-2.5 mb-3 flex items-start gap-2.5 shadow-sm"

@@ -360,6 +360,8 @@ function MenuPushConfigCard() {
   const [preview, setPreview] = useState(null);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
+  // iter-67 #2: optional meal override for Preview / Send-now
+  const [mealOverride, setMealOverride] = useState("auto");
   useEffect(() => {
     (async () => {
       try { const r = await api.get("/admin/mess-menu/push/config"); setCfg(r.data); }
@@ -368,6 +370,7 @@ function MenuPushConfigCard() {
   }, []);
   if (!cfg) return null;
   const set = (k) => (v) => setCfg((c) => ({ ...c, [k]: v }));
+  const mealParam = mealOverride === "auto" ? "" : `?meal=${mealOverride}`;
   const save = async () => {
     setSaving(true);
     try { await api.put("/admin/mess-menu/push/config", cfg); toast.success("Push config saved"); }
@@ -375,13 +378,13 @@ function MenuPushConfigCard() {
     finally { setSaving(false); }
   };
   const doPreview = async () => {
-    try { const r = await api.post("/admin/mess-menu/push/preview"); setPreview(r.data?.preview || null); }
+    try { const r = await api.post(`/admin/mess-menu/push/preview${mealParam}`); setPreview(r.data?.preview || null); }
     catch (e) { toast.error(e?.response?.data?.detail || "Preview failed"); }
   };
   const sendNow = async () => {
     if (!window.confirm("Send today's broadcast right now to everyone opening the app?")) return;
     setSending(true);
-    try { await api.post("/admin/mess-menu/push/send-now"); toast.success("Broadcast sent for today"); }
+    try { await api.post(`/admin/mess-menu/push/send-now${mealParam}`); toast.success("Broadcast sent for today"); }
     catch (e) { toast.error(e?.response?.data?.detail || "Send failed"); }
     finally { setSending(false); }
   };
@@ -392,7 +395,19 @@ function MenuPushConfigCard() {
           <p className="font-display font-extrabold text-sm sm:text-base">Daily menu push</p>
           <p className="text-xs text-muted-foreground">Auto-broadcast today's menu once per IST day — drives impulse orders.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap items-center">
+          {/* iter-67 #2: meal override */}
+          <div className="inline-flex rounded-full bg-muted/50 p-1 gap-1" data-testid="mp-meal-override">
+            {["auto", "lunch", "dinner"].map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMealOverride(m)}
+                className={`px-3 h-8 rounded-full text-[11px] font-semibold capitalize ${mealOverride === m ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}
+                data-testid={`mp-meal-${m}`}
+              >{m}</button>
+            ))}
+          </div>
           <Button size="sm" variant="outline" className="rounded-full h-9 text-xs" onClick={doPreview} data-testid="mp-preview">Preview</Button>
           <Button size="sm" variant="outline" className="rounded-full h-9 text-xs" onClick={sendNow} disabled={sending} data-testid="mp-send-now">{sending ? "Sending…" : "Send now"}</Button>
           <Button size="sm" className="rounded-full h-9 text-xs" onClick={save} disabled={saving} data-testid="mp-save">{saving ? "Saving…" : "Save"}</Button>

@@ -51,22 +51,28 @@ async def _get_push_config():
     return {**DEFAULT_PUSH_CONFIG, **{k: v for k, v in doc.items() if k != "key"}}
 
 
-async def _build_message():
+async def _build_message(forced_meal: Optional[str] = None):
     """Pulls today's menu + mess-menu CMS prices, formats title/body using
     the admin templates. Returns None if no menu is published for today.
+
+    iter-67 #2: `forced_meal` lets admin Send now / Preview force lunch or
+    dinner regardless of the IST auto-pick window. Invalid values fall back
+    to the auto-pick logic.
     """
     date = _today_ist_iso()
     menu = await server.db.mess_menu.find_one({"date": date}, {"_id": 0})
     if not menu:
         return None
     cfg = await _get_push_config()
-    # Pick lunch by default; if it's after 4 PM IST, switch to dinner
-    now_ist = datetime.now(IST)
-    meal = "lunch"
-    if now_ist.hour >= 16 and (menu.get("dinner") or "").strip():
-        meal = "dinner"
-    elif not (menu.get("lunch") or "").strip() and (menu.get("dinner") or "").strip():
-        meal = "dinner"
+    if forced_meal in ("lunch", "dinner"):
+        meal = forced_meal
+    else:
+        now_ist = datetime.now(IST)
+        meal = "lunch"
+        if now_ist.hour >= 16 and (menu.get("dinner") or "").strip():
+            meal = "dinner"
+        elif not (menu.get("lunch") or "").strip() and (menu.get("dinner") or "").strip():
+            meal = "dinner"
     menu_text = (menu.get(meal) or "").strip()
     if not menu_text:
         return None
@@ -101,11 +107,11 @@ async def _build_message():
     }
 
 
-async def _broadcast_now(reason: str = "scheduled") -> Optional[dict]:
-    msg = await _build_message()
+async def _broadcast_now(reason: str = "scheduled", forced_meal: Optional[str] = None) -> Optional[dict]:
+    msg = await _build_message(forced_meal=forced_meal)
     if not msg:
         return None
-    msg["broadcast_id"] = f"mmp_{msg['date'].replace('-', '')}"
+    msg["broadcast_id"] = f"mmp_{msg['date'].replace('-', '')}_{msg['meal']}"
     msg["sent_at"] = server.iso(server.now_utc())
     msg["reason"] = reason
     # Upsert so the same day's broadcast is idempotent — we don't spam users.
@@ -194,20 +200,24 @@ async def admin_put_push_cfg(payload: PushConfigIn, user: server.User = Depends(
 
 
 @router.post("/admin/mess-menu/push/preview")
-async def admin_preview(user: server.User = Depends(server.get_current_user)):
+async def admin_preview(meal: Optional[str] = None, user: server.User = Depends(server.get_current_user)):
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
-    msg = await _build_message()
+    if meal is not None and meal not in ("lunch", "dinner"):
+        raise HTTPException(status_code=400, detail="meal must be lunch or dinner")
+    msg = await _build_message(forced_meal=meal)
     if not msg:
         raise HTTPException(status_code=400, detail="No menu published for today — cannot preview")
     return {"preview": msg}
 
 
 @router.post("/admin/mess-menu/push/send-now")
-async def admin_send_now(user: server.User = Depends(server.get_current_user)):
+async def admin_send_now(meal: Optional[str] = None, user: server.User = Depends(server.get_current_user)):
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
-    msg = await _broadcast_now("manual")
+    if meal is not None and meal not in ("lunch", "dinner"):
+        raise HTTPException(status_code=400, detail="meal must be lunch or dinner")
+    msg = await _broadcast_now("manual", forced_meal=meal)
     if not msg:
         raise HTTPException(status_code=400, detail="No menu published for today — cannot send")
     return {"ok": True, "broadcast": msg}

@@ -1094,3 +1094,10 @@ See `/app/memory/test_credentials.md`.
 - **Razorpay**: Still `auth_failed` in preview — order flows correctly fall back to mock + auto-verify. No code change needed when user provides fresh keys.
 
 
+### Iteration 67 (Jun 5, 2026) — Push banner polling · Meal override on Send-now
+- **MenuPushBanner polls + visibility refetch** (`MenuPushBanner.jsx`) — now polls `/api/mess-menu/push` every 90 s AND refetches on `visibilitychange`. Admins sending a fresh broadcast no longer require users to refresh; banner appears within ~90 s or instantly when the tab regains focus. Same-broadcast `setState` is short-circuited so re-renders stay cheap.
+- **Meal override on Send-now + Preview** (`mess_menu_push.py`) — both `POST /api/admin/mess-menu/push/send-now` and `/preview` now accept an optional `?meal=lunch|dinner` query. `_build_message(forced_meal=…)` and `_broadcast_now(forced_meal=…)` honor it; invalid values return 400. The auto-pick logic still kicks in when `meal` is omitted. Broadcast IDs now include the meal (`mmp_<YYYYMMDD>_<meal>`) so switching meals is observable downstream.
+- **Admin UI meal toggle** (`MenuPushConfigCard`) — three-segment toggle [Auto · Lunch · Dinner] (`mp-meal-override`); both Preview and Send-now read its value.
+- **Tests**: 4/4 backend pytest pass (`test_iter67.py`) — covers send-now lunch override, dinner override, invalid-meal 400, preview dinner override.
+
+
