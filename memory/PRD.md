@@ -1079,3 +1079,18 @@ See `/app/memory/test_credentials.md`.
 - **Open cosmetic**: Contact page CONTACT_INFO.phone (+91 99707 05391) differs from the corporate number (+91 91755 60211). Either align in `/admin/content` CMS or label them as 'support' vs 'corporate'. Not a code change — admin-editable.
 - **Future**: Replace per-row Mongo query in `admin_stats` active-sub loop with a single `$lookup` aggregation (currently O(N) — fine at sub <1k, slow above).
 
+### Iteration 66 (Jun 5, 2026) — Always-on previous cycle · Mess-order → Razorpay · Daily 11 AM menu push
+- **Always-on Previous-cycle toggle** (`AdminPnL.jsx`) — new `pnl-show-prev-toggle` button next to the cycle nav. Toggling it surfaces the previous cycle's net profit/loss banner (`pnl-prev-cycle-flash`) on any day of the month, not just the 6th.
+- **Mess-menu Order → Razorpay handoff** — `POST /api/mess-menu/order` now creates a Razorpay order alongside the local `mess_menu_orders` row and returns a `checkout` block (`order_id`, `amount_paise`, `key_id`, `mock`, `prefill`, etc.). New `POST /api/mess-menu/order/verify` endpoint flips status to `paid` after Razorpay signature check (auto-verifies mock orders). Frontend `TodayMessMenuFlash` now chains the Razorpay checkout modal after a successful order creation, with mock fallback when LIVE keys are in `auth_failed` state.
+- **Daily mess-menu push (11 AM IST broadcast)** — new `routes/mess_menu_push.py`:
+  - `GET /api/mess-menu/push` — public read of today's broadcast.
+  - `GET/PUT /api/admin/mess-menu/push/config` — admin CMS (enabled, hour 0-23, title/body templates with `{meal} {menu} {delivery_price} {takeaway_price} {dining_price} {date}` placeholders, CTA label + route).
+  - `POST /api/admin/mess-menu/push/preview` — render today's broadcast without saving.
+  - `POST /api/admin/mess-menu/push/send-now` — force-broadcast for testing.
+  - 4th scheduler daemon (`MENU PUSH LOOP`, 60 s tick) idempotently writes one row per IST date to `mess_menu_broadcasts`.
+- **Frontend banner** (`MenuPushBanner.jsx`) — slim emerald banner above `TodayMessMenuFlash` with title + body + `Order now` CTA + X dismiss. Dismissal persists per-day via `localStorage` key `efc_menu_push_dismiss_v1`.
+- **Admin CMS card** (`MenuPushConfigCard` inside `AdminMessMenuCalendar.jsx`) — toggles, templates, hour, Preview button, Send-now button, Save.
+- **Testing**: 9/9 backend pytest pass (`test_iter66.py`), 3/3 frontend review items pass (report `iteration_58.json`). No bugs. One nice-to-have flagged: poll `/mess-menu/push` on visibility-change so an in-session admin "Send now" reaches users without a refresh.
+- **Razorpay**: Still `auth_failed` in preview — order flows correctly fall back to mock + auto-verify. No code change needed when user provides fresh keys.
+
+
