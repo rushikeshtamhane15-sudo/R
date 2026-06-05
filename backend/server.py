@@ -1458,13 +1458,57 @@ async def _mark_attendance(target_user: dict, meal_type: str, marked_by: str, me
 async def staff_scan(payload: StaffScanRequest, user: User = Depends(get_current_user)):
     if user.role not in ("staff", "admin"):
         raise HTTPException(status_code=403, detail="Staff/Admin only")
-    target = await db.users.find_one({"qr_token": payload.qr_token}, {"_id": 0})
+    token = (payload.qr_token or "").strip()
+
+    # iter-70: walk-in kiosk tokens (printed thermal receipt). Single-use.
+    # Recognised by `kio:` prefix so the same scanner serves both subscriber
+    # check-ins AND walk-in receipt check-ins.
+    if token.startswith("kio:"):
+        kio_token = token[4:]
+        order = await db.mess_menu_orders.find_one({"kiosk_token": kio_token}, {"_id": 0})
+        if not order:
+            raise HTTPException(status_code=404, detail="Invalid kiosk token")
+        if order.get("kiosk_consumed_at"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Receipt already redeemed at {order['kiosk_consumed_at']}",
+            )
+        # Single-use: atomic flip to prevent double-redeem race
+        upd = await db.mess_menu_orders.update_one(
+            {"kiosk_token": kio_token, "kiosk_consumed_at": None},
+            {"$set": {
+                "kiosk_consumed_at": iso(now_utc()),
+                "kiosk_consumed_by": user.user_id,
+                "status": "served",
+            }},
+        )
+        if upd.modified_count == 0:
+            raise HTTPException(status_code=400, detail="Receipt already redeemed")
+        return {
+            "ok": True,
+            "kiosk": True,
+            "record": {
+                "order_id": order["order_id"],
+                "meal_type": order["meal_type"],
+                "service": order["service"],
+                "qty": order["qty"],
+                "total": order["total"],
+                "menu_text": order.get("menu_text", ""),
+            },
+            "subscriber_name": "Walk-in customer",
+            "subscriber_phone": order.get("phone") or "—",
+            "subscriber_user_id": None,
+            "profile_photo_url": None,
+            "plan_name": f"Kiosk · {order['service']}",
+            "meals_left": 0,
+            "meals_total": order["qty"],
+            "wallet_balance": 0,
+        }
+
+    target = await db.users.find_one({"qr_token": token}, {"_id": 0})
     if not target:
         raise HTTPException(status_code=404, detail="Invalid QR")
     record = await _mark_attendance(target, payload.meal_type, user.user_id, "counter_scan")
-    # Enrich response with subscriber identity + plan info so the scanning
-    # staff sees WHO actually checked in (not just a count). Phone is
-    # essential for paper-trail / dispute resolution at the counter.
     sub = await get_active_subscription(target["user_id"])
     return {
         "ok": True,

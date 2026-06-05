@@ -21,6 +21,7 @@ import {
   ScanLine, UserCheck, Sun, Moon, Truck, Utensils, Package, ShoppingCart, Loader2, Minus, Plus, RotateCcw, Camera, AlertCircle,
 } from "lucide-react";
 import { playCheckinSuccess, unlockAudio } from "../lib/notify";
+import KioskReceiptModal from "../components/KioskReceiptModal";
 
 const SERVICE_TABS = [
   { id: "delivery", label: "Delivery", icon: Truck },
@@ -112,6 +113,7 @@ export default function AdminKiosk() {
   const [phone, setPhone] = useState(""); // walk-in customer phone (optional, for delivery)
   const [placing, setPlacing] = useState(false);
   const [lastOrder, setLastOrder] = useState(null);
+  const [receipt, setReceipt] = useState(null); // { order, qrDataUrl, qrText }
 
   const loadMenu = useCallback(async () => {
     try {
@@ -140,6 +142,12 @@ export default function AdminKiosk() {
       const order = r.data?.order;
       toast.success(`Walk-in order placed · ₹${order?.total || total}`);
       setLastOrder(order);
+      // iter-70: surface the printable receipt + single-use QR
+      setReceipt({
+        order,
+        qrDataUrl: r.data?.qr_data_url || "",
+        qrText: r.data?.qr_text || "",
+      });
       resetOrderForm();
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Could not place order");
@@ -368,6 +376,14 @@ export default function AdminKiosk() {
                   <p className="text-[10px] tracking-[0.18em] uppercase font-bold opacity-85">Last order</p>
                   <p className="text-xs mt-0.5 font-mono break-all">{lastOrder.order_id}</p>
                   <p className="text-xs">{lastOrder.qty} × {lastOrder.menu_text?.slice(0, 60)}{lastOrder.menu_text?.length > 60 ? "…" : ""} · ₹{lastOrder.total}</p>
+                  {receipt && (
+                    <button
+                      type="button"
+                      onClick={() => setReceipt({ ...receipt })}
+                      className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-600 text-white px-3 h-7 text-[11px] font-extrabold hover:bg-emerald-500"
+                      data-testid="kiosk-reprint"
+                    >Re-open receipt</button>
+                  )}
                 </div>
               )}
             </div>
@@ -378,6 +394,15 @@ export default function AdminKiosk() {
           )}
         </div>
       </section>
+
+      {receipt && (
+        <KioskReceiptModal
+          order={receipt.order}
+          qrDataUrl={receipt.qrDataUrl}
+          qrText={receipt.qrText}
+          onClose={() => setReceipt(null)}
+        />
+      )}
     </div>
   );
 }

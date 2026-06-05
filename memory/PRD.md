@@ -1130,3 +1130,16 @@ See `/app/memory/test_credentials.md`.
 - Researched Indian micro-insurance for food contamination at ultra-low premium (2 Rs on 100 Rs order).
 - Finding: **No off-the-shelf retail product** at this premium band. Closest fit is **Acko Microinsurance** (explicitly markets "micro premium / micro cover / digital embedded" products) — would need a custom B2B underwriting via their embedded team (`embedded@acko.com`). Bajaj/ICICI Lombard products have minimum yearly premiums too high to pass through per-order.
 - Recommended action for user: get a quote from Acko first; I can then wire opt-in toggle into checkout + webhook in 1 iteration once policy spec is in hand.
+
+### Iteration 70 (Jun 5, 2026) — Thermal receipt + single-use kiosk QR (anti-fraud)
+- **Backend kiosk order** (`POST /api/admin/kiosk/order`) now also generates a `kiosk_token` (UUID hex) and renders a base64 PNG QR encoding `kio:<token>`. Response adds `qr_data_url` + `qr_text`. The token is persisted on the `mess_menu_orders` row with `kiosk_consumed_at: null`.
+- **Scanner upgrade** (`POST /api/attendance/scan`) — auto-detects `kio:` prefix. On kiosk tokens: atomic single-use redemption (status → `served`, `kiosk_consumed_at` populated, `kiosk_consumed_by` = scanning admin). Returns kiosk metadata so the existing scanner UI shows "Walk-in customer · Kiosk · delivery". Subscriber tokens still work exactly as before.
+- **Fraud prevention**: a second scan of the same kiosk QR returns 400 "Receipt already redeemed". Counter staff can no longer hand out a thali without leaving a server-side audit trail.
+- **Frontend `KioskReceiptModal.jsx`** — opens automatically after a walk-in order. Renders a true 80mm-width thermal receipt inside an iframe, with the printable QR + "SINGLE-USE" stamp + tokens. "Print receipt" button calls `iframe.contentWindow.print()` — works with any USB ESC/POS printer that has a Windows/Mac/Linux driver. Fallback opens the receipt in a new tab if the iframe print is blocked.
+- **AdminKiosk wiring** — receipt modal opens immediately, "Re-open receipt" button on the Last-order card lets admin reprint within the same session.
+- **Tests**: 5/5 new backend pytest pass (`test_iter70.py`) — QR + token generated, scan marks order served, second scan blocked, invalid token 404, subscriber flow unaffected. Combined 28/28 across iter-66 through iter-70.
+
+### Open
+- Insurance integration awaits Acko quote from user (iter-69 research).
+- Razorpay LIVE keys still failing auth — affects subscription + restaurant + mess-menu payments but **not** kiosk walk-in flow (cash at counter).
+

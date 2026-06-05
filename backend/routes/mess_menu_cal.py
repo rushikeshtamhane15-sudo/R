@@ -328,6 +328,10 @@ async def kiosk_place_order(payload: KioskOrderIn, user: server.User = Depends(s
     unit_price = int(cfg.get(f"price_{payload.service}") or 0)
     total = unit_price * payload.qty
     import uuid
+    # iter-70: single-use kiosk_token printed on the thermal receipt. Counter
+    # scanner consumes it via /api/attendance/scan (prefix "kio:") — prevents
+    # the staff-side fraud of serving a thali without a recorded check-in.
+    kiosk_token = uuid.uuid4().hex
     order = {
         "order_id": f"kio_{uuid.uuid4().hex[:12]}",
         "kind": "walk_in_kiosk",
@@ -344,10 +348,30 @@ async def kiosk_place_order(payload: KioskOrderIn, user: server.User = Depends(s
         "currency": "INR",
         "status": "pending_collection",  # cash at counter
         "note": (payload.note or "").strip(),
+        "kiosk_token": kiosk_token,
+        "kiosk_consumed_at": None,
+        "kiosk_consumed_by": None,
         "created_at": server.iso(server.now_utc()),
     }
     await server.db.mess_menu_orders.insert_one(order)
-    return {"ok": True, "order": {k: v for k, v in order.items() if k != "_id"}}
+    # Render QR PNG of `kio:<token>` so the printer can drop it on the receipt.
+    qr_data_url = ""
+    try:
+        import base64
+        import io
+        import qrcode
+        img = qrcode.make(f"kio:{kiosk_token}")
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        qr_data_url = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+    except Exception as e:  # noqa: BLE001
+        server.logger.warning(f"[kiosk] QR render failed: {e}")
+    return {
+        "ok": True,
+        "order": {k: v for k, v in order.items() if k != "_id"},
+        "qr_data_url": qr_data_url,
+        "qr_text": f"kio:{kiosk_token}",
+    }
 
 
 class MessMenuVerifyIn(BaseModel):
