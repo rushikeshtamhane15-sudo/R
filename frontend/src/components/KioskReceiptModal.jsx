@@ -1,6 +1,8 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Button } from "./ui/button";
-import { Printer, X } from "lucide-react";
+import { Printer, X, Bluetooth, BluetoothConnected, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { connectBluetoothPrinter, isBluetoothSupported, getLastPrinterName } from "../lib/bluetoothPrinter";
 
 /**
  * KioskReceiptModal — iter-70
@@ -17,6 +19,52 @@ import { Printer, X } from "lucide-react";
  */
 export default function KioskReceiptModal({ order, qrDataUrl, qrText, onClose }) {
   const iframeRef = useRef(null);
+  // iter-71: Bluetooth printer state. We persist the printer object on the
+  // window so subsequent receipts within the same session reuse the GATT
+  // connection (Web Bluetooth re-pairing is otherwise a per-print prompt).
+  const [btStatus, setBtStatus] = useState(() => (
+    typeof window !== "undefined" && window.__efcBtPrinter ? "connected" : "idle"
+  ));
+  const [btPrinting, setBtPrinting] = useState(false);
+  const btSupported = isBluetoothSupported();
+  const lastBtName = getLastPrinterName();
+
+  const connectBt = async () => {
+    try {
+      setBtStatus("connecting");
+      const printer = await connectBluetoothPrinter();
+      // eslint-disable-next-line no-undef
+      window.__efcBtPrinter = printer;
+      printer.device.addEventListener("gattserverdisconnected", () => {
+        // eslint-disable-next-line no-undef
+        if (window.__efcBtPrinter === printer) window.__efcBtPrinter = null;
+        setBtStatus("idle");
+      });
+      setBtStatus("connected");
+      toast.success(`Paired with ${printer.name}`);
+    } catch (e) {
+      setBtStatus("idle");
+      toast.error(e?.message || "Could not pair printer");
+    }
+  };
+
+  const printViaBluetooth = async () => {
+    // eslint-disable-next-line no-undef
+    let printer = window.__efcBtPrinter;
+    if (!printer) { await connectBt(); /* eslint-disable-next-line no-undef */ printer = window.__efcBtPrinter; }
+    if (!printer) return;
+    setBtPrinting(true);
+    try {
+      await printer.printReceipt(order, qrText);
+      toast.success("Receipt sent to printer");
+    } catch (e) {
+      toast.error(e?.message || "Print failed — reconnect printer");
+      // Drop the reference so the next print re-pairs cleanly
+      // eslint-disable-next-line no-undef
+      window.__efcBtPrinter = null;
+      setBtStatus("idle");
+    } finally { setBtPrinting(false); }
+  };
 
   const printReceipt = () => {
     const iframe = iframeRef.current;
@@ -66,14 +114,60 @@ export default function KioskReceiptModal({ order, qrDataUrl, qrText, onClose })
           data-testid="kiosk-receipt-iframe"
         />
 
-        <div className="px-5 py-3 border-t border-border flex gap-2">
-          <Button variant="outline" onClick={onClose} className="rounded-full flex-1" data-testid="kiosk-receipt-cancel">Close</Button>
-          <Button onClick={printReceipt} className="rounded-full flex-1 bg-primary text-primary-foreground" data-testid="kiosk-receipt-print">
-            <Printer className="h-4 w-4 mr-1.5" /> Print receipt
-          </Button>
+        <div className="px-5 py-3 border-t border-border flex flex-col gap-2">
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose} className="rounded-full flex-1" data-testid="kiosk-receipt-cancel">Close</Button>
+            <Button onClick={printReceipt} className="rounded-full flex-1 bg-primary text-primary-foreground" data-testid="kiosk-receipt-print">
+              <Printer className="h-4 w-4 mr-1.5" /> Browser print
+            </Button>
+          </div>
+          {/* iter-71: Bluetooth printer row */}
+          <div className="flex items-center gap-2">
+            {btSupported ? (
+              <>
+                <Button
+                  onClick={printViaBluetooth}
+                  disabled={btPrinting || btStatus === "connecting"}
+                  className="rounded-full flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                  data-testid="kiosk-receipt-bluetooth"
+                >
+                  {btPrinting || btStatus === "connecting" ? (
+                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                  ) : btStatus === "connected" ? (
+                    <BluetoothConnected className="h-4 w-4 mr-1.5" />
+                  ) : (
+                    <Bluetooth className="h-4 w-4 mr-1.5" />
+                  )}
+                  {btStatus === "connected"
+                    ? "Print via Bluetooth"
+                    : btStatus === "connecting"
+                      ? "Pairing…"
+                      : "Pair & print via Bluetooth"}
+                </Button>
+                {btStatus === "connected" && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      // eslint-disable-next-line no-undef
+                      try { window.__efcBtPrinter?.disconnect(); } catch { /* ignore */ }
+                      // eslint-disable-next-line no-undef
+                      window.__efcBtPrinter = null;
+                      setBtStatus("idle");
+                    }}
+                    className="rounded-full text-xs"
+                    data-testid="kiosk-bt-disconnect"
+                  >Unpair</Button>
+                )}
+              </>
+            ) : (
+              <div className="flex-1 rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-[11px] text-amber-900" data-testid="kiosk-bt-unsupported">
+                Bluetooth printing not supported here. Use Chrome on Android/desktop, or install <a className="underline" href="https://apps.apple.com/in/app/bluefy-web-ble-browser/id1492822055" target="_blank" rel="noreferrer noopener">Bluefy</a> on iOS.
+              </div>
+            )}
+          </div>
         </div>
         <p className="px-5 pb-3 text-[10px] text-muted-foreground text-center">
-          QR is single-use. Counter must scan it before serving the thali.
+          QR is single-use. Counter must scan it before serving the thali.{lastBtName && btStatus !== "connected" ? ` · Last used: ${lastBtName}` : ""}
         </p>
       </div>
     </div>

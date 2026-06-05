@@ -1143,3 +1143,12 @@ See `/app/memory/test_credentials.md`.
 - Insurance integration awaits Acko quote from user (iter-69 research).
 - Razorpay LIVE keys still failing auth — affects subscription + restaurant + mess-menu payments but **not** kiosk walk-in flow (cash at counter).
 
+
+### Iteration 71 (Jun 5, 2026) — Bluetooth thermal printer (wireless)
+- **`/app/frontend/src/lib/bluetoothPrinter.js` (NEW)** — Web Bluetooth integration that pairs with any ESC/POS thermal printer over BLE. Covers the four common service UUID families (POS-58/POS-80 generic `000018f0`, HC-05 style `0000ffe0`, Chinese OEM `0000ff00`, BLE serial `49535343-fe7d-…`). Auto-discovers a writable characteristic and chunks payloads at 100 bytes for cross-device compatibility (iOS Bluefy + Android Chrome).
+- **Native ESC/POS QR rendering** — uses GS ( k command set (functions 165/167/169) so the kiosk receipt prints a crisp QR at the printer's native DPI; no client-side rasterisation. Falls back gracefully if the printer rejects the QR commands.
+- **Receipt byte builder** — 80mm width, double-height brand, padded key/value rows, dashed separators, total in bold double size, "SINGLE-USE" stamp, full auto-cut. Matches the on-screen browser preview format.
+- **`KioskReceiptModal.jsx`** — adds two new buttons next to "Browser print": **"Pair & print via Bluetooth"** (initial pair via OS prompt, then reusable for subsequent receipts within the same session) and **"Unpair"**. Reuse stays in `window.__efcBtPrinter` so admin doesn't get re-prompted between orders. Disconnect event clears the reference automatically. Last-paired printer name shown under the modal for confidence.
+- **Graceful fallback** — `isBluetoothSupported()` feature-detects `navigator.bluetooth`. On iOS Safari (no Web Bluetooth) the modal shows an amber hint pointing users to Bluefy. Browser-print + OS thermal driver still works as the backup path.
+- **Tests** — 3/3 frontend unit tests pass (`bluetoothPrinter.test.js`) for the public surface + safe error when Web Bluetooth is unavailable. ESC/POS byte construction can't be exercised in jsdom without a paired device — verified manually via byte logs.
+
