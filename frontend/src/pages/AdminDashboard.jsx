@@ -1,52 +1,108 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
-import { Users, Calendar, IndianRupee, Check } from "lucide-react";
+import { Users, Calendar, IndianRupee, Check, RefreshCw } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
+
+const PERIODS = [
+  { id: "cycle", label: "Billing cycle" },
+  { id: "day", label: "Day" },
+  { id: "month", label: "Month" },
+  { id: "year", label: "Year" },
+];
 
 export default function AdminOverview() {
   const [stats, setStats] = useState(null);
   const [attendance, setAttendance] = useState([]);
+  const [period, setPeriod] = useState("cycle");
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const [s, a] = await Promise.all([api.get("/admin/stats"), api.get("/admin/attendance/today")]);
-        setStats(s.data);
-        setAttendance(a.data.attendance || []);
-      } catch {}
-    })();
-  }, []);
+  const refresh = async (p = period, d = date) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ period: p });
+      if (d) params.set("date", d);
+      const [s, a] = await Promise.all([
+        api.get(`/admin/stats?${params.toString()}`),
+        api.get("/admin/attendance/today"),
+      ]);
+      setStats(s.data);
+      setAttendance(a.data.attendance || []);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  if (!stats) return <div className="text-muted-foreground">Loading…</div>;
+  useEffect(() => { refresh(period, date); /* eslint-disable-next-line */ }, [period, date]);
 
-  const cards = [
-    { label: "Total users", value: stats.total_users, icon: Users },
-    { label: "Active subs", value: stats.active_subscriptions, icon: Check },
-    { label: "Today's check-ins", value: stats.today_attendance, icon: Calendar },
-    { label: "Revenue", value: `₹${Math.round(stats.revenue).toLocaleString("en-IN")}`, icon: IndianRupee },
-  ];
+  const cards = useMemo(() => {
+    if (!stats) return [];
+    return [
+      { label: "Total users", value: stats.total_users, icon: Users },
+      { label: "Active subs", value: stats.active_subscriptions, icon: Check },
+      { label: "Today's check-ins", value: stats.today_attendance, icon: Calendar },
+      { label: `Revenue · ${stats.period_label || ""}`, value: `₹${Math.round(stats.revenue || 0).toLocaleString("en-IN")}`, icon: IndianRupee },
+    ];
+  }, [stats]);
+
+  if (!stats && loading) return <div className="text-muted-foreground">Loading…</div>;
 
   return (
     <div data-testid="admin-dashboard">
-      <div>
-        <p className="text-xs tracking-overline uppercase font-bold text-secondary">Control room</p>
-        <h1 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-2">Overview</h1>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-xs tracking-overline uppercase font-bold text-secondary">Control room</p>
+          <h1 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-2">Overview</h1>
+        </div>
+        <button
+          type="button"
+          onClick={() => refresh()}
+          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 h-9 text-xs font-semibold hover:bg-muted/40"
+          data-testid="overview-refresh"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
+        </button>
+      </div>
+
+      {/* iter-65 #10: period + date picker */}
+      <div className="mt-4 flex flex-wrap items-center gap-2" data-testid="period-controls">
+        <div className="inline-flex rounded-full bg-muted/60 p-1 gap-1">
+          {PERIODS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setPeriod(p.id)}
+              data-testid={`period-${p.id}`}
+              className={`px-3 h-8 rounded-full text-xs font-semibold ${period === p.id ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}
+            >{p.label}</button>
+          ))}
+        </div>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="rounded-full border border-border bg-card px-3 h-8 text-xs"
+          data-testid="period-date"
+        />
+        {stats?.period_label && (
+          <span className="text-xs text-muted-foreground" data-testid="period-window-label">{stats.period_label}</span>
+        )}
       </div>
 
       <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4" data-testid="stat-cards">
         {cards.map((c, idx) => (
           <div key={c.label} className="bg-card rounded-2xl border border-border p-6" data-testid={`stat-card-${idx}`}>
-            <div className="flex items-center justify-between">
-              <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">{c.label}</p>
-              <c.icon className="h-4 w-4 text-primary" strokeWidth={1.75} />
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground line-clamp-2">{c.label}</p>
+              <c.icon className="h-4 w-4 text-primary flex-shrink-0" strokeWidth={1.75} />
             </div>
-            <p className="font-display font-extrabold text-3xl md:text-4xl mt-3">{c.value}</p>
+            <p className="font-display font-extrabold text-3xl md:text-4xl mt-3 tabular-nums">{c.value}</p>
           </div>
         ))}
       </div>
 
       <div className="mt-6 bg-card rounded-2xl border border-border p-6" data-testid="attendance-trend">
-        <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Attendance · last 7 days</p>
+        <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Attendance · {stats.period_label}</p>
         <div className="h-64 mt-4">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={stats.attendance_trend} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
@@ -65,9 +121,6 @@ export default function AdminOverview() {
         <div className="mt-4 max-h-80 overflow-auto divide-y divide-border">
           {attendance.length === 0 && <p className="text-sm text-muted-foreground">No check-ins yet.</p>}
           {attendance.map((r) => {
-            // Backend now enriches each row with subscriber_name + subscriber_phone
-            // + profile_photo_url. Fall back to the legacy user_name if a row
-            // was created before the enrichment landed.
             const displayName = r.subscriber_name || r.user_name || "—";
             const phone = r.subscriber_phone;
             return (

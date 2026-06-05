@@ -32,7 +32,10 @@ export default function AnnouncementBar() {
       role="region"
       aria-label="Important announcement"
     >
-      <div className="relative flex whitespace-nowrap py-2.5">
+      {/* iter-65 #3: compact one-line ticker on mobile (was 2.5/3x repeats,
+          now smaller text + tighter padding so it doesn't dominate the
+          mobile viewport above the hero) */}
+      <div className="relative flex whitespace-nowrap py-1.5 sm:py-2.5">
         <MarqueeTrack text={text} speed={speed} />
         <MarqueeTrack text={text} speed={speed} ariaHidden />
       </div>
@@ -53,13 +56,14 @@ export default function AnnouncementBar() {
 }
 
 function MarqueeTrack({ text, speed, ariaHidden }) {
-  // Build a single track by repeating the message a few times with a separator so
-  // the loop is visually continuous even for short messages.
+  // iter-65 #3: only repeat twice (was 3x); the dual-track marquee already
+  // produces visual continuity. Smaller font on mobile so the warning
+  // doesn't shove the hero below the fold.
   const separator = "  •  ";
-  const repeated = new Array(3).fill(text).join(separator) + separator;
+  const repeated = new Array(2).fill(text).join(separator) + separator;
   return (
     <span
-      className="efc-marquee-track inline-block shrink-0 px-4 text-sm md:text-[15px] font-semibold tracking-wide"
+      className="efc-marquee-track inline-block shrink-0 px-3 sm:px-4 text-[11px] sm:text-sm md:text-[15px] font-semibold tracking-wide"
       style={{ animationDuration: `${speed}s` }}
       aria-hidden={ariaHidden ? "true" : undefined}
     >

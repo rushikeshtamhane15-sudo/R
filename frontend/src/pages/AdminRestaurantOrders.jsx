@@ -1,11 +1,11 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
 import { alertWithVoice, unlockAudio, setCustomSoundUrl } from "../lib/notify";
 import { useNotifyPrefs } from "../lib/useNotifyPrefs";
 import {
-  UtensilsCrossed, Loader2, RefreshCw, ChefHat, PackageCheck, Bike, CheckCircle2, XCircle, Phone, MapPin, Clock, Volume2, VolumeX,
+  UtensilsCrossed, Loader2, RefreshCw, ChefHat, PackageCheck, Bike, CheckCircle2, XCircle, Phone, MapPin, Clock, Volume2, VolumeX, Bell,
 } from "lucide-react";
 
 const STATUS_TONE = {
@@ -18,12 +18,28 @@ const STATUS_TONE = {
   rejected:         { label: "Rejected",         cls: "bg-red-100 text-red-900 dark:bg-red-950/40 dark:text-red-200" },
 };
 
+// iter-65 #9: orders considered "open" (i.e. need admin action)
+const OPEN_STATUSES = ["paid", "preparing", "ready_for_pickup", "out_for_delivery"];
+const STATUS_FILTER_OPTIONS = [
+  { id: "open", label: "Open" },
+  { id: "all", label: "All" },
+  { id: "paid", label: "New paid" },
+  { id: "preparing", label: "Preparing" },
+  { id: "ready_for_pickup", label: "Ready" },
+  { id: "out_for_delivery", label: "On the way" },
+  { id: "delivered", label: "Delivered" },
+  { id: "rejected", label: "Rejected" },
+];
+
 export default function AdminRestaurantOrders() {
   const [orders, setOrders] = useState(null);
   const [loadingId, setLoadingId] = useState(null);
   const { prefs: notifyPrefs, update: updateNotifyPrefs } = useNotifyPrefs();
   const soundOn = notifyPrefs.sound;
   const knownPaidIds = useRef(new Set());
+  // iter-65 #9: filters
+  const [statusFilter, setStatusFilter] = useState("open");
+  const [dateFilter, setDateFilter] = useState(""); // YYYY-MM-DD or empty for all
 
   const load = async () => {
     try {
@@ -76,6 +92,21 @@ export default function AdminRestaurantOrders() {
     return <div className="flex items-center justify-center py-20 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading orders…</div>;
   }
 
+  // iter-65 #9: derive open count + filtered list
+  const openCount = orders.filter((o) => OPEN_STATUSES.includes(o.status)).length;
+  const filtered = orders.filter((o) => {
+    if (statusFilter === "open" && !OPEN_STATUSES.includes(o.status)) return false;
+    if (statusFilter !== "open" && statusFilter !== "all" && o.status !== statusFilter) return false;
+    if (dateFilter) {
+      const d = new Date(o.created_at);
+      if (Number.isNaN(d.getTime())) return false;
+      // Convert to IST date string for comparison
+      const ist = new Date(d.getTime() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      if (ist !== dateFilter) return false;
+    }
+    return true;
+  });
+
   return (
     <div className="space-y-5" data-testid="admin-restaurant-orders">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -83,6 +114,14 @@ export default function AdminRestaurantOrders() {
           <p className="text-xs tracking-overline uppercase font-bold text-secondary flex items-center gap-1.5"><UtensilsCrossed className="h-3.5 w-3.5" /> Kitchen ops</p>
           <h1 className="font-display font-extrabold text-2xl sm:text-3xl md:text-4xl tracking-tight mt-1 leading-tight">Restaurant orders</h1>
           <p className="text-sm text-muted-foreground mt-1.5">Move orders through the kitchen pipeline: paid → preparing → ready for pickup. Rider takes it from there.</p>
+        </div>
+        {/* iter-65 #9: open-orders count pulse — pushes admin to action */}
+        <div
+          className={`inline-flex items-center gap-2 rounded-full px-4 h-10 font-bold text-sm border ${openCount > 0 ? "bg-red-50 border-red-300 text-red-900" : "bg-emerald-50 border-emerald-300 text-emerald-900"}`}
+          data-testid="open-orders-pill"
+        >
+          <Bell className={`h-4 w-4 ${openCount > 0 ? "animate-pulse" : ""}`} />
+          <span className="tabular-nums" data-testid="open-orders-count">{openCount}</span> open
         </div>
         <Button variant="outline" onClick={load} className="rounded-full" data-testid="orders-refresh-btn">
           <RefreshCw className="h-4 w-4 mr-1.5" /> Refresh
@@ -99,14 +138,40 @@ export default function AdminRestaurantOrders() {
         </Button>
       </div>
 
-      {orders.length === 0 ? (
+      {/* iter-65 #9: filters */}
+      <div className="flex flex-wrap items-center gap-2" data-testid="orders-filters">
+        <div className="inline-flex flex-wrap gap-1 bg-muted/40 rounded-full p-1">
+          {STATUS_FILTER_OPTIONS.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => setStatusFilter(s.id)}
+              data-testid={`orders-filter-${s.id}`}
+              className={`px-3 h-8 rounded-full text-xs font-semibold transition-colors ${statusFilter === s.id ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >{s.label}</button>
+          ))}
+        </div>
+        <input
+          type="date"
+          value={dateFilter}
+          onChange={(e) => setDateFilter(e.target.value)}
+          className="rounded-full border border-border bg-card px-3 h-8 text-xs"
+          data-testid="orders-filter-date"
+        />
+        {dateFilter && (
+          <button type="button" onClick={() => setDateFilter("")} className="text-xs text-muted-foreground hover:text-foreground underline" data-testid="orders-clear-date">Clear date</button>
+        )}
+        <span className="text-xs text-muted-foreground ml-auto" data-testid="orders-result-count">{filtered.length} shown · {orders.length} total</span>
+      </div>
+
+      {filtered.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border p-12 text-center text-muted-foreground" data-testid="orders-empty">
           <UtensilsCrossed className="h-8 w-8 mx-auto mb-3 opacity-50" />
-          No orders yet. New orders show up here within seconds of payment.
+          {orders.length === 0 ? "No orders yet. New orders show up here within seconds of payment." : "No orders match the current filters."}
         </div>
       ) : (
         <ul className="space-y-3">
-          {orders.map((o) => {
+          {filtered.map((o) => {
             const tone = STATUS_TONE[o.status] || { label: o.status, cls: "bg-muted text-muted-foreground" };
             const canPrepare = o.status === "paid";
             const canReady = o.status === "preparing";

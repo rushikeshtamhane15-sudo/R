@@ -1,0 +1,39 @@
+{
+  "summary": "Iter-65 backend + frontend testing complete. All 7 backend tests (test_iter65.py) PASS: /admin/stats period selector (cycle/day/month/year) + orphan-sub filter verified; /admin/mess-menu/config GET/PUT persists and is reflected in public /mess-menu/today; /mess-menu/order requires auth (401 unauth), validates service/meal_type/qty, returns 400 for missing menu, computes total = unit_price * qty correctly (delivery 140, takeaway 120, dining 100) and persists to mess_menu_orders. Frontend UI on mobile 390x844 + desktop 1440x900: (1) Landing /home renders hero with HeroParticles (steam + PURE VEG floating chips) — hero CTA bottom Y=569 < 844 viewport (fits one screen), no console errors related to particles; (2) hero call-pill href='tel:+919175560211' + WhatsApp pill href='https://wa.me/919175560211?text=...' target='_blank' — verified; (3) Footer brand block on /home + /contact shows big logo + 'efoodcare' brand name + 'GHAR SE ACHHA KHANA' tagline + correct promise text + corporate card with phone +91 91755 60211, email hello@efoodcare.in, website efoodcare.in; (4) Contact page Get directions overlay button (data-testid='get-directions-btn') + tap-anywhere overlay (get-directions-tap) both wired to askDirections() which builds the correct Google Maps deeplink (https://www.google.com/maps/dir/?api=1&destination=...&travelmode=driving); (5) Admin /admin Overview shows [Billing cycle | Day | Month | Year] toggle + native date picker + period label '6 May → 5 Jun 2026' on Revenue card; Active Subs reads 63 from the cleaned-orphan endpoint; (6) /admin/restaurant-orders mounts AdminRestaurantOrders with pulsing red 'open-orders-pill' = '33 open', full status-filter chip set (open/all/paid/preparing/ready_for_pickup/out_for_delivery/delivered/rejected) + orders-filter-date picker; (7) /admin/pnl has pnl-mode-toggle [Billing cycle | Last N days], cycle prev/next/now nav, 4 stat cards (total revenue / expense / net / days tracked), monthly fixed expense editor, daily P&L rows, breakeven + projection sections present; pnl-prev-cycle-flash banner correctly hidden on day=5 (only appears on day=6 of month per spec); (8) /admin/mess-menu has mess-menu-config-card with 4 color pickers (mm-bg-from/mid/to + text via picker) + 3 number inputs mm-price-delivery/takeaway/dining + Save button; (9) TodayMessMenuFlash empty state testid 'menu-flash-empty-both' visible on /restaurant when both today + tomorrow are unseeded — verified on the public restaurant page.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/contact (mobile 390)", "issues": ["The on-page COMPANY/PHONE card still shows phone +91 99707 05391 while the new footer brand block and review brief use +91 91755 60211. Either align both numbers or label one as 'corporate' vs 'customer support' so they don't look like a typo. Also EMAIL on the contact card shows hello@efoodcare.in (matches footer) — only phone is inconsistent."]},
+      {"screen": "/home (mobile 390)", "issues": ["Hindi adulteration AnnouncementBar still feels long — it occupies ~17% of the 844px viewport (single repeat is fine, marquee scrolls but the static fallback wraps onto 2 lines on the smallest devices). Consider truncating with ellipsis on <360px or reducing leading."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter65.py",
+    "/app/test_reports/pytest/iter65_results.xml"
+  ],
+  "action_items": [
+    "Cosmetic: align Contact page COMPANY/PHONE card with the footer (+91 91755 60211 vs current +91 99707 05391) or add explicit labels for each number.",
+    "Nice-to-have (not blocking): on day != 6, AdminPnL pnl-prev-cycle-flash never renders, which is per-spec. Confirm with main agent that an alternative 'View previous cycle' link is acceptable in non-6th days, since admins logging in on the 7th-31st miss the auto-flash entirely."
+  ],
+  "critical_code_review_comments": [
+    "routes/admin.py admin_stats() iterates every active subscription and runs an individual find_one per row (lines 128-139). For ops at scale (10k+ subs), replace the loop with a single $lookup aggregation or pre-fetch the role=subscriber user_id set once and check membership in-memory — O(N) per-row Mongo queries will slow /admin/stats as the table grows.",
+    "routes/mess_menu_cal.py place_mess_order() (line 218) does NOT enforce explicit auth — relies on get_current_user dependency, which is fine, but consider also rejecting role='admin' or non-subscriber orders explicitly if business rules require it (current code lets admin/rider also place orders).",
+    "routes/mess_menu_cal.py /mess-menu/order returns status='pending_payment' but no Razorpay order is created here — UI/main agent should chain this with /api/payments/order before user can pay. Document this on the endpoint or wire it inline.",
+    "Contact.jsx get-directions-tap is a full-overlay <button> covering the iframe (z-300) — prevents users from interacting with the embedded Google iframe (pan/zoom). That's intentional but worth noting in case main agent wants iframe interactivity back."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter65.py"
+  ],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "100% (11/11 review items verified)"},
+  "test_credentials": "Backend: synthetic admin + subscriber via Mongo seed in test_iter65.py (cleaned up per-test). Frontend admin UI: temp session sess_iter65_ui_ab74316770ed40b5 was created + cleaned. OTP dev flow available via POST /api/auth/send-otp + /verify-otp using dev_otp.",
+  "seed_data_creation": "Per-test only. Inserted mess_menu row for 2026-07-15 (cleaned). Inserted 3 synthetic subscriptions (1 real owner, 1 orphan, 1 admin-owned) to verify orphan filter — all cleaned at teardown.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "AdminRestaurantOrders is mounted at /admin/restaurant-orders (NOT /admin/orders-restaurant as in the brief — the brief was ambiguous; App.js line 163 confirms the actual path). pnl-prev-cycle-flash only appears on day=6 of the month — to verify it, freeze IST date to the 6th or seed a previous cycle's net record. Mess-menu CMS endpoints persist to app_config collection with key='mess_menu_cms_v1' and the public /mess-menu/today now includes a `config` block. Backend pytest XML: /app/test_reports/pytest/iter65_results.xml. Cleanup: be aware that /mess-menu/order writes to mess_menu_orders collection — orders persist unless explicitly deleted.",
+  "rca of the issue": "No bugs found. One minor inconsistency: Contact page COMPANY card phone (+91 99707 05391) differs from the new footer brand block phone (+91 91755 60211). Root cause = Contact.jsx CONTACT_INFO constant was not refreshed in iter-65 when the footer brand block was added with the corporate number. Mitigation: update CONTACT_INFO.phone in Contact.jsx or pull both pages from a single CMS document so they never drift."
+}

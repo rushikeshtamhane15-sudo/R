@@ -9,6 +9,7 @@ import TestimonialsSection from "../components/TestimonialsSection";
 import PromotionPopup from "../components/PromotionPopup";
 import SEO from "../components/SEO";
 import ServiceabilityPill from "../components/ServiceabilityPill";
+import HeroParticles from "../components/HeroParticles";
 import * as Icons from "lucide-react";
 
 const DEFAULT_HERO = "https://images.unsplash.com/photo-1600488999806-8efb986d87b1?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600";
@@ -63,12 +64,21 @@ export default function Landing() {
       />
       {/* Hero — iter-64 #1: full-viewport landing hero with serviceability
           pill anchored at the TOP, generous spacing, fluid type so the whole
-          hero card fits one screen on mobile. */}
-      <section className="relative overflow-hidden min-h-[calc(100svh-64px)] md:min-h-[calc(100svh-72px)] flex flex-col">
+          hero card fits one screen on mobile.
+          iter-65 #1: CSS-only steam + floating PURE VEG chips behind the hero. */}
+      <section
+        className="relative overflow-hidden min-h-[calc(100svh-64px)] md:min-h-[calc(100svh-72px)] flex flex-col"
+        onMouseMove={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          e.currentTarget.style.setProperty("--px", String(((e.clientX - r.left) / r.width) - 0.5));
+          e.currentTarget.style.setProperty("--py", String(((e.clientY - r.top) / r.height) - 0.5));
+        }}
+      >
         <div className="absolute inset-0 -z-10">
           <img src={heroImg} alt="dining" className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-background/85"></div>
         </div>
+        <HeroParticles />
         {/* iter-64 #1: pill at TOP of hero, full-width, breathing room */}
         <div className="pt-3 sm:pt-4">
           <ServiceabilityPill />
@@ -95,6 +105,36 @@ export default function Landing() {
             <Link to={ctaTarget} data-testid="hero-cta-plans">
               <Button size="lg" variant="outline" className="rounded-full px-7 sm:px-8 h-11 sm:h-12 text-sm sm:text-base">{c.hero_cta_secondary || (user ? "Go to dashboard" : "Sign in")}</Button>
             </Link>
+          </motion.div>
+          {/* iter-65 #5: quick-tap Call us / WhatsApp pills at the bottom of
+              the hero container. Numbers come from CMS, fall back to the
+              corporate hotline 9175560211. */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}
+            className="mt-6 sm:mt-8 flex flex-wrap gap-2.5"
+            data-testid="hero-contact-pills"
+          >
+            <a
+              href={`tel:${(c.support_phone || "+919175560211").replace(/\s/g, "")}`}
+              data-testid="hero-call-btn"
+              className="inline-flex items-center gap-2 rounded-full pl-1.5 pr-4 py-1.5 bg-primary text-primary-foreground shadow-md hover:shadow-lg transition-shadow text-sm font-bold"
+            >
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-primary">
+                <Icons.Phone className="h-4 w-4" />
+              </span>
+              Call us · {c.support_phone || "+91 91755 60211"}
+            </a>
+            <a
+              href={`https://wa.me/91${(c.support_phone || "9175560211").replace(/\D/g, "").slice(-10)}?text=${encodeURIComponent("Hi efoodcare, I would like to know about meal subscriptions.")}`}
+              target="_blank" rel="noreferrer noopener"
+              data-testid="hero-whatsapp-btn"
+              className="inline-flex items-center gap-2 rounded-full pl-1.5 pr-4 py-1.5 bg-emerald-600 text-white shadow-md hover:shadow-lg transition-shadow text-sm font-bold"
+            >
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-emerald-600">
+                <Icons.MessageCircle className="h-4 w-4" />
+              </span>
+              WhatsApp us
+            </a>
           </motion.div>
           </div>
         </div>

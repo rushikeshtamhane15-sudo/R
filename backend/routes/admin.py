@@ -7,7 +7,7 @@ since they touch many internals. Future iterations can move more here.
 from __future__ import annotations
 
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -65,21 +65,104 @@ class RiderApplyDecision(BaseModel):
 
 
 @router.get("/admin/stats")
-async def admin_stats(user: server.User = Depends(server.get_current_user)):
+async def admin_stats(
+    user: server.User = Depends(server.get_current_user),
+    period: str = "cycle",
+    date: Optional[str] = None,
+):
+    """Iter-65 #10: revenue+attendance now respect a billing cycle that
+    resets on the 6th of every month (5th = last day of cycle). Admin can
+    also drill in via ?period=day|month|year|cycle&date=YYYY-MM-DD.
+
+    `active_subscriptions` now only counts subs whose user still exists
+    with role='subscriber' — stops phantom counts from orphaned seeds.
+    """
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
+
+    if period not in {"day", "month", "year", "cycle"}:
+        period = "cycle"
+
+    # Anchor date for the requested window — defaults to "today" (IST).
+    IST = timezone(timedelta(hours=5, minutes=30))
+    now_ist = datetime.now(IST)
+    try:
+        anchor = datetime.fromisoformat(date).date() if date else now_ist.date()
+    except Exception:  # noqa: BLE001
+        anchor = now_ist.date()
+
+    if period == "day":
+        win_start = datetime(anchor.year, anchor.month, anchor.day, tzinfo=IST)
+        win_end = win_start + timedelta(days=1)
+        win_label = anchor.strftime("%a, %d %b %Y")
+    elif period == "month":
+        win_start = datetime(anchor.year, anchor.month, 1, tzinfo=IST)
+        nm_year = anchor.year + (1 if anchor.month == 12 else 0)
+        nm_month = 1 if anchor.month == 12 else anchor.month + 1
+        win_end = datetime(nm_year, nm_month, 1, tzinfo=IST)
+        win_label = anchor.strftime("%B %Y")
+    elif period == "year":
+        win_start = datetime(anchor.year, 1, 1, tzinfo=IST)
+        win_end = datetime(anchor.year + 1, 1, 1, tzinfo=IST)
+        win_label = str(anchor.year)
+    else:  # cycle — 6th of last month → 6th of this month (anchor inside cycle)
+        if anchor.day >= 6:
+            cs_year, cs_month = anchor.year, anchor.month
+        else:
+            cs_year = anchor.year - (1 if anchor.month == 1 else 0)
+            cs_month = 12 if anchor.month == 1 else anchor.month - 1
+        win_start = datetime(cs_year, cs_month, 6, tzinfo=IST)
+        ne_year = cs_year + (1 if cs_month == 12 else 0)
+        ne_month = 1 if cs_month == 12 else cs_month + 1
+        win_end = datetime(ne_year, ne_month, 6, tzinfo=IST)
+        win_label = f"6 {win_start.strftime('%b')} → 5 {(win_end - timedelta(days=1)).strftime('%b %Y')}"
+
+    win_start_iso = win_start.astimezone(timezone.utc).isoformat()
+    win_end_iso = win_end.astimezone(timezone.utc).isoformat()
+
     total_users = await server.db.users.count_documents({})
     total_subscribers = await server.db.users.count_documents({"role": "subscriber"})
-    active_subs = await server.db.subscriptions.count_documents({"status": "active"})
+
+    # iter-65 #10 fix: only count subs whose user record still exists
+    # with role=subscriber (drops orphans + seeded stale rows).
+    active_subs = 0
+    async for sub in server.db.subscriptions.find(
+        {"status": "active"}, {"_id": 0, "user_id": 1},
+    ):
+        uid = sub.get("user_id")
+        if not uid:
+            continue
+        owner = await server.db.users.find_one(
+            {"user_id": uid, "role": "subscriber"}, {"_id": 0, "user_id": 1},
+        )
+        if owner:
+            active_subs += 1
+
+    # Today's attendance — still anchored to "today" (not the window) so
+    # the Today's check-ins card always reads the live counter.
     d = server.today_str()
     today_att = await server.db.attendance.count_documents({"date_str": d})
-    paid = await server.db.payment_orders.find({"status": "paid"}, {"_id": 0}).to_list(10000)
-    revenue = sum(float(p.get("amount", 0)) for p in paid)
-    trend = []
-    for i in range(6, -1, -1):
-        day = (server.now_utc() - timedelta(days=i)).strftime("%Y-%m-%d")
-        cnt = await server.db.attendance.count_documents({"date_str": day})
-        trend.append({"date": day, "count": cnt})
+
+    # Revenue inside the chosen window only
+    revenue = 0.0
+    async for p in server.db.payment_orders.find(
+        {"status": "paid", "created_at": {"$gte": win_start_iso, "$lt": win_end_iso}},
+        {"_id": 0, "amount": 1},
+    ):
+        revenue += float(p.get("amount", 0) or 0)
+
+    # Attendance trend — last 7 days for the cycle view, full window otherwise (capped at 30 buckets)
+    if period == "day":
+        trend = [{"date": anchor.isoformat(), "count": today_att}]
+    else:
+        # Build day buckets across the window (capped at 31 entries)
+        days_span = max(1, min(31, (win_end.date() - win_start.date()).days))
+        trend = []
+        for i in range(days_span):
+            day = (win_start + timedelta(days=i)).strftime("%Y-%m-%d")
+            cnt = await server.db.attendance.count_documents({"date_str": day})
+            trend.append({"date": day, "count": cnt})
+
     return {
         "total_users": total_users,
         "total_subscribers": total_subscribers,
@@ -88,6 +171,10 @@ async def admin_stats(user: server.User = Depends(server.get_current_user)):
         "revenue": round(revenue, 2),
         "currency": "INR",
         "attendance_trend": trend,
+        "period": period,
+        "period_label": win_label,
+        "window_start": win_start.date().isoformat(),
+        "window_end": (win_end - timedelta(seconds=1)).date().isoformat(),
     }
 
 

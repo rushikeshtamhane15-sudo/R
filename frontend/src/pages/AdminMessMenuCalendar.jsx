@@ -108,6 +108,9 @@ export default function AdminMessMenuCalendar() {
       {/* iter-63 #1: Weekly poster generator */}
       <WeeklyPosterCard />
 
+      {/* iter-65 #11: mess-menu CMS config (BG colors + per-service prices) */}
+      <MessMenuConfigCard />
+
       <div className="mt-5 grid lg:grid-cols-5 gap-4 sm:gap-5">
         {/* Calendar */}
         <div className="lg:col-span-3 bg-card rounded-2xl border border-border p-4 sm:p-5">
@@ -261,5 +264,89 @@ function WeeklyPosterCard() {
         </div>
       )}
     </div>
+  );
+}
+
+
+/* iter-65 #11: Mess-menu CMS — background colours + per-service prices */
+function MessMenuConfigCard() {
+  const [cfg, setCfg] = useState(null);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    (async () => {
+      try { const r = await api.get("/admin/mess-menu/config"); setCfg(r.data); }
+      catch { setCfg(null); }
+    })();
+  }, []);
+  if (!cfg) return null;
+  const set = (k) => (v) => setCfg((c) => ({ ...c, [k]: v }));
+  const save = async () => {
+    setSaving(true);
+    try {
+      await api.put("/admin/mess-menu/config", cfg);
+      toast.success("Mess-menu config saved");
+    } catch { toast.error("Save failed"); }
+    finally { setSaving(false); }
+  };
+  return (
+    <div className="mt-4 bg-card rounded-2xl border border-border p-4 sm:p-5" data-testid="mess-menu-config-card">
+      <div className="flex items-center justify-between gap-3">
+        <p className="font-display font-extrabold text-sm sm:text-base">Container appearance &amp; pricing</p>
+        <Button size="sm" className="rounded-full h-9 text-xs" onClick={save} disabled={saving} data-testid="mm-config-save">
+          {saving ? "Saving…" : "Save"}
+        </Button>
+      </div>
+      <div className="mt-3 grid sm:grid-cols-4 gap-3">
+        <ColorField label="BG from" value={cfg.bg_gradient_from} onChange={set("bg_gradient_from")} testId="mm-bg-from" />
+        <ColorField label="BG mid" value={cfg.bg_gradient_mid} onChange={set("bg_gradient_mid")} testId="mm-bg-mid" />
+        <ColorField label="BG to" value={cfg.bg_gradient_to} onChange={set("bg_gradient_to")} testId="mm-bg-to" />
+        <ColorField label="Text" value={cfg.text_color} onChange={set("text_color")} testId="mm-text" />
+      </div>
+      <div className="mt-3 grid sm:grid-cols-3 gap-3">
+        <PriceField label="Delivery ₹" value={cfg.price_delivery} onChange={(v) => set("price_delivery")(Number(v || 0))} testId="mm-price-delivery" />
+        <PriceField label="Takeaway ₹" value={cfg.price_takeaway} onChange={(v) => set("price_takeaway")(Number(v || 0))} testId="mm-price-takeaway" />
+        <PriceField label="Dining ₹" value={cfg.price_dining} onChange={(v) => set("price_dining")(Number(v || 0))} testId="mm-price-dining" />
+      </div>
+      <label className="mt-3 flex items-center gap-2 text-xs">
+        <input type="checkbox" checked={!!cfg.order_enabled} onChange={(e) => set("order_enabled")(e.target.checked)} data-testid="mm-order-enabled" />
+        <span className="font-semibold">Allow users to order from this card</span>
+      </label>
+      {/* Live preview */}
+      <div className="mt-4">
+        <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground mb-1.5">Preview</p>
+        <div
+          className="rounded-2xl p-3"
+          style={{
+            background: `linear-gradient(145deg, ${cfg.bg_gradient_from} 0%, ${cfg.bg_gradient_mid} 45%, ${cfg.bg_gradient_to} 100%)`,
+            color: cfg.text_color,
+          }}
+        >
+          <p className="text-[9px] tracking-[0.18em] uppercase font-extrabold opacity-85">Mess menu · sample</p>
+          <p className="text-sm font-bold mt-1">Lunch: Jeera Rice · Dal · Paneer</p>
+          <p className="text-sm font-bold">Dinner: Roti · Sabji · Salad</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ColorField({ label, value, onChange, testId }) {
+  return (
+    <label className="block">
+      <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">{label}</span>
+      <div className="mt-1 flex items-center gap-2">
+        <input type="color" value={value} onChange={(e) => onChange(e.target.value)} className="h-9 w-12 rounded-md border border-border" data-testid={`${testId}-picker`} />
+        <Input value={value} onChange={(e) => onChange(e.target.value)} className="rounded-lg font-mono text-xs h-9" data-testid={`${testId}-hex`} />
+      </div>
+    </label>
+  );
+}
+
+function PriceField({ label, value, onChange, testId }) {
+  return (
+    <label className="block">
+      <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">{label}</span>
+      <Input type="number" min={0} value={value} onChange={(e) => onChange(e.target.value)} className="mt-1 rounded-lg font-mono text-sm h-9" data-testid={testId} />
+    </label>
   );
 }

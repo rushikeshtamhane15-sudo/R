@@ -1,18 +1,54 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../lib/api";
-import { MapPin, Phone, Mail, Clock, Building2 } from "lucide-react";
+import { MapPin, Phone, Mail, Clock, Building2, Navigation } from "lucide-react";
 import SEO from "../components/SEO";
 import MapBrandCaption from "../components/MapBrandCaption";
+
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
 
 export default function Contact() {
   const [data, setData] = useState(null);
   const [kitchen, setKitchen] = useState(null);
+  // iter-65 #6: capture the user's coords so we can show distance + open
+  // turn-by-turn directions in Google Maps with one tap.
+  const [me, setMe] = useState(null);
+  const [permissionDenied, setPermissionDenied] = useState(false);
+
   useEffect(() => {
     (async () => {
       try { const r = await api.get("/content/contact"); setData(r.data); } catch {}
       try { const r2 = await api.get("/kitchen-location"); setKitchen(r2.data || null); } catch {}
     })();
   }, []);
+
+  const askDirections = () => {
+    if (!kitchen?.dispatch_lat || !kitchen?.dispatch_lng) return;
+    const openMaps = (lat, lng) => {
+      const dest = `${kitchen.dispatch_lat},${kitchen.dispatch_lng}`;
+      const origin = lat && lng ? `${lat},${lng}` : "";
+      const url = `https://www.google.com/maps/dir/?api=1&destination=${dest}${origin ? `&origin=${origin}` : ""}&travelmode=driving`;
+      window.open(url, "_blank", "noopener,noreferrer");
+    };
+    if (!("geolocation" in navigator)) { openMaps(); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude, lng = pos.coords.longitude;
+        setMe({ lat, lng });
+        setPermissionDenied(false);
+        openMaps(lat, lng);
+      },
+      () => { setPermissionDenied(true); openMaps(); },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 5 * 60 * 1000 },
+    );
+  };
+
   if (!data) return <div className="p-12 text-center text-muted-foreground">Loading…</div>;
 
   // iter-62 #6: when admin moves the kitchen pin via the Kitchen Settings
@@ -54,6 +90,8 @@ export default function Contact() {
             // with our own brand caption. We make the iframe ~28px taller
             // and clip it via the relative wrapper's overflow-hidden, then
             // overlay a 1-line brand caption ribbon at the bottom.
+            // iter-65 #6: tap-anywhere "Get directions" overlay → opens
+            // Google Maps directions from user's GPS to the kitchen pin.
             <div className="relative h-[420px]">
               <iframe
                 title="efoodcare location"
@@ -64,7 +102,38 @@ export default function Contact() {
                 allowFullScreen
                 data-testid="contact-map-iframe"
               />
+              <button
+                type="button"
+                onClick={askDirections}
+                className="absolute inset-0 z-[300] cursor-pointer bg-transparent focus:outline-none"
+                aria-label="Get directions to our kitchen"
+                data-testid="get-directions-tap"
+              />
+              <div className="absolute top-3 left-3 right-3 z-[350] flex items-center gap-2 pointer-events-none">
+                <button
+                  type="button"
+                  onClick={askDirections}
+                  className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground pl-1.5 pr-4 py-1 shadow-lg text-xs sm:text-sm font-bold hover:shadow-xl transition-shadow"
+                  data-testid="get-directions-btn"
+                >
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-primary">
+                    <Navigation className="h-3.5 w-3.5" />
+                  </span>
+                  Get directions
+                </button>
+                {me && kitchen?.dispatch_lat && kitchen?.dispatch_lng && (
+                  <span className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-white/95 backdrop-blur text-foreground text-[11px] sm:text-xs font-semibold px-2.5 py-1 shadow" data-testid="distance-pill">
+                    <MapPin className="h-3 w-3 text-primary" />
+                    <span className="tabular-nums">{haversineKm(me.lat, me.lng, Number(kitchen.dispatch_lat), Number(kitchen.dispatch_lng)).toFixed(1)} km away</span>
+                  </span>
+                )}
+              </div>
               <MapBrandCaption />
+              {permissionDenied && (
+                <div className="absolute bottom-9 inset-x-3 z-[350] rounded-md bg-amber-50/95 border border-amber-300 text-[11px] px-3 py-1.5 text-amber-900" data-testid="directions-permission-hint">
+                  Location denied — opened map without your start point.
+                </div>
+              )}
             </div>
           ) : (
             <div className="h-[420px] flex items-center justify-center text-muted-foreground text-sm">Map not configured</div>

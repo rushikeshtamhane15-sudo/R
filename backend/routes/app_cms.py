@@ -316,17 +316,39 @@ async def put_expenses(payload: ExpenseConfig, user: server.User = Depends(serve
 
 
 @router.get("/admin/pnl/daily")
-async def get_pnl_daily(days: int = 30, user: server.User = Depends(server.get_current_user)):
-    """Per-day P&L for the last N days. Each row has {date, sub_revenue,
-    rest_revenue, raw_material_cost, fixed_cost, total_revenue, total_expense,
-    net}."""
+async def get_pnl_daily(
+    days: int = 30,
+    cycle: Optional[str] = None,
+    user: server.User = Depends(server.get_current_user),
+):
+    """Per-day P&L for the last N days OR for a billing cycle (6th→5th).
+
+    iter-65 #8: when `cycle=YYYY-MM` is passed, window = 6 <YYYY-MM> → 5 of
+    next month, matching the revenue reset cadence. Without `cycle`, falls
+    back to the last `days` rows for backwards-compat.
+    """
     if user.role not in ("admin", "staff"):
         raise HTTPException(403, "Admin or staff only")
-    days = max(1, min(int(days), 90))
 
     from datetime import datetime, timedelta, timezone
     today = server.now_utc().date()
-    start = today - timedelta(days=days - 1)
+
+    if cycle:
+        try:
+            cy, cm = (int(x) for x in cycle.split("-"))
+        except Exception:  # noqa: BLE001
+            raise HTTPException(400, "cycle must be YYYY-MM")
+        start = datetime(cy, cm, 6).date()
+        ny = cy + (1 if cm == 12 else 0)
+        nm = 1 if cm == 12 else cm + 1
+        end = datetime(ny, nm, 6).date()
+        days_span = (end - start).days  # 28..31
+        days_used = days_span
+    else:
+        days_used = max(1, min(int(days), 90))
+        start = today - timedelta(days=days_used - 1)
+        end = today + timedelta(days=1)  # half-open
+        days_span = days_used
 
     # Monthly fixed expenses → daily fixed cost (÷ 30)
     exp = await server.db.app_config.find_one({"_id": "monthly_expenses"}, {"_id": 0}) or {}
@@ -344,7 +366,7 @@ async def get_pnl_daily(days: int = 30, user: server.User = Depends(server.get_c
     sub_rev_pipe = [
         {"$match": {"paid_at": {"$ne": None}, "status": {"$in": ["paid", "completed"]}}},
         {"$project": {"day": {"$substr": ["$paid_at", 0, 10]}, "amount": "$amount"}},
-        {"$match": {"day": {"$gte": start.isoformat(), "$lte": today.isoformat()}}},
+        {"$match": {"day": {"$gte": start.isoformat(), "$lt": end.isoformat()}}},
         {"$group": {"_id": "$day", "total": {"$sum": "$amount"}}},
     ]
     sub_rows = {r["_id"]: float(r.get("total") or 0) async for r in server.db.payments.aggregate(sub_rev_pipe)}
@@ -353,14 +375,14 @@ async def get_pnl_daily(days: int = 30, user: server.User = Depends(server.get_c
     rest_rev_pipe = [
         {"$match": {"paid_at": {"$ne": None}, "status": {"$nin": ["cancelled", "rejected"]}}},
         {"$project": {"day": {"$substr": ["$paid_at", 0, 10]}, "total": "$total"}},
-        {"$match": {"day": {"$gte": start.isoformat(), "$lte": today.isoformat()}}},
+        {"$match": {"day": {"$gte": start.isoformat(), "$lt": end.isoformat()}}},
         {"$group": {"_id": "$day", "total": {"$sum": "$total"}}},
     ]
     rest_rows = {r["_id"]: float(r.get("total") or 0) async for r in server.db.restaurant_orders.aggregate(rest_rev_pipe)}
 
     rows = []
     cum_net = 0.0
-    for i in range(days):
+    for i in range(days_span):
         d = (start + timedelta(days=i)).isoformat()
         sub = sub_rows.get(d, 0.0)
         rest = rest_rows.get(d, 0.0)
@@ -382,11 +404,17 @@ async def get_pnl_daily(days: int = 30, user: server.User = Depends(server.get_c
     return {
         "rows": rows,
         "summary": {
-            "days": days,
+            "days": days_used,
             "total_revenue": round(sum(r["total_revenue"] for r in rows), 2),
             "total_expense": round(sum(r["total_expense"] for r in rows), 2),
             "net": round(cum_net, 2),
             "is_profit": cum_net >= 0,
+        },
+        "cycle": {
+            "active": bool(cycle),
+            "start": start.isoformat(),
+            "end": (end - timedelta(days=1)).isoformat() if cycle else today.isoformat(),
+            "label": cycle if cycle else None,
         },
         "config": {
             "monthly_fixed": monthly_fixed,
