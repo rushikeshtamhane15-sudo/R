@@ -1063,3 +1063,19 @@ See `/app/memory/test_credentials.md`.
 - **No backend changes**. Lint clean. Visual verification on `/home`, `/plans`, `/contact`.
 
 
+
+### Iteration 65 (Jun 5, 2026) — 10-item batch: hero particles · footer brand · order from mess menu · P&L cycle · etc.
+- **Hero particles** (`HeroParticles.jsx`) — CSS-only steam plumes + floating PURE VEG / NO MAIDA / NO AJINOMOTO / NO REFINED OIL chips drifting up behind the Landing hero title. Uses `prefers-reduced-motion` to fall back to a static dim layer. Subtle mouse-driven parallax via CSS variables `--px/--py` set on the section's `onMouseMove`.
+- **Today/Tomorrow menu flash empty state** (`TodayMessMenuFlash.jsx`) — when both today + tomorrow records are missing, the component now renders a placeholder card (`menu-flash-empty-both`) with "Mess menu coming soon" instead of disappearing.
+- **AnnouncementBar tighter on mobile** — repeat reduced from 3× to 2×; mobile font shrunk to `text-[11px]` and padding to `py-1.5`; preserves desktop look at sm+.
+- **Footer brand block** (`Footer.jsx`) — global on every route: big logo + "efoodcare" + tagline + promise "India's first zero meal adulteration app — proudly made by the genius team of efoodcare." + corporate office card (address, phone, email, website). Sits above the existing FSSAI + copyright bar.
+- **Hero Call us + WhatsApp us pills** — bottom of the landing hero, `tel:+919175560211` and `wa.me/919175560211` with prefilled message.
+- **Contact map → Google Maps directions** — tap-anywhere overlay + pinned "Get directions" pill build the deeplink `https://www.google.com/maps/dir/?api=1&destination=<lat>,<lng>&travelmode=driving`, asking for user's GPS to also set origin. Distance pill shows km when geolocation succeeds.
+- **Admin Overview cycle/day/month/year** (`/admin/stats` + `AdminDashboard.jsx`) — billing-cycle window (6th→5th) is the default. **Bug fix**: `active_subscriptions` now only counts subs whose user record exists with `role=subscriber`, killing the phantom "2 subs" the user reported on production with no real subscribers. Revenue is windowed to the chosen period.
+- **Restaurant orders filters + open count** (`AdminRestaurantOrders.jsx`) — pulsing red "X open" pill + status chip filter (open/all/paid/preparing/ready_for_pickup/out_for_delivery/delivered/rejected) + date picker (IST).
+- **Mess-menu CMS config + Order Now** — admin can edit gradient (from/mid/to + text), per-service prices (delivery ₹140, takeaway ₹120, dining ₹100), and a "Allow ordering" toggle from `/admin/mess-menu`. The user-facing card now renders with the saved gradient and shows an inline "Order this menu" form (meal toggle + service tabs + qty stepper + Place order). Backend: `GET/PUT /api/admin/mess-menu/config`, `POST /api/mess-menu/order` → persists to `mess_menu_orders`.
+- **P&L billing cycle + breakeven projection** (`AdminPnL.jsx` + `/admin/pnl/daily?cycle=YYYY-MM`) — "Billing cycle" mode resets on the 6th of every month; on `day === 6`, surfaces the previous cycle's net profit/loss banner (`pnl-prev-cycle-flash`). Plus a mock breakeven calculator (monthly fixed + daily raw + projected revenue/day → daily net, projected monthly net, breakeven days).
+- **Testing**: 7/7 backend pytest pass (`test_iter65.py`) + 11/11 frontend review items pass (`iteration_57.json`). 100% success on both.
+- **Open cosmetic**: Contact page CONTACT_INFO.phone (+91 99707 05391) differs from the corporate number (+91 91755 60211). Either align in `/admin/content` CMS or label them as 'support' vs 'corporate'. Not a code change — admin-editable.
+- **Future**: Replace per-row Mongo query in `admin_stats` active-sub loop with a single `$lookup` aggregation (currently O(N) — fine at sub <1k, slow above).
+
