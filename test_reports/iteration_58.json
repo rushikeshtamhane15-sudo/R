@@ -1,0 +1,38 @@
+{
+  "summary": "Iter-66 backend + frontend testing complete. All 9 backend tests in test_iter66.py PASS: (1) admin push config GET/PUT persists all keys (enabled/hour_ist/title_template/body_template/cta_label/cta_route); subscriber gets 403 on both. (2) /admin/mess-menu/push/preview returns 400 with no menu seeded → 200 with rendered title/body when seeded; body substitutes {menu} and {delivery_price}. (3) /admin/mess-menu/push/send-now is idempotent — called twice → only 1 row in mess_menu_broadcasts for today, first_sent_at preserved, sent_at refreshed; public GET /api/mess-menu/push returns the broadcast for unauthenticated users. (4) POST /api/mess-menu/order now returns a checkout block with order_id/amount_paise/currency/key_id/mock/name/description/prefill; with Razorpay LIVE keys auth-failing in preview, mock=true and order_id starts with order_mock_. (5) POST /api/mess-menu/order/verify auto-verifies mock orders (status='paid', paid_at set), idempotent on second call, returns 404 for unknown order_id, 403 for another user's order. (6) tick_daily_menu_push() at configured hour fires once and is idempotent on second call; outside the configured hour it skips (no row written). Frontend on mobile 390x844: admin /admin/mess-menu shows menu-push-config-card with all controls (mp-enabled, mp-hour, mp-title, mp-body, mp-cta-label, mp-cta-route, mp-preview, mp-send-now, mp-save). Clicking Preview renders mp-preview-card showing 'TODAY'S LUNCH · UI Test Paneer Lunch · CTA → Order now → /dashboard'. Clicking Send now triggers toast 'Broadcast sent for today'. On the subscriber-facing /restaurant page, menu-push-banner renders above TodayMessMenuFlash with title 'TODAY'S LUNCH', the seeded menu body, an 'Order now' CTA, and an X dismiss button. Clicking dismiss writes today's ISO date into localStorage key efc_menu_push_dismiss_v1; banner disappears immediately and stays gone after a full page reload. /admin/pnl Billing-cycle mode shows the new pnl-show-prev-toggle button (date today = 5 Jun 2026, NOT day 6) and clicking it reveals pnl-prev-cycle-flash banner ('PREVIOUS CYCLE (2026-04) CLOSED · Net loss ₹1,56,371.1') — confirming the always-on toggle works on any day, not just the 6th.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/admin/mess-menu/push/config", "issue": "Brief says POST but route is implemented as PUT (router.put). Tested with PUT — works. Either update brief or add a POST alias for consistency with other admin save endpoints."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter66.py",
+    "/app/test_reports/pytest/iter66_results.xml"
+  ],
+  "action_items": [
+    "Minor doc fix: brief says POST /api/admin/mess-menu/push/config but implementation uses PUT. Either add a POST alias or update PRD/brief."
+  ],
+  "critical_code_review_comments": [
+    "routes/mess_menu_push.py uses bare `import server` (line 27) while every other route under /app/backend/routes uses `from shared import server`. This caused a circular-import error when the test tried to `from routes import mess_menu_push` directly (server.py at import time also tries to import the router). Workaround in test: import server first. For consistency and to avoid future test/tooling pain, switch to `from shared import server` like the rest of the routes/ folder.",
+    "routes/mess_menu_push.py _build_message() picks lunch by default and switches to dinner only after 16:00 IST. There is no admin override — if the daily 11:00 broadcast was missed and admin clicks Send now at 6 PM with a lunch-only menu, the function will return None (because dinner is empty) and 400. Consider a `?meal=lunch|dinner` query param on /push/send-now to let admin force the meal.",
+    "routes/mess_menu_push.py admin_send_now() does NOT skip when `enabled=false` — admin can force-send even when the toggle is off. That's probably intended (manual override) but worth documenting.",
+    "frontend/src/components/MenuPushBanner.jsx never re-fetches /mess-menu/push after a route change inside the SPA — useEffect runs once on mount. If the admin sends a broadcast while the user is already on /restaurant, the banner won't appear until the next reload. Consider polling every 60-120s or refetching on visibilitychange.",
+    "MenuPushBanner.jsx silently swallows errors on the GET (catch with no-op). If /mess-menu/push starts returning 500, the dev console will not surface it — minor logging would help triage."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter66.py"
+  ],
+  "success_rate": {"backend": "100% (9/9)", "frontend": "100% (all 3 review-listed flows verified)"},
+  "test_credentials": "Backend tests: synthetic admin + subscriber via Mongo seed (cleaned per-test). Frontend UI tests: temporary session sess_iter66ui_admin_* and sess_iter66ui_sub_* — cleaned up at end of test run. Razorpay LIVE keys are intentionally failing in preview → all mess-menu order flows fall back to mock=true and auto-verify.",
+  "seed_data_creation": "Per-test only. Seeded today's mess_menu row (lunch='UI Test Paneer Lunch') for the frontend test — cleaned at end of run. mess_menu_broadcasts for today (2026-06-05) was created during /push/send-now and then deleted in teardown. No persistent test data remains.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter-66 backend pytest XML: /app/test_reports/pytest/iter66_results.xml. test_iter66.py covers all three iter-66 follow-ups end-to-end. Note: routes/mess_menu_push.py uses `import server` (not `from shared import server`) — when writing tests that import the module directly, you MUST `import server` first to avoid a partial-import error. The tick test rebinds `server.db` to the test's event loop to dodge Motor's loop-binding behavior — replicate this pattern for any future async route-level unit test. Today's IST date in the preview env is 2026-06-05 (NOT day 6) — pnl-show-prev-toggle on /admin/pnl correctly renders pnl-prev-cycle-flash regardless of date, confirming the always-on behavior.",
+  "rca of the issue": "No production bugs found. Test-harness issue: directly importing `routes.mess_menu_push` triggered a circular import because the module does `import server` while server.py imports the router. RCA: inconsistency with the rest of routes/* which uses `from shared import server`. Mitigation: in test_iter66.py we `import server` first so the module is fully loaded; recommend main agent change line 27 of mess_menu_push.py to `from shared import server` for codebase consistency."
+}

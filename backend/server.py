@@ -2444,6 +2444,7 @@ from routes.kitchen_closeout import router as _kitchen_closeout_router
 from routes.control_tower import router as _control_tower_router
 from routes.mess_menu_cal import router as _mess_menu_cal_router
 from routes.mess_menu_poster import router as _mess_menu_poster_router
+from routes.mess_menu_push import router as _mess_menu_push_router, tick_daily_menu_push
 api_router.include_router(_auth_router)
 api_router.include_router(_auth_google_router)
 api_router.include_router(_payments_router)
@@ -2469,6 +2470,7 @@ api_router.include_router(_kitchen_closeout_router)
 api_router.include_router(_control_tower_router)
 api_router.include_router(_mess_menu_cal_router)
 api_router.include_router(_mess_menu_poster_router)
+api_router.include_router(_mess_menu_push_router)
 
 app.include_router(api_router)
 
@@ -2498,6 +2500,7 @@ async def on_startup():
         run_subscription_tick=run_subscription_tick,
         run_empty_tiffin_reminders=run_empty_tiffin_reminders,
         run_expiry_reminders=run_expiry_reminders,
+        run_menu_push=tick_daily_menu_push,
     )
     logger.info(f"[STARTUP] empty-tiffin SMS stub_mode={_sms_stub_mode_status()} · expiry lead_days={EXPIRY_LEAD_DAYS}")
     # Razorpay key validation — non-blocking, just informational.

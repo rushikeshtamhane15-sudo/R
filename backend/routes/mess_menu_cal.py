@@ -230,9 +230,39 @@ async def place_mess_order(payload: MessMenuOrderIn, user: server.User = Depends
     price_key = f"price_{payload.service}"
     unit_price = int(cfg.get(price_key) or 0)
     total = unit_price * payload.qty
+
+    # iter-66 #2: chain with Razorpay so users can actually pay.
     import uuid
+    receipt = f"mm_{uuid.uuid4().hex[:12]}"
+    amount_paise = int(round(total * 100))
+    rzp_order = None
+    if getattr(server, "RZP_ENABLED", False):
+        try:
+            rzp_order = server.rzp_client.order.create({
+                "amount": amount_paise, "currency": "INR", "receipt": receipt,
+                "payment_capture": 1,
+                "notes": {
+                    "kind": "mess_menu_order",
+                    "user_id": user.user_id,
+                    "service": payload.service,
+                    "meal_type": payload.meal_type,
+                    "date": payload.date,
+                    "qty": str(payload.qty),
+                },
+            })
+        except Exception as e:  # noqa: BLE001
+            server.logger.warning(f"[RZP/mess] order.create failed → MOCK · {e}")
+            rzp_order = None
+    if rzp_order is not None:
+        order_id = rzp_order["id"]
+        mock = False
+    else:
+        order_id = f"order_mock_{uuid.uuid4().hex[:14]}"
+        mock = True
+
     order = {
-        "order_id": f"mm_{uuid.uuid4().hex[:12]}",
+        "order_id": order_id,
+        "receipt": receipt,
         "user_id": user.user_id,
         "service": payload.service,
         "qty": payload.qty,
@@ -241,9 +271,67 @@ async def place_mess_order(payload: MessMenuOrderIn, user: server.User = Depends
         "menu_text": menu.get(payload.meal_type),
         "unit_price": unit_price,
         "total": total,
+        "amount_paise": amount_paise,
+        "currency": "INR",
         "status": "pending_payment",
+        "mock": mock,
         "note": (payload.note or "").strip(),
         "created_at": server.iso(server.now_utc()),
     }
     await server.db.mess_menu_orders.insert_one(order)
-    return {"ok": True, "order": {k: v for k, v in order.items() if k != "_id"}}
+
+    user_doc = await server.db.users.find_one({"user_id": user.user_id}, {"_id": 0}) or {}
+    return {
+        "ok": True,
+        "order": {k: v for k, v in order.items() if k != "_id"},
+        "checkout": {
+            "order_id": order_id,
+            "amount_paise": amount_paise,
+            "amount": total,
+            "currency": "INR",
+            "key_id": getattr(server, "RZP_KEY_ID", "rzp_test_MOCK") if getattr(server, "RZP_ENABLED", False) else "rzp_test_MOCK",
+            "mock": mock,
+            "name": f"efoodcare · {payload.meal_type.capitalize()} ({payload.service})",
+            "description": f"{payload.qty} × {menu.get(payload.meal_type)[:80]}",
+            "prefill": {"name": user_doc.get("name", ""), "email": user_doc.get("email", ""), "contact": user_doc.get("phone", "")},
+        },
+    }
+
+
+class MessMenuVerifyIn(BaseModel):
+    order_id: str
+    razorpay_payment_id: str = ""
+    razorpay_signature: str = ""
+
+
+@router.post("/mess-menu/order/verify")
+async def verify_mess_order(payload: MessMenuVerifyIn, user: server.User = Depends(server.get_current_user)):
+    order = await server.db.mess_menu_orders.find_one({"order_id": payload.order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order["user_id"] != user.user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if order.get("mock"):
+        server.logger.warning(f"[MOCKED] Auto-verifying mock mess-menu order {payload.order_id}")
+    else:
+        try:
+            server.rzp_client.utility.verify_payment_signature({
+                "razorpay_order_id": payload.order_id,
+                "razorpay_payment_id": payload.razorpay_payment_id,
+                "razorpay_signature": payload.razorpay_signature,
+            })
+        except Exception as e:
+            server.logger.error(f"Mess-menu signature verify failed: {e}")
+            raise HTTPException(status_code=400, detail="Invalid payment signature")
+
+    await server.db.mess_menu_orders.update_one(
+        {"order_id": payload.order_id},
+        {"$set": {
+            "status": "paid",
+            "razorpay_payment_id": payload.razorpay_payment_id,
+            "razorpay_signature": payload.razorpay_signature,
+            "paid_at": server.iso(server.now_utc()),
+        }},
+    )
+    fresh = await server.db.mess_menu_orders.find_one({"order_id": payload.order_id}, {"_id": 0})
+    return {"ok": True, "status": fresh.get("status"), "order": fresh}

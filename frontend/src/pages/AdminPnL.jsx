@@ -73,17 +73,21 @@ export default function AdminPnL() {
 
   // iter-65 #8: "Flash net profit on 6th" — when today is the 6th, the
   // user lands here looking for last cycle's net. We surface a banner.
+  // iter-66 #1: also allow admin to view previous-cycle net at any time
+  // via a manual toggle, not just on day=6.
   const today = new Date();
   const isFlashDay = today.getDate() === 6 && mode === "cycle" && cycle === currentCycleYM(today);
+  const [showPrev, setShowPrev] = useState(false);
   const prevYm = prevCycleYM(currentCycleYM(today));
   const [flashPrev, setFlashPrev] = useState(null);
   useEffect(() => {
-    if (!isFlashDay) { setFlashPrev(null); return; }
+    const shouldFetch = isFlashDay || showPrev;
+    if (!shouldFetch) { setFlashPrev(null); return; }
     (async () => {
       try { const r = await api.get(`/admin/pnl/daily?cycle=${encodeURIComponent(prevYm)}`); setFlashPrev(r.data?.summary || null); }
       catch { /* noop */ }
     })();
-  }, [isFlashDay, prevYm]);
+  }, [isFlashDay, showPrev, prevYm]);
 
   if (!data) return <div className="p-12 text-center text-muted-foreground">Loading P&L…</div>;
 
@@ -113,6 +117,17 @@ export default function AdminPnL() {
               </span>
               <Button size="sm" variant="outline" className="rounded-full h-8 text-xs" onClick={() => setCycle(nextCycleYM(cycle))} data-testid="pnl-cycle-next">→</Button>
               <Button size="sm" variant="ghost" className="rounded-full h-8 text-xs" onClick={() => setCycle(currentCycleYM())} data-testid="pnl-cycle-now">This cycle</Button>
+              {/* iter-66 #1: always-on "Previous cycle" peek */}
+              <Button
+                size="sm"
+                variant={showPrev ? "default" : "outline"}
+                className="rounded-full h-8 text-xs"
+                onClick={() => setShowPrev((v) => !v)}
+                data-testid="pnl-show-prev-toggle"
+                title="Show last cycle's net profit / loss banner"
+              >
+                {showPrev ? "Hide previous" : "Previous cycle"}
+              </Button>
             </div>
           ) : (
             <div className="flex gap-2">

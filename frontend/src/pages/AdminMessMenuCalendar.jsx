@@ -111,6 +111,9 @@ export default function AdminMessMenuCalendar() {
       {/* iter-65 #11: mess-menu CMS config (BG colors + per-service prices) */}
       <MessMenuConfigCard />
 
+      {/* iter-66 #3: daily 11 AM mess-menu push CMS */}
+      <MenuPushConfigCard />
+
       <div className="mt-5 grid lg:grid-cols-5 gap-4 sm:gap-5">
         {/* Calendar */}
         <div className="lg:col-span-3 bg-card rounded-2xl border border-border p-4 sm:p-5">
@@ -350,3 +353,86 @@ function PriceField({ label, value, onChange, testId }) {
     </label>
   );
 }
+
+/* iter-66 #3: Daily mess-menu push CMS */
+function MenuPushConfigCard() {
+  const [cfg, setCfg] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [sending, setSending] = useState(false);
+  useEffect(() => {
+    (async () => {
+      try { const r = await api.get("/admin/mess-menu/push/config"); setCfg(r.data); }
+      catch { setCfg(null); }
+    })();
+  }, []);
+  if (!cfg) return null;
+  const set = (k) => (v) => setCfg((c) => ({ ...c, [k]: v }));
+  const save = async () => {
+    setSaving(true);
+    try { await api.put("/admin/mess-menu/push/config", cfg); toast.success("Push config saved"); }
+    catch { toast.error("Save failed"); }
+    finally { setSaving(false); }
+  };
+  const doPreview = async () => {
+    try { const r = await api.post("/admin/mess-menu/push/preview"); setPreview(r.data?.preview || null); }
+    catch (e) { toast.error(e?.response?.data?.detail || "Preview failed"); }
+  };
+  const sendNow = async () => {
+    if (!window.confirm("Send today's broadcast right now to everyone opening the app?")) return;
+    setSending(true);
+    try { await api.post("/admin/mess-menu/push/send-now"); toast.success("Broadcast sent for today"); }
+    catch (e) { toast.error(e?.response?.data?.detail || "Send failed"); }
+    finally { setSending(false); }
+  };
+  return (
+    <div className="mt-4 bg-card rounded-2xl border border-border p-4 sm:p-5" data-testid="menu-push-config-card">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <p className="font-display font-extrabold text-sm sm:text-base">Daily menu push</p>
+          <p className="text-xs text-muted-foreground">Auto-broadcast today's menu once per IST day — drives impulse orders.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" className="rounded-full h-9 text-xs" onClick={doPreview} data-testid="mp-preview">Preview</Button>
+          <Button size="sm" variant="outline" className="rounded-full h-9 text-xs" onClick={sendNow} disabled={sending} data-testid="mp-send-now">{sending ? "Sending…" : "Send now"}</Button>
+          <Button size="sm" className="rounded-full h-9 text-xs" onClick={save} disabled={saving} data-testid="mp-save">{saving ? "Saving…" : "Save"}</Button>
+        </div>
+      </div>
+      <div className="mt-3 grid sm:grid-cols-3 gap-3">
+        <label className="flex items-center gap-2 text-xs font-semibold">
+          <input type="checkbox" checked={!!cfg.enabled} onChange={(e) => set("enabled")(e.target.checked)} data-testid="mp-enabled" /> Enabled
+        </label>
+        <label className="block">
+          <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Send at hour (IST, 0-23)</span>
+          <Input type="number" min={0} max={23} value={cfg.hour_ist} onChange={(e) => set("hour_ist")(Math.min(23, Math.max(0, Number(e.target.value || 0))))} className="mt-1 h-9 font-mono tabular-nums" data-testid="mp-hour" />
+        </label>
+        <label className="block">
+          <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">CTA route</span>
+          <Input value={cfg.cta_route} onChange={(e) => set("cta_route")(e.target.value)} className="mt-1 h-9 font-mono text-xs" data-testid="mp-cta-route" />
+        </label>
+      </div>
+      <div className="mt-3 grid sm:grid-cols-2 gap-3">
+        <label className="block">
+          <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Title template</span>
+          <Input value={cfg.title_template} onChange={(e) => set("title_template")(e.target.value)} className="mt-1 h-9 text-xs" data-testid="mp-title" />
+        </label>
+        <label className="block">
+          <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">CTA label</span>
+          <Input value={cfg.cta_label} onChange={(e) => set("cta_label")(e.target.value)} className="mt-1 h-9 text-xs" data-testid="mp-cta-label" />
+        </label>
+      </div>
+      <label className="block mt-3">
+        <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Body template — supports {`{meal} {menu} {delivery_price} {takeaway_price} {dining_price} {date}`}</span>
+        <Input value={cfg.body_template} onChange={(e) => set("body_template")(e.target.value)} className="mt-1 h-9 text-xs" data-testid="mp-body" />
+      </label>
+      {preview && (
+        <div className="mt-4 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2.5" data-testid="mp-preview-card">
+          <p className="text-[10px] tracking-[0.18em] uppercase font-extrabold text-emerald-800">{preview.title}</p>
+          <p className="text-sm font-bold mt-0.5">{preview.body}</p>
+          <p className="text-[10px] text-muted-foreground mt-1">CTA → {preview.cta_label} → {preview.cta_route}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+

@@ -21,11 +21,15 @@ logger = logging.getLogger("efoodcare")
 TICK_INTERVAL_SECONDS = int(os.environ.get("TICK_INTERVAL_SECONDS", "3600"))
 REMINDER_INTERVAL_SECONDS = int(os.environ.get("REMINDER_INTERVAL_SECONDS", "300"))
 EXPIRY_SCAN_INTERVAL_SECONDS = int(os.environ.get("EXPIRY_SCAN_INTERVAL_SECONDS", "3600"))
+# iter-66 #3: how often to check whether the daily-menu push hour has hit.
+# Once a minute is plenty — broadcast is idempotent per IST date.
+MENU_PUSH_INTERVAL_SECONDS = int(os.environ.get("MENU_PUSH_INTERVAL_SECONDS", "60"))
 
 # Stagger first runs so they don't collide on cold start.
 _INITIAL_DELAY_TICK = 15
 _INITIAL_DELAY_REMINDER = 20
 _INITIAL_DELAY_EXPIRY = 40
+_INITIAL_DELAY_MENU_PUSH = 25
 
 AsyncFn = Callable[[], Awaitable[object]]
 
@@ -47,16 +51,19 @@ def start_background_loops(
     run_subscription_tick: AsyncFn,
     run_empty_tiffin_reminders: AsyncFn,
     run_expiry_reminders: AsyncFn,
+    run_menu_push: AsyncFn,
 ) -> List[asyncio.Task]:
-    """Launch all three daemons. Returns the list of asyncio Tasks so the caller
+    """Launch all four daemons. Returns the list of asyncio Tasks so the caller
     can cancel them on shutdown if needed."""
     tasks = [
         asyncio.create_task(_periodic("CRON TICK LOOP", run_subscription_tick, TICK_INTERVAL_SECONDS, _INITIAL_DELAY_TICK)),
         asyncio.create_task(_periodic("REMINDER LOOP", run_empty_tiffin_reminders, REMINDER_INTERVAL_SECONDS, _INITIAL_DELAY_REMINDER)),
         asyncio.create_task(_periodic("EXPIRY LOOP", run_expiry_reminders, EXPIRY_SCAN_INTERVAL_SECONDS, _INITIAL_DELAY_EXPIRY)),
+        asyncio.create_task(_periodic("MENU PUSH LOOP", run_menu_push, MENU_PUSH_INTERVAL_SECONDS, _INITIAL_DELAY_MENU_PUSH)),
     ]
     logger.info(
         "[STARTUP] background scheduler launched · "
-        f"tick={TICK_INTERVAL_SECONDS}s · reminder={REMINDER_INTERVAL_SECONDS}s · expiry={EXPIRY_SCAN_INTERVAL_SECONDS}s"
+        f"tick={TICK_INTERVAL_SECONDS}s · reminder={REMINDER_INTERVAL_SECONDS}s · "
+        f"expiry={EXPIRY_SCAN_INTERVAL_SECONDS}s · menu_push={MENU_PUSH_INTERVAL_SECONDS}s"
     )
     return tasks

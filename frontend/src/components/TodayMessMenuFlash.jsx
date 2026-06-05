@@ -4,6 +4,18 @@ import { ChefHat, Sun, Moon, Sunrise, ShoppingCart, Truck, Utensils, Package, Lo
 import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
+import MenuPushBanner from "./MenuPushBanner";
+
+function loadRazorpay() {
+  return new Promise((resolve) => {
+    if (window.Razorpay) return resolve();
+    const s = document.createElement("script");
+    s.src = "https://checkout.razorpay.com/v1/checkout.js";
+    s.onload = resolve;
+    s.onerror = resolve;
+    document.body.appendChild(s);
+  });
+}
 
 /**
  * TodayMessMenuFlash — iter-62 #8, iter-63 #7 (Today/Tomorrow toggle),
@@ -68,8 +80,41 @@ export default function TodayMessMenuFlash({ compact = false }) {
       const r = await api.post("/mess-menu/order", {
         service, qty, date: activeDate, meal_type: orderMeal,
       });
-      toast.success(`Order placed · ₹${r.data?.order?.total ?? total}`);
-      setOrderOpen(false); setQty(1);
+      const checkout = r.data?.checkout;
+      // iter-66 #2: chain straight into Razorpay (or auto-verify mock orders)
+      if (!checkout) { toast.error("Order created but checkout failed"); return; }
+      if (checkout.mock) {
+        await api.post("/mess-menu/order/verify", {
+          order_id: checkout.order_id, razorpay_payment_id: "pay_mock", razorpay_signature: "sig",
+        });
+        toast.success(`Order placed · ₹${checkout.amount}`);
+        setOrderOpen(false); setQty(1);
+      } else {
+        await loadRazorpay();
+        const rzp = new window.Razorpay({
+          key: checkout.key_id,
+          amount: checkout.amount_paise,
+          currency: checkout.currency || "INR",
+          order_id: checkout.order_id,
+          name: checkout.name || "efoodcare",
+          description: checkout.description || "",
+          prefill: checkout.prefill || {},
+          theme: { color: "#047857" },
+          handler: async (res) => {
+            try {
+              await api.post("/mess-menu/order/verify", {
+                order_id: res.razorpay_order_id,
+                razorpay_payment_id: res.razorpay_payment_id,
+                razorpay_signature: res.razorpay_signature,
+              });
+              toast.success(`Order paid · ₹${checkout.amount}`);
+              setOrderOpen(false); setQty(1);
+            } catch { toast.error("Verify failed"); }
+          },
+          modal: { ondismiss: () => toast.message("Checkout cancelled") },
+        });
+        rzp.open();
+      }
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Could not place order");
     } finally {
@@ -79,6 +124,7 @@ export default function TodayMessMenuFlash({ compact = false }) {
 
   return (
     <div className={compact ? "" : "mt-4"} data-testid="mess-menu-flash">
+      <MenuPushBanner />
       {bothEmpty ? (
         <div className="rounded-2xl border border-dashed border-border bg-gradient-to-br from-muted/30 to-muted/10 px-4 py-6 text-center" data-testid="menu-flash-empty-both">
           <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary mb-2">
