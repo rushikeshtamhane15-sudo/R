@@ -1101,3 +1101,18 @@ See `/app/memory/test_credentials.md`.
 - **Tests**: 4/4 backend pytest pass (`test_iter67.py`) — covers send-now lunch override, dinner override, invalid-meal 400, preview dinner override.
 
 
+
+
+### Iteration 68 (Jun 5, 2026) — Cart-saver push
+- **New backend route** `/app/backend/routes/cart_saver.py`:
+  - `POST /api/mess-menu/order-intent` — subscriber logs an intent when opening the order form (upserts on re-open, keyed by `user_id + date + meal_type`).
+  - `GET /api/me/cart-saver` — returns a banner payload when there's an open intent older than `threshold_minutes` (default 5). Read-time computation, no scheduler needed.
+  - `POST /api/me/cart-saver/dismiss` — marks intent dismissed (owner-only, 404 on unknown).
+  - `GET/PUT /api/admin/cart-saver/config` — CMS (enabled, threshold_minutes, expire_minutes, title/body templates, CTA label/route).
+  - `GET /api/admin/cart-saver/stats` — last-30-day funnel (opened / paid / dismissed / expired / open).
+- **Auto-clear on payment**: `/api/mess-menu/order/verify` now calls `_mark_intents_paid()` so the banner disappears as soon as user finishes payment.
+- **Frontend `CartSaverBanner.jsx`** — amber gradient banner with pulsing flame icon, "Resume order" CTA + X dismiss. Polls every 60 s and refetches on `visibilitychange`. Sits above the menu flash card, only renders for logged-in users.
+- **Resume flow** — clicking "Resume order" pre-fills service/qty/meal/date back into `TodayMessMenuFlash` and re-opens the order form, ready to checkout in one tap.
+- **Intent logging on form open** — `Order this menu` button now fires `/order-intent` in the background so the banner can resurrect abandoned carts.
+- **Admin CMS card** — `CartSaverConfigCard` under `/admin/mess-menu` with 4-tile stats grid + enabled toggle + threshold/expire/template inputs.
+- **Testing**: 6/6 backend pytest pass (`test_iter68.py`) — intent log, banner before/after threshold, dismiss + 404, expire transition, admin config + 403, verify-clears-intent end-to-end.

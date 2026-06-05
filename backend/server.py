@@ -2445,6 +2445,7 @@ from routes.control_tower import router as _control_tower_router
 from routes.mess_menu_cal import router as _mess_menu_cal_router
 from routes.mess_menu_poster import router as _mess_menu_poster_router
 from routes.mess_menu_push import router as _mess_menu_push_router, tick_daily_menu_push
+from routes.cart_saver import router as _cart_saver_router
 api_router.include_router(_auth_router)
 api_router.include_router(_auth_google_router)
 api_router.include_router(_payments_router)
@@ -2471,6 +2472,7 @@ api_router.include_router(_control_tower_router)
 api_router.include_router(_mess_menu_cal_router)
 api_router.include_router(_mess_menu_poster_router)
 api_router.include_router(_mess_menu_push_router)
+api_router.include_router(_cart_saver_router)
 
 app.include_router(api_router)
 

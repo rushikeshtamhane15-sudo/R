@@ -334,4 +334,10 @@ async def verify_mess_order(payload: MessMenuVerifyIn, user: server.User = Depen
         }},
     )
     fresh = await server.db.mess_menu_orders.find_one({"order_id": payload.order_id}, {"_id": 0})
+    # iter-68: clear any open cart-saver intent so the banner disappears
+    try:
+        from routes.cart_saver import _mark_intents_paid
+        await _mark_intents_paid(fresh["user_id"], fresh["date"], fresh["meal_type"])
+    except Exception as e:  # noqa: BLE001
+        server.logger.warning(f"[iter-68] could not clear cart-saver intent: {e}")
     return {"ok": True, "status": fresh.get("status"), "order": fresh}

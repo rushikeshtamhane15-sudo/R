@@ -114,6 +114,9 @@ export default function AdminMessMenuCalendar() {
       {/* iter-66 #3: daily 11 AM mess-menu push CMS */}
       <MenuPushConfigCard />
 
+      {/* iter-68: cart-saver push CMS */}
+      <CartSaverConfigCard />
+
       <div className="mt-5 grid lg:grid-cols-5 gap-4 sm:gap-5">
         {/* Calendar */}
         <div className="lg:col-span-3 bg-card rounded-2xl border border-border p-4 sm:p-5">
@@ -447,6 +450,90 @@ function MenuPushConfigCard() {
           <p className="text-[10px] text-muted-foreground mt-1">CTA → {preview.cta_label} → {preview.cta_route}</p>
         </div>
       )}
+    </div>
+  );
+}
+
+
+/* iter-68: Cart-saver push CMS */
+function CartSaverConfigCard() {
+  const [cfg, setCfg] = useState(null);
+  const [stats, setStats] = useState(null);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    (async () => {
+      try {
+        const [c, s] = await Promise.all([
+          api.get("/admin/cart-saver/config"),
+          api.get("/admin/cart-saver/stats"),
+        ]);
+        setCfg(c.data); setStats(s.data?.last_30_days || null);
+      } catch { setCfg(null); }
+    })();
+  }, []);
+  if (!cfg) return null;
+  const set = (k) => (v) => setCfg((c) => ({ ...c, [k]: v }));
+  const save = async () => {
+    setSaving(true);
+    try { await api.put("/admin/cart-saver/config", cfg); toast.success("Cart-saver config saved"); }
+    catch { toast.error("Save failed"); }
+    finally { setSaving(false); }
+  };
+  return (
+    <div className="mt-4 bg-card rounded-2xl border border-border p-4 sm:p-5" data-testid="cart-saver-config-card">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <p className="font-display font-extrabold text-sm sm:text-base">Cart-saver push</p>
+          <p className="text-xs text-muted-foreground">Recover users who opened the order form but didn't finish payment.</p>
+        </div>
+        <Button size="sm" className="rounded-full h-9 text-xs" onClick={save} disabled={saving} data-testid="cs-save">{saving ? "Saving…" : "Save"}</Button>
+      </div>
+      {stats && (
+        <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs" data-testid="cs-stats">
+          {[
+            { label: "Opened (30d)", value: stats.opened, testId: "cs-stat-opened" },
+            { label: "Paid", value: stats.paid, testId: "cs-stat-paid" },
+            { label: "Dismissed", value: stats.dismissed, testId: "cs-stat-dismissed" },
+            { label: "Expired", value: stats.expired, testId: "cs-stat-expired" },
+          ].map((s) => (
+            <div key={s.label} className="rounded-lg bg-muted/40 px-3 py-2" data-testid={s.testId}>
+              <p className="text-[9px] tracking-overline uppercase font-bold text-muted-foreground">{s.label}</p>
+              <p className="font-display font-extrabold text-lg tabular-nums mt-0.5">{s.value}</p>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="mt-3 grid sm:grid-cols-3 gap-3">
+        <label className="flex items-center gap-2 text-xs font-semibold">
+          <input type="checkbox" checked={!!cfg.enabled} onChange={(e) => set("enabled")(e.target.checked)} data-testid="cs-enabled" /> Enabled
+        </label>
+        <label className="block">
+          <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Threshold (minutes)</span>
+          <Input type="number" min={1} max={120} value={cfg.threshold_minutes} onChange={(e) => set("threshold_minutes")(Math.min(120, Math.max(1, Number(e.target.value || 5))))} className="mt-1 h-9 font-mono tabular-nums" data-testid="cs-threshold" />
+        </label>
+        <label className="block">
+          <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Expire after (minutes)</span>
+          <Input type="number" min={5} max={1440} value={cfg.expire_minutes} onChange={(e) => set("expire_minutes")(Math.min(1440, Math.max(5, Number(e.target.value || 90))))} className="mt-1 h-9 font-mono tabular-nums" data-testid="cs-expire" />
+        </label>
+      </div>
+      <div className="mt-3 grid sm:grid-cols-2 gap-3">
+        <label className="block">
+          <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Title template</span>
+          <Input value={cfg.title_template} onChange={(e) => set("title_template")(e.target.value)} className="mt-1 h-9 text-xs" data-testid="cs-title" />
+        </label>
+        <label className="block">
+          <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">CTA label</span>
+          <Input value={cfg.cta_label} onChange={(e) => set("cta_label")(e.target.value)} className="mt-1 h-9 text-xs" data-testid="cs-cta-label" />
+        </label>
+      </div>
+      <label className="block mt-3">
+        <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Body template — supports {`{meal} {menu} {service} {total} {qty}`}</span>
+        <Input value={cfg.body_template} onChange={(e) => set("body_template")(e.target.value)} className="mt-1 h-9 text-xs" data-testid="cs-body" />
+      </label>
+      <label className="block mt-3">
+        <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">CTA route</span>
+        <Input value={cfg.cta_route} onChange={(e) => set("cta_route")(e.target.value)} className="mt-1 h-9 font-mono text-xs" data-testid="cs-cta-route" />
+      </label>
     </div>
   );
 }

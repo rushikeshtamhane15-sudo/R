@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import MenuPushBanner from "./MenuPushBanner";
+import CartSaverBanner from "./CartSaverBanner";
 
 function loadRazorpay() {
   return new Promise((resolve) => {
@@ -125,6 +126,16 @@ export default function TodayMessMenuFlash({ compact = false }) {
   return (
     <div className={compact ? "" : "mt-4"} data-testid="mess-menu-flash">
       <MenuPushBanner />
+      <CartSaverBanner
+        onResume={(b) => {
+          if (b.meal_type) setOrderMeal(b.meal_type);
+          if (b.service) setService(b.service);
+          if (b.qty) setQty(b.qty);
+          if (data && b.date === data.tomorrow) setTab("tomorrow");
+          else setTab("today");
+          setOrderOpen(true);
+        }}
+      />
       {bothEmpty ? (
         <div className="rounded-2xl border border-dashed border-border bg-gradient-to-br from-muted/30 to-muted/10 px-4 py-6 text-center" data-testid="menu-flash-empty-both">
           <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary mb-2">
@@ -197,7 +208,22 @@ export default function TodayMessMenuFlash({ compact = false }) {
               {!orderOpen ? (
                 <button
                   type="button"
-                  onClick={() => { setOrderOpen(true); setOrderMeal(active.lunch ? "lunch" : "dinner"); }}
+                  onClick={() => {
+                    setOrderOpen(true);
+                    const initialMeal = active.lunch ? "lunch" : "dinner";
+                    setOrderMeal(initialMeal);
+                    // iter-68: log the intent so we can resurrect it later
+                    if (user) {
+                      api.post("/mess-menu/order-intent", {
+                        service,
+                        qty,
+                        meal_type: initialMeal,
+                        date: activeDate,
+                        menu_text: active[initialMeal] || "",
+                        total: priceFor(service) * qty,
+                      }).catch(() => { /* fire & forget */ });
+                    }
+                  }}
                   className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-white text-emerald-800 px-4 h-9 text-xs font-extrabold shadow hover:bg-white/95 transition-colors"
                   data-testid="menu-order-now"
                 >
