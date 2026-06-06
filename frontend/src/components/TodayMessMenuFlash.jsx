@@ -188,6 +188,16 @@ export default function TodayMessMenuFlash({ compact = false }) {
   };
 
   const placeOrder = async () => {
+    // iter-73 #12 follow-up: validate +91 phone BEFORE the auth gate so
+    // logged-out users with bad numbers see the toast immediately instead
+    // of bouncing through login and discovering the failure server-side.
+    if (service === "delivery") {
+      const valid = cleanIndianMobile(phone);
+      if (!valid) {
+        toast.error("Enter a valid +91 Indian mobile number for delivery");
+        return;
+      }
+    }
     if (!user) {
       // iter-73 #9: persist the full intent so we land STRAIGHT in checkout
       // after login, not on /dashboard.

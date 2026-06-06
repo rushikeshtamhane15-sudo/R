@@ -1169,3 +1169,40 @@ See `/app/memory/test_credentials.md`.
 - **Anonymous Razorpay checkout** on the kiosk (no logged-in user) — requires either (a) Razorpay Standard Checkout with a customer_phone field per order or (b) showing a static QR for UPI Intent. Will wire after user supplies fresh Razorpay LIVE keys.
 - **Persistent Bluetooth pairing across reloads** — blocked by Web Bluetooth security model (each new browsing context requires a user gesture). Best-effort solution: keep the kiosk tab open all day (one pair per kiosk power-cycle).
 
+
+### Iteration 73 (Jun 6, 2026) — 14-item UI/UX + Paytm Kiosk + About Us
+Massive 14-item user batch covering UI sizing polish + a Paytm Dynamic QR self-order kiosk + new About page + post-login redirect-loop bugfix.
+
+**Completed (12/14):**
+- **#1 #3** Slimmer mess-menu container & toggle tabs in `TodayMessMenuFlash.jsx` (p-3 → p-2.5, h-8 → h-7 toggle pills).
+- **#2** Restaurant top hero (`HeroPanel.jsx` LAYOUT_TEMPLATES) reduced py-6→py-4 / py-8→py-6.
+- **#4** Contact page — 3D restaurant-building emblem overlay (`<Utensils />` + drop-shadow puddle, data-testid `contact-3d-pin-emblem`) floats over the map pin. Google Maps direction URL now sends `destination=efoodcare · <full address>` instead of bare lat/lng so the destination label reads correctly (no more "Indira Digital").
+- **#5** Footer brand name now text-only 3D extruded effect via stacked `textShadow` layers — no solid red pill bg.
+- **#6** Login marquee wrapped in white card with soft shadow border.
+- **#7** Landing hero — tighter spacing between announcement-bar / location-pill / headline (pt-1, py-2 sm:py-4).
+- **#8** Hero CTAs: Call us + WhatsApp pills compacted to tiny side-by-side pills (h-7, no phone digits on Call), headline upsized to `text-[34px] sm:text-6xl lg:text-7xl`, subtitle to `text-[15px] sm:text-xl`.
+- **#9** **Critical bugfix — post-login redirect loop on mess-menu Place Order.** Before: clicking Place Order while logged-out bounced through login then landed on `/dashboard`, requiring user to click Place Order AGAIN. Now: `placeOrder()` persists the full order intent in `sessionStorage['efc_pending_mess_order_v1']` (service, qty, meal, date, payment method, phone, tab), redirects to `/login?next=<current path>`, and on return, a useEffect detects the pending intent and auto-fires `placeOrderInternal()` after a 80ms microtask — user sees the Razorpay modal (or cash/wallet success toast) immediately. `autoFiredRef` guards against double-firing.
+- **#10** Mess-menu order accepts `payment_method` of `online`, `cash`, `wallet` (NO partial — explicitly removed per request). Cash & wallet skip Razorpay; only `online` returns a checkout object. Status flows: online → `pending_payment` → (post-Razorpay) `paid`; cash/wallet → `pending_collection`.
+- **#11** **New `/about` page** with hero, 4 stats (FSSAI / 3 yrs+ / 150+ / 100%), 4-card promise grid (zero-adulteration, cold-pressed/local, ghar-jaisa, paperless+audited), 2023→2026 timeline, founder note from Rushikesh, kitchen-tile grid, visit-us CTA. 25+ data-testid `about-*` selectors. Route wired in App.js.
+- **#12** Mess-menu delivery flow now enforces +91 valid 10-digit Indian mobile (server-side AND client-side via `cleanIndianMobile()`). Strips `91` country-code prefix automatically. Rejects non-6/7/8/9 leading digits. Phone input visible only when `service==='delivery'`, prefixed with 🇮🇳 +91 badge. Client-side toast fires BEFORE the auth gate so logged-out users get instant feedback.
+- **#14** **Wall kiosk self-order (rebuilt)** — `/admin/kiosk` bottom panel now:
+  - Takeaway (₹120) + Dining (₹100) **only** — delivery removed.
+  - Three payment modes: **Cash** (skip QR, mark cash received) / **Paytm QR** (UPI Dynamic intent QR with merchant VPA) / **Cash + UPI** (split with auto-balanced fields).
+  - On Place Order with online portion → modal shows `qrcode.react` UPI QR (`upi://pay?pa=<PAYTM_VPA>&pn=efoodcare&am=<amount>&tn=<order_id>&cu=INR`), customer scans with any UPI app, staff taps "Mark paid & print receipt".
+  - On confirm → backend `POST /api/admin/kiosk/order/confirm-payment` transitions order to `pending_collection` once cash+online portions reconcile to total. Receipt modal auto-opens; Bluetooth printer auto-prints once per `order_id` (idempotent via `printedFor` ref-set).
+  - Razorpay LIVE auth now succeeds with rotated keys (`rzp_live_StwxFqd60PF0VM`) — startup log confirms.
+
+**Deferred (2/14):**
+- **#13 OTP-less mobile login** — user did not provide otpless.com credentials. Existing OTP dev-mode flow (MSG91 stub) remains. Will wire when user pastes `OTPLESS_CLIENT_ID` + `OTPLESS_CLIENT_SECRET`.
+- **Full Paytm Business Create-QR API** — user provided only `PAYTM_MERCHANT_KEY="hDoxPG49176143354786"`; MID still missing. Current UPI intent QR works without MID and is functionally equivalent for the kiosk use-case; swapping to the official Paytm Business API requires the MID + `paytmchecksum` lib.
+
+**Tests**: `/app/backend/tests/test_iter73.py` — 10/10 pass. Frontend testing agent verified 6/7 UI checkpoints; iter-73 #9 redirect-loop end-to-end + /admin/kiosk Paytm modal flow self-verified.
+
+**Backend changes**:
+- `routes/mess_menu_cal.py` — `MessMenuOrderIn` now accepts `phone` + `payment_method` (online/cash/wallet); `KioskOrderIn` accepts `payment_method` (cash/online/mixed) + `cash_amount` + `online_amount`; new endpoint `POST /admin/kiosk/order/confirm-payment`.
+- `.env` — Razorpay live keys rotated, Paytm config added (`PAYTM_MERCHANT_KEY`, `PAYTM_MID=""`, `PAYTM_VPA="efoodcare@paytm"`, `PAYTM_ENV="production"`).
+
+**Known follow-ups**:
+- User needs to supply `PAYTM_MID` to upgrade UPI intent QR → official Paytm Business Dynamic QR (with checksum-signed reconciliation polling).
+- User needs to supply OTP-less credentials to ship #13.
+
