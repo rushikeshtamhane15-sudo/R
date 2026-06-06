@@ -35,7 +35,18 @@ export default function Header() {
   const brandTagline = theme?.brand_tagline || "ghar se achha khana";
 
   const primary = [];
-  const info = (cmsInfo || DEFAULT_INFO).filter((it) => it.visible !== false);
+  // iter-74 #9 follow-up: merge DEFAULT_INFO with CMS overrides BY ID so
+  // newly-added defaults (like the About-us entry) always show up even
+  // if the existing CMS doc was authored before the default was added.
+  // CMS values win on overlap; defaults fill in any IDs the CMS lacks.
+  const cmsById = new Map((cmsInfo || []).map((it) => [it.id, it]));
+  const mergedInfo = DEFAULT_INFO.map((d) => cmsById.has(d.id) ? { ...d, ...cmsById.get(d.id) } : d);
+  // Then append any CMS-only entries (custom links the admin added)
+  // that don't exist in DEFAULT_INFO so we don't drop them.
+  for (const it of (cmsInfo || [])) {
+    if (!DEFAULT_INFO.find((d) => d.id === it.id)) mergedInfo.push(it);
+  }
+  const info = mergedInfo.filter((it) => it.visible !== false);
   if (user) {
     primary.push({ to: "/dashboard", label: "Dashboard" });
     primary.push({ to: "/plans", label: "Plans" });

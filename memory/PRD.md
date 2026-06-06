@@ -1206,3 +1206,28 @@ Massive 14-item user batch covering UI sizing polish + a Paytm Dynamic QR self-o
 - User needs to supply `PAYTM_MID` to upgrade UPI intent QR → official Paytm Business Dynamic QR (with checksum-signed reconciliation polling).
 - User needs to supply OTP-less credentials to ship #13.
 
+
+### Iteration 74 (Jun 6, 2026) — 11-item batch · Razorpay QR fallback + on-spot OTP + CSS fixes
+11 items, all shipped.
+
+**Completed:**
+- **#1 Razorpay QR fallback for kiosk** — CMS-driven provider toggle at `/admin/kiosk/qr-provider` (paytm | razorpay). When `provider=razorpay`, backend calls `client.qrcode.create({...type:'upi_qr', usage:'single_use', fixed_amount:True...})` and returns `razorpay_qr_image_url` + `razorpay_qr_id` to the kiosk. AdminKiosk.jsx swaps the modal display from `qrcode.react` SVG → real Razorpay QR `<img>` and starts a 4-sec poll loop on `/admin/kiosk/order/{order_id}/payment-status` which calls `client.qrcode.fetch(id)` and auto-confirms `online_paid=true` once `payments_amount_received >= expected`. Auto-prints on settle. If Razorpay rejects (e.g. account doesn't have QR Codes product enabled), backend gracefully falls back to UPI intent — kiosk still works.
+- **#2 MenuPushBanner CSS bugfix** — rewrote the layout from a single cramped flex row to title/body row + CTA-and-X row below. Body text now uses full width and stops wrapping into ugly stacked single words.
+- **#3 Contact map emblem** — switched from Utensils (fork) to ChefHat (restaurant). Removed the "3D" corner badge per request.
+- **#4 Footer brand editable** — kept the CMS `/admin/content/footer` route and updated the AdminContent label from "Brand name (white pill)" to "Brand name (white text on red footer)" so the admin understands the new styling.
+- **#5 Footer brand white-only** — dropped the 11-layer text-shadow stack; brand text is now plain `text-white` with no shadow.
+- **#6 Login marquee thicker border** — bumped border-y from 1px to 4px, halo shadow widened to 14px-32px-6px, inset white 3px ring. Reads as a crisp premium frame.
+- **#7 Reduced hero spacing** — `pt-1 sm:pt-1.5` → `pt-0.5` on the ServiceabilityPill, `py-2 sm:py-4 md:py-6` → `py-1 sm:py-3 md:py-5` on the hero block. Mb of the EXPERIENCE THE PREMIUM overline cut from `mb-2 sm:mb-3` → `mb-1.5 sm:mb-2`.
+- **#8 Centered Call/WhatsApp pills** — `inline-flex flex-row gap-2` → `flex flex-row justify-center gap-2` (centered on all viewports).
+- **#9 About us in hamburger menu** — added `{id:"about", label:"About us", to:"/about", visible:true}` to `DEFAULT_INFO` at the top of Header.jsx. Fixed the CMS-shadowing bug where any `cmsInfo` doc would shadow new defaults: now merges by `id` so DEFAULT_INFO + CMS overrides coexist (testing-agent caught this on first pass).
+- **#10 On-spot OTP login for mess-menu delivery orders** — when a logged-out user clicks Place Order with `service=delivery`, instead of redirecting to `/login` we send an OTP to the +91 number they just typed, render an in-place OTP block (data-testid `order-otp-block`) with `order-otp-input` + `order-otp-verify` + Resend + Cancel buttons. On verify-otp success: `setUser(r.data.user)` from AuthContext + immediately call `placeOrderInternal()` — total of 1 tap from user. Takeaway/dining keep the existing `/login?next=...` redirect with sessionStorage auto-fire.
+- **#11 Red pill below login card** — small pill with `bg-primary text-white` reading "You are one step away from *ghar se accha khana*" sits at the bottom of the login screen with `mt-6 sm:mt-8` healthy spacing.
+
+**Backend changes:**
+- `routes/mess_menu_cal.py`: `KIOSK_QR_KEY="kiosk_qr_v1"` config doc with provider field; new endpoints `GET /admin/kiosk/qr-provider` + `PUT /admin/kiosk/qr-provider`; `kiosk_place_order` branches on provider; new `GET /admin/kiosk/order/{order_id}/payment-status` polls Razorpay QR.
+- Razorpay live keys remain working (`Razorpay authentication succeeded — live payments enabled`).
+
+**Tests**: `/app/backend/tests/test_iter74.py` (6/6 pass). Frontend agent verified 6/7 first pass; About-in-drawer bug fixed in same iteration.
+
+**Razorpay QR Codes note**: User's Razorpay account currently REJECTS `qrcode.create` calls on the LIVE key — backend falls back to UPI intent QR which still works seamlessly. To enable the full Razorpay QR auto-confirmation path, user should enable the "QR Codes" product in Razorpay dashboard → Settings → Configuration.
+
