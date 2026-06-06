@@ -44,7 +44,7 @@ const PAY_TABS = [
 const PENDING_KEY = "efc_pending_mess_order_v1";
 
 export default function TodayMessMenuFlash({ compact = false }) {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [data, setData] = useState(null);
@@ -56,6 +56,10 @@ export default function TodayMessMenuFlash({ compact = false }) {
   const [payMethod, setPayMethod] = useState("online");
   const [phone, setPhone] = useState("");
   const [placing, setPlacing] = useState(false);
+  // iter-74 #10: on-spot OTP for delivery (no /login redirect needed)
+  const [otpMode, setOtpMode] = useState(false);
+  const [otpValue, setOtpValue] = useState("");
+  const [otpSending, setOtpSending] = useState(false);
   const autoFiredRef = useRef(false);
 
   useEffect(() => {
@@ -199,8 +203,23 @@ export default function TodayMessMenuFlash({ compact = false }) {
       }
     }
     if (!user) {
-      // iter-73 #9: persist the full intent so we land STRAIGHT in checkout
-      // after login, not on /dashboard.
+      // iter-74 #10: on-spot OTP login for delivery orders (we already
+      // have the user's mobile number from the form). Skip the /login
+      // redirect entirely; send OTP, prompt inline, finish in 1 tap.
+      if (service === "delivery") {
+        const valid = cleanIndianMobile(phone);
+        const p91 = `+91${valid}`;
+        setOtpSending(true);
+        try {
+          await api.post("/auth/send-otp", { phone: p91 });
+          toast.success("OTP sent to +91 " + valid);
+          setOtpMode(true);
+        } catch (e) {
+          toast.error(e?.response?.data?.detail || "Could not send OTP");
+        } finally { setOtpSending(false); }
+        return;
+      }
+      // iter-73 #9: takeaway/dining keep the sessionStorage+/login redirect
       try {
         sessionStorage.setItem(PENDING_KEY, JSON.stringify({
           service, qty, meal: orderMeal, date: activeDate, payMethod, phone, tab,
@@ -211,6 +230,41 @@ export default function TodayMessMenuFlash({ compact = false }) {
       return;
     }
     return placeOrderInternal();
+  };
+
+  // iter-74 #10: verify the on-spot OTP, log the user in via AuthContext,
+  // then continue straight into placeOrderInternal — no /login redirect.
+  const verifyOnSpotOtp = async () => {
+    const valid = cleanIndianMobile(phone);
+    if (!valid) { toast.error("Phone number missing"); return; }
+    if (otpValue.trim().length < 4) { toast.error("Enter the OTP"); return; }
+    setOtpSending(true);
+    try {
+      const r = await api.post("/auth/verify-otp", {
+        phone: `+91${valid}`,
+        otp: otpValue.trim(),
+      });
+      setUser(r.data.user);
+      toast.success("Welcome to efoodcare");
+      setOtpMode(false);
+      setOtpValue("");
+      // Fire the order now — user is authenticated, phone is validated.
+      await placeOrderInternal();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Invalid OTP");
+    } finally { setOtpSending(false); }
+  };
+
+  const resendOnSpotOtp = async () => {
+    const valid = cleanIndianMobile(phone);
+    if (!valid) return;
+    setOtpSending(true);
+    try {
+      await api.post("/auth/send-otp", { phone: `+91${valid}` });
+      toast.success("OTP re-sent");
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Could not resend");
+    } finally { setOtpSending(false); }
   };
 
   return (
@@ -397,6 +451,54 @@ export default function TodayMessMenuFlash({ compact = false }) {
                     </button>
                   </div>
                   <button type="button" onClick={() => setOrderOpen(false)} className="text-[10px] text-white/70 hover:text-white" data-testid="order-cancel">Cancel</button>
+
+                  {/* iter-74 #10: inline OTP collector for delivery orders.
+                      Triggered when a logged-out user clicks Place Order
+                      with service=delivery — we send an OTP to the phone
+                      they already entered and verify in-place. Total: 1
+                      tap once the OTP arrives. */}
+                  {otpMode && (
+                    <div className="rounded-lg bg-emerald-950/40 border border-white/20 p-2 space-y-1.5" data-testid="order-otp-block">
+                      <p className="text-[10px] tracking-[0.16em] uppercase font-extrabold text-white/85">
+                        Verify +91 {cleanIndianMobile(phone) || "..."} · 1-tap login
+                      </p>
+                      <input
+                        value={otpValue}
+                        onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        placeholder="Enter OTP"
+                        inputMode="numeric"
+                        maxLength={6}
+                        autoFocus
+                        className="w-full bg-white text-emerald-900 placeholder-emerald-900/50 text-[13px] font-extrabold tracking-[0.25em] text-center rounded-lg h-9 px-2 outline-none"
+                        data-testid="order-otp-input"
+                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={verifyOnSpotOtp}
+                          disabled={otpSending || placing}
+                          className="flex-1 inline-flex items-center justify-center gap-1 rounded-full bg-white text-emerald-900 px-3 h-7 text-[11px] font-extrabold shadow disabled:opacity-60"
+                          data-testid="order-otp-verify"
+                        >
+                          {(otpSending || placing) ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                          Verify &amp; place order
+                        </button>
+                        <button
+                          type="button"
+                          onClick={resendOnSpotOtp}
+                          disabled={otpSending}
+                          className="text-[10px] text-white/80 hover:text-white underline disabled:opacity-50"
+                          data-testid="order-otp-resend"
+                        >Resend</button>
+                        <button
+                          type="button"
+                          onClick={() => { setOtpMode(false); setOtpValue(""); }}
+                          className="text-[10px] text-white/60 hover:text-white"
+                          data-testid="order-otp-cancel"
+                        >Cancel</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

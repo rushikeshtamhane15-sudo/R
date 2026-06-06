@@ -79,15 +79,16 @@ export default function Landing() {
           <div className="absolute inset-0 bg-background/85"></div>
         </div>
         <HeroParticles />
-        {/* iter-64 #1 + iter-73 #7: pill at TOP of hero, tight against the
-            announcement bar above. Slimmer vertical gutter so the pill
-            sits closer to both the announcements bar and the headline. */}
-        <div className="pt-1 sm:pt-1.5">
+        {/* iter-64 #1 + iter-73 #7 + iter-74 #7: ServiceabilityPill sits
+            extremely tight against the announcement bar above (pt-0.5) and
+            the headline (py-1 sm:py-3) — minimal whitespace to draw the eye
+            straight into the H1. */}
+        <div className="pt-0.5">
           <ServiceabilityPill />
         </div>
         <div className="flex-1 flex items-center">
-          <div className="w-full max-w-7xl mx-auto px-6 md:px-8 lg:px-12 py-2 sm:py-4 md:py-6">
-          <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="text-xs sm:text-sm tracking-overline uppercase font-bold text-secondary mb-2 sm:mb-3">
+          <div className="w-full max-w-7xl mx-auto px-6 md:px-8 lg:px-12 py-1 sm:py-3 md:py-5">
+          <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="text-xs sm:text-sm tracking-overline uppercase font-bold text-secondary mb-1.5 sm:mb-2">
             {c.hero_overline || "UPI · WALLET · E-MEAL PASS"}
           </motion.p>
           <motion.h1 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="font-display font-extrabold text-[34px] leading-[1.02] sm:text-6xl lg:text-7xl tracking-tight max-w-4xl">
@@ -108,13 +109,11 @@ export default function Landing() {
               <Button size="lg" variant="outline" className="rounded-full px-7 sm:px-8 h-11 sm:h-12 text-sm sm:text-base">{c.hero_cta_secondary || (user ? "Go to dashboard" : "Sign in")}</Button>
             </Link>
           </motion.div>
-          {/* iter-65 #5 + iter-73 #8: tiny side-by-side Call us / WhatsApp
-              pills. Phone number removed from the Call button (was too long
-              and crowded the row); both pills sit on a single horizontal
-              line, smaller, with crisper labels so the hero text breathes. */}
+          {/* iter-65 #5 + iter-73 #8 + iter-74 #8: tiny side-by-side
+              Call us / WhatsApp pills, now CENTER-aligned on the hero. */}
           <motion.div
             initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}
-            className="mt-4 sm:mt-6 inline-flex flex-row gap-2"
+            className="mt-4 sm:mt-6 flex flex-row justify-center gap-2"
             data-testid="hero-contact-pills"
           >
             <a

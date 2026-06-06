@@ -263,18 +263,16 @@ export default function Login() {
           to its previous Y so the login form position is preserved. */}
       <div className="bg-background flex-1 px-3 sm:px-6 relative pb-12 overflow-hidden flex flex-col">
         {/* Top scrolling marquee — edge-to-edge, sits immediately below the
-            red hero. `-mx-3 sm:-mx-6` cancels the parent's gutter so the
-            pills sweep across the full viewport width. iter-73 #6: wrap
-            the marquee in a white card with soft shadow border so the
-            pills sit on a halo instead of bleeding into the surrounding
-            background — gives the login a much cleaner premium framing. */}
+            red hero. iter-74 #6: thicker white halo around the marquee —
+            chunkier border (4-px) + a much wider soft shadow puddle so the
+            white card reads as a clear premium frame rather than a hairline. */}
         {c.marquee_show !== false && (
           <div className="w-screen -mx-3 sm:-mx-6 max-w-none" aria-hidden data-testid="login-top-marquee">
             <div
-              className="bg-white border-y border-white/80 rounded-md py-0.5"
+              className="bg-white border-y-4 border-white rounded-lg py-1.5"
               style={{
                 boxShadow:
-                  "0 6px 18px -4px rgba(255,255,255,0.7), 0 2px 6px rgba(0,0,0,0.12), inset 0 0 0 1px rgba(255,255,255,0.95)",
+                  "0 14px 32px -6px rgba(255,255,255,0.85), 0 6px 14px rgba(0,0,0,0.15), inset 0 0 0 3px rgba(255,255,255,1), inset 0 -1px 0 rgba(0,0,0,0.04)",
               }}
             >
               <TrustChipsMarquee className="py-1.5" testid="login-trust-marquee" />
@@ -502,6 +500,17 @@ export default function Login() {
             )}
           </AnimatePresence>
         </div>
+        </div>
+        {/* iter-74 #11: tiny red pill teaser below the form card with
+            healthy breathing room. Sits centered, single-line, drops a
+            subtle drop-shadow so it floats against the off-white bg. */}
+        <div className="mt-6 sm:mt-8 flex justify-center px-3" data-testid="login-tagline-pill-wrap">
+          <span
+            className="inline-flex items-center rounded-full bg-primary text-white text-[11px] sm:text-xs font-extrabold px-3.5 py-1.5 tracking-wide shadow-md"
+            data-testid="login-tagline-pill"
+          >
+            You are one step away from <em className="not-italic ml-1 italic font-bold opacity-95">ghar se accha khana</em>
+          </span>
         </div>
         {/* Spacer below the form — pushes the form into the middle of the
             mobile viewport with breathing room beneath. */}

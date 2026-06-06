@@ -13,7 +13,7 @@ const SCHEMAS = {
     title: "Footer",
     description: "Brand identity block + copyright shown at the bottom of every page.",
     fields: [
-      { key: "brand_name", label: "Brand name (white pill)", type: "input" },
+      { key: "brand_name", label: "Brand name (white text on red footer)", type: "input" },
       { key: "tagline", label: "Tagline", type: "input" },
       { key: "promise", label: "Promise line", type: "textarea", rows: 3 },
       { key: "corporate_address", label: "Corporate address", type: "textarea", rows: 3 },

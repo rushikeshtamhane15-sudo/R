@@ -372,16 +372,41 @@ async def kiosk_place_order(payload: KioskOrderIn, user: server.User = Depends(s
     kiosk_token = uuid.uuid4().hex
     order_id = f"kio_{uuid.uuid4().hex[:12]}"
 
-    # Build Paytm/UPI Dynamic QR string for the online portion (if any)
+    # Build the dynamic QR for the online portion (if any).
+    # iter-74 #1: CMS-toggle between Paytm UPI intent (no creds needed) and
+    # Razorpay QR Codes API (uses existing live Razorpay creds).
     import os as _os
+    provider = await _kiosk_qr_provider()
     vpa = _os.environ.get("PAYTM_VPA") or "efoodcare@paytm"
     merchant_name = "efoodcare"
     upi_qr_text = ""
+    rzp_qr = None  # razorpay qrcode object when provider=razorpay
     if online_amount > 0:
-        upi_qr_text = (
-            f"upi://pay?pa={vpa}&pn={merchant_name}"
-            f"&am={online_amount}&tn={order_id}&cu=INR"
-        )
+        if provider == "razorpay" and getattr(server, "RZP_ENABLED", False):
+            try:
+                rzp_qr = server.rzp_client.qrcode.create({
+                    "type": "upi_qr",
+                    "name": f"efoodcare · {order_id}",
+                    "usage": "single_use",
+                    "fixed_amount": True,
+                    "payment_amount": online_amount * 100,  # paise
+                    "description": f"{payload.qty} × {payload.meal_type} ({payload.service})"[:100],
+                    "notes": {
+                        "kind": "kiosk_walk_in",
+                        "order_id": order_id,
+                        "service": payload.service,
+                        "meal_type": payload.meal_type,
+                    },
+                })
+            except Exception as e:  # noqa: BLE001
+                server.logger.warning(f"[kiosk] Razorpay QR create failed → UPI intent fallback: {e}")
+                rzp_qr = None
+        if rzp_qr is None:
+            # paytm path OR razorpay failure — fall back to UPI intent QR
+            upi_qr_text = (
+                f"upi://pay?pa={vpa}&pn={merchant_name}"
+                f"&am={online_amount}&tn={order_id}&cu=INR"
+            )
 
     # An online/mixed order starts as awaiting_payment; cash-only starts as pending_collection.
     initial_status = "pending_collection" if payload.payment_method == "cash" else "awaiting_payment"
@@ -411,7 +436,11 @@ async def kiosk_place_order(payload: KioskOrderIn, user: server.User = Depends(s
         "kiosk_consumed_at": None,
         "kiosk_consumed_by": None,
         "upi_qr_text": upi_qr_text,
-        "upi_vpa": vpa if online_amount > 0 else None,
+        "upi_vpa": vpa if (online_amount > 0 and not rzp_qr) else None,
+        "qr_provider": provider if online_amount > 0 else None,
+        "razorpay_qr_id": rzp_qr.get("id") if rzp_qr else None,
+        "razorpay_qr_image_url": rzp_qr.get("image_url") if rzp_qr else None,
+        "razorpay_qr_status": rzp_qr.get("status") if rzp_qr else None,
         "created_at": server.iso(server.now_utc()),
     }
     await server.db.mess_menu_orders.insert_one(order)
@@ -433,7 +462,10 @@ async def kiosk_place_order(payload: KioskOrderIn, user: server.User = Depends(s
         "qr_data_url": qr_data_url,
         "qr_text": f"kio:{kiosk_token}",
         "upi_qr_text": upi_qr_text,
-        "upi_vpa": vpa if online_amount > 0 else None,
+        "upi_vpa": vpa if (online_amount > 0 and not rzp_qr) else None,
+        "qr_provider": provider if online_amount > 0 else None,
+        "razorpay_qr_id": rzp_qr.get("id") if rzp_qr else None,
+        "razorpay_qr_image_url": rzp_qr.get("image_url") if rzp_qr else None,
     }
 
 
@@ -559,4 +591,79 @@ async def admin_put_kiosk_bt(payload: KioskBtConfigIn, user: server.User = Depen
         upsert=True,
     )
     return {"enabled": bool(payload.enabled)}
+
+
+# -------- iter-74 #1: kiosk QR provider toggle (Paytm UPI intent | Razorpay QR) --------
+KIOSK_QR_KEY = "kiosk_qr_v1"
+DEFAULT_QR_CFG = {"provider": "paytm"}  # paytm = upi:// intent (no creds), razorpay = QR codes API
+
+
+class KioskQrProviderIn(BaseModel):
+    provider: str = Field(..., description="paytm | razorpay")
+
+
+@router.get("/admin/kiosk/qr-provider")
+async def admin_get_kiosk_qr_provider(user: server.User = Depends(server.get_current_user)):
+    if user.role not in ("admin", "staff"):
+        raise HTTPException(status_code=403, detail="Admin/staff only")
+    doc = await server.db.app_config.find_one({"key": KIOSK_QR_KEY}, {"_id": 0})
+    if not doc:
+        return dict(DEFAULT_QR_CFG)
+    return {**DEFAULT_QR_CFG, **{k: v for k, v in doc.items() if k != "key"}}
+
+
+@router.put("/admin/kiosk/qr-provider")
+async def admin_put_kiosk_qr_provider(payload: KioskQrProviderIn, user: server.User = Depends(server.get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    if payload.provider not in {"paytm", "razorpay"}:
+        raise HTTPException(status_code=400, detail="provider must be paytm | razorpay")
+    await server.db.app_config.update_one(
+        {"key": KIOSK_QR_KEY},
+        {"$set": {"key": KIOSK_QR_KEY, "provider": payload.provider}},
+        upsert=True,
+    )
+    return {"provider": payload.provider}
+
+
+async def _kiosk_qr_provider() -> str:
+    doc = await server.db.app_config.find_one({"key": KIOSK_QR_KEY}, {"_id": 0})
+    return (doc or {}).get("provider") or DEFAULT_QR_CFG["provider"]
+
+
+@router.get("/admin/kiosk/order/{order_id}/payment-status")
+async def kiosk_poll_payment_status(order_id: str, user: server.User = Depends(server.get_current_user)):
+    """Iter-74 #1 — for Razorpay QR orders, poll Razorpay's qrcode.fetch to
+    detect when `payments_amount_received` covers the order's online amount.
+    Auto-marks online_paid=true on match so staff don't need to tap "Mark
+    paid" manually.
+    """
+    if user.role not in ("admin", "staff"):
+        raise HTTPException(status_code=403, detail="Admin/staff only")
+    doc = await server.db.mess_menu_orders.find_one({"order_id": order_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Order not found")
+    rzp_qr_id = doc.get("razorpay_qr_id")
+    if not rzp_qr_id or not getattr(server, "RZP_ENABLED", False):
+        return {"ok": True, "polled": False, "online_paid": bool(doc.get("online_paid"))}
+    try:
+        qr = server.rzp_client.qrcode.fetch(rzp_qr_id)
+        received = int(qr.get("payments_amount_received") or 0)
+        expected = int(doc.get("online_amount") or 0) * 100  # paise
+        if received >= expected and not doc.get("online_paid"):
+            sets = {"online_paid": True, "online_paid_at": server.iso(server.now_utc()), "razorpay_qr_status": qr.get("status")}
+            method = doc.get("payment_method", "cash")
+            cash_done = doc.get("cash_received", False) or doc.get("cash_amount", 0) == 0
+            online_done = True
+            settled = (cash_done and online_done) if method == "mixed" else online_done
+            if settled:
+                sets["status"] = "pending_collection"
+                sets["paid_at"] = server.iso(server.now_utc())
+            await server.db.mess_menu_orders.update_one({"order_id": order_id}, {"$set": sets})
+            fresh = await server.db.mess_menu_orders.find_one({"order_id": order_id}, {"_id": 0})
+            return {"ok": True, "polled": True, "settled": settled, "online_paid": True, "order": fresh}
+        return {"ok": True, "polled": True, "settled": False, "online_paid": bool(doc.get("online_paid")), "received_paise": received, "expected_paise": expected}
+    except Exception as e:  # noqa: BLE001
+        server.logger.warning(f"[kiosk] Razorpay QR poll failed: {e}")
+        return {"ok": True, "polled": False, "error": str(e), "online_paid": bool(doc.get("online_paid"))}
 

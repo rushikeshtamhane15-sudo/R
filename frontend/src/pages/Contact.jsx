@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../lib/api";
-import { MapPin, Phone, Mail, Clock, Building2, Navigation, Utensils } from "lucide-react";
+import { MapPin, Phone, Mail, Clock, Building2, Navigation, ChefHat } from "lucide-react";
 import SEO from "../components/SEO";
 import MapBrandCaption from "../components/MapBrandCaption";
 
@@ -136,11 +136,10 @@ export default function Contact() {
                 )}
               </div>
               <MapBrandCaption />
-              {/* iter-73 #4: 3D restaurant-building emblem dropped right
-                  where the kitchen pin sits — purely decorative + branded,
-                  raised with chunky drop-shadow so it floats above the map.
-                  Centered over the iframe; non-interactive so the tap
-                  overlay still works. */}
+              {/* iter-73 #4 + iter-74 #3: 3D restaurant emblem over the map
+                  pin. Switched from a fork (Utensils) to a chef-hat (the
+                  closest "restaurant building" pictograph in lucide). The
+                  "3D" corner badge has been removed for a cleaner look. */}
               <div
                 aria-hidden
                 className="pointer-events-none absolute z-[360] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
@@ -153,8 +152,7 @@ export default function Contact() {
                     transform: "perspective(220px) rotateX(15deg)",
                   }}
                 >
-                  <Utensils className="h-7 w-7 text-white drop-shadow-md" strokeWidth={2.2} />
-                  <span className="absolute -top-1.5 -right-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white text-primary text-[10px] font-extrabold shadow">3D</span>
+                  <ChefHat className="h-7 w-7 text-white drop-shadow-md" strokeWidth={2.2} />
                 </div>
                 <span
                   className="mt-1 inline-flex items-center gap-1 rounded-full bg-white/95 backdrop-blur px-2.5 py-0.5 text-[10px] font-extrabold tracking-[0.12em] uppercase text-primary shadow"

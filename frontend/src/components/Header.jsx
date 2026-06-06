@@ -10,6 +10,7 @@ import { api } from "../lib/api";
 import { LogOut, Menu, X, Wallet } from "lucide-react";
 
 const DEFAULT_INFO = [
+  { id: "about",      label: "About us",               to: "/about",                    visible: true },
   { id: "contact",    label: "Contact",                to: "/contact",                  visible: true },
   { id: "franchise",  label: "Contact for Franchisee", to: "/contact?subject=franchise", visible: true },
   { id: "privacy",    label: "Privacy Policy",         to: "/privacy",                  visible: true },

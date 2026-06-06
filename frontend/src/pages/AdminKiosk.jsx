@@ -127,6 +127,21 @@ export default function AdminKiosk() {
   }, []);
   useEffect(() => { loadBtCfg(); }, [loadBtCfg]);
 
+  /* iter-74 #1: kiosk QR provider toggle (Paytm UPI intent vs Razorpay) */
+  const [qrProvider, setQrProviderState] = useState("paytm");
+  const loadQrProvider = useCallback(async () => {
+    try { const r = await api.get("/admin/kiosk/qr-provider"); setQrProviderState(r.data?.provider || "paytm"); }
+    catch { setQrProviderState("paytm"); }
+  }, []);
+  useEffect(() => { loadQrProvider(); }, [loadQrProvider]);
+  const setQrProvider = async (provider) => {
+    try {
+      const r = await api.put("/admin/kiosk/qr-provider", { provider });
+      setQrProviderState(r.data.provider);
+      toast.success(`Kiosk QR provider · ${r.data.provider === "razorpay" ? "Razorpay (auto-confirm)" : "Paytm UPI intent"}`);
+    } catch { toast.error("Could not switch provider"); }
+  };
+
   const setBtEnabled = async (enabled) => {
     try {
       const r = await api.put("/admin/kiosk/bt-config", { enabled });
@@ -166,6 +181,43 @@ export default function AdminKiosk() {
     }
   }, []);
 
+  /* iter-74 #1: poll Razorpay QR every 4s while modal is open. Once
+     payments_amount_received covers online_amount, backend auto-marks
+     online_paid=true and we settle without staff tapping "Mark paid". */
+  useEffect(() => {
+    if (!pendingOrder?.razorpayQrId) return;
+    let cancelled = false;
+    const tick = async () => {
+      if (cancelled || !pendingOrder?.order?.order_id) return;
+      try {
+        const r = await api.get(`/admin/kiosk/order/${pendingOrder.order.order_id}/payment-status`);
+        if (cancelled) return;
+        if (r.data?.online_paid) {
+          if (pendingOrder.order.payment_method === "mixed") {
+            setPendingOrder((prev) => prev ? { ...prev, order: { ...prev.order, online_paid: true } } : prev);
+          } else if (r.data.settled) {
+            const rcpt = { order: r.data.order, qrDataUrl: pendingOrder.qrDataUrl, qrText: pendingOrder.qrText };
+            setReceipt(rcpt);
+            const orderId = rcpt.order.order_id;
+            if (btCfg?.enabled && !printedFor.current.has(orderId)) {
+              const printer = await ensurePrinter();
+              if (printer) {
+                try { await printer.printReceipt(rcpt.order, rcpt.qrText); printedFor.current.add(orderId); }
+                catch { /* user can re-print from modal */ }
+              }
+            }
+            setPendingOrder(null);
+            setQty(1); setService("takeaway"); setPaymentMethodRaw("cash"); setCashAmount(0); setOnlineAmount(0);
+            toast.success("Payment received · receipt printed");
+          }
+        }
+      } catch { /* keep polling */ }
+    };
+    const id = setInterval(tick, 4000);
+    tick();
+    return () => { cancelled = true; clearInterval(id); };
+  }, [pendingOrder?.razorpayQrId, pendingOrder?.order?.order_id, btCfg?.enabled, ensurePrinter, pendingOrder?.order?.payment_method, pendingOrder?.qrDataUrl, pendingOrder?.qrText]);
+
   const resetOrderForm = () => {
     setQty(1); setService("takeaway"); setPaymentMethod("cash");
     setCashAmount(0); setOnlineAmount(0); setPendingOrder(null);
@@ -195,6 +247,9 @@ export default function AdminKiosk() {
         qrText: r.data?.qr_text || "",
         upiQrText: r.data?.upi_qr_text || "",
         upiVpa: r.data?.upi_vpa || "",
+        provider: r.data?.qr_provider || "paytm",
+        razorpayQrImageUrl: r.data?.razorpay_qr_image_url || "",
+        razorpayQrId: r.data?.razorpay_qr_id || "",
       });
       if (paymentMethod === "cash") {
         // straight to confirm + print
@@ -303,6 +358,28 @@ export default function AdminKiosk() {
                 <li>Tap the notification to check in for {meal}.</li>
                 <li>Walk-in? Scan the QR on your printed receipt instead.</li>
               </ol>
+            </div>
+            <div className="rounded-2xl bg-[hsl(140,8%,16%)] border border-[hsl(140,8%,22%)] p-4" data-testid="kiosk-qr-provider-card">
+              <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-[hsl(40,15%,70%)] mb-2">Online payment QR</p>
+              <div className="inline-flex bg-[hsl(140,8%,12%)] rounded-full p-1 gap-1 w-full">
+                <button
+                  type="button"
+                  onClick={() => setQrProvider("paytm")}
+                  data-testid="kiosk-qr-provider-paytm"
+                  className={`flex-1 px-3 h-9 rounded-full text-[11px] font-extrabold ${qrProvider === "paytm" ? "bg-[hsl(40,25%,94%)] text-[hsl(140,8%,8%)]" : "text-[hsl(40,15%,70%)]"}`}
+                >Paytm UPI</button>
+                <button
+                  type="button"
+                  onClick={() => setQrProvider("razorpay")}
+                  data-testid="kiosk-qr-provider-razorpay"
+                  className={`flex-1 px-3 h-9 rounded-full text-[11px] font-extrabold ${qrProvider === "razorpay" ? "bg-[hsl(220,55%,55%)] text-white" : "text-[hsl(40,15%,70%)]"}`}
+                >Razorpay</button>
+              </div>
+              <p className="text-[10px] text-[hsl(40,15%,65%)] mt-2 leading-relaxed">
+                {qrProvider === "razorpay"
+                  ? "Razorpay Dynamic QR — auto-confirms payment in ~4s. Uses live Razorpay creds."
+                  : "Paytm UPI intent QR — works with any UPI app. Staff taps Mark paid after scan."}
+              </p>
             </div>
             <div className="rounded-2xl bg-[hsl(140,8%,16%)] border border-[hsl(140,8%,22%)] p-4" data-testid="kiosk-bt-card">
               <div className="flex items-center justify-between gap-2">
@@ -522,16 +599,31 @@ export default function AdminKiosk() {
           <div className="bg-white text-[hsl(140,8%,8%)] rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-[hsl(140,30%,32%)]">Awaiting payment</p>
+                <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-[hsl(140,30%,32%)]">
+                  {pendingOrder.provider === "razorpay" ? "Razorpay · auto-confirms" : "Awaiting payment"}
+                </p>
                 <p className="font-display font-extrabold text-xl">Scan to pay ₹{pendingOrder.order.online_amount}</p>
-                <p className="text-[11px] text-muted-foreground">VPA: <span className="font-mono">{pendingOrder.upiVpa || "efoodcare@paytm"}</span></p>
+                {pendingOrder.provider !== "razorpay" && (
+                  <p className="text-[11px] text-muted-foreground">VPA: <span className="font-mono">{pendingOrder.upiVpa || "efoodcare@paytm"}</span></p>
+                )}
               </div>
               <button type="button" onClick={cancelPending} className="h-8 w-8 inline-flex items-center justify-center rounded-full bg-[hsl(140,8%,90%)]" data-testid="kiosk-paytm-cancel">
                 <XIcon className="h-4 w-4" />
               </button>
             </div>
 
-            {pendingOrder.upiQrText ? (
+            {pendingOrder.provider === "razorpay" && pendingOrder.razorpayQrImageUrl ? (
+              <div className="mt-4 flex flex-col items-center">
+                <div className="rounded-2xl bg-white p-4 border-2 border-[hsl(220,55%,55%)]" data-testid="kiosk-razorpay-qr">
+                  <img
+                    src={pendingOrder.razorpayQrImageUrl}
+                    alt="Scan to pay via Razorpay UPI"
+                    className="w-[240px] h-[240px] object-contain"
+                  />
+                </div>
+                <p className="text-[11px] mt-2 text-muted-foreground text-center">Razorpay Dynamic QR · auto-confirms on payment</p>
+              </div>
+            ) : pendingOrder.upiQrText ? (
               <div className="mt-4 flex flex-col items-center">
                 <div className="rounded-2xl bg-white p-4 border-2 border-[hsl(140,40%,40%)]">
                   <QRCodeSVG value={pendingOrder.upiQrText} size={240} level="M" />
