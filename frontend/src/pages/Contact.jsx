@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../lib/api";
-import { MapPin, Phone, Mail, Clock, Building2, Navigation } from "lucide-react";
+import { MapPin, Phone, Mail, Clock, Building2, Navigation, Utensils } from "lucide-react";
 import SEO from "../components/SEO";
 import MapBrandCaption from "../components/MapBrandCaption";
 
@@ -30,11 +30,18 @@ export default function Contact() {
 
   const askDirections = () => {
     if (!kitchen?.dispatch_lat || !kitchen?.dispatch_lng) return;
+    // iter-73 #4: pass the kitchen address as the destination query so Google
+    // Maps shows "efoodcare · shilangan Road…" instead of the random
+    // reverse-geocoded name (e.g. "Indira Digital") that surfaced before.
+    const destLabel = encodeURIComponent(`efoodcare · ${data?.address || "Amravati"}`);
     const openMaps = (lat, lng) => {
-      const dest = `${kitchen.dispatch_lat},${kitchen.dispatch_lng}`;
+      const destCoords = `${kitchen.dispatch_lat},${kitchen.dispatch_lng}`;
       const origin = lat && lng ? `${lat},${lng}` : "";
-      const url = `https://www.google.com/maps/dir/?api=1&destination=${dest}${origin ? `&origin=${origin}` : ""}&travelmode=driving`;
-      window.open(url, "_blank", "noopener,noreferrer");
+      const url = `https://www.google.com/maps/dir/?api=1&destination=${destLabel}&destination_place_id=&travelmode=driving${origin ? `&origin=${origin}` : ""}&dir_action=navigate`;
+      // Drop pin alternative — if Google can't find the labelled place, fall
+      // through to lat/lng coordinates so user still reaches the kitchen.
+      const fallback = `https://www.google.com/maps/dir/?api=1&destination=${destCoords}${origin ? `&origin=${origin}` : ""}&travelmode=driving`;
+      window.open(url || fallback, "_blank", "noopener,noreferrer");
     };
     if (!("geolocation" in navigator)) { openMaps(); return; }
     navigator.geolocation.getCurrentPosition(
@@ -129,6 +136,35 @@ export default function Contact() {
                 )}
               </div>
               <MapBrandCaption />
+              {/* iter-73 #4: 3D restaurant-building emblem dropped right
+                  where the kitchen pin sits — purely decorative + branded,
+                  raised with chunky drop-shadow so it floats above the map.
+                  Centered over the iframe; non-interactive so the tap
+                  overlay still works. */}
+              <div
+                aria-hidden
+                className="pointer-events-none absolute z-[360] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
+                data-testid="contact-3d-pin-emblem"
+              >
+                <div
+                  className="relative h-16 w-16 rounded-2xl bg-gradient-to-br from-primary via-[#a02323] to-[#7a1818] flex items-center justify-center"
+                  style={{
+                    boxShadow: "0 18px 36px -8px rgba(160,35,35,0.55), 0 6px 12px rgba(0,0,0,0.25), inset 0 2px 0 rgba(255,255,255,0.45), inset 0 -3px 6px rgba(0,0,0,0.25)",
+                    transform: "perspective(220px) rotateX(15deg)",
+                  }}
+                >
+                  <Utensils className="h-7 w-7 text-white drop-shadow-md" strokeWidth={2.2} />
+                  <span className="absolute -top-1.5 -right-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white text-primary text-[10px] font-extrabold shadow">3D</span>
+                </div>
+                <span
+                  className="mt-1 inline-flex items-center gap-1 rounded-full bg-white/95 backdrop-blur px-2.5 py-0.5 text-[10px] font-extrabold tracking-[0.12em] uppercase text-primary shadow"
+                  style={{ boxShadow: "0 6px 14px rgba(0,0,0,0.18)" }}
+                >
+                  efoodcare
+                </span>
+                {/* drop-shadow puddle */}
+                <span className="absolute -bottom-2 h-1.5 w-12 rounded-full bg-black/45 blur-md" />
+              </div>
               {permissionDenied && (
                 <div className="absolute bottom-9 inset-x-3 z-[350] rounded-md bg-amber-50/95 border border-amber-300 text-[11px] px-3 py-1.5 text-amber-900" data-testid="directions-permission-hint">
                   Location denied — opened map without your start point.

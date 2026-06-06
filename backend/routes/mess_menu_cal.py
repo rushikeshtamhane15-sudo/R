@@ -213,6 +213,8 @@ class MessMenuOrderIn(BaseModel):
     qty: int = Field(..., ge=1, le=20)
     date: str = Field(..., description="ISO YYYY-MM-DD")
     meal_type: str = Field(..., description="lunch | dinner")
+    phone: Optional[str] = Field(default=None, description="+91 mobile (delivery only)")
+    payment_method: str = Field(default="online", description="online | cash | wallet")
     note: str = ""
 
 
@@ -222,6 +224,17 @@ async def place_mess_order(payload: MessMenuOrderIn, user: server.User = Depends
         raise HTTPException(status_code=400, detail="Invalid service")
     if payload.meal_type not in {"lunch", "dinner"}:
         raise HTTPException(status_code=400, detail="Invalid meal_type")
+    if payload.payment_method not in {"online", "cash", "wallet"}:
+        raise HTTPException(status_code=400, detail="Invalid payment_method")
+    # iter-73 #12: delivery requires a valid Indian +91 number (10 digits)
+    delivery_phone = None
+    if payload.service == "delivery":
+        digits = "".join(c for c in (payload.phone or "") if c.isdigit())
+        if digits.startswith("91") and len(digits) > 10:
+            digits = digits[-10:]
+        if len(digits) != 10 or digits[0] not in "6789":
+            raise HTTPException(status_code=400, detail="Valid Indian +91 mobile number required for delivery")
+        delivery_phone = digits
     cfg = await _get_config()
     if not cfg.get("order_enabled", True):
         raise HTTPException(status_code=400, detail="Mess-menu ordering is disabled")
@@ -233,11 +246,13 @@ async def place_mess_order(payload: MessMenuOrderIn, user: server.User = Depends
     total = unit_price * payload.qty
 
     # iter-66 #2: chain with Razorpay so users can actually pay.
+    # iter-73 #10: payment_method dictates flow — cash/wallet skip Razorpay.
     import uuid
     receipt = f"mm_{uuid.uuid4().hex[:12]}"
     amount_paise = int(round(total * 100))
     rzp_order = None
-    if getattr(server, "RZP_ENABLED", False):
+    needs_rzp = payload.payment_method == "online"
+    if needs_rzp and getattr(server, "RZP_ENABLED", False):
         try:
             rzp_order = server.rzp_client.order.create({
                 "amount": amount_paise, "currency": "INR", "receipt": receipt,
@@ -261,6 +276,7 @@ async def place_mess_order(payload: MessMenuOrderIn, user: server.User = Depends
         order_id = f"order_mock_{uuid.uuid4().hex[:14]}"
         mock = True
 
+    initial_status = "pending_collection" if payload.payment_method in ("cash", "wallet") else "pending_payment"
     order = {
         "order_id": order_id,
         "receipt": receipt,
@@ -274,7 +290,9 @@ async def place_mess_order(payload: MessMenuOrderIn, user: server.User = Depends
         "total": total,
         "amount_paise": amount_paise,
         "currency": "INR",
-        "status": "pending_payment",
+        "status": initial_status,
+        "payment_method": payload.payment_method,
+        "delivery_phone": delivery_phone,
         "mock": mock,
         "note": (payload.note or "").strip(),
         "created_at": server.iso(server.now_utc()),
@@ -282,10 +300,9 @@ async def place_mess_order(payload: MessMenuOrderIn, user: server.User = Depends
     await server.db.mess_menu_orders.insert_one(order)
 
     user_doc = await server.db.users.find_one({"user_id": user.user_id}, {"_id": 0}) or {}
-    return {
-        "ok": True,
-        "order": {k: v for k, v in order.items() if k != "_id"},
-        "checkout": {
+    checkout = None
+    if needs_rzp:
+        checkout = {
             "order_id": order_id,
             "amount_paise": amount_paise,
             "amount": total,
@@ -295,55 +312,86 @@ async def place_mess_order(payload: MessMenuOrderIn, user: server.User = Depends
             "name": f"efoodcare · {payload.meal_type.capitalize()} ({payload.service})",
             "description": f"{payload.qty} × {menu.get(payload.meal_type)[:80]}",
             "prefill": {"name": user_doc.get("name", ""), "email": user_doc.get("email", ""), "contact": user_doc.get("phone", "")},
-        },
+        }
+    return {
+        "ok": True,
+        "order": {k: v for k, v in order.items() if k != "_id"},
+        "checkout": checkout,
     }
 
 
 class KioskOrderIn(BaseModel):
-    service: str = Field(..., description="delivery | takeaway | dining")
+    service: str = Field(..., description="takeaway | dining (delivery removed in wall-kiosk per iter-73 #14)")
     qty: int = Field(..., ge=1, le=20)
     date: str
     meal_type: str
     phone: Optional[str] = None
-    payment_method: str = Field(default="cash", description="cash | upi")
+    payment_method: str = Field(default="cash", description="cash | online | mixed")
+    cash_amount: int = Field(default=0, ge=0, description="Cash portion (mixed payments)")
+    online_amount: int = Field(default=0, ge=0, description="Online portion (mixed payments)")
     note: str = ""
 
 
 @router.post("/admin/kiosk/order")
 async def kiosk_place_order(payload: KioskOrderIn, user: server.User = Depends(server.get_current_user)):
-    """Iter-69/70/72 — Walk-in order placed from the admin wall-kiosk."""
+    """Iter-69/70/72/73 — Walk-in order placed from the admin wall-kiosk.
+
+    iter-73 #14: wall-kiosk drops the delivery option entirely and supports
+    cash / online (Paytm Dynamic QR) / mixed split-payments. Online portion
+    is collected by flashing a UPI Dynamic QR pointing at the merchant VPA.
+    """
     if user.role not in ("admin", "staff"):
         raise HTTPException(status_code=403, detail="Admin or staff only")
-    if payload.service not in {"delivery", "takeaway", "dining"}:
-        raise HTTPException(status_code=400, detail="Invalid service")
+    if payload.service not in {"takeaway", "dining"}:
+        raise HTTPException(status_code=400, detail="Wall-kiosk supports takeaway/dining only")
     if payload.meal_type not in {"lunch", "dinner"}:
         raise HTTPException(status_code=400, detail="Invalid meal_type")
-    if payload.payment_method not in {"cash", "upi"}:
+    if payload.payment_method not in {"cash", "online", "mixed"}:
         raise HTTPException(status_code=400, detail="Invalid payment_method")
-    # iter-72 #5: phone is mandatory for delivery so the rider can call.
-    clean_phone = (payload.phone or "").strip()
-    if payload.service == "delivery":
-        digits = "".join(c for c in clean_phone if c.isdigit())
-        if len(digits) < 10:
-            raise HTTPException(status_code=400, detail="Customer phone is required for delivery")
-        clean_phone = digits
     menu = await server.db.mess_menu.find_one({"date": payload.date}, {"_id": 0})
     if not menu or not (menu.get(payload.meal_type) or "").strip():
         raise HTTPException(status_code=400, detail=f"No {payload.meal_type} planned for {payload.date}")
     cfg = await _get_config()
     unit_price = int(cfg.get(f"price_{payload.service}") or 0)
     total = unit_price * payload.qty
+
+    # iter-73 #14: split-payment validation
+    cash_amount = int(payload.cash_amount or 0)
+    online_amount = int(payload.online_amount or 0)
+    if payload.payment_method == "cash":
+        cash_amount, online_amount = total, 0
+    elif payload.payment_method == "online":
+        cash_amount, online_amount = 0, total
+    else:  # mixed
+        if cash_amount + online_amount != total:
+            raise HTTPException(status_code=400, detail=f"Cash + Online must equal total ₹{total}")
+        if cash_amount <= 0 or online_amount <= 0:
+            raise HTTPException(status_code=400, detail="Mixed payments need both cash and online portions > 0")
+
     import uuid
-    # iter-70: single-use kiosk_token printed on the thermal receipt. Counter
-    # scanner consumes it via /api/attendance/scan (prefix "kio:") — prevents
-    # the staff-side fraud of serving a thali without a recorded check-in.
     kiosk_token = uuid.uuid4().hex
+    order_id = f"kio_{uuid.uuid4().hex[:12]}"
+
+    # Build Paytm/UPI Dynamic QR string for the online portion (if any)
+    import os as _os
+    vpa = _os.environ.get("PAYTM_VPA") or "efoodcare@paytm"
+    merchant_name = "efoodcare"
+    upi_qr_text = ""
+    if online_amount > 0:
+        upi_qr_text = (
+            f"upi://pay?pa={vpa}&pn={merchant_name}"
+            f"&am={online_amount}&tn={order_id}&cu=INR"
+        )
+
+    # An online/mixed order starts as awaiting_payment; cash-only starts as pending_collection.
+    initial_status = "pending_collection" if payload.payment_method == "cash" else "awaiting_payment"
+
     order = {
-        "order_id": f"kio_{uuid.uuid4().hex[:12]}",
+        "order_id": order_id,
         "kind": "walk_in_kiosk",
         "user_id": None,
         "placed_by_admin_id": user.user_id,
-        "phone": clean_phone or None,
+        "phone": None,  # wall-kiosk has no delivery; we don't take phone here.
         "service": payload.service,
         "qty": payload.qty,
         "date": payload.date,
@@ -352,16 +400,22 @@ async def kiosk_place_order(payload: KioskOrderIn, user: server.User = Depends(s
         "unit_price": unit_price,
         "total": total,
         "currency": "INR",
-        "status": "pending_collection",  # cash/upi collected at counter
+        "status": initial_status,
         "payment_method": payload.payment_method,
+        "cash_amount": cash_amount,
+        "online_amount": online_amount,
+        "online_paid": False,
+        "cash_received": False,
         "note": (payload.note or "").strip(),
         "kiosk_token": kiosk_token,
         "kiosk_consumed_at": None,
         "kiosk_consumed_by": None,
+        "upi_qr_text": upi_qr_text,
+        "upi_vpa": vpa if online_amount > 0 else None,
         "created_at": server.iso(server.now_utc()),
     }
     await server.db.mess_menu_orders.insert_one(order)
-    # Render QR PNG of `kio:<token>` so the printer can drop it on the receipt.
+    # Render kiosk-token QR PNG for the printed receipt (anti-fraud check-in).
     qr_data_url = ""
     try:
         import base64
@@ -378,7 +432,57 @@ async def kiosk_place_order(payload: KioskOrderIn, user: server.User = Depends(s
         "order": {k: v for k, v in order.items() if k != "_id"},
         "qr_data_url": qr_data_url,
         "qr_text": f"kio:{kiosk_token}",
+        "upi_qr_text": upi_qr_text,
+        "upi_vpa": vpa if online_amount > 0 else None,
     }
+
+
+class KioskPaymentConfirmIn(BaseModel):
+    order_id: str
+    online_paid: bool = False
+    cash_received: bool = False
+
+
+@router.post("/admin/kiosk/order/confirm-payment")
+async def kiosk_confirm_payment(payload: KioskPaymentConfirmIn, user: server.User = Depends(server.get_current_user)):
+    """Iter-73 #14: staff marks the kiosk order paid after the customer
+    completes the UPI scan and/or hands over cash. Once BOTH portions of a
+    mixed payment are settled, the order transitions to pending_collection
+    so the auto-print + counter check-in can proceed normally.
+    """
+    if user.role not in ("admin", "staff"):
+        raise HTTPException(status_code=403, detail="Admin or staff only")
+    doc = await server.db.mess_menu_orders.find_one({"order_id": payload.order_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if doc.get("kind") != "walk_in_kiosk":
+        raise HTTPException(status_code=400, detail="Not a kiosk order")
+
+    sets: dict = {}
+    if payload.online_paid:
+        sets["online_paid"] = True
+        sets["online_paid_at"] = server.iso(server.now_utc())
+    if payload.cash_received:
+        sets["cash_received"] = True
+        sets["cash_received_at"] = server.iso(server.now_utc())
+
+    method = doc.get("payment_method", "cash")
+    new_online = sets.get("online_paid", doc.get("online_paid", False)) or doc.get("online_amount", 0) == 0
+    new_cash = sets.get("cash_received", doc.get("cash_received", False)) or doc.get("cash_amount", 0) == 0
+    settled = False
+    if method == "cash":
+        settled = bool(new_cash)
+    elif method == "online":
+        settled = bool(new_online)
+    elif method == "mixed":
+        settled = bool(new_cash and new_online)
+    if settled:
+        sets["status"] = "pending_collection"
+        sets["paid_at"] = server.iso(server.now_utc())
+
+    await server.db.mess_menu_orders.update_one({"order_id": payload.order_id}, {"$set": sets})
+    fresh = await server.db.mess_menu_orders.find_one({"order_id": payload.order_id}, {"_id": 0})
+    return {"ok": True, "settled": settled, "order": fresh}
 
 
 class MessMenuVerifyIn(BaseModel):

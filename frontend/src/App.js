@@ -47,6 +47,7 @@ import Profile from "./pages/Profile";
 import Kiosk from "./pages/Kiosk";
 import SelfScan from "./pages/SelfScan";
 import Contact from "./pages/Contact";
+import About from "./pages/About";
 import Restaurant from "./pages/Restaurant";
 import RestaurantCheckout from "./pages/RestaurantCheckout";
 import OrderTrack from "./pages/OrderTrack";
@@ -128,6 +129,7 @@ function AppRoutes() {
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/refund" element={<Refund />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/about" element={<About />} />
 
           {/* Admin / staff */}
           <Route path="/admin" element={<RequireAuth roles={["admin", "staff"]}><AdminLayout /></RequireAuth>}>

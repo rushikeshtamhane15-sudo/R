@@ -76,7 +76,7 @@ export default function Login() {
         const cart = JSON.parse(cartRaw) || {};
         hasCartItems = Object.values(cart).some((l) => (Number(l?.qty) || 0) > 0);
       }
-    } catch {}
+    } catch { /* noop */ }
 
     const raw = searchParams.get("next");
     // Skip self-referential nexts ("/" and "/login*") — they would loop.
@@ -114,7 +114,7 @@ export default function Login() {
         }
         return pending;
       }
-    } catch {}
+    } catch { /* noop */ }
     if (!u) return "/dashboard";
     if (u.role === "admin") return "/admin";
     if (u.role === "staff") return "/admin/deliveries-today";
@@ -155,7 +155,7 @@ export default function Login() {
         const r = await api.get("/content/login");
         setContent({ ...DEFAULTS, ...r.data });
         writeCmsCache("/content/login", r.data);
-      } catch {}
+      } catch { /* noop */ }
     })();
   }, []);
   const c = content;
@@ -264,11 +264,21 @@ export default function Login() {
       <div className="bg-background flex-1 px-3 sm:px-6 relative pb-12 overflow-hidden flex flex-col">
         {/* Top scrolling marquee — edge-to-edge, sits immediately below the
             red hero. `-mx-3 sm:-mx-6` cancels the parent's gutter so the
-            pills sweep across the full viewport width. All visuals are
-            admin-editable via /admin/content/login (iter-51). */}
+            pills sweep across the full viewport width. iter-73 #6: wrap
+            the marquee in a white card with soft shadow border so the
+            pills sit on a halo instead of bleeding into the surrounding
+            background — gives the login a much cleaner premium framing. */}
         {c.marquee_show !== false && (
           <div className="w-screen -mx-3 sm:-mx-6 max-w-none" aria-hidden data-testid="login-top-marquee">
-            <TrustChipsMarquee className="py-1.5" testid="login-trust-marquee" />
+            <div
+              className="bg-white border-y border-white/80 rounded-md py-0.5"
+              style={{
+                boxShadow:
+                  "0 6px 18px -4px rgba(255,255,255,0.7), 0 2px 6px rgba(0,0,0,0.12), inset 0 0 0 1px rgba(255,255,255,0.95)",
+              }}
+            >
+              <TrustChipsMarquee className="py-1.5" testid="login-trust-marquee" />
+            </div>
           </div>
         )}
         {/* Compensation spacer — tuned to land the form card at ~Y=170px

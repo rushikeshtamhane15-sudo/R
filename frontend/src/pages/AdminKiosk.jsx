@@ -1,14 +1,17 @@
 /**
- * Admin Wall Kiosk — iter-72 redesign.
+ * Admin Wall Kiosk — iter-72 redesign + iter-73 #14 self-order rebuild.
  *
  * Top half: stationary COUNTER QR (rotating HMAC code). Customers scan it
- * with their phone — no camera needed on the kiosk. Replaces the iter-69
- * camera scanner per user direction.
+ * with their phone — no camera needed on the kiosk.
  *
- * Bottom half: walk-in self-order with editable qty + service + (compulsory)
- * phone for delivery. Optionally auto-prints to the paired Bluetooth thermal
- * printer when admin has switched on the Bluetooth toggle. Single-use kiosk
- * QR is included on the printed receipt for fraud-free counter check-in.
+ * Bottom half (iter-73 #14): SELF-ORDER wall kiosk with TAKEAWAY (₹120) and
+ * DINING (₹100) only — no delivery. Three payment modes:
+ *   • cash — staff collects at counter, tap "Cash received" to settle
+ *   • online — flash a Paytm Dynamic UPI QR with the merchant VPA; customer
+ *     scans + pays; staff taps "Mark paid" to settle
+ *   • mixed — split cash + online amounts (both must equal total)
+ * Once settled, the receipt auto-prints to the paired Bluetooth thermal
+ * printer (admin must toggle Bluetooth ON + pair once per session).
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
@@ -17,17 +20,23 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
 import {
-  Sun, Moon, Truck, Utensils, Package, ShoppingCart, Loader2, Minus, Plus, RotateCcw, Bluetooth, BluetoothConnected, BluetoothOff, Banknote, ScanLine,
+  Sun, Moon, Utensils, Package, ShoppingCart, Loader2, Minus, Plus, RotateCcw,
+  Bluetooth, BluetoothConnected, BluetoothOff, Banknote, ScanLine,
+  Wallet as WalletIcon, CheckCircle2, X as XIcon,
 } from "lucide-react";
 import KioskReceiptModal from "../components/KioskReceiptModal";
 import { connectBluetoothPrinter, isBluetoothSupported } from "../lib/bluetoothPrinter";
 
+// iter-73 #14: drop delivery → takeaway/dining only for the wall kiosk
 const SERVICE_TABS = [
-  { id: "delivery", label: "Delivery", icon: Truck },
   { id: "takeaway", label: "Takeaway", icon: Package },
-  { id: "dining", label: "Dining", icon: Utensils },
+  { id: "dining",   label: "Dining",   icon: Utensils },
 ];
-
+const PAY_TABS = [
+  { id: "cash",   label: "Cash",        icon: Banknote },
+  { id: "online", label: "Paytm QR",    icon: ScanLine },
+  { id: "mixed",  label: "Cash + UPI",  icon: WalletIcon },
+];
 const LOCATION = "main";
 
 export default function AdminKiosk() {
@@ -47,13 +56,16 @@ export default function AdminKiosk() {
   const [cfg, setCfg] = useState(null);
   const [tab, setTab] = useState("today");
   const [orderMeal, setOrderMeal] = useState("lunch");
-  const [service, setService] = useState("delivery");
+  const [service, setService] = useState("takeaway");
   const [qty, setQty] = useState(1);
-  const [phone, setPhone] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("cash"); // cash | upi
+  const [paymentMethod, setPaymentMethodRaw] = useState("cash");
+  const [cashAmount, setCashAmount] = useState(0);
+  const [onlineAmount, setOnlineAmount] = useState(0);
   const [placing, setPlacing] = useState(false);
+  const [pendingOrder, setPendingOrder] = useState(null);
   const [lastOrder, setLastOrder] = useState(null);
   const [receipt, setReceipt] = useState(null);
+  const printedFor = useRef(new Set());
 
   const loadMenu = useCallback(async () => {
     try {
@@ -67,7 +79,42 @@ export default function AdminKiosk() {
   const active = tab === "today" ? data?.current : data?.next;
   const activeDate = tab === "today" ? data?.today : data?.tomorrow;
   const priceFor = (svc) => Number(cfg?.[`price_${svc}`] || 0);
-  const total = useMemo(() => priceFor(service) * qty, [service, qty, cfg]); // eslint-disable-line
+  const total = useMemo(() => priceFor(service) * qty, [service, qty, cfg]);
+
+  // Auto-balance helpers — invoked from event handlers (not useEffect) to
+  // keep the `react-hooks/set-state-in-effect` rule happy.
+  const setPaymentMethod = (next) => {
+    setPaymentMethodRaw(next);
+    if (next === "cash") { setCashAmount(total); setOnlineAmount(0); }
+    else if (next === "online") { setCashAmount(0); setOnlineAmount(total); }
+    else {
+      const half = Math.floor(total / 2);
+      setCashAmount(half);
+      setOnlineAmount(total - half);
+    }
+  };
+  const setCash = (n) => {
+    const cash = Math.max(0, Math.min(total, Number(n) || 0));
+    setCashAmount(cash);
+    setOnlineAmount(Math.max(0, total - cash));
+  };
+  // When qty/service changes, re-pin amounts to the new total so the form
+  // stays consistent without a setState-in-effect.
+  const setQtySafe = (n) => {
+    const newQty = typeof n === "function" ? n(qty) : n;
+    setQty(newQty);
+    const newTotal = priceFor(service) * newQty;
+    if (paymentMethod === "cash") { setCashAmount(newTotal); setOnlineAmount(0); }
+    else if (paymentMethod === "online") { setCashAmount(0); setOnlineAmount(newTotal); }
+    else { const half = Math.floor(newTotal / 2); setCashAmount(half); setOnlineAmount(newTotal - half); }
+  };
+  const setServiceSafe = (s) => {
+    setService(s);
+    const newTotal = Number(cfg?.[`price_${s}`] || 0) * qty;
+    if (paymentMethod === "cash") { setCashAmount(newTotal); setOnlineAmount(0); }
+    else if (paymentMethod === "online") { setCashAmount(0); setOnlineAmount(newTotal); }
+    else { const half = Math.floor(newTotal / 2); setCashAmount(half); setOnlineAmount(newTotal - half); }
+  };
 
   /* ---------------- Bluetooth admin toggle ---------------- */
   const [btCfg, setBtCfg] = useState(null);
@@ -93,9 +140,6 @@ export default function AdminKiosk() {
     } catch { toast.error("Could not save"); }
   };
 
-  // Auto-pair printer once when BT is ON and no connection yet.
-  // Web Bluetooth requires a user gesture, so we trigger pairing on the
-  // "Pair printer now" button OR on Place Order if auto-print is on.
   const ensurePrinter = useCallback(async () => {
     if (typeof window === "undefined") return null;
     if (window.__efcBtPrinter) return window.__efcBtPrinter;
@@ -122,49 +166,91 @@ export default function AdminKiosk() {
     }
   }, []);
 
-  const resetOrderForm = () => { setQty(1); setService("delivery"); setPhone(""); setPaymentMethod("cash"); };
+  const resetOrderForm = () => {
+    setQty(1); setService("takeaway"); setPaymentMethod("cash");
+    setCashAmount(0); setOnlineAmount(0); setPendingOrder(null);
+  };
 
   const placeOrder = async () => {
     if (!active || (!active.lunch && !active.dinner)) { toast.error("No menu for selected day"); return; }
-    // iter-72 #5: phone compulsory for DELIVERY ONLY
-    const phoneClean = phone.replace(/\D/g, "");
-    if (service === "delivery" && phoneClean.length < 10) {
-      toast.error("Customer phone required for delivery");
+    if (paymentMethod === "mixed" && (cashAmount + onlineAmount) !== total) {
+      toast.error(`Cash + Online must equal ₹${total}`);
       return;
     }
     setPlacing(true);
     try {
       const r = await api.post("/admin/kiosk/order", {
         service, qty, date: activeDate, meal_type: orderMeal,
-        phone: phoneClean || null,
         payment_method: paymentMethod,
+        cash_amount: cashAmount,
+        online_amount: onlineAmount,
       });
       const order = r.data?.order;
       toast.success(`Order placed · ₹${order?.total || total} · ${paymentMethod.toUpperCase()}`);
       setLastOrder(order);
-      const rcpt = {
+      // Cache the QR payload + texts for both the printed receipt and the payment modal.
+      setPendingOrder({
         order,
         qrDataUrl: r.data?.qr_data_url || "",
         qrText: r.data?.qr_text || "",
-      };
-      setReceipt(rcpt);
-
-      // Auto-print via Bluetooth if admin has enabled it
-      if (btCfg?.enabled) {
-        const printer = await ensurePrinter();
-        if (printer) {
-          try {
-            await printer.printReceipt(rcpt.order, rcpt.qrText);
-            toast.success("Receipt printed");
-          } catch (e) {
-            toast.error("Auto-print failed — use the modal Print button");
-          }
-        }
+        upiQrText: r.data?.upi_qr_text || "",
+        upiVpa: r.data?.upi_vpa || "",
+      });
+      if (paymentMethod === "cash") {
+        // straight to confirm + print
+        await confirmPayment({ order, qrText: r.data?.qr_text, qrDataUrl: r.data?.qr_data_url, upiQrText: "", upiVpa: "" }, { cash_received: true });
       }
-      resetOrderForm();
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Could not place order");
     } finally { setPlacing(false); }
+  };
+
+  const confirmPayment = async (target, flags) => {
+    const obj = target || pendingOrder;
+    if (!obj?.order) return;
+    try {
+      const r = await api.post("/admin/kiosk/order/confirm-payment", {
+        order_id: obj.order.order_id,
+        online_paid: !!flags.online_paid,
+        cash_received: !!flags.cash_received,
+      });
+      if (r.data?.settled) {
+        toast.success("Payment confirmed");
+        const rcpt = {
+          order: r.data.order,
+          qrDataUrl: obj.qrDataUrl,
+          qrText: obj.qrText,
+        };
+        setReceipt(rcpt);
+        // Auto-print exactly once per order_id
+        const orderId = rcpt.order.order_id;
+        if (btCfg?.enabled && !printedFor.current.has(orderId)) {
+          const printer = await ensurePrinter();
+          if (printer) {
+            try {
+              await printer.printReceipt(rcpt.order, rcpt.qrText);
+              printedFor.current.add(orderId);
+              toast.success("Receipt printed");
+            } catch {
+              toast.error("Auto-print failed — use the modal Print button");
+            }
+          }
+        }
+        setPendingOrder(null);
+        resetOrderForm();
+      } else {
+        // partial settlement (mixed — one half pending)
+        setPendingOrder((prev) => prev ? { ...prev, order: r.data.order } : prev);
+        toast.message("Awaiting remaining payment");
+      }
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Confirm failed");
+    }
+  };
+
+  const cancelPending = () => {
+    setPendingOrder(null);
+    toast.message("Cancelled — start a new order");
   };
 
   return (
@@ -218,7 +304,6 @@ export default function AdminKiosk() {
                 <li>Walk-in? Scan the QR on your printed receipt instead.</li>
               </ol>
             </div>
-            {/* Bluetooth toggle */}
             <div className="rounded-2xl bg-[hsl(140,8%,16%)] border border-[hsl(140,8%,22%)] p-4" data-testid="kiosk-bt-card">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
@@ -263,7 +348,7 @@ export default function AdminKiosk() {
         </div>
       </section>
 
-      {/* ---------------- BOTTOM — Walk-in order ---------------- */}
+      {/* ---------------- BOTTOM — Walk-in self-order ---------------- */}
       <section className="rounded-3xl border border-[hsl(140,8%,22%)] bg-[hsl(140,8%,12%)] overflow-hidden flex flex-col" data-testid="kiosk-order-panel">
         <div className="flex items-center justify-between px-5 py-3 border-b border-[hsl(140,8%,20%)]">
           <div className="flex items-center gap-2">
@@ -271,8 +356,8 @@ export default function AdminKiosk() {
               <ShoppingCart className="h-5 w-5" />
             </span>
             <div>
-              <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-[hsl(40,15%,70%)]">Walk-in self-order</p>
-              <p className="font-display font-extrabold text-lg sm:text-xl">Order today's mess menu</p>
+              <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-[hsl(40,15%,70%)]">Wall kiosk · self-order</p>
+              <p className="font-display font-extrabold text-lg sm:text-xl">Tap. Pay. Print.</p>
             </div>
           </div>
           <div className="inline-flex bg-[hsl(140,8%,18%)] rounded-full p-1 gap-1" data-testid="kiosk-day-toggle">
@@ -319,7 +404,7 @@ export default function AdminKiosk() {
           </div>
 
           {active ? (
-            <div className="rounded-2xl bg-[hsl(140,8%,16%)] border border-[hsl(140,8%,22%)] p-4 flex flex-col gap-3" data-testid="kiosk-order-form">
+            <div className="rounded-2xl bg-[hsl(140,8%,16%)] border border-[hsl(140,8%,22%)] p-4 flex flex-col gap-2.5" data-testid="kiosk-order-form">
               {active.lunch && active.dinner ? (
                 <div className="inline-flex rounded-full bg-[hsl(140,8%,12%)] p-1 gap-1 self-start">
                   <button type="button" onClick={() => setOrderMeal("lunch")} data-testid="kiosk-order-meal-lunch" className={`px-4 h-9 rounded-full text-xs font-extrabold ${orderMeal === "lunch" ? "bg-[hsl(26,43%,57%)] text-white" : "text-[hsl(40,15%,70%)]"}`}>Lunch</button>
@@ -327,14 +412,15 @@ export default function AdminKiosk() {
                 </div>
               ) : null}
 
-              <div className="grid grid-cols-3 gap-2">
+              {/* iter-73 #14: takeaway + dining ONLY (delivery removed). */}
+              <div className="grid grid-cols-2 gap-2">
                 {SERVICE_TABS.map((s) => (
                   <button
                     key={s.id}
                     type="button"
-                    onClick={() => setService(s.id)}
+                    onClick={() => setServiceSafe(s.id)}
                     data-testid={`kiosk-svc-${s.id}`}
-                    className={`rounded-xl px-2 py-2 inline-flex flex-col items-center gap-0.5 text-[10px] font-extrabold tracking-wide border ${service === s.id ? "bg-[hsl(40,25%,94%)] text-[hsl(140,8%,8%)] border-transparent" : "bg-[hsl(140,8%,12%)] border-[hsl(140,8%,22%)] text-[hsl(40,15%,80%)]"}`}
+                    className={`rounded-xl px-2 py-2 inline-flex flex-col items-center gap-0.5 text-[11px] font-extrabold tracking-wide border ${service === s.id ? "bg-[hsl(40,25%,94%)] text-[hsl(140,8%,8%)] border-transparent" : "bg-[hsl(140,8%,12%)] border-[hsl(140,8%,22%)] text-[hsl(40,15%,80%)]"}`}
                   >
                     <s.icon className="h-4 w-4" />
                     {s.label}
@@ -346,39 +432,52 @@ export default function AdminKiosk() {
               <div className="flex items-center justify-between gap-2 rounded-xl bg-[hsl(140,8%,12%)] px-2 py-1.5">
                 <span className="text-[10px] tracking-[0.18em] uppercase font-bold text-[hsl(40,15%,70%)] pl-2">Quantity</span>
                 <div className="inline-flex items-center rounded-full bg-[hsl(140,8%,8%)]">
-                  <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} className="h-10 w-10 inline-flex items-center justify-center" data-testid="kiosk-qty-dec"><Minus className="h-4 w-4" /></button>
+                  <button type="button" onClick={() => setQtySafe((q) => Math.max(1, q - 1))} className="h-10 w-10 inline-flex items-center justify-center" data-testid="kiosk-qty-dec"><Minus className="h-4 w-4" /></button>
                   <span className="px-4 text-lg font-extrabold tabular-nums" data-testid="kiosk-qty">{qty}</span>
-                  <button type="button" onClick={() => setQty((q) => Math.min(20, q + 1))} className="h-10 w-10 inline-flex items-center justify-center" data-testid="kiosk-qty-inc"><Plus className="h-4 w-4" /></button>
+                  <button type="button" onClick={() => setQtySafe((q) => Math.min(20, q + 1))} className="h-10 w-10 inline-flex items-center justify-center" data-testid="kiosk-qty-inc"><Plus className="h-4 w-4" /></button>
                 </div>
               </div>
 
-              {/* Payment method — iter-72 #2 partial: cash + UPI (Razorpay wired later) */}
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { id: "cash", label: "Cash", icon: Banknote },
-                  { id: "upi", label: "UPI (counter)", icon: ScanLine },
-                ].map((p) => (
+              {/* iter-73 #14: payment mode — cash / online (Paytm QR) / mixed */}
+              <div className="grid grid-cols-3 gap-2">
+                {PAY_TABS.map((p) => (
                   <button
                     key={p.id}
                     type="button"
                     onClick={() => setPaymentMethod(p.id)}
                     data-testid={`kiosk-pay-${p.id}`}
-                    className={`rounded-xl px-2 py-2 inline-flex items-center justify-center gap-1.5 text-[11px] font-extrabold tracking-wide border ${paymentMethod === p.id ? "bg-[hsl(40,25%,94%)] text-[hsl(140,8%,8%)] border-transparent" : "bg-[hsl(140,8%,12%)] border-[hsl(140,8%,22%)] text-[hsl(40,15%,80%)]"}`}
+                    className={`rounded-xl px-2 py-2 inline-flex flex-col items-center justify-center gap-0.5 text-[10px] font-extrabold tracking-wide border ${paymentMethod === p.id ? "bg-[hsl(40,25%,94%)] text-[hsl(140,8%,8%)] border-transparent" : "bg-[hsl(140,8%,12%)] border-[hsl(140,8%,22%)] text-[hsl(40,15%,80%)]"}`}
                   >
                     <p.icon className="h-3.5 w-3.5" /> {p.label}
                   </button>
                 ))}
               </div>
 
-              {service === "delivery" && (
-                <Input
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="Customer phone (required for delivery)"
-                  inputMode="tel"
-                  className="h-10 bg-[hsl(140,8%,12%)] border-[hsl(140,8%,22%)] text-[hsl(40,25%,94%)] placeholder:text-[hsl(40,15%,60%)]"
-                  data-testid="kiosk-phone"
-                />
+              {paymentMethod === "mixed" && (
+                <div className="grid grid-cols-2 gap-2" data-testid="kiosk-mixed-amounts">
+                  <label className="flex flex-col gap-0.5">
+                    <span className="text-[9px] tracking-[0.18em] uppercase font-bold text-[hsl(40,15%,70%)]">Cash ₹</span>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={total}
+                      value={cashAmount}
+                      onChange={(e) => setCash(e.target.value)}
+                      data-testid="kiosk-mixed-cash"
+                      className="h-9 bg-[hsl(140,8%,12%)] border-[hsl(140,8%,22%)] text-[hsl(40,25%,94%)]"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-0.5">
+                    <span className="text-[9px] tracking-[0.18em] uppercase font-bold text-[hsl(40,15%,70%)]">Online ₹</span>
+                    <Input
+                      type="number"
+                      readOnly
+                      value={onlineAmount}
+                      data-testid="kiosk-mixed-online"
+                      className="h-9 bg-[hsl(140,8%,12%)] border-[hsl(140,8%,22%)] text-[hsl(40,25%,94%)]"
+                    />
+                  </label>
+                </div>
               )}
 
               <div className="flex items-center justify-between gap-2 mt-1">
@@ -387,18 +486,18 @@ export default function AdminKiosk() {
               </div>
               <Button
                 onClick={placeOrder}
-                disabled={placing}
-                className="h-12 rounded-full bg-[hsl(26,43%,57%)] hover:bg-[hsl(26,43%,62%)] text-white font-extrabold text-base"
+                disabled={placing || !!pendingOrder}
+                className="h-11 rounded-full bg-[hsl(26,43%,57%)] hover:bg-[hsl(26,43%,62%)] text-white font-extrabold text-base"
                 data-testid="kiosk-place-order"
               >
                 {placing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ShoppingCart className="h-4 w-4 mr-2" />}
                 Place order
               </Button>
-              <Button onClick={resetOrderForm} variant="ghost" className="text-[hsl(40,15%,70%)] hover:text-white text-xs h-9" data-testid="kiosk-order-reset">
+              <Button onClick={resetOrderForm} variant="ghost" className="text-[hsl(40,15%,70%)] hover:text-white text-xs h-8" data-testid="kiosk-order-reset">
                 <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Reset
               </Button>
 
-              {lastOrder && (
+              {lastOrder && !pendingOrder && (
                 <div className="rounded-xl border border-emerald-700 bg-emerald-900/30 px-3 py-2 text-emerald-100" data-testid="kiosk-last-order">
                   <p className="text-[10px] tracking-[0.18em] uppercase font-bold opacity-85">Last order</p>
                   <p className="text-xs mt-0.5 font-mono break-all">{lastOrder.order_id}</p>
@@ -416,6 +515,62 @@ export default function AdminKiosk() {
           )}
         </div>
       </section>
+
+      {/* === Paytm Dynamic QR / payment confirm modal ====================== */}
+      {pendingOrder && pendingOrder.order && pendingOrder.order.payment_method !== "cash" && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" data-testid="kiosk-paytm-modal">
+          <div className="bg-white text-[hsl(140,8%,8%)] rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-[hsl(140,30%,32%)]">Awaiting payment</p>
+                <p className="font-display font-extrabold text-xl">Scan to pay ₹{pendingOrder.order.online_amount}</p>
+                <p className="text-[11px] text-muted-foreground">VPA: <span className="font-mono">{pendingOrder.upiVpa || "efoodcare@paytm"}</span></p>
+              </div>
+              <button type="button" onClick={cancelPending} className="h-8 w-8 inline-flex items-center justify-center rounded-full bg-[hsl(140,8%,90%)]" data-testid="kiosk-paytm-cancel">
+                <XIcon className="h-4 w-4" />
+              </button>
+            </div>
+
+            {pendingOrder.upiQrText ? (
+              <div className="mt-4 flex flex-col items-center">
+                <div className="rounded-2xl bg-white p-4 border-2 border-[hsl(140,40%,40%)]">
+                  <QRCodeSVG value={pendingOrder.upiQrText} size={240} level="M" />
+                </div>
+                <p className="text-[11px] font-mono mt-2 text-muted-foreground break-all px-2 text-center">{pendingOrder.upiQrText}</p>
+              </div>
+            ) : null}
+
+            {pendingOrder.order.payment_method === "mixed" && (
+              <div className="mt-3 rounded-xl bg-[hsl(140,40%,95%)] border border-[hsl(140,40%,80%)] p-3 text-[12px]" data-testid="kiosk-paytm-mixed-summary">
+                <p className="font-extrabold">Mixed payment</p>
+                <p>Cash collected at counter: <span className="font-mono">₹{pendingOrder.order.cash_amount}</span> · UPI online: <span className="font-mono">₹{pendingOrder.order.online_amount}</span></p>
+              </div>
+            )}
+
+            <div className="mt-4 grid gap-2">
+              <Button
+                onClick={() => confirmPayment(null, { online_paid: true, cash_received: pendingOrder.order.payment_method === "mixed" })}
+                className="h-11 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold"
+                data-testid="kiosk-paytm-mark-paid"
+              >
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                {pendingOrder.order.payment_method === "mixed" ? "Both received — print receipt" : "Mark paid & print receipt"}
+              </Button>
+              {pendingOrder.order.payment_method === "mixed" && (
+                <p className="text-[11px] text-center text-muted-foreground">Tap once both UPI confirmation AND cash are in hand.</p>
+              )}
+              <Button
+                onClick={cancelPending}
+                variant="ghost"
+                className="h-9 text-xs text-muted-foreground"
+                data-testid="kiosk-paytm-cancel-2"
+              >
+                Cancel order
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {receipt && (
         <KioskReceiptModal

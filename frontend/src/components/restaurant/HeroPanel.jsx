@@ -27,10 +27,10 @@ const DEFAULT_ELEMENTS = [
 
 // Layout templates control inner-container alignment/padding/maxWidth.
 const LAYOUT_TEMPLATES = {
-  default:          { className: "max-w-6xl mx-auto px-4 sm:px-5 py-6 sm:py-8 text-left" },
-  centered:         { className: "max-w-3xl mx-auto px-4 sm:px-5 py-8 sm:py-10 text-center" },
-  "stacked-compact":{ className: "max-w-6xl mx-auto px-4 sm:px-5 py-3 sm:py-4 text-left" },
-  split:            { className: "max-w-6xl mx-auto px-4 sm:px-5 py-6 sm:py-8 text-left" },
+  default:          { className: "max-w-6xl mx-auto px-4 sm:px-5 py-4 sm:py-6 text-left" },
+  centered:         { className: "max-w-3xl mx-auto px-4 sm:px-5 py-5 sm:py-7 text-center" },
+  "stacked-compact":{ className: "max-w-6xl mx-auto px-4 sm:px-5 py-2 sm:py-3 text-left" },
+  split:            { className: "max-w-6xl mx-auto px-4 sm:px-5 py-4 sm:py-6 text-left" },
 };
 
 function alignClass(a) {

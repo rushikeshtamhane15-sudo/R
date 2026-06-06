@@ -42,8 +42,27 @@ export default function Footer() {
             <img src={BRAND_LOGO_URL} alt={brandName} className="h-[88%] w-[88%] object-contain" />
           </span>
           <span
-            className="font-display font-extrabold text-3xl sm:text-4xl tracking-tight px-3 py-0.5 rounded-md bg-primary text-white"
+            className="font-display font-extrabold text-3xl sm:text-4xl tracking-tight text-primary"
             data-testid="footer-brand-name"
+            style={{
+              // iter-73 #5: text-only 3D extruded pill — drops the solid
+              // primary background and uses a layered text-shadow stack so
+              // the brand name reads as raised 3D letters on the page bg.
+              textShadow: [
+                "0 1px 0 #b04646",
+                "0 2px 0 #9d3a3a",
+                "0 3px 0 #8b2f2f",
+                "0 4px 0 #7a2525",
+                "0 5px 0 #691c1c",
+                "0 6px 1px rgba(0,0,0,0.1)",
+                "0 0 5px rgba(0,0,0,0.1)",
+                "0 1px 3px rgba(0,0,0,0.3)",
+                "0 3px 5px rgba(0,0,0,0.2)",
+                "0 5px 10px rgba(0,0,0,0.25)",
+                "0 10px 10px rgba(0,0,0,0.2)",
+                "0 20px 20px rgba(0,0,0,0.15)",
+              ].join(", "),
+            }}
           >{brandName}</span>
           <span className="text-[11px] sm:text-xs tracking-[0.2em] uppercase font-semibold text-secondary" data-testid="footer-brand-tagline">{tagline}</span>
           <p className="text-sm sm:text-base max-w-2xl text-muted-foreground leading-relaxed mt-1" data-testid="footer-brand-promise">

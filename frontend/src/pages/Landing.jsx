@@ -79,24 +79,26 @@ export default function Landing() {
           <div className="absolute inset-0 bg-background/85"></div>
         </div>
         <HeroParticles />
-        {/* iter-64 #1: pill at TOP of hero, full-width, breathing room */}
-        <div className="pt-3 sm:pt-4">
+        {/* iter-64 #1 + iter-73 #7: pill at TOP of hero, tight against the
+            announcement bar above. Slimmer vertical gutter so the pill
+            sits closer to both the announcements bar and the headline. */}
+        <div className="pt-1 sm:pt-1.5">
           <ServiceabilityPill />
         </div>
         <div className="flex-1 flex items-center">
-          <div className="w-full max-w-7xl mx-auto px-6 md:px-8 lg:px-12 py-6 sm:py-10 md:py-14">
-          <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="text-[11px] sm:text-xs tracking-overline uppercase font-bold text-secondary mb-3 sm:mb-4">
+          <div className="w-full max-w-7xl mx-auto px-6 md:px-8 lg:px-12 py-2 sm:py-4 md:py-6">
+          <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="text-xs sm:text-sm tracking-overline uppercase font-bold text-secondary mb-2 sm:mb-3">
             {c.hero_overline || "UPI · WALLET · E-MEAL PASS"}
           </motion.p>
-          <motion.h1 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="font-display font-extrabold text-[28px] leading-[1.02] sm:text-5xl lg:text-7xl tracking-tight max-w-4xl">
+          <motion.h1 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="font-display font-extrabold text-[34px] leading-[1.02] sm:text-6xl lg:text-7xl tracking-tight max-w-4xl">
             <span className="text-primary">{c.hero_title_line1 || "ghar se achha khana,"}</span>{" "}
             <br className="hidden md:block" />
             {c.hero_title_line2 || "ab ek e-Meal Pass pe."}
           </motion.h1>
-          <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mt-3 sm:mt-6 text-[13px] sm:text-lg max-w-xl text-muted-foreground leading-relaxed">
+          <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mt-3 sm:mt-5 text-[15px] sm:text-xl max-w-2xl text-muted-foreground leading-relaxed font-medium">
             {c.hero_subtitle || "30-day tiffin subscriptions with a smart wallet. Pay once by UPI, check-in by QR, skip a few days — we pause your wallet, no meals wasted."}
           </motion.p>
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mt-5 sm:mt-8 flex flex-wrap gap-3 sm:gap-4">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mt-4 sm:mt-6 flex flex-wrap gap-3 sm:gap-4">
             {/* iter-64 #3: 'Get your e-Meal Pass' should always go to /plans
                 so users can compare and choose before sign-up. */}
             <Link to="/plans" data-testid="hero-cta-start">
@@ -106,34 +108,35 @@ export default function Landing() {
               <Button size="lg" variant="outline" className="rounded-full px-7 sm:px-8 h-11 sm:h-12 text-sm sm:text-base">{c.hero_cta_secondary || (user ? "Go to dashboard" : "Sign in")}</Button>
             </Link>
           </motion.div>
-          {/* iter-65 #5: quick-tap Call us / WhatsApp pills at the bottom of
-              the hero container. Numbers come from CMS, fall back to the
-              corporate hotline 9175560211. */}
+          {/* iter-65 #5 + iter-73 #8: tiny side-by-side Call us / WhatsApp
+              pills. Phone number removed from the Call button (was too long
+              and crowded the row); both pills sit on a single horizontal
+              line, smaller, with crisper labels so the hero text breathes. */}
           <motion.div
             initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}
-            className="mt-6 sm:mt-8 flex flex-wrap gap-2.5"
+            className="mt-4 sm:mt-6 inline-flex flex-row gap-2"
             data-testid="hero-contact-pills"
           >
             <a
               href={`tel:${(c.support_phone || "+919175560211").replace(/\s/g, "")}`}
               data-testid="hero-call-btn"
-              className="inline-flex items-center gap-2 rounded-full pl-1.5 pr-4 py-1.5 bg-primary text-primary-foreground shadow-md hover:shadow-lg transition-shadow text-sm font-bold"
+              className="inline-flex items-center gap-1.5 rounded-full pl-1 pr-3 py-1 bg-primary text-primary-foreground shadow-md hover:shadow-lg transition-shadow text-[11px] font-bold"
             >
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-primary">
-                <Icons.Phone className="h-4 w-4" />
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-primary">
+                <Icons.Phone className="h-3 w-3" />
               </span>
-              Call us · {c.support_phone || "+91 91755 60211"}
+              Call us
             </a>
             <a
               href={`https://wa.me/91${(c.support_phone || "9175560211").replace(/\D/g, "").slice(-10)}?text=${encodeURIComponent("Hi efoodcare, I would like to know about meal subscriptions.")}`}
               target="_blank" rel="noreferrer noopener"
               data-testid="hero-whatsapp-btn"
-              className="inline-flex items-center gap-2 rounded-full pl-1.5 pr-4 py-1.5 bg-emerald-600 text-white shadow-md hover:shadow-lg transition-shadow text-sm font-bold"
+              className="inline-flex items-center gap-1.5 rounded-full pl-1 pr-3 py-1 bg-emerald-600 text-white shadow-md hover:shadow-lg transition-shadow text-[11px] font-bold"
             >
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-emerald-600">
-                <Icons.MessageCircle className="h-4 w-4" />
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-emerald-600">
+                <Icons.MessageCircle className="h-3 w-3" />
               </span>
-              WhatsApp us
+              WhatsApp
             </a>
           </motion.div>
           </div>
