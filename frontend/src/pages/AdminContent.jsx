@@ -105,6 +105,84 @@ const SCHEMAS = {
       { key: "speed_seconds", label: "Scroll speed in seconds (lower = faster, 10–180)", type: "input" },
     ],
   },
+  about: {
+    title: "About us page",
+    description: "iter-75 #3 — full CMS for the /about page. Edit copy, bg/text colours per section.",
+    fields: [
+      // Hero
+      { key: "hero_bg_from", label: "Hero — gradient FROM colour", type: "color" },
+      { key: "hero_bg_to", label: "Hero — gradient TO colour", type: "color" },
+      { key: "hero_text_color", label: "Hero — text colour", type: "color" },
+      { key: "hero_overline", label: "Hero overline (tiny uppercase text above headline)", type: "input" },
+      { key: "hero_headline", label: "Hero H1 headline", type: "textarea", rows: 3 },
+      { key: "hero_lede", label: "Hero lede paragraph", type: "textarea", rows: 4 },
+      { key: "cta_primary_label", label: "Primary CTA label", type: "input" },
+      { key: "cta_primary_to", label: "Primary CTA target (route)", type: "input" },
+      { key: "cta_secondary_label", label: "Secondary CTA label", type: "input" },
+      { key: "cta_secondary_to", label: "Secondary CTA target (route)", type: "input" },
+      // Stats (small cards)
+      { key: "stats_bg", label: "Stat cards — background (CSS color, e.g. rgba(255,255,255,0.10))", type: "input" },
+      { key: "stats_text_color", label: "Stat cards — text colour", type: "color" },
+      { key: "stat_1_value", label: "Stat 1 value", type: "input" }, { key: "stat_1_label", label: "Stat 1 label", type: "input" },
+      { key: "stat_2_value", label: "Stat 2 value", type: "input" }, { key: "stat_2_label", label: "Stat 2 label", type: "input" },
+      { key: "stat_3_value", label: "Stat 3 value", type: "input" }, { key: "stat_3_label", label: "Stat 3 label", type: "input" },
+      { key: "stat_4_value", label: "Stat 4 value", type: "input" }, { key: "stat_4_label", label: "Stat 4 label", type: "input" },
+      // Promise
+      { key: "promise_bg", label: "Promise section — bg colour", type: "color" },
+      { key: "promise_text_color", label: "Promise section — text colour", type: "color" },
+      { key: "promise_heading", label: "Promise section heading", type: "textarea", rows: 2 },
+      { key: "promise_1_title", label: "Promise 1 — title", type: "input" }, { key: "promise_1_body", label: "Promise 1 — body", type: "textarea", rows: 3 },
+      { key: "promise_2_title", label: "Promise 2 — title", type: "input" }, { key: "promise_2_body", label: "Promise 2 — body", type: "textarea", rows: 3 },
+      { key: "promise_3_title", label: "Promise 3 — title", type: "input" }, { key: "promise_3_body", label: "Promise 3 — body", type: "textarea", rows: 3 },
+      { key: "promise_4_title", label: "Promise 4 — title", type: "input" }, { key: "promise_4_body", label: "Promise 4 — body", type: "textarea", rows: 3 },
+      // Timeline
+      { key: "timeline_bg", label: "Timeline section — bg colour", type: "color" },
+      { key: "timeline_text_color", label: "Timeline section — text colour", type: "color" },
+      { key: "timeline_heading", label: "Timeline section heading", type: "textarea", rows: 2 },
+      { key: "tl_1_year", label: "Year 1", type: "input" }, { key: "tl_1_title", label: "Year 1 title", type: "input" }, { key: "tl_1_body", label: "Year 1 body", type: "textarea", rows: 2 },
+      { key: "tl_2_year", label: "Year 2", type: "input" }, { key: "tl_2_title", label: "Year 2 title", type: "input" }, { key: "tl_2_body", label: "Year 2 body", type: "textarea", rows: 2 },
+      { key: "tl_3_year", label: "Year 3", type: "input" }, { key: "tl_3_title", label: "Year 3 title", type: "input" }, { key: "tl_3_body", label: "Year 3 body", type: "textarea", rows: 2 },
+      { key: "tl_4_year", label: "Year 4", type: "input" }, { key: "tl_4_title", label: "Year 4 title", type: "input" }, { key: "tl_4_body", label: "Year 4 body", type: "textarea", rows: 2 },
+      // Founder
+      { key: "founder_bg", label: "Founder section — bg colour", type: "color" },
+      { key: "founder_text_color", label: "Founder section — text colour", type: "color" },
+      { key: "founder_quote", label: "Founder pull-quote", type: "textarea", rows: 2 },
+      { key: "founder_body", label: "Founder body", type: "textarea", rows: 5 },
+      { key: "founder_name", label: "Founder name", type: "input" },
+      { key: "founder_role", label: "Founder role", type: "input" },
+      // Visit us
+      { key: "visit_bg_from", label: "Visit us — gradient FROM", type: "color" },
+      { key: "visit_bg_to", label: "Visit us — gradient TO", type: "color" },
+      { key: "visit_text_color", label: "Visit us — text colour", type: "color" },
+      { key: "visit_heading", label: "Visit us heading", type: "textarea", rows: 2 },
+      { key: "visit_body", label: "Visit us body", type: "textarea", rows: 3 },
+      { key: "visit_address", label: "Visit us address", type: "textarea", rows: 2 },
+      { key: "visit_phone", label: "Visit us phone", type: "input" },
+      { key: "visit_email", label: "Visit us email", type: "input" },
+    ],
+  },
+  privacy: {
+    title: "Privacy policy",
+    description: "iter-75 #7 — fully drafted. Edit the title, effective date, intro, contact and each section's heading + body.",
+    fields: [
+      { key: "title", label: "Page title", type: "input" },
+      { key: "effective_date", label: "Effective date", type: "input" },
+      { key: "intro", label: "Intro paragraph", type: "textarea", rows: 4 },
+      { key: "sections", label: "Sections (JSON array of {heading, body})", type: "textarea", rows: 18 },
+      { key: "contact_block", label: "Contact block (bottom of page)", type: "textarea", rows: 4 },
+    ],
+  },
+  refund: {
+    title: "Refund & cancellation policy",
+    description: "iter-75 #7 — fully drafted. Edit the title, effective date, intro, contact and each section's heading + body.",
+    fields: [
+      { key: "title", label: "Page title", type: "input" },
+      { key: "effective_date", label: "Effective date", type: "input" },
+      { key: "intro", label: "Intro paragraph", type: "textarea", rows: 4 },
+      { key: "sections", label: "Sections (JSON array of {heading, body})", type: "textarea", rows: 18 },
+      { key: "contact_block", label: "Contact block (bottom of page)", type: "textarea", rows: 4 },
+    ],
+  },
 };
 
 export default function AdminContent() {
@@ -117,7 +195,14 @@ export default function AdminContent() {
   useEffect(() => {
     if (!schema) return;
     (async () => {
-      try { const r = await api.get(`/content/${contentKey}`); setData(r.data); }
+      try {
+        const r = await api.get(`/content/${contentKey}`);
+        // iter-75: privacy/refund 'sections' is an array — stringify for
+        // the textarea so admins can edit JSON, parsed back on save.
+        const out = { ...(r.data || {}) };
+        if (Array.isArray(out.sections)) out.sections = JSON.stringify(out.sections, null, 2);
+        setData(out);
+      }
       catch { toast.error("Failed to load content"); }
     })();
   }, [contentKey, schema]);
@@ -130,7 +215,13 @@ export default function AdminContent() {
   const save = async () => {
     setSaving(true);
     try {
-      await api.post(`/admin/content/${contentKey}`, { data });
+      const payload = { ...data };
+      // iter-75: parse the sections JSON back to an array before save.
+      if (typeof payload.sections === "string") {
+        try { payload.sections = JSON.parse(payload.sections); }
+        catch { toast.error("Sections JSON is invalid — fix syntax and try again"); setSaving(false); return; }
+      }
+      await api.post(`/admin/content/${contentKey}`, { data: payload });
       toast.success("Saved");
     } catch (e) { toast.error(e?.response?.data?.detail || "Save failed"); }
     finally { setSaving(false); }

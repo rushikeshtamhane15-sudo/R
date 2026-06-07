@@ -88,7 +88,7 @@ export default function Landing() {
         </div>
         <div className="flex-1 flex items-center">
           <div className="w-full max-w-7xl mx-auto px-6 md:px-8 lg:px-12 py-1 sm:py-3 md:py-5">
-          <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="text-xs sm:text-sm tracking-overline uppercase font-bold text-secondary mb-1.5 sm:mb-2">
+          <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="text-xs sm:text-sm tracking-overline uppercase font-bold text-secondary mb-0.5 sm:mb-1">
             {c.hero_overline || "UPI · WALLET · E-MEAL PASS"}
           </motion.p>
           <motion.h1 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="font-display font-extrabold text-[34px] leading-[1.02] sm:text-6xl lg:text-7xl tracking-tight max-w-4xl">

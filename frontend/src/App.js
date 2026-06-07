@@ -68,6 +68,7 @@ import AdminCashCollections from "./pages/AdminCashCollections";
 import AdminPartialPayments from "./pages/AdminPartialPayments";
 import AdminCashAnalytics from "./pages/AdminCashAnalytics";
 import AdminKitchenSettings from "./pages/AdminKitchenSettings";
+import AdminMesses from "./pages/AdminMesses";
 import { Privacy, Refund } from "./pages/PolicyPage";
 
 function RequireAuth({ children, roles }) {
@@ -168,6 +169,7 @@ function AppRoutes() {
             <Route path="whatsapp" element={<AdminWhatsAppOutbox />} />
             <Route path="deliveries-today" element={<StaffDeliveries />} />
             <Route path="content/:contentKey" element={<AdminContent />} />
+            <Route path="messes" element={<AdminMesses />} />
           </Route>
 
           {/* Redirects */}

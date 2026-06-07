@@ -44,6 +44,12 @@ export default function Footer() {
           <span
             className="font-display font-extrabold text-3xl sm:text-4xl tracking-tight text-white"
             data-testid="footer-brand-name"
+            style={{
+              // iter-75 #6: subtle drop-shadow on the brand name so it
+              // lifts off the red footer instead of sitting flat. Stays
+              // strictly white (per iter-74 #5) but gains depth.
+              textShadow: "0 2px 4px rgba(0,0,0,0.35), 0 4px 12px rgba(0,0,0,0.25), 0 1px 0 rgba(255,255,255,0.20)",
+            }}
           >{brandName}</span>
           <span className="text-[11px] sm:text-xs tracking-[0.2em] uppercase font-semibold text-secondary" data-testid="footer-brand-tagline">{tagline}</span>
           <p className="text-sm sm:text-base max-w-2xl text-muted-foreground leading-relaxed mt-1" data-testid="footer-brand-promise">

@@ -1287,16 +1287,6 @@ DEFAULT_CONTENT = {
         "cta_subtitle": "Plans start at ₹1,800 for 30 days.",
         "cta_button_label": "Start with OTP",
     },
-    "privacy": {
-        "title": "Privacy Policy",
-        "last_updated": "",
-        "body": "Add your privacy policy here via Admin → Content → Privacy.\n\nInclude how you collect, use, and protect user data, cookies, and third-party sharing disclosures.",
-    },
-    "refund": {
-        "title": "Refund Policy",
-        "last_updated": "",
-        "body": "Add your refund policy here via Admin → Content → Refund.\n\nMention eligibility, the refund window, how to request a refund, and processing time.",
-    },
     "contact": {
         "title": "Contact Us",
         "intro": "We'd love to hear from you. Reach out any time.",
@@ -1335,6 +1325,90 @@ DEFAULT_CONTENT = {
         "verify_cta_label": "Verify & Continue",
         "resend_prompt": "Didn't get it?",
         "resend_label": "Resend OTP",
+    },
+    # iter-75 #3: full CMS for the About-us page so admin can change copy,
+    # colours, stats etc. without redeploying.
+    "about": {
+        "hero_bg_from": "#a02323",
+        "hero_bg_to": "#7a1818",
+        "hero_text_color": "#fff5f1",
+        "hero_overline": "Our story · est. 2023 · Amravati",
+        "hero_headline": "We started efoodcare because ghar se accha khana shouldn't disappear when you move out.",
+        "hero_lede": "One licensed kitchen. Two seasonal thalis a day. A 30-day e-Meal Pass. A wallet that pauses when you travel. And a promise that everything we cook is what we'd eat at our own dining table — never anything else.",
+        "cta_primary_label": "See subscription plans",
+        "cta_primary_to": "/plans",
+        "cta_secondary_label": "Visit our kitchen",
+        "cta_secondary_to": "/contact",
+        "stats_bg": "rgba(255,255,255,0.10)",
+        "stats_text_color": "#ffffff",
+        "stat_1_value": "21521243000086", "stat_1_label": "FSSAI Licence",
+        "stat_2_value": "3 yrs+",         "stat_2_label": "Serving Amravati",
+        "stat_3_value": "150+",            "stat_3_label": "Monthly Subscribers",
+        "stat_4_value": "100%",            "stat_4_label": "Pure-veg Kitchen",
+        "promise_bg": "#ffffff",
+        "promise_text_color": "#0c0c0c",
+        "promise_heading": "Four non-negotiables that make us different from a regular tiffin.",
+        "promise_1_title": "Zero adulteration kitchen", "promise_1_body": "No Ajinomoto, no maida, no palm or refined oil. No pre-made gravy, no artificial flavours or colours. The promise that started efoodcare.",
+        "promise_2_title": "Cold-pressed, local first", "promise_2_body": "Groundnut oil from Vidarbha farmers. Stone-ground spices. Fresh vegetables from Amravati's morning mandi — sourced before the kitchen turns on.",
+        "promise_3_title": "Ghar-jaisa, every meal",     "promise_3_body": "Two seasonal Maharashtrian thalis a day. Recipes from our founder's mother — calibrated by an FSSAI-licensed chef so every plate tastes the same Tuesday or Sunday.",
+        "promise_4_title": "Modern, paperless, audited","promise_4_body": "QR check-in, in-app wallet, e-Meal Pass, daily kitchen photos. Every meal you eat is logged — every meal you skip pauses your wallet.",
+        "timeline_bg": "#f5efe7",
+        "timeline_text_color": "#0c0c0c",
+        "timeline_heading": "From a single hostel dabba to a 150-subscriber wall kiosk.",
+        "tl_1_year": "2023", "tl_1_title": "The home-kitchen experiment",       "tl_1_body": "Rushikesh starts cooking lunch dabbas for engineering hostels in Amravati. The rule: nothing he wouldn't feed his mother.",
+        "tl_2_year": "2024", "tl_2_title": "efoodcare licence + 30-day pass",   "tl_2_body": "FSSAI licensing, the first 30-day e-Meal Pass model, and the original 'ghar se accha khana' tagline.",
+        "tl_3_year": "2025", "tl_3_title": "QR + wallet + delivery rails",       "tl_3_body": "QR-based attendance, an in-app wallet that pauses on skip-days, and partnered hyperlocal delivery for restaurant orders.",
+        "tl_4_year": "2026", "tl_4_title": "Wall kiosk + dynamic thali pricing", "tl_4_body": "Self-order wall kiosks at the dining hall, single-use anti-fraud QRs, and Paytm Dynamic QR for instant counter payments.",
+        "founder_bg": "#ffffff",
+        "founder_text_color": "#0c0c0c",
+        "founder_quote": "\"I built efoodcare for the version of myself that left home at 18.\"",
+        "founder_body": "When I moved out for engineering, I traded my mother's kitchen for hostel mess food and corner-shop dabbas — and within a month I was eating Ajinomoto-laced gravy and reused refined oil without even knowing. efoodcare is the brand I wish I had then: a licensed kitchen with the same standards your mother applies at home, a wallet that respects the days you don't eat, and a counter that gives you a receipt for every thali. Nothing is hidden. Everything is logged. Every rupee is yours until you scan in.",
+        "founder_name": "Rushikesh Tamhane",
+        "founder_role": "Founder & head of kitchen, efoodcare",
+        "visit_bg_from": "#a02323",
+        "visit_bg_to": "#7a1818",
+        "visit_text_color": "#ffffff",
+        "visit_heading": "Our kitchen is yours to inspect. Always.",
+        "visit_body": "Drop by during lunch (12:30-3pm) or dinner (7-10:30pm). We'll walk you through the storeroom, the oil bottles, the dal counter and the spice grinder. No appointment, no NDA — just open shelves.",
+        "visit_address": "shilangan Road, behind bhaktidham mandir, sai nagar, Amravati 444607, Maharashtra",
+        "visit_phone": "+91 91755 60211",
+        "visit_email": "hello@efoodcare.in",
+    },
+    # iter-75 #7: Privacy + Refund policy CMS-driven, professionally drafted.
+    "privacy": {
+        "title": "Privacy Policy",
+        "effective_date": "06 June 2026",
+        "intro": "efoodcare (\"we\", \"our\", \"the company\") operates the efoodcare meal-subscription and food-ordering platform at efoodcare.in. This policy explains what personal information we collect, why we collect it, how we use it, and what choices you have. We comply with the Digital Personal Data Protection Act, 2023 (DPDPA) and applicable Indian regulations.",
+        "sections": [
+            {"heading": "1. Information we collect", "body": "Account & identity: name, phone number, email, date of birth (optional), profile photo (optional). Address & geolocation: delivery addresses you save, your live location when you tap 'Use my location' (we never store continuous GPS — only the lat/lng at the moment of the tap). Subscription & order data: subscription tier, meal-pass start/end dates, attendance logs (QR scans), wallet balance, individual order histories, payment-method tokens (we never store full card or UPI PIN). Device & analytics: device model, OS, browser version, page-view events, crash logs — only aggregated/pseudonymous, used to fix bugs and improve UX."},
+            {"heading": "2. Why we collect it", "body": "Delivering meals on time, accurate billing and refunds, attendance and anti-fraud (single-use QR check-in), customer support and dispute resolution, kitchen capacity planning, sending order/wallet/menu notifications you've opted in to, complying with FSSAI / GST / tax obligations."},
+            {"heading": "3. Cookies & similar technologies", "body": "We use session cookies for login (auth_token, HTTPOnly, SameSite=Lax), a 'last viewed' cookie to resume your cart, and Google Analytics 4 for traffic measurement (anonymised IP, no cross-site tracking). You can clear cookies any time in your browser settings — you'll be logged out but no other data is lost."},
+            {"heading": "4. Who we share data with", "body": "Payment processors (Razorpay, Paytm) — for processing your UPI/card payments; they receive only the amount and a non-personal order ID. Hyperlocal delivery partners — your name, phone, address, and order summary so the rider can deliver. FSSAI / tax authorities — only when legally compelled. We do NOT sell your data, share it with advertisers, or use it for any third-party marketing."},
+            {"heading": "5. Data retention", "body": "Active subscriber profiles: kept while you have a paid subscription + 7 years for GST/tax compliance. Order/attendance logs: 7 years. Crash & analytics: 90 days, then deleted. Inactive accounts (no login for 24 months) are auto-anonymised: phone + email replaced with sha-256 hashes, name redacted to 'efoodcare guest'."},
+            {"heading": "6. Your rights", "body": "Access — request a copy of all data we hold on you. Correction — fix wrong details directly in your profile. Erasure — delete your account from Profile → Delete Account; we'll purge personal fields within 30 days. Portability — download your order/attendance history as JSON. Grievance officer: Rushikesh Tamhane, hello@efoodcare.in, +91 91755 60211."},
+            {"heading": "7. Children", "body": "Our services are for adults aged 18+. We do not knowingly collect data from minors. If you believe a child has signed up, contact the grievance officer and we'll delete the account within 7 days."},
+            {"heading": "8. Security", "body": "All data is transmitted over HTTPS (TLS 1.3). Passwords are bcrypt-hashed. Payment tokens are stored only by the gateway (Razorpay / Paytm) — we never see the raw card / UPI PIN. Database access is restricted to two named engineers and audited monthly."},
+            {"heading": "9. Cross-border transfers", "body": "All data is stored on Indian-region MongoDB Atlas servers. We do not transfer personal data outside India except for payment gateways (Razorpay, Paytm — both India-domiciled)."},
+            {"heading": "10. Changes to this policy", "body": "We'll notify you via in-app banner and email at least 7 days before any material change. The 'effective date' at the top is always the version you're seeing."},
+        ],
+        "contact_block": "Questions? Email hello@efoodcare.in or write to: efoodcare, shilangan Road, behind bhaktidham mandir, sai nagar, Amravati 444607, Maharashtra. We respond to every grievance within 72 hours.",
+    },
+    "refund": {
+        "title": "Refund & Cancellation Policy",
+        "effective_date": "06 June 2026",
+        "intro": "efoodcare is a fresh-food meal-subscription and restaurant ordering service. Because our thalis are prepared on-demand using perishable ingredients (no frozen / pre-made gravy), refunds follow a meal-by-meal model rather than a blanket one. This policy covers the 30-day Meal Pass, à-la-carte restaurant orders, and wall-kiosk walk-in orders.",
+        "sections": [
+            {"heading": "1. 30-day Meal Pass — paused day refunds", "body": "Your e-Meal Pass works on a 'pay-for-what-you-eat' wallet model. Days you don't check in via the QR are automatically PAUSED — the wallet retains that day's value and your subscription end-date is extended by one day. No manual refund is needed; the system handles it nightly at 11:30 PM. Net effect: you pay only for the meals you actually eat, up to your subscription limit."},
+            {"heading": "2. Cancelling an active subscription", "body": "You can cancel any time from Profile → Subscription → Cancel. We refund: (a) full pro-rata of unused meals × the day-rate of your tier, MINUS (b) a flat ₹100 administrative fee, MINUS (c) any unsettled wallet debits. The refund hits your original payment method within 5-7 business days via Razorpay. Cancellations after Day 25 of a 30-day cycle don't qualify for the pro-rata refund (administrative cut-off)."},
+            {"heading": "3. Quality complaints — same-meal credit", "body": "If a delivered tiffin or dining-in thali is below standard (cold, missing items, contaminated, off-taste), raise a complaint via Profile → Orders → Report Issue WITHIN 60 minutes of receiving / scanning in. If our kitchen verifies the complaint (photo + reason required), we credit your wallet with the FULL value of that meal — usable from the very next meal. We may also re-deliver the meal at no charge if the kitchen is still open."},
+            {"heading": "4. Restaurant à-la-carte orders", "body": "Cancellable BEFORE the kitchen has started cooking — usually within 90 seconds of placing the order. Use 'Cancel order' on the Track Order screen. Full refund to original payment method in 3-5 business days. Once cooking has started, the order is non-cancellable, but quality complaints (#3) still apply."},
+            {"heading": "5. Wall-kiosk / counter walk-in orders", "body": "Wall-kiosk orders are immediate and non-refundable once the kitchen receives the order ticket (≈10 seconds after Place Order). Cash + UPI mix payments: cash is refundable at the counter only if the order has NOT been printed to the kitchen; UPI portions follow the standard 5-7 day reversal."},
+            {"heading": "6. Failed payments / double charges", "body": "If you were charged but the subscription / order didn't activate, contact us immediately at hello@efoodcare.in or +91 91755 60211 with the Razorpay / Paytm txn-ID. We escalate to the gateway within 24 hours; reversals typically land in 3-5 business days."},
+            {"heading": "7. Refunds during force-majeure (kitchen down)", "body": "If our kitchen is closed for reasons beyond our control (power outage, FSSAI inspection, force majeure) and we can't deliver a paid meal, we automatically extend your subscription end-date by ONE day per unfulfilled meal — no need to claim. For long disruptions (>3 days), a full pro-rata refund is initiated automatically."},
+            {"heading": "8. How to claim a refund", "body": "Always log in first. Then Profile → Refund Request → pick the order → describe the issue → attach photo if applicable → submit. You get a ticket number within 30 seconds. We respond within 24 hours, and resolve within 72 hours."},
+            {"heading": "9. Wallet credit vs payment-method refund", "body": "Wallet credit (instant): same-meal complaints, paused days. Payment-method refund (5-7 days): cancelled subscriptions, double charges, kitchen-down force majeure. You can convert wallet credit to payment-method refund any time before subscription ends (₹100 fee applies)."},
+        ],
+        "contact_block": "Grievance officer: Rushikesh Tamhane, hello@efoodcare.in, +91 91755 60211. Mon-Sun, 10 AM - 10 PM. Tickets raised in-app via Profile → Help are tracked end-to-end with timestamps.",
     },
 }
 
@@ -1402,6 +1476,209 @@ async def reset_content(key: str, user: User = Depends(get_current_user)):
         {"key": key}, {"$set": {"key": key, "data": DEFAULT_CONTENT[key], "updated_at": iso(now_utc())}}, upsert=True,
     )
     return DEFAULT_CONTENT[key]
+
+
+# =====================================================================
+# iter-75 #8 — multi-mess support (a + c).
+# (a) Multiple physical branches (efoodcare-Amravati, efoodcare-Nagpur…)
+# (c) Franchise mode: partner kitchens can apply and run their own data.
+# MVP scope this iteration: Mess collection, CRUD, default-mess
+# seeding, and a public list endpoint. mess_id pass-through on
+# subscriptions/menu/orders comes in iter-76.
+# =====================================================================
+
+DEFAULT_MESS_ID = "efoodcare-amravati"
+
+DEFAULT_MESS = {
+    "mess_id": DEFAULT_MESS_ID,
+    "slug": "efoodcare-amravati",
+    "name": "efoodcare · Amravati",
+    "tagline": "Zero-adulteration tiffin & restaurant",
+    "address": "shilangan Road, behind bhaktidham mandir, sai nagar, Amravati 444607, Maharashtra",
+    "city": "Amravati",
+    "state": "Maharashtra",
+    "pincode": "444607",
+    "lat": None,
+    "lng": None,
+    "manager_name": "Rushikesh Tamhane",
+    "manager_phone": "+91 91755 60211",
+    "manager_email": "hello@efoodcare.in",
+    "owner_user_id": None,      # null = corporate-run
+    "is_franchise": False,
+    "is_corporate": True,       # the home kitchen
+    "status": "active",         # active | pending_review | inactive
+    "fssai_number": "21521243000086",
+    "capacity_lunch": 200,
+    "capacity_dinner": 200,
+    "currency": "INR",
+}
+
+
+class MessIn(BaseModel):
+    slug: str = Field(..., min_length=2, max_length=64)
+    name: str = Field(..., min_length=2, max_length=120)
+    tagline: Optional[str] = ""
+    address: str = Field(..., min_length=3)
+    city: str = Field(..., min_length=2)
+    state: str = Field(..., min_length=2)
+    pincode: str = Field(..., min_length=4, max_length=10)
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    manager_name: str = ""
+    manager_phone: str = ""
+    manager_email: Optional[str] = ""
+    is_franchise: bool = False
+    fssai_number: Optional[str] = ""
+    capacity_lunch: int = Field(default=100, ge=1, le=10000)
+    capacity_dinner: int = Field(default=100, ge=1, le=10000)
+
+
+class FranchiseApplyIn(BaseModel):
+    name: str = Field(..., min_length=2, max_length=120)
+    address: str = Field(..., min_length=3)
+    city: str = Field(..., min_length=2)
+    state: str = Field(..., min_length=2)
+    pincode: str = Field(..., min_length=4, max_length=10)
+    applicant_name: str = Field(..., min_length=2)
+    applicant_phone: str = Field(..., min_length=10)
+    applicant_email: Optional[str] = ""
+    notes: str = ""
+
+
+async def _seed_default_mess():
+    existing = await db.messes.find_one({"mess_id": DEFAULT_MESS_ID})
+    if not existing:
+        doc = {**DEFAULT_MESS, "created_at": iso(now_utc()), "updated_at": iso(now_utc())}
+        await db.messes.insert_one(doc)
+        logger.info(f"[messes] seeded default mess · {DEFAULT_MESS_ID}")
+
+
+@app.on_event("startup")
+async def _startup_seed_messes():
+    try:
+        await _seed_default_mess()
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[messes] seed failed: {e}")
+
+
+@api_router.get("/messes")
+async def list_messes_public():
+    """Public list of ACTIVE messes — used by signup mess-picker."""
+    cursor = db.messes.find({"status": "active"}, {"_id": 0}).sort("name", 1)
+    items = await cursor.to_list(200)
+    return {"messes": items, "default_mess_id": DEFAULT_MESS_ID}
+
+
+@api_router.get("/messes/{slug}")
+async def get_mess_by_slug(slug: str):
+    doc = await db.messes.find_one({"slug": slug}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Mess not found")
+    return doc
+
+
+@api_router.get("/admin/messes")
+async def admin_list_messes(user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    items = await db.messes.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return {"messes": items}
+
+
+@api_router.post("/admin/messes")
+async def admin_create_mess(payload: MessIn, user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    if await db.messes.find_one({"slug": payload.slug}):
+        raise HTTPException(status_code=400, detail="Slug already in use")
+    doc = {
+        **payload.model_dump(),
+        "mess_id": f"mess_{uuid.uuid4().hex[:10]}",
+        "owner_user_id": None,
+        "is_corporate": not payload.is_franchise,
+        "status": "active",
+        "currency": "INR",
+        "created_at": iso(now_utc()),
+        "updated_at": iso(now_utc()),
+    }
+    await db.messes.insert_one(doc)
+    out = await db.messes.find_one({"mess_id": doc["mess_id"]}, {"_id": 0})
+    return out
+
+
+@api_router.put("/admin/messes/{mess_id}")
+async def admin_update_mess(mess_id: str, payload: MessIn, user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    existing = await db.messes.find_one({"mess_id": mess_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Mess not found")
+    if payload.slug != existing.get("slug"):
+        clash = await db.messes.find_one({"slug": payload.slug, "mess_id": {"$ne": mess_id}})
+        if clash:
+            raise HTTPException(status_code=400, detail="Slug already in use")
+    updates = {**payload.model_dump(), "updated_at": iso(now_utc())}
+    await db.messes.update_one({"mess_id": mess_id}, {"$set": updates})
+    out = await db.messes.find_one({"mess_id": mess_id}, {"_id": 0})
+    return out
+
+
+class MessStatusIn(BaseModel):
+    status: str
+
+
+@api_router.patch("/admin/messes/{mess_id}/status")
+async def admin_set_mess_status(mess_id: str, payload: MessStatusIn, user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    if payload.status not in {"active", "pending_review", "inactive"}:
+        raise HTTPException(status_code=400, detail="status must be active|pending_review|inactive")
+    if mess_id == DEFAULT_MESS_ID and payload.status != "active":
+        raise HTTPException(status_code=400, detail="Cannot deactivate the corporate mess")
+    res = await db.messes.update_one({"mess_id": mess_id}, {"$set": {"status": payload.status, "updated_at": iso(now_utc())}})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Mess not found")
+    return {"ok": True, "status": payload.status}
+
+
+@api_router.post("/franchise/apply")
+async def franchise_apply(payload: FranchiseApplyIn):
+    """Public — partner kitchens submit a franchise application. Creates a
+    Mess in `pending_review` status (not visible to subscribers until an
+    admin promotes it to `active`).
+    """
+    slug_base = "-".join(payload.name.lower().split())[:50]
+    suffix = uuid.uuid4().hex[:4]
+    slug = f"{slug_base}-{suffix}"
+    doc = {
+        "mess_id": f"mess_{uuid.uuid4().hex[:10]}",
+        "slug": slug,
+        "name": payload.name,
+        "tagline": "Franchise partner",
+        "address": payload.address,
+        "city": payload.city,
+        "state": payload.state,
+        "pincode": payload.pincode,
+        "lat": None, "lng": None,
+        "manager_name": payload.applicant_name,
+        "manager_phone": payload.applicant_phone,
+        "manager_email": payload.applicant_email or "",
+        "owner_user_id": None,
+        "is_franchise": True,
+        "is_corporate": False,
+        "status": "pending_review",
+        "fssai_number": "",
+        "capacity_lunch": 100,
+        "capacity_dinner": 100,
+        "currency": "INR",
+        "notes": (payload.notes or "").strip(),
+        "created_at": iso(now_utc()),
+        "updated_at": iso(now_utc()),
+    }
+    await db.messes.insert_one(doc)
+    out = await db.messes.find_one({"mess_id": doc["mess_id"]}, {"_id": 0})
+    logger.info(f"[messes] new franchise application · {doc['slug']} · {payload.city}")
+    return {"ok": True, "mess": out}
 
 
 # -----------------------------------------------------------------------------

@@ -501,15 +501,22 @@ export default function Login() {
           </AnimatePresence>
         </div>
         </div>
-        {/* iter-74 #11: tiny red pill teaser below the form card with
-            healthy breathing room. Sits centered, single-line, drops a
-            subtle drop-shadow so it floats against the off-white bg. */}
-        <div className="mt-6 sm:mt-8 flex justify-center px-3" data-testid="login-tagline-pill-wrap">
+        {/* iter-74 #11 + iter-75 #4: tiny red pill teaser below the form
+            card, now FULL WIDTH with a small delivery-truck icon. Sits
+            centered, single-line, drops a subtle drop-shadow so it floats
+            against the off-white bg. */}
+        <div className="mt-6 sm:mt-8 px-3 sm:px-6" data-testid="login-tagline-pill-wrap">
           <span
-            className="inline-flex items-center rounded-full bg-primary text-white text-[11px] sm:text-xs font-extrabold px-3.5 py-1.5 tracking-wide shadow-md"
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-primary text-white text-[11.5px] sm:text-xs font-extrabold px-4 py-2 tracking-wide shadow-md"
             data-testid="login-tagline-pill"
           >
-            You are one step away from <em className="not-italic ml-1 italic font-bold opacity-95">ghar se accha khana</em>
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <rect x="1" y="3" width="15" height="13"/>
+              <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
+              <circle cx="5.5" cy="18.5" r="2.5"/>
+              <circle cx="18.5" cy="18.5" r="2.5"/>
+            </svg>
+            <span className="text-center">You are one step away from <em className="not-italic italic font-bold">ghar se accha khana</em></span>
           </span>
         </div>
         {/* Spacer below the form — pushes the form into the middle of the
