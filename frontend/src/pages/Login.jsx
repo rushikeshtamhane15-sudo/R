@@ -269,7 +269,7 @@ export default function Login() {
         {c.marquee_show !== false && (
           <div className="w-screen -mx-3 sm:-mx-6 max-w-none" aria-hidden data-testid="login-top-marquee">
             <div
-              className="bg-white border-y-4 border-white rounded-lg py-1.5"
+              className="bg-white border-y-2 border-white rounded-lg py-1.5"
               style={{
                 boxShadow:
                   "0 14px 32px -6px rgba(255,255,255,0.85), 0 6px 14px rgba(0,0,0,0.15), inset 0 0 0 3px rgba(255,255,255,1), inset 0 -1px 0 rgba(0,0,0,0.04)",

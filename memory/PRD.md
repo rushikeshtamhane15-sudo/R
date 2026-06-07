@@ -1231,3 +1231,36 @@ Massive 14-item user batch covering UI sizing polish + a Paytm Dynamic QR self-o
 
 **Razorpay QR Codes note**: User's Razorpay account currently REJECTS `qrcode.create` calls on the LIVE key — backend falls back to UPI intent QR which still works seamlessly. To enable the full Razorpay QR auto-confirmation path, user should enable the "QR Codes" product in Razorpay dashboard → Settings → Configuration.
 
+
+### Iteration 75 (Jun 7, 2026) — 8-item batch · Multi-mess + About/Privacy/Refund CMS + UI polish
+**All 8 items shipped.**
+
+- **#1 Razorpay QR enabled in user's dashboard** — auto-confirm path now functional (already coded in iter-74; user enabled the product in Razorpay).
+- **#2 Tighter hero spacing on /home** — Landing hero now uses `items-start` instead of `items-center` so the overline + H1 sit immediately under the location pill (H1 y dropped from 417 to 220 on a 414×896 viewport).
+- **#3 About-us CSS fix + full admin CMS** — hero padding cut by ~50% (py-6 sm:py-10 md:py-14), H1 + overline now visible in first fold on mobile. Every section (hero, promise, timeline, founder, visit-us) now reads `bg`, `text_color`, and copy from `/api/content/about`. Admin edits via `/admin/content/about` with colour pickers + textareas for each field. Stats / promises / timeline are split into individual `stat_N_value/label`, `promise_N_title/body`, `tl_N_year/title/body` fields for granular CMS control.
+- **#4 Login red pill — full-width with delivery truck** — pill now spans full container width with a small SVG truck icon left of the text. Replaces the centered inline-flex pill.
+- **#5 Login marquee — slimmed to 2px** with chunkier drop-shadow (10px-22px-4px dark + 0-0-0-2px white inset ring). More premium than the iter-74 4px border.
+- **#6 Footer brand text-shadow** — subtle drop-shadow added to the white brand name for depth (no colour change). `0 2px 4px / 0 4px 12px black + 0 1px 0 white inset`.
+- **#7 Privacy + Refund pages fully drafted** — DPDPA-compliant Privacy with 10 sections (Information collected, Cookies, Sharing, Retention, Rights, Children, Security, Cross-border, Changes, Contact) + Refund with 9 sections (Paused-day refunds, Cancellation pro-rata, Same-meal credit, Restaurant cancellation, Kiosk non-refundability, Failed payments, Force majeure, How to claim, Wallet vs payment-method refund). Layout rewritten in `PolicyPage.jsx` to render structured `sections[]` as individual cards with hero gradient + contact block. Admin edits via `/admin/content/privacy` and `/admin/content/refund` (sections stored as JSON textarea, parsed on save).
+- **#8 Multi-mess support (a + c)** — **MVP shipped**:
+  - `messes` collection seeded with default `efoodcare-amravati` corporate mess on startup.
+  - Backend endpoints: `GET /api/messes` (public list, status=active), `GET /api/messes/{slug}` (public detail), `GET /api/admin/messes` (admin list incl. pending), `POST /api/admin/messes` (admin create), `PUT /api/admin/messes/{id}` (admin update), `PATCH /api/admin/messes/{id}/status` (admin activate/deactivate; default mess protected), `POST /api/franchise/apply` (PUBLIC franchise application).
+  - Frontend: new `/admin/messes` page with create/edit form + list + activate/deactivate buttons. Sidebar link in AdminLayout.
+  - Franchise applications come in as `status=pending_review`, do NOT show in public list, admin clicks ✅ to approve.
+
+### Backend changes
+- `server.py`: new `Mess`, `MessIn`, `FranchiseApplyIn` models; `DEFAULT_MESS_ID`, `_seed_default_mess`, mess CRUD endpoints; `DEFAULT_CONTENT['about']`, `DEFAULT_CONTENT['privacy']`, `DEFAULT_CONTENT['refund']` (replaced flat stubs with structured sections).
+- `routes/mess_menu_cal.py`: untouched (iter-74 polling endpoint remains).
+
+### Tests
+- **Backend pytest**: `/app/backend/tests/test_iter75.py` — **9/9 PASS** (About CMS + Privacy/Refund + Mess CRUD + Franchise apply + role guards).
+- **Frontend testing agent**: 7/7 PASS after fixes (initial run flagged 2 medium issues — fixed in same iteration: Landing items-center → items-start, marquee border-y-4 → border-y-2).
+
+### Known follow-ups for iter-76
+- Wire `mess_id` pass-through on subscriptions, mess_menu, orders, attendance (currently single-tenant; multi-mess is admin-CRUD only).
+- Slug-sanitisation in `franchise_apply` (strip non-`[a-z0-9-]` chars).
+- Add `status` to `MessIn` so admins can re-activate via PUT (currently PATCH-only).
+- User-facing "Choose your mess" picker at signup + mess switcher in profile.
+- Per-mess pricing/menu/capacity dashboards.
+- Acko food contamination insurance — still waiting on B2B specs.
+

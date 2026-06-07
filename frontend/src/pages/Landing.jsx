@@ -86,8 +86,11 @@ export default function Landing() {
         <div className="pt-0.5">
           <ServiceabilityPill />
         </div>
-        <div className="flex-1 flex items-center">
-          <div className="w-full max-w-7xl mx-auto px-6 md:px-8 lg:px-12 py-1 sm:py-3 md:py-5">
+        {/* iter-75 #2: align content to TOP (was items-center) so the
+            overline sits immediately under the location pill instead of
+            floating in the vertical middle of the hero. */}
+        <div className="flex-1 flex items-start">
+          <div className="w-full max-w-7xl mx-auto px-6 md:px-8 lg:px-12 pt-2 pb-1 sm:pt-3 sm:pb-3 md:py-5">
           <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="text-xs sm:text-sm tracking-overline uppercase font-bold text-secondary mb-0.5 sm:mb-1">
             {c.hero_overline || "UPI · WALLET · E-MEAL PASS"}
           </motion.p>
