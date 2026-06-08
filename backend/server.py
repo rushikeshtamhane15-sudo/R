@@ -1730,14 +1730,6 @@ def _haversine_km(lat1, lng1, lat2, lng2):
     return 2 * R * _math.asin(_math.sqrt(a))
 
 
-@api_router.get("/messes/nearby/_old_v1")
-async def find_nearby_mess_v0(lat: float, lng: float):
-    """Deprecated path — see /messes/nearby above. Kept to avoid breaking
-    in-flight calls from a previous deployment.
-    """
-    return await _find_nearby_impl(lat, lng)
-
-
 class MessAssignIn(BaseModel):
     mess_id: str
 

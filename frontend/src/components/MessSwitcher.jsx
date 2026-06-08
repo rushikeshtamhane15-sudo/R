@@ -11,7 +11,7 @@
  */
 import React, { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "./ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from "./ui/sheet";
 import { Button } from "./ui/button";
 import { Building2, MapPin, Loader2, Navigation, Check } from "lucide-react";
 import { toast } from "sonner";
@@ -145,7 +145,7 @@ export default function MessSwitcher({ variant = "pill" }) {
           <SheetTitle className="font-display font-extrabold text-2xl flex items-center gap-2">
             <Navigation className="h-5 w-5 text-primary" /> Pick your branch
           </SheetTitle>
-          <p className="text-xs text-muted-foreground">Closest to you first. Your subscription &amp; orders are scoped to the selected branch.</p>
+          <SheetDescription className="text-xs text-muted-foreground">Closest to you first. Your subscription &amp; orders are scoped to the selected branch.</SheetDescription>
         </SheetHeader>
         <div className="mt-4 space-y-2.5" data-testid="mess-switcher-list">
           {loading ? (

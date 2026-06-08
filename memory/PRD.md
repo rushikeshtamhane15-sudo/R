@@ -1264,3 +1264,38 @@ Massive 14-item user batch covering UI sizing polish + a Paytm Dynamic QR self-o
 - Per-mess pricing/menu/capacity dashboards.
 - Acko food contamination insurance — still waiting on B2B specs.
 
+
+### Iteration 76 (Jun 8, 2026) — Multi-mess + franchise loop closed
+**3 items, all shipped, 100% pass rate.**
+
+- **#1 Per-mess metrics + franchise_owner role + franchise portal (option c · geo-based)**
+  - User model gained `mess_id` field + new `franchise_owner` role.
+  - `GET /api/admin/messes/{id}/metrics?days=N` returns: subscribers_active, subscribers_total, checkins_window, checkins_per_day_avg, order_count_window, order_revenue_window, subscription_revenue_active, capacity_daily, utilization_pct, computed_at. Window: 1-365 days (clamps).
+  - `GET /api/franchise/me/metrics` scoped to the calling franchise_owner (or admin fallback to default mess).
+  - `PATCH /api/admin/messes/{id}/owner` assigns a user to a mess + auto-promotes them to role=franchise_owner.
+  - Frontend: `AdminMessMetrics` page with 6 metric cards (Active subscribers, Subscription revenue, Order revenue, QR check-ins, Daily capacity, Utilization %) + 7d/30d/90d window selector. Admin reaches it via the "Metrics" button on `/admin/messes`; franchise owners reach the same data via `/franchise` portal.
+- **#2 Slug sanitization** — `franchise_apply` now applies `re.sub(r"[^a-z0-9]+", "-", name.lower())` so `"Café Junction · BKC! 🎉"` → `"caf-junction-bkc-104b"` matching `^[a-z0-9-]+$`.
+- **#3 mess_id pass-through + MessSwitcher (auto-pick by location)**
+  - Backend: `_backfill_mess_id_once` runs on startup → tags legacy subscriptions/menus/orders/attendance/users with `efoodcare-amravati`. On first iter-76 boot: 70 subscriptions + 1 menu + 390 users patched.
+  - New `GET /api/messes/nearby?lat=&lng=` computes haversine distance to all active messes (route registered ABOVE `/messes/{slug}` to avoid shadowing).
+  - New `GET/POST /api/me/mess` reads/writes user's mess assignment with fallback to default when their mess was deactivated.
+  - Frontend: `MessSwitcher.jsx` in Header — auto-picks closest active mess via geolocation on first mount, falls back to default mess after 4s if geo denied, persists selection in `localStorage['efc_user_mess_v1']` + server `/me/mess`. Pill in header is tappable → opens a bottom sheet "Pick your branch" with all active messes sorted by distance, distance_km badges, ✓ Current marker.
+  - Default mess seed self-heals: `_seed_default_mess` now patches lat/lng=20.9379/77.7782 on existing docs that were seeded in iter-75 without coords.
+
+**Backend changes**:
+- `server.py`: User.mess_id field + franchise_owner role; `_haversine_km` helper; `_find_nearby_impl` (reused by /messes/nearby); `/me/mess` GET/POST; `_mess_metrics` aggregator; `/admin/messes/{id}/metrics`; `/franchise/me/metrics`; `PATCH /admin/messes/{id}/owner` (auto-promotes); `_backfill_mess_id_once` startup hook.
+- DEFAULT_MESS gained lat=20.9379, lng=77.7782.
+
+**Frontend changes**:
+- New: `MessSwitcher.jsx`, `AdminMessMetrics.jsx` (exports `AdminMessMetrics` + `FranchisePortal`).
+- Modified: `Header.jsx` (wired MessSwitcher), `AdminMesses.jsx` (Metrics + Owner buttons), `App.js` (/franchise + /admin/messes/:messId/metrics routes).
+
+**Tests**:
+- `test_iter76.py` — **9/9 PASS** (franchise slug, nearby, /me/mess, metrics + clamping, role guards, PATCH /owner auto-promote, backfill verified).
+- Regression — **25/25 PASS** across iter-73/74/75.
+- Frontend testing agent — **4/4 PASS** (home pill auto-picks default + sheet works, AdminMesses row has 3 action buttons, metrics page shows 6 cards + window switch, /franchise admin fallback works).
+
+**Cleanup**: removed deprecated `/messes/nearby/_old_v1` alias; added SheetDescription to MessSwitcher for a11y; cleaned 1 test franchise application from DB.
+
+**Razorpay LIVE auth** still working (startup log confirms).
+
