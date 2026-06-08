@@ -114,12 +114,13 @@ class User(BaseModel):
     address: Optional[str] = None
     photo_url: Optional[str] = None
     picture: Optional[str] = None
-    role: Literal["admin", "staff", "subscriber", "delivery_boy", "rider"] = "subscriber"
+    role: Literal["admin", "staff", "subscriber", "delivery_boy", "rider", "franchise_owner"] = "subscriber"
     qr_token: str
     created_at: datetime
     lat: Optional[float] = None
     lng: Optional[float] = None
     wallet_balance: Optional[float] = 0.0
+    mess_id: Optional[str] = None  # iter-76: which mess (branch) this user is assigned to
 
 
 class Plan(BaseModel):
@@ -204,7 +205,7 @@ class SelfScanRequest(BaseModel):
 class SetRoleRequest(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
-    role: Literal["admin", "staff", "subscriber", "delivery_boy", "rider"]
+    role: Literal["admin", "staff", "subscriber", "delivery_boy", "rider", "franchise_owner"]
 
 
 class MenuUpdateRequest(BaseModel):
@@ -1498,8 +1499,8 @@ DEFAULT_MESS = {
     "city": "Amravati",
     "state": "Maharashtra",
     "pincode": "444607",
-    "lat": None,
-    "lng": None,
+    "lat": 20.9379,
+    "lng": 77.7782,
     "manager_name": "Rushikesh Tamhane",
     "manager_phone": "+91 91755 60211",
     "manager_email": "hello@efoodcare.in",
@@ -1551,6 +1552,17 @@ async def _seed_default_mess():
         doc = {**DEFAULT_MESS, "created_at": iso(now_utc()), "updated_at": iso(now_utc())}
         await db.messes.insert_one(doc)
         logger.info(f"[messes] seeded default mess · {DEFAULT_MESS_ID}")
+    else:
+        # iter-76: heal old seed where lat/lng were null (added in iter-76).
+        patch = {}
+        if existing.get("lat") is None and DEFAULT_MESS.get("lat") is not None:
+            patch["lat"] = DEFAULT_MESS["lat"]
+        if existing.get("lng") is None and DEFAULT_MESS.get("lng") is not None:
+            patch["lng"] = DEFAULT_MESS["lng"]
+        if patch:
+            patch["updated_at"] = iso(now_utc())
+            await db.messes.update_one({"mess_id": DEFAULT_MESS_ID}, {"$set": patch})
+            logger.info(f"[messes] patched default mess lat/lng → {patch}")
 
 
 @app.on_event("startup")
@@ -1567,6 +1579,26 @@ async def list_messes_public():
     cursor = db.messes.find({"status": "active"}, {"_id": 0}).sort("name", 1)
     items = await cursor.to_list(200)
     return {"messes": items, "default_mess_id": DEFAULT_MESS_ID}
+
+
+@api_router.get("/messes/nearby")
+async def find_nearby_mess_v1(lat: float, lng: float):
+    return await _find_nearby_impl(lat, lng)
+
+
+async def _find_nearby_impl(lat: float, lng: float):
+    cursor = db.messes.find(
+        {"status": "active", "lat": {"$ne": None}, "lng": {"$ne": None}},
+        {"_id": 0},
+    )
+    items = await cursor.to_list(200)
+    for m in items:
+        try:
+            m["distance_km"] = round(_haversine_km(lat, lng, m["lat"], m["lng"]), 2)
+        except Exception:  # noqa: BLE001
+            m["distance_km"] = None
+    items.sort(key=lambda m: (m.get("distance_km") is None, m.get("distance_km") or 0))
+    return {"messes": items, "closest_mess_id": items[0]["mess_id"] if items else None}
 
 
 @api_router.get("/messes/{slug}")
@@ -1647,9 +1679,11 @@ async def franchise_apply(payload: FranchiseApplyIn):
     Mess in `pending_review` status (not visible to subscribers until an
     admin promotes it to `active`).
     """
-    slug_base = "-".join(payload.name.lower().split())[:50]
+    # iter-76 #2: strict slug sanitization → [a-z0-9-] only.
+    import re as _re
+    base = _re.sub(r"[^a-z0-9]+", "-", payload.name.lower()).strip("-")[:50] or "partner"
     suffix = uuid.uuid4().hex[:4]
-    slug = f"{slug_base}-{suffix}"
+    slug = f"{base}-{suffix}"
     doc = {
         "mess_id": f"mess_{uuid.uuid4().hex[:10]}",
         "slug": slug,
@@ -1679,6 +1713,181 @@ async def franchise_apply(payload: FranchiseApplyIn):
     out = await db.messes.find_one({"mess_id": doc["mess_id"]}, {"_id": 0})
     logger.info(f"[messes] new franchise application · {doc['slug']} · {payload.city}")
     return {"ok": True, "mess": out}
+
+
+# -----------------------------------------------------------------------------
+# iter-76 — per-mess utilities: nearby, user mess assignment, admin metrics.
+# -----------------------------------------------------------------------------
+
+import math as _math
+
+
+def _haversine_km(lat1, lng1, lat2, lng2):
+    R = 6371.0
+    dlat = _math.radians(lat2 - lat1)
+    dlng = _math.radians(lng2 - lng1)
+    a = _math.sin(dlat / 2) ** 2 + _math.cos(_math.radians(lat1)) * _math.cos(_math.radians(lat2)) * _math.sin(dlng / 2) ** 2
+    return 2 * R * _math.asin(_math.sqrt(a))
+
+
+@api_router.get("/messes/nearby/_old_v1")
+async def find_nearby_mess_v0(lat: float, lng: float):
+    """Deprecated path — see /messes/nearby above. Kept to avoid breaking
+    in-flight calls from a previous deployment.
+    """
+    return await _find_nearby_impl(lat, lng)
+
+
+class MessAssignIn(BaseModel):
+    mess_id: str
+
+
+@api_router.get("/me/mess")
+async def get_my_mess(user: User = Depends(get_current_user)):
+    """Return the mess this user is assigned to. Falls back to the default
+    corporate mess for legacy users created before iter-76.
+    """
+    profile = await db.users.find_one({"user_id": user.user_id}, {"_id": 0, "mess_id": 1}) or {}
+    mess_id = profile.get("mess_id") or DEFAULT_MESS_ID
+    mess = await db.messes.find_one({"mess_id": mess_id}, {"_id": 0})
+    if not mess:
+        # mess was deactivated → fall back to default
+        mess = await db.messes.find_one({"mess_id": DEFAULT_MESS_ID}, {"_id": 0})
+        if mess:
+            await db.users.update_one({"user_id": user.user_id}, {"$set": {"mess_id": DEFAULT_MESS_ID}})
+    return {"mess_id": mess_id, "mess": mess}
+
+
+@api_router.post("/me/mess")
+async def set_my_mess(payload: MessAssignIn, user: User = Depends(get_current_user)):
+    target = await db.messes.find_one({"mess_id": payload.mess_id, "status": "active"}, {"_id": 0})
+    if not target:
+        raise HTTPException(status_code=400, detail="Inactive or unknown mess")
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {"mess_id": payload.mess_id, "mess_assigned_at": iso(now_utc())}},
+    )
+    return {"ok": True, "mess_id": payload.mess_id, "mess": target}
+
+
+async def _mess_metrics(mess_id: str, days: int = 30):
+    """Compute per-mess P&L + attendance metrics for the last N days."""
+    since = iso(now_utc() - timedelta(days=days)) if days else None
+    # Subscribers count — anyone with an active subscription on this mess
+    sub_q = {"mess_id": mess_id, "status": "active"}
+    subscribers = await db.subscriptions.count_documents(sub_q)
+    # Total subscribers ever (incl. expired)
+    subscribers_total = await db.subscriptions.count_documents({"mess_id": mess_id})
+    # Daily check-ins last N days (attendance scans)
+    scan_q = {"mess_id": mess_id}
+    if since:
+        scan_q["created_at"] = {"$gte": since}
+    daily_checkins = await db.attendance_logs.count_documents(scan_q)
+    # Walk-in / kiosk orders total revenue (paid only)
+    order_q = {"mess_id": mess_id, "status": {"$in": ["paid", "pending_collection"]}}
+    if since:
+        order_q["created_at"] = {"$gte": since}
+    orders_cur = db.mess_menu_orders.find(order_q, {"_id": 0, "total": 1})
+    orders = await orders_cur.to_list(20000)
+    order_revenue = sum(int(o.get("total") or 0) for o in orders)
+    order_count = len(orders)
+    # Active subscription monthly revenue (sum of `amount_paid` for active subs)
+    sub_cur = db.subscriptions.find({"mess_id": mess_id, "status": "active"}, {"_id": 0, "amount_paid": 1})
+    sub_docs = await sub_cur.to_list(20000)
+    subscription_revenue = sum(int(s.get("amount_paid") or 0) for s in sub_docs)
+    mess = await db.messes.find_one({"mess_id": mess_id}, {"_id": 0})
+    capacity_lunch = (mess or {}).get("capacity_lunch", 0) or 0
+    capacity_dinner = (mess or {}).get("capacity_dinner", 0) or 0
+    daily_capacity = capacity_lunch + capacity_dinner
+    # Utilization: assume daily_checkins / (daily_capacity * days)
+    utilization = round(daily_checkins / (daily_capacity * days) * 100, 1) if (daily_capacity and days) else 0
+    return {
+        "mess_id": mess_id,
+        "mess": mess,
+        "window_days": days,
+        "subscribers_active": subscribers,
+        "subscribers_total": subscribers_total,
+        "checkins_window": daily_checkins,
+        "checkins_per_day_avg": round(daily_checkins / days, 1) if days else 0,
+        "order_count_window": order_count,
+        "order_revenue_window": order_revenue,
+        "subscription_revenue_active": subscription_revenue,
+        "capacity_daily": daily_capacity,
+        "utilization_pct": utilization,
+        "computed_at": iso(now_utc()),
+    }
+
+
+@api_router.get("/admin/messes/{mess_id}/metrics")
+async def admin_mess_metrics(mess_id: str, days: int = 30, user: User = Depends(get_current_user)):
+    if user.role not in ("admin", "staff"):
+        raise HTTPException(status_code=403, detail="Admin/staff only")
+    days = max(1, min(int(days or 30), 365))
+    return await _mess_metrics(mess_id, days)
+
+
+@api_router.get("/franchise/me/metrics")
+async def franchise_my_metrics(days: int = 30, user: User = Depends(get_current_user)):
+    """Franchise-portal view — owner sees only THEIR mess (the one where
+    mess.owner_user_id == user.user_id). Returns 403 if no mess owned.
+    """
+    if user.role not in ("franchise_owner", "admin"):
+        raise HTTPException(status_code=403, detail="Franchise portal only")
+    mess = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0})
+    if not mess and user.role != "admin":
+        raise HTTPException(status_code=403, detail="No mess assigned to this owner")
+    target_id = (mess or {}).get("mess_id") or DEFAULT_MESS_ID
+    days = max(1, min(int(days or 30), 365))
+    return await _mess_metrics(target_id, days)
+
+
+class MessAssignOwnerIn(BaseModel):
+    owner_user_id: Optional[str] = None  # null = unassign
+
+
+@api_router.patch("/admin/messes/{mess_id}/owner")
+async def admin_assign_mess_owner(mess_id: str, payload: MessAssignOwnerIn, user: User = Depends(get_current_user)):
+    """Iter-76: assign a franchise owner to a mess. Promotes the target
+    user to role=franchise_owner (subscribers/admins/staff aren't demoted).
+    """
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    mess = await db.messes.find_one({"mess_id": mess_id})
+    if not mess:
+        raise HTTPException(status_code=404, detail="Mess not found")
+    if payload.owner_user_id:
+        target = await db.users.find_one({"user_id": payload.owner_user_id})
+        if not target:
+            raise HTTPException(status_code=404, detail="User not found")
+        if target.get("role") in ("subscriber", "rider", "delivery_boy"):
+            await db.users.update_one({"user_id": payload.owner_user_id}, {"$set": {"role": "franchise_owner"}})
+    await db.messes.update_one(
+        {"mess_id": mess_id},
+        {"$set": {"owner_user_id": payload.owner_user_id, "updated_at": iso(now_utc())}},
+    )
+    out = await db.messes.find_one({"mess_id": mess_id}, {"_id": 0})
+    return {"ok": True, "mess": out}
+
+
+async def _backfill_mess_id_once():
+    """One-time backfill: tag legacy docs (subscriptions, attendance_logs,
+    mess_menu_orders, mess_menu) without a mess_id with the DEFAULT mess.
+    Runs on startup; idempotent.
+    """
+    for coll in ("subscriptions", "attendance_logs", "mess_menu_orders", "mess_menu", "users"):
+        res = await db[coll].update_many(
+            {"mess_id": {"$exists": False}}, {"$set": {"mess_id": DEFAULT_MESS_ID}}
+        )
+        if res.modified_count:
+            logger.info(f"[iter-76 backfill] {coll}: tagged {res.modified_count} docs with mess_id={DEFAULT_MESS_ID}")
+
+
+@app.on_event("startup")
+async def _startup_backfill_mess_ids():
+    try:
+        await _backfill_mess_id_once()
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[iter-76] mess_id backfill skipped: {e}")
 
 
 # -----------------------------------------------------------------------------

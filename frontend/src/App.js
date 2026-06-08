@@ -69,6 +69,7 @@ import AdminPartialPayments from "./pages/AdminPartialPayments";
 import AdminCashAnalytics from "./pages/AdminCashAnalytics";
 import AdminKitchenSettings from "./pages/AdminKitchenSettings";
 import AdminMesses from "./pages/AdminMesses";
+import { AdminMessMetrics, FranchisePortal } from "./pages/AdminMessMetrics";
 import { Privacy, Refund } from "./pages/PolicyPage";
 
 function RequireAuth({ children, roles }) {
@@ -131,6 +132,7 @@ function AppRoutes() {
           <Route path="/refund" element={<Refund />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/about" element={<About />} />
+          <Route path="/franchise" element={<RequireAuth roles={["franchise_owner", "admin"]}><FranchisePortal /></RequireAuth>} />
 
           {/* Admin / staff */}
           <Route path="/admin" element={<RequireAuth roles={["admin", "staff"]}><AdminLayout /></RequireAuth>}>
@@ -170,6 +172,7 @@ function AppRoutes() {
             <Route path="deliveries-today" element={<StaffDeliveries />} />
             <Route path="content/:contentKey" element={<AdminContent />} />
             <Route path="messes" element={<AdminMesses />} />
+            <Route path="messes/:messId/metrics" element={<AdminMessMetrics />} />
           </Route>
 
           {/* Redirects */}

@@ -5,6 +5,7 @@ import { useTheme } from "../context/ThemeContext";
 import { Button } from "./ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "./ui/sheet";
 import WalletPill from "./WalletPill";
+import MessSwitcher from "./MessSwitcher";
 import { BRAND_LOGO_URL } from "../lib/brand";
 import { api } from "../lib/api";
 import { LogOut, Menu, X, Wallet } from "lucide-react";
@@ -89,6 +90,7 @@ export default function Header() {
         </Link>
 
         <div className="flex items-center gap-1.5 md:gap-3 shrink-0">
+          <MessSwitcher variant="pill" />
           {showWallet && <WalletPill compact />}
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>

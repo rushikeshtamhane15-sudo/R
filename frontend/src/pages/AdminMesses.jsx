@@ -6,11 +6,12 @@
  */
 import React, { useEffect, useState, useCallback } from "react";
 import { api } from "../lib/api";
+import { Link } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Building2, MapPin, Phone, Mail, ShieldCheck, Loader2, Power, PowerOff, Pencil } from "lucide-react";
+import { Plus, Building2, MapPin, Phone, Mail, ShieldCheck, Loader2, Power, PowerOff, Pencil, BarChart3, UserPlus } from "lucide-react";
 
 const EMPTY = {
   slug: "", name: "", tagline: "", address: "", city: "", state: "Maharashtra",
@@ -70,6 +71,19 @@ export default function AdminMesses() {
       toast.success(`Status → ${status}`);
       load();
     } catch (e) { toast.error(e?.response?.data?.detail || "Could not change status"); }
+  };
+
+  const assignOwner = async (m) => {
+    const next = prompt(
+      `Assign franchise owner to "${m.name}"\n\nEnter the user_id (or leave blank to UNASSIGN):`,
+      m.owner_user_id || "",
+    );
+    if (next === null) return;
+    try {
+      await api.patch(`/admin/messes/${m.mess_id}/owner`, { owner_user_id: next.trim() || null });
+      toast.success(next ? "Owner assigned — user promoted to franchise_owner" : "Owner cleared");
+      load();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
   };
 
   return (
@@ -152,8 +166,12 @@ export default function AdminMesses() {
                 {m.fssai_number && <p className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" /> FSSAI {m.fssai_number}</p>}
               </div>
             </div>
-            <div className="flex sm:flex-col gap-1.5 sm:w-[160px]">
+            <div className="flex sm:flex-col gap-1.5 sm:w-[170px]">
+              <Link to={`/admin/messes/${m.mess_id}/metrics`} data-testid={`mess-metrics-${m.slug}`} className="inline-flex items-center justify-center gap-1 rounded-full h-8 text-xs font-extrabold bg-primary text-white hover:bg-primary/90 px-3">
+                <BarChart3 className="h-3.5 w-3.5" /> Metrics
+              </Link>
               <Button onClick={() => startEdit(m)} variant="outline" className="rounded-full h-8 text-xs" data-testid={`mess-edit-${m.slug}`}><Pencil className="h-3.5 w-3.5 mr-1" /> Edit</Button>
+              <Button onClick={() => assignOwner(m)} variant="outline" className="rounded-full h-8 text-xs" data-testid={`mess-assign-owner-${m.slug}`}><UserPlus className="h-3.5 w-3.5 mr-1" /> Owner</Button>
               {m.status !== "active" ? (
                 <Button onClick={() => setStatus(m.mess_id, "active")} className="rounded-full h-8 text-xs bg-emerald-600 hover:bg-emerald-700" data-testid={`mess-activate-${m.slug}`}><Power className="h-3.5 w-3.5 mr-1" /> Approve</Button>
               ) : (
