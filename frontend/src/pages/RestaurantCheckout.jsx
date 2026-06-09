@@ -164,9 +164,16 @@ export default function RestaurantCheckout() {
       const rzp = new window.Razorpay(opt);
       rzp.open();
     } catch (e) {
-      const detail = e?.response?.data?.detail || "Could not place order";
+      const raw = e?.response?.data?.detail;
+      // iter-79 Batch B #4: 423 returns a dict {code, message, opens_in_minutes}
+      let detail;
+      if (raw && typeof raw === "object") detail = raw.message || "Restaurant is currently closed";
+      else detail = raw || "Could not place order";
       toast.error(detail);
-      if (e?.response?.status === 400 && /(service area|pin your delivery|cannot deliver)/i.test(detail)) {
+      if (e?.response?.status === 423) {
+        // Bounce back to /restaurant where the closed-banner explains the wait
+        setTimeout(() => navigate("/restaurant"), 1200);
+      } else if (e?.response?.status === 400 && /(service area|pin your delivery|cannot deliver)/i.test(detail)) {
         // Iter-54 #6: hard-block out-of-area; nudge user to update location
         setTimeout(() => navigate(`/restaurant?pickLocation=1`), 800);
       }

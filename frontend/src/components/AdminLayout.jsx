@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
 import { api } from "../lib/api";
-import { LayoutDashboard, Package, Truck, ScanLine, QrCode, Utensils, Users, Palette, Home, Shield, FileText, MapPin, FootprintsIcon, LogIn, Megaphone, Radio, Layout, Wheat, ClipboardList, Menu, MessageSquareQuote, UtensilsCrossed, MessageCircle, ChefHat, Bike, AlertTriangle, X } from "lucide-react";
+import { LayoutDashboard, Package, Truck, ScanLine, QrCode, Utensils, Users, Palette, Home, Shield, FileText, MapPin, FootprintsIcon, LogIn, Megaphone, Radio, Layout, Wheat, ClipboardList, Menu, MessageSquareQuote, UtensilsCrossed, MessageCircle, ChefHat, Bike, AlertTriangle, X, Clock } from "lucide-react";
 
 // `roles`: which roles can see the item. Default: admin only.
 // iter-78 #2: helper that grants franchise_owner read-only access to the
@@ -38,6 +38,7 @@ const SECTIONS = [
       { to: "/admin/pnl", label: "Profit & loss", icon: ClipboardList, roles: FRANCHISE_VIEW },
       { to: "/admin/restaurant", label: "Restaurant menu", icon: ChefHat, roles: ["admin"] },
       { to: "/admin/restaurant-orders", label: "Restaurant orders", icon: ChefHat, roles: FRANCHISE_VIEW },
+      { to: "/admin/restaurant-hours", label: "Restaurant hours / capacity", icon: Clock, roles: ["admin"] },
       { to: "/admin/whatsapp", label: "WhatsApp outbox", icon: MessageCircle, roles: ["admin"] },
       { to: "/admin/delivery", label: "Tiffin delivery", icon: Truck, roles: FRANCHISE_VIEW },
       { to: "/admin/live", label: "Live tracking", icon: Radio, roles: FRANCHISE_VIEW },

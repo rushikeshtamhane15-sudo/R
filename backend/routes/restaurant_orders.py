@@ -41,6 +41,11 @@ async def create_restaurant_order(payload: CreateRestaurantOrder, user: server.U
     if not payload.items:
         raise HTTPException(status_code=400, detail="Cart is empty")
 
+    # iter-79 Batch B #4: enforce restaurant operating hours / capacity gate
+    # BEFORE any Razorpay order is generated.
+    from routes.restaurant_hours import _assert_open
+    await _assert_open()
+
     menu = await _load_menu()
     menu_by_id = {m["id"]: m for m in menu}
     priced, subtotal, delivery_fee, total = _compute_totals(menu_by_id, payload.items)

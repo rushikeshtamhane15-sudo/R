@@ -1,9 +1,24 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../lib/api";
-import { MapPin, Phone, Mail, Clock, Building2, Navigation, ChefHat } from "lucide-react";
+import { MapPin, Phone, Mail, Clock, Building2, Navigation, ChefHat, MessageCircle } from "lucide-react";
 import SEO from "../components/SEO";
 import MapBrandCaption from "../components/MapBrandCaption";
 
+/**
+ * Contact — iter-79 Batch B #5.
+ *
+ * Location-aware branch directory.
+ *   1. Asks for user GPS on mount.
+ *   2. Calls /api/messes/nearby?lat&lng → returns active branches sorted by
+ *      distance with a `closest_mess_id`.
+ *   3. Renders the closest branch's address / phone / WhatsApp / email /
+ *      manager / FSSAI / map. Falls back to the CMS /content/contact doc
+ *      if location is denied OR no branches are available.
+ *
+ * If the customer lives in (say) Nagpur and we have a Nagpur branch, they
+ * see Nagpur contact details — not Amravati HQ. This is the whole point of
+ * the multi-mess architecture.
+ */
 function haversineKm(lat1, lng1, lat2, lng2) {
   const R = 6371;
   const toRad = (d) => (d * Math.PI) / 180;
@@ -13,96 +28,158 @@ function haversineKm(lat1, lng1, lat2, lng2) {
   return 2 * R * Math.asin(Math.sqrt(a));
 }
 
+function buildOsmEmbed(lat, lng) {
+  const dLat = 0.012, dLng = 0.012;
+  const bbox = `${(lng - dLng).toFixed(5)},${(lat - dLat).toFixed(5)},${(lng + dLng).toFixed(5)},${(lat + dLat).toFixed(5)}`;
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lng}`;
+}
+
+function digitsOnly(p) { return String(p || "").replace(/\D/g, ""); }
+
 export default function Contact() {
-  const [data, setData] = useState(null);
-  const [kitchen, setKitchen] = useState(null);
-  // iter-65 #6: capture the user's coords so we can show distance + open
-  // turn-by-turn directions in Google Maps with one tap.
+  const [cms, setCms] = useState(null);
+  const [branch, setBranch] = useState(null);  // nearest branch (mess doc)
+  const [allBranches, setAllBranches] = useState([]);
   const [me, setMe] = useState(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const [loading, setLoading] = useState(true);
 
+  // Load CMS fallback in parallel with location resolve
   useEffect(() => {
+    let cancel = false;
     (async () => {
-      try { const r = await api.get("/content/contact"); setData(r.data); } catch {}
-      try { const r2 = await api.get("/kitchen-location"); setKitchen(r2.data || null); } catch {}
+      try {
+        const r = await api.get("/content/contact");
+        if (!cancel) setCms(r.data);
+      } catch { /* ignore */ }
     })();
+    return () => { cancel = true; };
+  }, []);
+
+  // Resolve nearest branch
+  useEffect(() => {
+    let cancel = false;
+    const fallbackToFirst = async () => {
+      // No GPS / denied — show the default (corporate) branch.
+      try {
+        const r = await api.get("/messes");
+        if (cancel) return;
+        const all = r.data?.messes || [];
+        setAllBranches(all);
+        const def = all.find((m) => m.mess_id === r.data.default_mess_id) || all[0] || null;
+        setBranch(def);
+      } finally { if (!cancel) setLoading(false); }
+    };
+    if (!("geolocation" in navigator)) { fallbackToFirst(); return; }
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        if (cancel) return;
+        const lat = pos.coords.latitude, lng = pos.coords.longitude;
+        setMe({ lat, lng });
+        try {
+          const r = await api.get(`/messes/nearby?lat=${lat}&lng=${lng}`);
+          if (cancel) return;
+          const items = r.data?.messes || [];
+          setAllBranches(items);
+          setBranch(items[0] || null);
+        } catch {
+          await fallbackToFirst();
+          return;
+        } finally { if (!cancel) setLoading(false); }
+      },
+      () => { setPermissionDenied(true); fallbackToFirst(); },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 5 * 60 * 1000 },
+    );
+    return () => { cancel = true; };
   }, []);
 
   const askDirections = () => {
-    if (!kitchen?.dispatch_lat || !kitchen?.dispatch_lng) return;
-    // iter-73 #4: pass the kitchen address as the destination query so Google
-    // Maps shows "efoodcare · shilangan Road…" instead of the random
-    // reverse-geocoded name (e.g. "Indira Digital") that surfaced before.
-    const destLabel = encodeURIComponent(`efoodcare · ${data?.address || "Amravati"}`);
-    const openMaps = (lat, lng) => {
-      const destCoords = `${kitchen.dispatch_lat},${kitchen.dispatch_lng}`;
-      const origin = lat && lng ? `${lat},${lng}` : "";
+    if (!branch?.lat || !branch?.lng) return;
+    const destLabel = encodeURIComponent(`${branch.name} · ${branch.address}`);
+    const openMaps = () => {
+      const destCoords = `${branch.lat},${branch.lng}`;
+      const origin = me ? `${me.lat},${me.lng}` : "";
       const url = `https://www.google.com/maps/dir/?api=1&destination=${destLabel}&destination_place_id=&travelmode=driving${origin ? `&origin=${origin}` : ""}&dir_action=navigate`;
-      // Drop pin alternative — if Google can't find the labelled place, fall
-      // through to lat/lng coordinates so user still reaches the kitchen.
       const fallback = `https://www.google.com/maps/dir/?api=1&destination=${destCoords}${origin ? `&origin=${origin}` : ""}&travelmode=driving`;
       window.open(url || fallback, "_blank", "noopener,noreferrer");
     };
-    if (!("geolocation" in navigator)) { openMaps(); return; }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const lat = pos.coords.latitude, lng = pos.coords.longitude;
-        setMe({ lat, lng });
-        setPermissionDenied(false);
-        openMaps(lat, lng);
-      },
-      () => { setPermissionDenied(true); openMaps(); },
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 5 * 60 * 1000 },
-    );
+    openMaps();
   };
 
-  if (!data) return <div className="p-12 text-center text-muted-foreground">Loading…</div>;
+  if (loading || !branch) return <div className="p-12 text-center text-muted-foreground" data-testid="contact-loading">Loading…</div>;
 
-  // iter-62 #6: when admin moves the kitchen pin via the Kitchen Settings
-  // CMS, we build a fresh OpenStreetMap embed centered on that lat/lng so
-  // the Contact map stays in sync without needing the admin to also paste a
-  // new map_embed_src. Fallback to whatever was saved in /content/contact.
-  const buildOsmEmbed = (lat, lng) => {
-    const dLat = 0.012, dLng = 0.012;
-    const bbox = `${(lng - dLng).toFixed(5)},${(lat - dLat).toFixed(5)},${(lng + dLng).toFixed(5)},${(lat + dLat).toFixed(5)}`;
-    return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lng}`;
-  };
-  const liveMapSrc = kitchen && kitchen.dispatch_lat && kitchen.dispatch_lng
-    ? buildOsmEmbed(Number(kitchen.dispatch_lat), Number(kitchen.dispatch_lng))
-    : (data.map_embed_src || "");
+  const title = cms?.title || "We're a phone call away";
+  const intro = cms?.intro || "Reach out for orders, support or franchise enquiries — we usually reply within an hour.";
+  const hours = cms?.hours || "Mon–Sun · 09:00–22:00 IST";
+  const distanceKm = (me && branch.lat && branch.lng) ? haversineKm(me.lat, me.lng, branch.lat, branch.lng).toFixed(1) : null;
+  const mapSrc = (branch.lat && branch.lng) ? buildOsmEmbed(branch.lat, branch.lng) : "";
+
+  const phoneDigits = digitsOnly(branch.manager_phone);
+  const waLink = phoneDigits ? `https://wa.me/${phoneDigits.startsWith("91") ? phoneDigits : "91" + phoneDigits}` : null;
 
   return (
     <div className="max-w-5xl mx-auto px-6 md:px-8 py-12" data-testid="contact-page">
-      <SEO
-        title="Contact us · franchise & support"
-        path="/contact"
-        description="Reach efoodcare for orders, support or franchise enquiries. Address: shilangan Road, behind bhaktidham mandir, sai nagar, Amravati 444607, Maharashtra. Phone: +91 9175560211. Mon–Sun 09:00–22:00."
-      />
-      <p className="text-xs tracking-overline uppercase font-bold text-secondary">We're here for you</p>
-      <h1 className="font-display font-extrabold text-4xl md:text-5xl tracking-tight mt-3">{data.title}</h1>
-      <p className="text-muted-foreground mt-3 max-w-2xl leading-relaxed">{data.intro}</p>
+      <SEO title="Contact us · branch directory" path="/contact" description={`Reach efoodcare ${branch.city || "support"}. ${branch.address}. Phone: ${branch.manager_phone}.`} />
+      <p className="text-xs tracking-overline uppercase font-bold text-secondary">We&apos;re here for you</p>
+      <h1 className="font-display font-extrabold text-4xl md:text-5xl tracking-tight mt-3">{title}</h1>
+      <p className="text-muted-foreground mt-3 max-w-2xl leading-relaxed">{intro}</p>
+
+      {/* Location-aware branch pill */}
+      <div className="mt-6 inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/30 px-3 py-1.5" data-testid="contact-branch-pill">
+        <MapPin className="h-3.5 w-3.5 text-primary" />
+        <span className="text-xs font-extrabold text-primary tracking-wide">
+          {me ? "Your nearest branch:" : "Showing default branch:"} <span className="text-foreground">{branch.name}</span>
+          {distanceKm && <span className="text-muted-foreground font-semibold ml-2">· {distanceKm} km away</span>}
+        </span>
+      </div>
+
+      {permissionDenied && (
+        <p className="mt-2 text-[11px] text-muted-foreground" data-testid="contact-perm-hint">
+          Enable location to auto-pick your nearest branch.
+        </p>
+      )}
+
+      {/* Branch picker (only when 2+ branches) */}
+      {allBranches.length > 1 && (
+        <div className="mt-4 flex flex-wrap gap-2" data-testid="contact-branch-picker">
+          {allBranches.map((m) => (
+            <button
+              key={m.mess_id}
+              type="button"
+              onClick={() => setBranch(m)}
+              className={`text-xs font-bold px-3 h-8 rounded-full border-2 transition-colors ${branch.mess_id === m.mess_id ? "border-primary bg-primary text-primary-foreground" : "border-border hover:border-primary"}`}
+              data-testid={`contact-branch-${m.slug}`}
+            >
+              {m.city || m.name}
+              {m.distance_km != null && <span className="ml-1.5 opacity-70 font-semibold">({m.distance_km} km)</span>}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="mt-10 grid md:grid-cols-5 gap-6">
         <div className="md:col-span-2 space-y-3">
-          <ContactRow icon={Building2} label="Company" value={data.company} />
-          <ContactRow icon={MapPin} label="Address" value={data.address} multiline />
-          <ContactRow icon={Phone} label="Phone" value={data.phone} href={`tel:${data.phone.replace(/\s/g, "")}`} />
-          <ContactRow icon={Mail} label="Email" value={data.email} href={`mailto:${data.email}`} />
-          <ContactRow icon={Clock} label="Hours" value={data.hours} />
+          <ContactRow icon={Building2} label="Branch" value={branch.name} />
+          <ContactRow icon={MapPin} label="Address" value={branch.address} multiline />
+          <ContactRow icon={Phone} label="Phone" value={branch.manager_phone || (cms?.phone)} href={branch.manager_phone ? `tel:${digitsOnly(branch.manager_phone)}` : null} />
+          {waLink && (
+            <ContactRow icon={MessageCircle} label="WhatsApp" value="Chat with us on WhatsApp" href={waLink} />
+          )}
+          <ContactRow icon={Mail} label="Email" value={branch.manager_email || cms?.email} href={`mailto:${branch.manager_email || cms?.email}`} />
+          {branch.manager_name && (
+            <ContactRow icon={ChefHat} label="Branch manager" value={branch.manager_name} />
+          )}
+          {branch.fssai_number && (
+            <ContactRow icon={Building2} label="FSSAI" value={branch.fssai_number} />
+          )}
+          <ContactRow icon={Clock} label="Hours" value={hours} />
         </div>
         <div className="md:col-span-3 surface-3d rounded-2xl overflow-hidden border border-border bg-card" data-testid="contact-map">
-          {liveMapSrc ? (
-            // iter-64 #6: hide the OpenStreetMap "Report a problem · © OSM
-            // contributors · Make a donation" attribution row and replace it
-            // with our own brand caption. We make the iframe ~28px taller
-            // and clip it via the relative wrapper's overflow-hidden, then
-            // overlay a 1-line brand caption ribbon at the bottom.
-            // iter-65 #6: tap-anywhere "Get directions" overlay → opens
-            // Google Maps directions from user's GPS to the kitchen pin.
+          {mapSrc ? (
             <div className="relative h-[420px]">
               <iframe
-                title="efoodcare location"
-                src={liveMapSrc}
+                title={`${branch.name} location`}
+                src={mapSrc}
                 className="absolute inset-x-0 top-0 w-full h-[448px] border-0"
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
@@ -113,7 +190,7 @@ export default function Contact() {
                 type="button"
                 onClick={askDirections}
                 className="absolute inset-0 z-[300] cursor-pointer bg-transparent focus:outline-none"
-                aria-label="Get directions to our kitchen"
+                aria-label={`Get directions to ${branch.name}`}
                 data-testid="get-directions-tap"
               />
               <div className="absolute top-3 left-3 right-3 z-[350] flex items-center gap-2 pointer-events-none">
@@ -128,18 +205,14 @@ export default function Contact() {
                   </span>
                   Get directions
                 </button>
-                {me && kitchen?.dispatch_lat && kitchen?.dispatch_lng && (
+                {distanceKm && (
                   <span className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-white/95 backdrop-blur text-foreground text-[11px] sm:text-xs font-semibold px-2.5 py-1 shadow" data-testid="distance-pill">
                     <MapPin className="h-3 w-3 text-primary" />
-                    <span className="tabular-nums">{haversineKm(me.lat, me.lng, Number(kitchen.dispatch_lat), Number(kitchen.dispatch_lng)).toFixed(1)} km away</span>
+                    <span className="tabular-nums">{distanceKm} km away</span>
                   </span>
                 )}
               </div>
               <MapBrandCaption />
-              {/* iter-73 #4 + iter-74 #3: 3D restaurant emblem over the map
-                  pin. Switched from a fork (Utensils) to a chef-hat (the
-                  closest "restaurant building" pictograph in lucide). The
-                  "3D" corner badge has been removed for a cleaner look. */}
               <div
                 aria-hidden
                 className="pointer-events-none absolute z-[360] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
@@ -158,19 +231,13 @@ export default function Contact() {
                   className="mt-1 inline-flex items-center gap-1 rounded-full bg-white/95 backdrop-blur px-2.5 py-0.5 text-[10px] font-extrabold tracking-[0.12em] uppercase text-primary shadow"
                   style={{ boxShadow: "0 6px 14px rgba(0,0,0,0.18)" }}
                 >
-                  efoodcare
+                  {branch.city || "efoodcare"}
                 </span>
-                {/* drop-shadow puddle */}
                 <span className="absolute -bottom-2 h-1.5 w-12 rounded-full bg-black/45 blur-md" />
               </div>
-              {permissionDenied && (
-                <div className="absolute bottom-9 inset-x-3 z-[350] rounded-md bg-amber-50/95 border border-amber-300 text-[11px] px-3 py-1.5 text-amber-900" data-testid="directions-permission-hint">
-                  Location denied — opened map without your start point.
-                </div>
-              )}
             </div>
           ) : (
-            <div className="h-[420px] flex items-center justify-center text-muted-foreground text-sm">Map not configured</div>
+            <div className="h-[420px] flex items-center justify-center text-muted-foreground text-sm">Map not configured for this branch</div>
           )}
         </div>
       </div>
@@ -179,6 +246,7 @@ export default function Contact() {
 }
 
 function ContactRow({ icon: Icon, label, value, href, multiline }) {
+  if (!value) return null;
   const body = href ? <a href={href} className="text-foreground hover:text-primary transition-colors">{value}</a> : <span className="text-foreground">{value}</span>;
   return (
     <div className="surface-3d tile-3d flex gap-3 items-start rounded-2xl border border-border bg-card p-4">

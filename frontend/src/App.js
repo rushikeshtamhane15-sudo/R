@@ -71,6 +71,7 @@ import AdminPartialPayments from "./pages/AdminPartialPayments";
 import AdminCashAnalytics from "./pages/AdminCashAnalytics";
 import AdminKitchenSettings from "./pages/AdminKitchenSettings";
 import AdminMesses from "./pages/AdminMesses";
+import AdminRestaurantHours from "./pages/AdminRestaurantHours";
 import { AdminMessMetrics, FranchisePortal } from "./pages/AdminMessMetrics";
 import { Privacy, Refund } from "./pages/PolicyPage";
 
@@ -181,6 +182,7 @@ function AppRoutes() {
             <Route path="content/:contentKey" element={<AdminContent />} />
             <Route path="messes" element={<AdminMesses />} />
             <Route path="messes/:messId/metrics" element={<AdminMessMetrics />} />
+            <Route path="restaurant-hours" element={<AdminRestaurantHours />} />
           </Route>
 
           {/* Redirects */}
