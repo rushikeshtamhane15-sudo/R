@@ -22,6 +22,25 @@ function loadRazorpay() {
 }
 
 /**
+ * splitMenuItems — iter-79 #3
+ * Convert a free-text mess menu string like
+ *   "Dal bhaji + bhendi sabji + 5 roti + rice + salad"
+ * into a clean array of trimmed items
+ *   ["Dal bhaji", "bhendi sabji", "5 roti", "rice", "salad"]
+ * so each item can be rendered as a bullet in the menu card instead of
+ * one long line that wraps awkwardly. Splits on "+" or "," and drops
+ * empty fragments.
+ */
+function splitMenuItems(raw) {
+  if (!raw) return [];
+  return String(raw)
+    .split(/[+,]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+
+/**
  * TodayMessMenuFlash — iter-62 → iter-73.
  *
  * iter-73 batch:
@@ -316,57 +335,95 @@ export default function TodayMessMenuFlash({ compact = false }) {
 
       {active ? (
         <div
-          /* iter-77 #2 / iter-78 #4: compact green mess-menu card. Reduced
-             vertical padding, thicker centered separator between Lunch and
-             Dinner so the divider reads as the design focal-point. */
-          className="rounded-2xl px-3 py-2 overflow-hidden relative bg-gradient-to-br from-emerald-700 via-emerald-600 to-emerald-800"
+          /* iter-79 #3: professional mess-menu card.
+             — Vertical "LUNCH" / "DINNER" badge headers (pill chips) instead
+               of inline text+icon, so each meal reads like a restaurant menu
+               section header.
+             — Menu items split on "+" / "," into a real bullet list — no
+               more awkward inline string wrapping across 4 narrow lines.
+             — Centered divider is a thin gold seam with a tiny diamond,
+               giving the card a printed-menu feel.
+             — Slight inner glow + grain noise preserved. */
+          className="rounded-2xl px-3 pt-2.5 pb-3 overflow-hidden relative bg-gradient-to-br from-emerald-700 via-emerald-600 to-emerald-800"
           style={{
             color: cfg.text_color,
             boxShadow: "0 14px 30px -10px rgba(5,95,70,0.55), inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -1px 2px rgba(0,0,0,0.2)",
           }}
         >
           <span aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.08] bg-[radial-gradient(circle_at_20%_20%,_white_2px,_transparent_2px),radial-gradient(circle_at_80%_60%,_white_1.5px,_transparent_1.5px)] bg-[length:36px_36px,_54px_54px]" />
+          {/* Header row: chef-hat + date */}
           <div className="flex items-center gap-2 z-10 relative">
             <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-white/22 shrink-0">
               {tab === "today" ? <ChefHat className="h-3.5 w-3.5" /> : <Sunrise className="h-3.5 w-3.5" />}
             </span>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="font-display font-extrabold text-[13px] sm:text-[15px] leading-tight tracking-tight" data-testid="mess-card-heading">{cardLabel}</p>
             </div>
+            <span className="hidden sm:inline-flex items-center gap-1 text-[9px] tracking-[0.18em] uppercase font-bold opacity-75 bg-white/15 rounded-full px-2 py-0.5">Today's Special</span>
           </div>
-          {/* Two equal columns with a centered, thicker white separator.
-              Both columns render even when one meal is missing so the
-              divider always sits in the exact horizontal centre. */}
-          <div className="mt-1.5 grid grid-cols-2 z-10 relative">
-            <div className="flex items-start gap-1.5 px-2 py-1 pr-3 border-r-[3px] border-white/85">
+
+          {/* Decorative gold seam separator between header and menu */}
+          <div className="mt-2 z-10 relative flex items-center gap-2 opacity-70">
+            <span className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-300/60 to-amber-300/60" />
+            <span className="w-1.5 h-1.5 rotate-45 bg-amber-300/80 shadow-sm" />
+            <span className="flex-1 h-px bg-gradient-to-l from-transparent via-amber-300/60 to-amber-300/60" />
+          </div>
+
+          {/* Two-column menu — LUNCH | DINNER as printed-menu sections */}
+          <div className="mt-1.5 grid grid-cols-[1fr_auto_1fr] gap-x-2 z-10 relative">
+            {/* LUNCH column */}
+            <div className="py-1" data-testid="mess-lunch-col">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Sun className="h-3 w-3 text-amber-200 shrink-0" />
+                <span className="text-[9.5px] tracking-[0.22em] uppercase font-extrabold text-amber-200">Lunch</span>
+              </div>
               {active.lunch ? (
-                <>
-                  <Sun className="h-3.5 w-3.5 text-amber-200 mt-0.5 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-[10px] tracking-[0.16em] uppercase font-bold opacity-80">Lunch</p>
-                    <p className="text-[12.5px] sm:text-[13px] font-bold leading-snug">{active.lunch}</p>
-                  </div>
-                </>
+                <ul className="space-y-0.5">
+                  {splitMenuItems(active.lunch).map((it, i) => (
+                    <li key={i} className="flex items-start gap-1.5 text-[12px] leading-snug font-semibold">
+                      <span aria-hidden className="mt-1 inline-block h-1 w-1 rounded-full bg-white/60 shrink-0" />
+                      <span>{it}</span>
+                    </li>
+                  ))}
+                </ul>
               ) : (
-                <span className="text-[11px] opacity-60 italic">Lunch off today</span>
+                <span className="text-[11px] opacity-60 italic">Off today</span>
               )}
             </div>
-            <div className="flex items-start gap-1.5 px-2 py-1 pl-3">
+
+            {/* Centered vertical seam between columns */}
+            <div className="flex flex-col items-center justify-stretch self-stretch" aria-hidden>
+              <span className="flex-1 w-px bg-gradient-to-b from-transparent via-amber-300/60 to-transparent" />
+              <span className="w-1.5 h-1.5 rotate-45 bg-amber-300/80 my-1" />
+              <span className="flex-1 w-px bg-gradient-to-t from-transparent via-amber-300/60 to-transparent" />
+            </div>
+
+            {/* DINNER column */}
+            <div className="py-1" data-testid="mess-dinner-col">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Moon className="h-3 w-3 text-blue-200 shrink-0" />
+                <span className="text-[9.5px] tracking-[0.22em] uppercase font-extrabold text-blue-200">Dinner</span>
+              </div>
               {active.dinner ? (
-                <>
-                  <Moon className="h-3.5 w-3.5 text-blue-200 mt-0.5 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-[10px] tracking-[0.16em] uppercase font-bold opacity-80">Dinner</p>
-                    <p className="text-[12.5px] sm:text-[13px] font-bold leading-snug">{active.dinner}</p>
-                  </div>
-                </>
+                <ul className="space-y-0.5">
+                  {splitMenuItems(active.dinner).map((it, i) => (
+                    <li key={i} className="flex items-start gap-1.5 text-[12px] leading-snug font-semibold">
+                      <span aria-hidden className="mt-1 inline-block h-1 w-1 rounded-full bg-white/60 shrink-0" />
+                      <span>{it}</span>
+                    </li>
+                  ))}
+                </ul>
               ) : (
-                <span className="text-[11px] opacity-60 italic">Dinner off today</span>
+                <span className="text-[11px] opacity-60 italic">Off today</span>
               )}
             </div>
           </div>
+
           {active.note && (
-            <p className="mt-1 text-[10px] sm:text-[11px] italic opacity-85 z-10 relative">★ {active.note}</p>
+            <p className="mt-2 text-[10px] sm:text-[11px] italic opacity-85 z-10 relative flex items-start gap-1">
+              <span className="text-amber-300">★</span>
+              <span>{active.note}</span>
+            </p>
           )}
 
           {/* inline Order Now */}

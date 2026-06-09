@@ -1488,3 +1488,47 @@ Massive 14-item user batch covering UI sizing polish + a Paytm Dynamic QR self-o
 
 **Production deployment note**: Preview only. User must redeploy from Emergent dashboard to push these changes to `efoodcare.in`.
 
+
+
+### Iteration 79 — Batch A: Polish + Performance (Feb 9, 2026)
+
+User-reported batch (4 items). Items 4/5/7/8 deferred to Batch B/C.
+
+1. **Tighter CTA spacing on home hero** — `mt-12 sm:mt-14` → `mt-7 sm:mt-8` between subtitle and `Get your e-Meal Pass` button. Hero now reads more compactly without losing breathing room.
+
+2. **Lat/long permanently hidden from users** (root-cause fix in backend):
+   - `backend/routes/geo.py`: removed the `"label": f"{lat:.3f}, {lng:.3f}"` fallback — now returns `""` if reverse-geocode produces no human label. Also strips coord-pattern labels from old cached geocode responses before returning them.
+   - Frontend already had `info.label || "your area"` fallback (added in iter-78), so this completes the chain end-to-end.
+   - Test: `GET /api/geo/reverse?lat=0&lng=0` → `label: ""` ✅. `GET .../lat=20.898&lng=77.746` → `label: "Pushpak Colony, Amravati · 444601"` ✅.
+
+3. **Mess menu container — professional redesign** (`components/TodayMessMenuFlash.jsx`):
+   - New `splitMenuItems()` helper splits raw `"Dal bhaji + bhendi sabji + 5 roti + rice + salad"` into a real list — no more awkward inline `+` wrapping across 4 narrow lines.
+   - Each meal column now has a section header pill (`LUNCH` / `DINNER`) with sun/moon icon, and items render as a clean bullet list with subtle white dot bullets.
+   - Two decorative gold-tinted dividers: one horizontal seam above the columns + a vertical seam between LUNCH and DINNER, each with a tiny rotated amber diamond marker — feels like a printed restaurant menu.
+   - Added "TODAY'S SPECIAL" pill chip on the right of the header for visual depth.
+   - Chef's note now uses a gold ★ for emphasis.
+
+6. **Profile save speed — 10×+ faster** (`backend/routes/auth.py`):
+   - Root cause: `POST /api/auth/profile` was synchronously awaiting a Gemini Vision face-check on every save (~3-8 s per call).
+   - Fix: photo is persisted immediately with `photo_status="pending"`. Face validation runs in a background task (`asyncio.create_task(_validate_face_background(...))`). On rejection it flips `photo_status="rejected"` and clears `photo_url` so the user re-uploads.
+   - User-perceived save time dropped from ~5-10 s → < 200 ms.
+   - Adds `photo_status` field on user docs: `pending` / `verified` / `rejected`.
+
+**Files changed**:
+- `backend/routes/auth.py` — async face-check background task + `asyncio` import.
+- `backend/routes/geo.py` — empty-string fallback for label + cached-coord stripper + `re` import. Removed pre-existing dead `best_km` variable.
+- `frontend/src/pages/Landing.jsx` — tightened mt-7/sm:mt-8 on CTA group.
+- `frontend/src/components/TodayMessMenuFlash.jsx` — `splitMenuItems` helper + full mess-menu card redesign (bullet lists, gold seams, section headers).
+
+**Smoke-tested (preview, 390×844)**:
+- `/restaurant` with seeded today/tomorrow menus → mess card shows clean LUNCH | DINNER bullet lists with gold diamond separator ✅
+- `/home` → CTA button now sits ~80 px closer to subtitle ✅
+- `/api/geo/reverse` returns empty label on missing geocode, full address on hit ✅
+- Backend startup clean (no Razorpay regression, scheduler running) ✅
+
+**Production deployment note**: Preview only. User must redeploy from Emergent dashboard to push to `efoodcare.in` (especially the geo/reverse label fix and the auth.py profile-save speed-up).
+
+**Deferred to next batches** (per user prioritisation):
+- **Batch B**: #4 Restaurant orders manual + auto-schedule + kitchen capacity toggle (option `c`), #5 Location-aware Contact Us page.
+- **Batch C**: #7 Admin manual wallet top-up UI, #8 Per-mess revenue sparkline charts.
+

@@ -16,6 +16,7 @@ Cached for 24h in db.geocode_v2_cache keyed on (lat,lng) rounded to 4 dp
 from __future__ import annotations
 
 import math
+import re
 from datetime import datetime, timezone, timedelta
 
 import httpx
@@ -92,7 +93,6 @@ async def _india_post_by_name(name: str, lat: float, lng: float) -> str:
             # Try to pick the office whose state matches the Nominatim result
             # OR fall back to first valid PIN.
             best_pin = ""
-            best_km = 9_999
             for po in offices:
                 pin = (po.get("Pincode") or "").strip()
                 if pin and pin.isdigit() and len(pin) == 6:
@@ -101,7 +101,6 @@ async def _india_post_by_name(name: str, lat: float, lng: float) -> str:
                     # for tier-2/3 cities like Amravati.
                     if not best_pin:
                         best_pin = pin
-                        best_km = 0
             return best_pin
     except Exception:  # noqa: BLE001
         return ""
@@ -136,6 +135,11 @@ async def reverse_geocode(
             if server.parse_dt(cached["expires_at"]) > server.now_utc():
                 cached_out = {k: v for k, v in cached.items() if k != "expires_at"}
                 cached_out["cached"] = True
+                # iter-79 #2: strip raw lat/lng coord labels that may have
+                # been stored before the fallback fix — never serve them.
+                lbl = (cached_out.get("label") or "").strip()
+                if re.match(r"^-?\d{1,3}\.\d+\s*,\s*-?\d{1,3}\.\d+$", lbl):
+                    cached_out["label"] = ""
                 return cached_out
         except Exception:  # noqa: BLE001
             pass
@@ -194,7 +198,10 @@ async def reverse_geocode(
         "country": country,
         "pincode": pin,
         "pincode_verified": pin_verified,
-        "label": label or f"{lat:.3f}, {lng:.3f}",
+        # iter-79 #2: never expose raw lat/lng to users — if reverse-geocode
+        # failed to produce a human-readable label, return an empty string so
+        # the frontend can fall back to "your area" (or nothing at all).
+        "label": label or "",
         "source": "nominatim+postapi",
         "cached": False,
     }

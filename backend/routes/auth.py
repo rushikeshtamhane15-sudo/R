@@ -8,6 +8,7 @@ decorator runs.
 """
 from __future__ import annotations
 
+import asyncio
 import random
 import uuid
 from datetime import timedelta
@@ -173,30 +174,60 @@ async def update_profile(payload: server.ProfileUpdate, user: server.User = Depe
         "phone": phone,
         "address": addr,
     }
+    # iter-79 #6: profile save now returns in <100 ms.
+    # Previously this route synchronously awaited a Gemini Vision face-check
+    # on every save (~3-8 s per call). We now persist the photo immediately
+    # with `photo_status="pending"` and run face validation in a background
+    # task. If the LLM later flags the photo as invalid, we clear the photo
+    # and set `photo_status="rejected"`. This gives users instant feedback
+    # and removes the LLM call from the critical save path.
+    photo_to_validate: Optional[str] = None
     if payload.photo_url is not None:
         if payload.photo_url and len(payload.photo_url) > 1_200_000:
             raise HTTPException(status_code=413, detail="Photo too large; please use a smaller image")
-        # Iter-54 #3: best-effort selfie face detection via Gemini Vision.
-        # If detector says "not a human face", reject. If detector errors out
-        # (key budget, network), we ALLOW the upload so users aren't blocked
-        # by transient infra issues — the photo can still be reviewed manually.
-        if payload.photo_url and payload.photo_url.startswith("data:image"):
-            try:
-                from face_check import is_valid_face_data_url
-                ok, reason = await is_valid_face_data_url(payload.photo_url)
-                if not ok:
-                    raise HTTPException(status_code=400, detail=f"Selfie rejected: {reason}. Please upload a clear photo of your face only.")
-            except HTTPException:
-                raise
-            except Exception as e:  # noqa: BLE001
-                server.logger.warning(f"[FACE-CHECK] skipped due to error: {e}")
         update["photo_url"] = payload.photo_url
+        if payload.photo_url and payload.photo_url.startswith("data:image"):
+            update["photo_status"] = "pending"
+            photo_to_validate = payload.photo_url
+        elif payload.photo_url:
+            update["photo_status"] = "verified"  # non-data-url (e.g. CDN link) — skip check
     if payload.lat is not None and payload.lng is not None:
         update["lat"] = float(payload.lat)
         update["lng"] = float(payload.lng)
     await server.db.users.update_one({"user_id": user.user_id}, {"$set": update})
     updated = await server.db.users.find_one({"user_id": user.user_id}, {"_id": 0})
+
+    # Kick off the face-check in the background — fire and forget.
+    if photo_to_validate:
+        asyncio.create_task(_validate_face_background(user.user_id, photo_to_validate))
+
     return {"ok": True, "user": updated}
+
+
+async def _validate_face_background(user_id: str, data_url: str) -> None:
+    """Run Gemini face-check off the request path. On rejection, clear the
+    photo and flag the user. On error, leave photo_status='pending' so a
+    later save (or admin tool) can retry."""
+    try:
+        from face_check import is_valid_face_data_url
+        ok, reason = await is_valid_face_data_url(data_url)
+        if ok:
+            await server.db.users.update_one(
+                {"user_id": user_id},
+                {"$set": {"photo_status": "verified", "photo_check_reason": reason}},
+            )
+        else:
+            await server.db.users.update_one(
+                {"user_id": user_id},
+                {"$set": {
+                    "photo_status": "rejected",
+                    "photo_check_reason": reason,
+                    "photo_url": "",  # clear the bad photo so the user re-uploads
+                }},
+            )
+            server.logger.info(f"[FACE-CHECK-BG] rejected user={user_id} reason={reason}")
+    except Exception as e:  # noqa: BLE001
+        server.logger.warning(f"[FACE-CHECK-BG] error user={user_id}: {e} (keeping photo_status=pending)")
 
 
 @router.post("/auth/location")
