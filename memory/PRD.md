@@ -1532,3 +1532,66 @@ User-reported batch (4 items). Items 4/5/7/8 deferred to Batch B/C.
 - **Batch B**: #4 Restaurant orders manual + auto-schedule + kitchen capacity toggle (option `c`), #5 Location-aware Contact Us page.
 - **Batch C**: #7 Admin manual wallet top-up UI, #8 Per-mess revenue sparkline charts.
 
+
+
+### Iteration 79 — Batch B: Hours Toggle + Location-Aware Contact (Feb 9, 2026)
+
+**Items shipped:** #4 (option **c** — manual + auto-schedule + kitchen capacity) and #5 (location-aware Contact). Also includes the "Kitchen opens in 2h 14m" countdown chip enhancement requested as a bonus.
+
+#### #4 — Restaurant orders ON/OFF toggle (with countdown popup)
+
+**Backend** (`backend/routes/restaurant_hours.py` — new 197-line module):
+- Single doc `app_settings._id="restaurant_hours"` stores `{mode, open_time, close_time, capacity_per_hour, closed_message}`.
+- Three modes: `auto` (default 10:00–22:00 IST), `manual_on` (force open), `manual_off` (force closed).
+- `capacity_per_hour > 0` triggers `reason="capacity_full"` once the rolling 60-min `restaurant_orders` count hits it.
+- `_compute_status()` returns `{open, reason, next_open_at, opens_in_minutes, open_time, close_time, mode, closed_message}`.
+- `_assert_open()` raises HTTP **423** with detail object `{code, message, opens_in_minutes, next_open_at}` — called from `POST /api/restaurant/order` BEFORE any Razorpay order is generated.
+
+**Endpoints**:
+- `GET /api/restaurant/status` — public, polled by the frontend.
+- `GET /api/admin/restaurant/hours` — admin + franchise_owner, returns config + live status + hourly order count.
+- `POST /api/admin/restaurant/hours` — admin-only, validates `open_time < close_time`.
+
+**Frontend**:
+- New component `RestaurantClosedBanner.jsx` — mounted at the top of `/restaurant`. Polls status every 60 s, ticks countdown every 30 s. Shows:
+  - **Sticky amber chip**: `Kitchen opens in 8h 34m · Daily 10:00–22:00` (`data-testid="restaurant-closed-chip"`)
+  - **First-visit popup**: headline (varies by reason) + closed_message body + countdown card + "Got it" button. Dismiss persisted to `sessionStorage["efc_closed_popup_dismissed"]` so it doesn't reappear on re-navigation.
+- New admin page `AdminRestaurantHours.jsx` at `/admin/restaurant-hours` — mode picker (3 cards), time inputs, capacity input, custom closed-message textarea, live status panel with current hourly order count.
+- Sidebar link added in `AdminLayout.jsx` with `Clock` icon (admin role only).
+- `RestaurantCheckout.jsx` updated to surface 423 errors gracefully (reads `detail.message` from the dict) and bounce back to `/restaurant` so the user sees the popup explanation.
+
+#### #5 — Location-aware Contact Us
+
+`pages/Contact.jsx` completely rewritten:
+- On mount, requests GPS → calls `GET /api/messes/nearby?lat&lng` to fetch branches sorted by distance.
+- Renders the **nearest branch's** address, phone, WhatsApp (auto-built from manager_phone), email, manager name, FSSAI, hours, and an OpenStreetMap iframe centered on that branch.
+- Branch pill at top: `Your nearest branch: efoodcare · Amravati · 5.6 km away`
+- Multi-branch picker chips when 2+ branches exist (`Amravati · Nagpur · etc.`).
+- Permission denied → falls back to default branch (from `/api/messes`) + hint `"Enable location to auto-pick your nearest branch."`
+- CMS `/content/contact` (`title`, `intro`, `hours`) still loaded as fallback labels.
+
+**Files changed/added**:
+- `backend/routes/restaurant_hours.py` *(new)*
+- `backend/routes/restaurant_orders.py` — `await _assert_open()` gate
+- `backend/server.py` — wired `_restaurant_hours_router`
+- `backend/tests/test_iter79_restaurant_hours.py` *(new, 14 pytest cases — all green)*
+- `frontend/src/components/RestaurantClosedBanner.jsx` *(new)*
+- `frontend/src/pages/AdminRestaurantHours.jsx` *(new)*
+- `frontend/src/pages/Restaurant.jsx` — mount `<RestaurantClosedBanner />`
+- `frontend/src/pages/RestaurantCheckout.jsx` — 423 error UX
+- `frontend/src/components/AdminLayout.jsx` — sidebar link
+- `frontend/src/App.js` — route + import
+- `frontend/src/pages/Contact.jsx` *(rewritten)*
+
+**Verified via testing_agent_v3_fork** (iteration_63.json):
+- 14/14 backend pytest pass — including 423 with dict detail, admin-only enforcement, mode flips, capacity gate.
+- 4/4 frontend UI checkpoints — closed-chip + popup + dismiss-persistence, contact-with-geo, contact-no-geo fallback, admin-restaurant-hours save toast.
+- **Profile-save timing confirmed < 1 s** (was 3-8 s).
+- Cleanup applied: restaurant_hours restored to mode=auto / 10:00–22:00 / capacity=0 / default closed_message after test run.
+
+**Production deployment note**: Preview only. Click **Deploy** in Emergent dashboard to push these new admin tools + endpoints to `efoodcare.in`.
+
+**Deferred to Batch C** (per user prioritisation):
+- #7 Admin manual wallet top-up UI
+- #8 Per-mess revenue sparkline charts
+
