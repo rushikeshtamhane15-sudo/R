@@ -1791,14 +1791,44 @@ async def _mess_metrics(mess_id: str, days: int = 30):
     order_q = {"mess_id": mess_id, "status": {"$in": ["paid", "pending_collection"]}}
     if since:
         order_q["created_at"] = {"$gte": since}
-    orders_cur = db.mess_menu_orders.find(order_q, {"_id": 0, "total": 1})
+    orders_cur = db.mess_menu_orders.find(order_q, {"_id": 0, "total": 1, "created_at": 1})
     orders = await orders_cur.to_list(20000)
     order_revenue = sum(int(o.get("total") or 0) for o in orders)
     order_count = len(orders)
+    # iter-79 Batch C #8: per-day order revenue series for sparkline
+    order_revenue_series = []
+    if since_dt:
+        revenue_buckets = {(since_dt + timedelta(days=i)).strftime("%Y-%m-%d"): 0 for i in range(days)}
+        for o in orders:
+            d = str(o.get("created_at") or "")[:10]
+            if d in revenue_buckets:
+                revenue_buckets[d] += int(o.get("total") or 0)
+        order_revenue_series = [revenue_buckets[k] for k in sorted(revenue_buckets.keys())]
     # Active subscription monthly revenue (sum of `amount_paid` for active subs)
     sub_cur = db.subscriptions.find({"mess_id": mess_id, "status": "active"}, {"_id": 0, "amount_paid": 1})
     sub_docs = await sub_cur.to_list(20000)
     subscription_revenue = sum(int(s.get("amount_paid") or 0) for s in sub_docs)
+    # iter-79 Batch C #8: per-day subscription revenue series — uses
+    # `start_date` so each day reflects new subscriber inflow that day.
+    subscription_revenue_series = []
+    if since_dt:
+        sub_in_window = db.subscriptions.find(
+            {"mess_id": mess_id, "start_date": {"$gte": since}},
+            {"_id": 0, "amount_paid": 1, "start_date": 1},
+        )
+        sub_in_window_docs = await sub_in_window.to_list(20000)
+        sub_buckets = {(since_dt + timedelta(days=i)).strftime("%Y-%m-%d"): 0 for i in range(days)}
+        for s in sub_in_window_docs:
+            d = str(s.get("start_date") or "")[:10]
+            if d in sub_buckets:
+                sub_buckets[d] += int(s.get("amount_paid") or 0)
+        subscription_revenue_series = [sub_buckets[k] for k in sorted(sub_buckets.keys())]
+    # Total revenue per day = orders + subscriptions started that day.
+    total_revenue_series = [
+        (order_revenue_series[i] if i < len(order_revenue_series) else 0) +
+        (subscription_revenue_series[i] if i < len(subscription_revenue_series) else 0)
+        for i in range(max(len(order_revenue_series), len(subscription_revenue_series)))
+    ]
     mess = await db.messes.find_one({"mess_id": mess_id}, {"_id": 0})
     capacity_lunch = (mess or {}).get("capacity_lunch", 0) or 0
     capacity_dinner = (mess or {}).get("capacity_dinner", 0) or 0
@@ -1816,7 +1846,10 @@ async def _mess_metrics(mess_id: str, days: int = 30):
         "checkins_per_day_series": checkins_per_day_series,
         "order_count_window": order_count,
         "order_revenue_window": order_revenue,
+        "order_revenue_series": order_revenue_series,
         "subscription_revenue_active": subscription_revenue,
+        "subscription_revenue_series": subscription_revenue_series,
+        "total_revenue_series": total_revenue_series,
         "capacity_daily": daily_capacity,
         "utilization_pct": utilization,
         "computed_at": iso(now_utc()),

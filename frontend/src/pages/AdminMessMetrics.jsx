@@ -25,6 +25,43 @@ function Sparkline({ values = [], width = 110, height = 28, accent = "currentCol
   );
 }
 
+/**
+ * RevenueAreaSparkline — iter-79 Batch C #8.
+ * Bigger area-chart variant of Sparkline used for the per-mess daily
+ * revenue trend (subscriptions + orders combined). 280×60 SVG with a
+ * gradient fill so the chart reads as a hero element. Falls back to a
+ * dashed baseline when all values are zero.
+ */
+function RevenueAreaSparkline({ values = [], height = 60 }) {
+  const w = 100; // viewBox width — we use a stretchy preserveAspectRatio so the SVG fills its container responsively
+  const h = height;
+  const max = Math.max(1, ...values);
+  const step = values.length > 1 ? w / (values.length - 1) : w;
+  const pts = values.map((v, i) => {
+    const x = i * step;
+    const y = h - (v / max) * (h - 8) - 4;
+    return [x, y];
+  });
+  const linePath = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p[0].toFixed(2)},${p[1].toFixed(2)}`).join(" ");
+  const areaPath = `${linePath} L${(values.length - 1) * step},${h} L0,${h} Z`;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="block w-full mt-3" style={{ height: `${h}px` }} aria-hidden data-testid="revenue-area-spark">
+      <defs>
+        <linearGradient id="revAreaFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.30" />
+          <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.00" />
+        </linearGradient>
+      </defs>
+      <path d={areaPath} fill="url(#revAreaFill)" />
+      <path d={linePath} fill="none" stroke="hsl(var(--primary))" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      {/* dot on the last point */}
+      {pts.length > 0 && (
+        <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r="1.6" fill="hsl(var(--primary))" vectorEffect="non-scaling-stroke" />
+      )}
+    </svg>
+  );
+}
+
 function MetricCard({ icon: Icon, label, value, sub, accent = "primary", testId, spark }) {
   const ring = {
     primary: "bg-primary/10 text-primary",
@@ -88,12 +125,31 @@ function MetricsBody({ source, headerExtra }) {
         <>
           <div className="mt-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             <MetricCard testId="metric-subscribers"  icon={Users}        label="Active subscribers" value={data.subscribers_active}  sub={`${data.subscribers_total} all-time`} accent="primary" />
-            <MetricCard testId="metric-revenue-sub"  icon={IndianRupee}  label="Subscription revenue (active)" value={`₹${data.subscription_revenue_active.toLocaleString("en-IN")}`} sub="Sum of active passes' amount_paid" accent="emerald" />
-            <MetricCard testId="metric-revenue-ord"  icon={ShoppingCart} label={`Order revenue · ${data.window_days}d`} value={`₹${data.order_revenue_window.toLocaleString("en-IN")}`} sub={`${data.order_count_window} orders`} accent="amber" />
+            <MetricCard testId="metric-revenue-sub"  icon={IndianRupee}  label="Subscription revenue (active)" value={`₹${data.subscription_revenue_active.toLocaleString("en-IN")}`} sub={`New signups · last ${data.window_days}d`} accent="emerald" spark={data.subscription_revenue_series} />
+            <MetricCard testId="metric-revenue-ord"  icon={ShoppingCart} label={`Order revenue · ${data.window_days}d`} value={`₹${data.order_revenue_window.toLocaleString("en-IN")}`} sub={`${data.order_count_window} orders`} accent="amber" spark={data.order_revenue_series} />
             <MetricCard testId="metric-checkins"     icon={ScanLine}     label={`QR check-ins · ${data.window_days}d`} value={data.checkins_window} sub={`${data.checkins_per_day_avg} / day average`} accent="blue" spark={data.checkins_per_day_series} />
             <MetricCard testId="metric-capacity"     icon={Activity}     label="Daily capacity" value={data.capacity_daily} sub={`Lunch+Dinner combined`} accent="fuchsia" />
             <MetricCard testId="metric-utilization"  icon={TrendingUp}   label="Kitchen utilization" value={`${data.utilization_pct}%`} sub={`Check-ins / (capacity × ${data.window_days} days)`} accent="emerald" />
           </div>
+          {/* iter-79 Batch C #8: total daily revenue trend (orders + subscriptions) */}
+          {data.total_revenue_series && data.total_revenue_series.length > 0 && (
+            <div className="mt-4 rounded-2xl border border-border bg-card p-4 sm:p-5" data-testid="metric-total-revenue-trend">
+              <div className="flex items-center gap-2.5">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <IndianRupee className="h-4 w-4" />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-muted-foreground">Total daily revenue · last {data.window_days}d</p>
+                  <p className="font-display font-extrabold text-xl sm:text-2xl tabular-nums leading-tight mt-0.5">₹{(data.total_revenue_series.reduce((a, b) => a + b, 0)).toLocaleString("en-IN")}</p>
+                </div>
+                <div className="text-right text-[10px] text-muted-foreground">
+                  <p>Peak day</p>
+                  <p className="font-display font-extrabold text-sm text-foreground tabular-nums">₹{Math.max(...data.total_revenue_series).toLocaleString("en-IN")}</p>
+                </div>
+              </div>
+              <RevenueAreaSparkline values={data.total_revenue_series} />
+            </div>
+          )}
           <p className="text-[10.5px] text-muted-foreground mt-5">Computed at {new Date(data.computed_at).toLocaleString("en-IN")}</p>
         </>
       )}
