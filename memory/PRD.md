@@ -1595,3 +1595,66 @@ User-reported batch (4 items). Items 4/5/7/8 deferred to Batch B/C.
 - #7 Admin manual wallet top-up UI
 - #8 Per-mess revenue sparkline charts
 
+
+
+### Iteration 80 — Batch C: Wallet Top-up UI + Per-Mess Revenue Sparklines (Feb 9, 2026)
+
+#### #7 — Admin manual wallet top-up UI
+
+New page at **`/admin/wallet-topup`** (admin role only) — `pages/AdminWalletTopup.jsx`.
+
+- Search users by phone / name / email (filters first 100 matches).
+- Two-column layout: user directory on the left, selected user + adjust form + history on the right.
+- Adjust form supports:
+  - Direction toggle (Credit / Debit) with green/red styling.
+  - Quick-amount chips: ₹100 / ₹500 / ₹1000 / ₹2500.
+  - Custom amount input (₹).
+  - **Reason field (mandatory — audit log)** up to 500 chars.
+  - Advanced toggle: extend subscription end-date by N days + restore N meals.
+- Inline history panel showing recent overrides (delta, reason, admin email, timestamp).
+- Sidebar link in `AdminLayout.jsx` (Wallet icon, admin-only).
+
+Backend already had `POST /api/admin/users/{id}/wallet-adjust` and `GET /api/admin/users/{id}/wallet-history`; this iteration adds the UI on top.
+
+#### #8 — Per-mess revenue sparkline charts
+
+`backend/server.py — _mess_metrics()`:
+- New per-day buckets computed: `order_revenue_series` (sum of `mess_menu_orders.total` by `created_at`), `subscription_revenue_series` (sum of `subscriptions.amount_paid` by `start_date`), and `total_revenue_series` (element-wise sum of the two). Length always = `days`, 0-padded for empty days.
+- Exposed on both `GET /api/admin/messes/{id}/metrics` and `GET /api/franchise/me/metrics`.
+
+`frontend/src/pages/AdminMessMetrics.jsx`:
+- Existing `Subscription revenue (active)` card now includes a mini sparkline.
+- Existing `Order revenue · Nd` card now includes a mini sparkline.
+- New full-width card **`metric-total-revenue-trend`** under the grid: shows total daily revenue + peak-day amount + a 60 px-tall area sparkline with a brand-red gradient fill (`RevenueAreaSparkline` component).
+- Window toggle (7d / 30d / 90d) rescales all series.
+
+**Files added / changed**:
+- `frontend/src/pages/AdminWalletTopup.jsx` *(new)*
+- `frontend/src/pages/AdminMessMetrics.jsx` — `RevenueAreaSparkline` + new trend card + spark props on revenue cards
+- `frontend/src/components/AdminLayout.jsx` — sidebar link + `Wallet` import
+- `frontend/src/App.js` — route + import
+- `backend/server.py` — `order_revenue_series`, `subscription_revenue_series`, `total_revenue_series` in `_mess_metrics`
+- `backend/tests/test_iter80_batchc.py` *(new — 13 pytest cases, all green)*
+
+**Verified via testing_agent_v3_fork** (iteration_80.json):
+- 13/13 backend pytest pass (series lengths exact, total = order+sub element-wise, admin-only, reason-required, debit floors at 0, sub-only adjustment when delta=0, history sorted desc).
+- 3/3 frontend UI checkpoints: credit+debit+history flow, advanced extend-days/restore-meals toggle, metrics page new trend card + mini sparks + window toggle.
+
+**Low-priority follow-ups** (non-blocking, flagged by code review):
+- Add `data-testid="metric-window-{7d,30d,90d}"` to metrics window toggles for stable testing.
+- Add `aria-label="30-day revenue trend"` to mini sparkline SVGs for screen reader support.
+- Wallet history pagination beyond 200 rows.
+- Include `target_phone` in wallet_overrides audit rows (currently only `target_email`).
+
+**Production deployment note**: Preview only. Click **Deploy** in Emergent dashboard to push the new admin tools to `efoodcare.in`.
+
+---
+
+### Outstanding work (post-Batch C)
+
+- Fix franchise owner blank screen on `/admin` — `AdminHome.jsx` needs role guard / redirect to `/admin/metrics` for franchise_owner role. (P0)
+- Refactor `server.py` (3300+ lines) into modular routes. (P2)
+- Acko Food Insurance — blocked, awaiting B2B specs.
+- OTP-less Mobile Login — blocked, awaiting credentials.
+- Paytm Business Dynamic QR — blocked, awaiting `PAYTM_MID`.
+
