@@ -23,8 +23,8 @@ def _today_window():
 
 @router.get("/admin/control-tower")
 async def control_tower(user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
+    if user.role not in ("admin", "staff", "franchise_owner"):
+        raise HTTPException(status_code=403, detail="Admin/staff/franchise only")
     db = server.db
     start, end = _today_window()
     now = server.now_utc()

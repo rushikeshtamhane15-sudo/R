@@ -88,6 +88,10 @@ function RequireAuth({ children, roles }) {
 function AdminIndex() {
   const { user } = useAuth();
   if (user?.role === "staff") return <Navigate to="/admin/deliveries-today" replace />;
+  // iter-80: franchise owners get a safe, role-scoped landing (Control Tower
+  // is the most useful admin page they have access to — AdminOverview makes
+  // admin-only fetches and was rendering blank for franchise_owner).
+  if (user?.role === "franchise_owner") return <Navigate to="/admin/control-tower" replace />;
   return <AdminOverview />;
 }
 

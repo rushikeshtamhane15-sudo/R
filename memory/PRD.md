@@ -1389,3 +1389,22 @@ Massive 14-item user batch covering UI sizing polish + a Paytm Dynamic QR self-o
 
 **Production deployment note**: This fix is in **preview only**. User must redeploy from the Emergent dashboard to push iter-79 (+ pending iter-76/77/78) to efoodcare.in before the franchise flow works in production.
 
+
+### Iteration 80 (Jun 9, 2026) — Franchise blank-screen fix
+
+**User report (production)**: "Franchise login shows blank/white screen after login."
+
+**Diagnosis (NOT a location issue — pure code bug)**: iter-79 routed `franchise_owner` to `/admin`, which mounts `AdminIndex` → `AdminOverview` (the corporate-only dashboard). `AdminOverview` makes admin-only API calls that 403/500 for franchise_owner, causing the React tree to throw and the page to render blank. Same problem for `/admin/control-tower` since its backend endpoint also hard-rejected anyone not `role=="admin"`.
+
+**Fixes:**
+- `App.js` `AdminIndex` — franchise_owner now `<Navigate to="/admin/control-tower" replace />` (was falling through to `AdminOverview` which crashed for them).
+- `backend/routes/control_tower.py` — `/admin/control-tower` now accepts `franchise_owner` (and `staff`) — was strict admin-only.
+
+**How it works for franchise owners now (end-to-end):**
+1. Admin assigns owner via Admin → Messes → Owner button (10-digit phone).
+2. Manager logs out + back in via OTP.
+3. Lands on `/admin` → `AdminIndex` detects role=franchise_owner → redirects to `/admin/control-tower`.
+4. Control Tower renders successfully (no 403). Sidebar shows Overview + Operations sections (mess-scoped via `mess_id` backfill).
+
+**Production deployment note**: This fix is in preview. User must redeploy from Emergent dashboard to push iter-76 through iter-80 to efoodcare.in before the franchise flow works end-to-end on the live domain.
+
