@@ -89,6 +89,7 @@ export default function Login() {
     const role = u?.role;
     const isAdminScoped = (p) => p && (p.startsWith("/admin") || p.startsWith("/boy") || p.startsWith("/rider"));
     if (validNext && role === "admin" && !isAdminScoped(raw)) return "/admin";
+    if (validNext && role === "franchise_owner" && !isAdminScoped(raw)) return "/admin";
     if (validNext && role === "staff" && !raw.startsWith("/admin")) return "/admin/deliveries-today";
     if (validNext && role === "rider" && !raw.startsWith("/rider")) return "/rider";
 
@@ -107,6 +108,7 @@ export default function Login() {
         sessionStorage.removeItem("efc_pending_action_v1");
         // Same role-override rules as the `?next=` branch above
         if (role === "admin" && !isAdminScoped(pending)) return "/admin";
+        if (role === "franchise_owner" && !isAdminScoped(pending)) return "/admin";
         if (role === "staff" && !pending.startsWith("/admin")) return "/admin/deliveries-today";
         if (role === "rider" && !pending.startsWith("/rider")) return "/rider";
         if ((pending === "/restaurant" || pending.startsWith("/restaurant?")) && hasCartItems) {
@@ -117,6 +119,7 @@ export default function Login() {
     } catch { /* noop */ }
     if (!u) return "/dashboard";
     if (u.role === "admin") return "/admin";
+    if (u.role === "franchise_owner") return "/admin";
     if (u.role === "staff") return "/admin/deliveries-today";
     if (u.role === "delivery_boy") return "/boy";
     if (u.role === "rider") return "/rider";

@@ -67,10 +67,13 @@ export default function Header() {
     >
       {/* iter-58 #1: location pill moved from header to /restaurant page
           (under the hero) per user request. Header is now clean. */}
-      <div className="max-w-7xl mx-auto flex items-center justify-between px-2 sm:px-3 md:px-8 lg:px-12 py-3 md:py-4 gap-1.5 sm:gap-3">
-        <Link to="/" className="flex items-center gap-1.5 min-w-0 flex-shrink" data-testid="logo-link">
+      {/* iter-78 #1: brand + tagline always STACKED (column) so the brand
+          line never truncates. Right-cluster gets smaller padding + tighter
+          pills so everything fits even on a 360-wide screen. */}
+      <div className="max-w-7xl mx-auto flex items-center justify-between px-2 sm:px-3 md:px-8 lg:px-12 py-2.5 md:py-4 gap-1 sm:gap-2">
+        <Link to="/" className="flex items-center gap-1.5 min-w-0 flex-1" data-testid="logo-link">
           <span
-            className="inline-flex items-center justify-center h-9 w-12 sm:h-10 sm:w-14 md:h-11 md:w-16 rounded-md bg-primary shrink-0 overflow-hidden"
+            className="inline-flex items-center justify-center h-8 w-10 sm:h-10 sm:w-14 md:h-11 md:w-16 rounded-md bg-primary shrink-0 overflow-hidden"
             data-testid="brand-logo-frame"
           >
             <img
@@ -80,16 +83,13 @@ export default function Header() {
               data-testid="brand-logo"
             />
           </span>
-          {/* iter-77 #4: brand name MUST stay visible. Hide tagline below
-              sm breakpoint, shrink brand to text-base on tiny screens so
-              the wallet + mess pill + hamburger all fit. */}
-          <div className="flex flex-col justify-center h-9 sm:h-10 md:h-11 min-w-0">
-            <span className="font-display font-extrabold text-base sm:text-xl md:text-2xl text-primary-foreground truncate leading-none">{brandName}</span>
-            <span className="hidden sm:inline text-[8.5px] md:text-[10px] tracking-[0.18em] uppercase font-semibold text-primary-foreground/80 truncate leading-tight mt-0.5" data-testid="header-tagline">{brandTagline}</span>
+          <div className="flex flex-col justify-center min-w-0 flex-1">
+            <span className="font-display font-extrabold text-sm sm:text-lg md:text-2xl text-primary-foreground leading-none" data-testid="header-brand-name">{brandName}</span>
+            <span className="inline text-[7.5px] sm:text-[9px] md:text-[10px] tracking-[0.16em] uppercase font-semibold text-primary-foreground/80 leading-tight mt-0.5 truncate" data-testid="header-tagline">{brandTagline}</span>
           </div>
         </Link>
 
-        <div className="flex items-center gap-1 sm:gap-1.5 md:gap-3 shrink-0 min-w-0">
+        <div className="flex items-center gap-1 md:gap-3 shrink-0">
           <MessSwitcher variant="pill" />
           {showWallet && <WalletPill compact />}
           <Sheet open={open} onOpenChange={setOpen}>

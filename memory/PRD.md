@@ -1340,3 +1340,52 @@ Massive 14-item user batch covering UI sizing polish + a Paytm Dynamic QR self-o
 - FranchisePortal cards respect `/franchise/me/visible-sections`.
 - User /orders page "Request refund" button + reason modal.
 
+
+### Iteration 78 (Jun 9, 2026) — 3-item batch · Header rebuild + franchise admin parity + per-branch contact
+
+- **#1 Header brand visibility — definitive fix**
+  - Brand text + tagline now ALWAYS stacked (column layout) — tagline no longer `hidden sm:inline`; it shows from the smallest viewport.
+  - Brand bumped to `text-sm sm:text-lg md:text-2xl` so it scales sensibly without ever truncating.
+  - Header padding tightened to `px-2 sm:px-3 md:px-8` + `gap-1 sm:gap-2`, logo box shrunk to `h-8 w-10` on mobile.
+  - MessSwitcher pill: max-width 110px on mobile (was 180), h-7, smaller padding.
+  - WalletPill: compact mode gap `gap-1` + `px-2 py-1` so the cluster takes ~60% less width.
+  - **Verified in preview**: brand "efoodcare" fully visible + tagline "GHAR SE ACHHA KHANA" stacked under it (smoke test 414×896).
+- **#2 Franchise admin parity** — Overview + Operations sections of AdminLayout now include `franchise_owner` in their role lists via a `FRANCHISE_VIEW = ["admin", "staff", "franchise_owner"]` helper. Specific pages with edit-only semantics (Plans, Users, Restaurant menu, WhatsApp, Kitchen radius, Content & design) remain admin-only — franchise owners read their data, don't edit platform-wide config.
+- **#3 Per-branch contact page** at `/branch/:slug` — new `BranchContact.jsx`:
+  - Branded gradient hero (red for corporate, fuchsia for franchise partners) with the branch name + tagline.
+  - Call + Get directions buttons (Get directions opens Google Maps with the branded destination label, falling back to text search if lat/lng missing).
+  - Embedded Google Maps iframe (lat/lng for branches with coordinates, text search otherwise).
+  - 4 detail cards: Address, Phone, Email, Manager (with FSSAI).
+  - Public route — no auth required. URL example: `/branch/efoodcare-amravati`.
+
+**File changes:**
+- `Header.jsx` — brand layout rebuild.
+- `WalletPill.jsx` — compact padding/gap.
+- `MessSwitcher.jsx` — slimmer max-width + h-7.
+- `AdminLayout.jsx` — `FRANCHISE_VIEW` helper added; Overview + Operations sections inherit it.
+- `App.js` — `/admin` route allows `franchise_owner`; new `/branch/:slug` route.
+- New: `pages/BranchContact.jsx`.
+
+**Deployment note**: production efoodcare.in is still on the iter-77 build (user screenshot confirms `efoodca...` truncation). User needs to redeploy from Emergent dashboard to push the iter-78 header fix to production.
+
+
+### Iteration 79 (Jun 9, 2026) — Franchise login bugfix · assign-by-phone
+
+**User report (production)**: "Franchise login not working — owner lands on subscriber dashboard. Admin can't assign franchise manager by mobile number."
+
+**Root causes found:**
+1. Post-login redirect logic in `Login.jsx` (`landingAfterLogin`) only checked for `admin`, `staff`, `rider`, `delivery_boy` roles — `franchise_owner` fell through to `"/restaurant"` default (or `/dashboard` if no cart).
+2. Admin assignment UI on `/admin/messes` asked for opaque `user_id` via `prompt()`. Admin has no way to look up a user_id from the dashboard, so promotions never actually happened in production.
+
+**Fixes shipped:**
+- **Backend**: `PATCH /api/admin/messes/{id}/owner` now accepts either `owner_user_id` OR `owner_phone`. Phone normalization strips spaces / +91 / 91 prefixes, takes the last 10 digits, looks up via `db.users.find_one({phone: "+91...."})` then falls back to suffix-regex. Returns `promoted_user_id` so admin can verify.
+- **Frontend** `Login.jsx` `landingAfterLogin`: added `franchise_owner` to the role-redirect list in all 3 branches (`?next=` valid-next override, sessionStorage pending override, final fallback). Franchise owners now ALWAYS land on `/admin` post-login.
+- **Frontend** `AdminMesses.jsx` "Owner" button: `prompt()` now asks for the franchise manager's **10-digit mobile number** with a clear blurb ("They must have already signed up via OTP at least once") + a follow-up toast instructing them to **LOG OUT and log back in** so AuthContext picks up the new role.
+
+**Operating procedure for admins (going forward):**
+1. Franchise manager signs up on efoodcare.in via OTP (regular subscriber flow).
+2. Admin → Messes → click **Owner** on the target mess → paste the manager's 10-digit phone.
+3. Manager logs OUT, then logs back in via OTP → lands on `/admin` (Overview + Operations sidebar, scoped to their mess via `mess_id`).
+
+**Production deployment note**: This fix is in **preview only**. User must redeploy from the Emergent dashboard to push iter-79 (+ pending iter-76/77/78) to efoodcare.in before the franchise flow works in production.
+

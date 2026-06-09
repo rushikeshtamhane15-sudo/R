@@ -48,6 +48,7 @@ import Kiosk from "./pages/Kiosk";
 import SelfScan from "./pages/SelfScan";
 import Contact from "./pages/Contact";
 import About from "./pages/About";
+import BranchContact from "./pages/BranchContact";
 import Restaurant from "./pages/Restaurant";
 import RestaurantCheckout from "./pages/RestaurantCheckout";
 import OrderTrack from "./pages/OrderTrack";
@@ -133,9 +134,10 @@ function AppRoutes() {
           <Route path="/contact" element={<Contact />} />
           <Route path="/about" element={<About />} />
           <Route path="/franchise" element={<RequireAuth roles={["franchise_owner", "admin"]}><FranchisePortal /></RequireAuth>} />
+          <Route path="/branch/:slug" element={<BranchContact />} />
 
           {/* Admin / staff */}
-          <Route path="/admin" element={<RequireAuth roles={["admin", "staff"]}><AdminLayout /></RequireAuth>}>
+          <Route path="/admin" element={<RequireAuth roles={["admin", "staff", "franchise_owner"]}><AdminLayout /></RequireAuth>}>
             <Route index element={<AdminIndex />} />
             <Route path="control-tower" element={<AdminControlTower />} />
             <Route path="mess-menu" element={<AdminMessMenuCalendar />} />

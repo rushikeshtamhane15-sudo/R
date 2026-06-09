@@ -6,41 +6,46 @@ import { api } from "../lib/api";
 import { LayoutDashboard, Package, Truck, ScanLine, QrCode, Utensils, Users, Palette, Home, Shield, FileText, MapPin, FootprintsIcon, LogIn, Megaphone, Radio, Layout, Wheat, ClipboardList, Menu, MessageSquareQuote, UtensilsCrossed, MessageCircle, ChefHat, Bike, AlertTriangle, X } from "lucide-react";
 
 // `roles`: which roles can see the item. Default: admin only.
+// iter-78 #2: helper that grants franchise_owner read-only access to the
+// listed sections. Used in Overview + Operations sections so franchise
+// owners see "their admin panel" without editing platform-wide content.
+const FRANCHISE_VIEW = ["admin", "staff", "franchise_owner"];
+
 const SECTIONS = [
   {
     title: "Overview",
     items: [
-      { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true, roles: ["admin"] },
-      { to: "/admin/control-tower", label: "Control Tower", icon: Radio, roles: ["admin"] },
+      { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true, roles: FRANCHISE_VIEW },
+      { to: "/admin/control-tower", label: "Control Tower", icon: Radio, roles: FRANCHISE_VIEW },
       { to: "/admin/plans", label: "Plans", icon: Package, roles: ["admin"] },
       { to: "/admin/users", label: "Users & Roles", icon: Users, roles: ["admin"] },
       { to: "/admin/rider-applications", label: "Rider applications", icon: Bike, roles: ["admin"] },
-      { to: "/admin/restaurant-tracking", label: "Restaurant tracking", icon: Truck, roles: ["admin"] },
-      { to: "/admin/restaurant-takeaway", label: "Take-away tiffins", icon: Package, roles: ["admin", "staff"] },
+      { to: "/admin/restaurant-tracking", label: "Restaurant tracking", icon: Truck, roles: FRANCHISE_VIEW },
+      { to: "/admin/restaurant-takeaway", label: "Take-away tiffins", icon: Package, roles: FRANCHISE_VIEW },
       { to: "/admin/restaurant-theme", label: "Restaurant page editor", icon: Palette, roles: ["admin"] },
     ],
   },
   {
     title: "Operations",
     items: [
-      { to: "/admin/deliveries-today", label: "Today's deliveries", icon: ClipboardList, roles: ["admin", "staff"] },
-      { to: "/admin/raw-materials", label: "Raw materials", icon: Wheat, roles: ["admin", "staff"] },
-      { to: "/admin/tiffin-stock", label: "Tiffin stock", icon: Package, roles: ["admin", "staff"] },
-      { to: "/admin/cash-collections", label: "Cash collections", icon: ClipboardList, roles: ["admin", "staff"] },
-      { to: "/admin/cash-analytics", label: "Cash analytics", icon: ClipboardList, roles: ["admin", "staff"] },
-      { to: "/admin/partial-payments", label: "Partial payments", icon: ClipboardList, roles: ["admin", "staff"] },
+      { to: "/admin/deliveries-today", label: "Today's deliveries", icon: ClipboardList, roles: FRANCHISE_VIEW },
+      { to: "/admin/raw-materials", label: "Raw materials", icon: Wheat, roles: FRANCHISE_VIEW },
+      { to: "/admin/tiffin-stock", label: "Tiffin stock", icon: Package, roles: FRANCHISE_VIEW },
+      { to: "/admin/cash-collections", label: "Cash collections", icon: ClipboardList, roles: FRANCHISE_VIEW },
+      { to: "/admin/cash-analytics", label: "Cash analytics", icon: ClipboardList, roles: FRANCHISE_VIEW },
+      { to: "/admin/partial-payments", label: "Partial payments", icon: ClipboardList, roles: FRANCHISE_VIEW },
       { to: "/admin/kitchen-settings", label: "Kitchen & radius", icon: MapPin, roles: ["admin"] },
-      { to: "/admin/pnl", label: "Profit & loss", icon: ClipboardList, roles: ["admin"] },
+      { to: "/admin/pnl", label: "Profit & loss", icon: ClipboardList, roles: FRANCHISE_VIEW },
       { to: "/admin/restaurant", label: "Restaurant menu", icon: ChefHat, roles: ["admin"] },
-      { to: "/admin/restaurant-orders", label: "Restaurant orders", icon: ChefHat, roles: ["admin", "staff"] },
+      { to: "/admin/restaurant-orders", label: "Restaurant orders", icon: ChefHat, roles: FRANCHISE_VIEW },
       { to: "/admin/whatsapp", label: "WhatsApp outbox", icon: MessageCircle, roles: ["admin"] },
-      { to: "/admin/delivery", label: "Tiffin delivery", icon: Truck, roles: ["admin"] },
-      { to: "/admin/live", label: "Live tracking", icon: Radio, roles: ["admin"] },
-      { to: "/admin/scanner", label: "QR Scanner", icon: ScanLine, roles: ["admin", "staff"] },
-      { to: "/admin/kiosk", label: "Wall Kiosk", icon: ScanLine, roles: ["admin"] },
-      { to: "/admin/counter", label: "Counter QR", icon: QrCode, roles: ["admin", "staff"] },
-      { to: "/admin/menu", label: "Daily Menu", icon: Utensils, roles: ["admin"] },
-      { to: "/admin/mess-menu", label: "Mess Menu Calendar", icon: ClipboardList, roles: ["admin"] },
+      { to: "/admin/delivery", label: "Tiffin delivery", icon: Truck, roles: FRANCHISE_VIEW },
+      { to: "/admin/live", label: "Live tracking", icon: Radio, roles: FRANCHISE_VIEW },
+      { to: "/admin/scanner", label: "QR Scanner", icon: ScanLine, roles: FRANCHISE_VIEW },
+      { to: "/admin/kiosk", label: "Wall Kiosk", icon: ScanLine, roles: FRANCHISE_VIEW },
+      { to: "/admin/counter", label: "Counter QR", icon: QrCode, roles: FRANCHISE_VIEW },
+      { to: "/admin/menu", label: "Daily Menu", icon: Utensils, roles: FRANCHISE_VIEW },
+      { to: "/admin/mess-menu", label: "Mess Menu Calendar", icon: ClipboardList, roles: FRANCHISE_VIEW },
     ],
   },
   {

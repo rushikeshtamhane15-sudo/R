@@ -32,7 +32,7 @@ export default function WalletPill({ trigger, alwaysShow = false, compact = fals
           <button
             type="button"
             data-testid="wallet-pill"
-            className={`flex items-center gap-1.5 rounded-full bg-white/15 hover:bg-white/25 active:bg-white/30 transition-colors border border-white/30 text-primary-foreground ${compact ? "px-2.5 py-1.5" : "px-3.5 py-2"}`}
+            className={`flex items-center gap-1 rounded-full bg-white/15 hover:bg-white/25 active:bg-white/30 transition-colors border border-white/30 text-primary-foreground ${compact ? "px-2 py-1" : "px-3.5 py-2"}`}
           >
             <Wallet className={compact ? "h-3.5 w-3.5" : "h-4 w-4"} strokeWidth={2} />
             <span className={`font-display font-bold flex items-center ${compact ? "text-xs" : "text-sm"}`} data-testid="wallet-pill-balance">

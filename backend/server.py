@@ -1848,30 +1848,52 @@ async def franchise_my_metrics(days: int = 30, user: User = Depends(get_current_
 
 class MessAssignOwnerIn(BaseModel):
     owner_user_id: Optional[str] = None  # null = unassign
+    owner_phone: Optional[str] = None    # iter-79: assign by phone instead of user_id
 
 
 @api_router.patch("/admin/messes/{mess_id}/owner")
 async def admin_assign_mess_owner(mess_id: str, payload: MessAssignOwnerIn, user: User = Depends(get_current_user)):
-    """Iter-76: assign a franchise owner to a mess. Promotes the target
-    user to role=franchise_owner (subscribers/admins/staff aren't demoted).
+    """Iter-76 + 79: assign a franchise owner to a mess. Accepts either
+    owner_user_id OR owner_phone (whichever the admin has handy). Promotes
+    the target user to role=franchise_owner.
     """
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
     mess = await db.messes.find_one({"mess_id": mess_id})
     if not mess:
         raise HTTPException(status_code=404, detail="Mess not found")
-    if payload.owner_user_id:
-        target = await db.users.find_one({"user_id": payload.owner_user_id})
+    # iter-79: resolve phone → user_id when admin types phone instead of user_id
+    target_user_id = payload.owner_user_id
+    if payload.owner_phone and not target_user_id:
+        digits = "".join(c for c in (payload.owner_phone or "") if c.isdigit())
+        ten = digits[-10:] if len(digits) >= 10 else digits
+        if len(ten) != 10:
+            raise HTTPException(status_code=400, detail="Phone must be 10 digits")
+        candidates = []
+        for q in (f"+91{ten}", f"91{ten}", ten):
+            doc = await db.users.find_one({"phone": q})
+            if doc:
+                candidates.append(doc)
+                break
+        if not candidates:
+            doc = await db.users.find_one({"phone": {"$regex": ten + "$"}})
+            if doc:
+                candidates.append(doc)
+        if not candidates:
+            raise HTTPException(status_code=404, detail=f"No user found with phone ending {ten}")
+        target_user_id = candidates[0]["user_id"]
+    if target_user_id:
+        target = await db.users.find_one({"user_id": target_user_id})
         if not target:
             raise HTTPException(status_code=404, detail="User not found")
         if target.get("role") in ("subscriber", "rider", "delivery_boy"):
-            await db.users.update_one({"user_id": payload.owner_user_id}, {"$set": {"role": "franchise_owner"}})
+            await db.users.update_one({"user_id": target_user_id}, {"$set": {"role": "franchise_owner"}})
     await db.messes.update_one(
         {"mess_id": mess_id},
-        {"$set": {"owner_user_id": payload.owner_user_id, "updated_at": iso(now_utc())}},
+        {"$set": {"owner_user_id": target_user_id, "updated_at": iso(now_utc())}},
     )
     out = await db.messes.find_one({"mess_id": mess_id}, {"_id": 0})
-    return {"ok": True, "mess": out}
+    return {"ok": True, "mess": out, "promoted_user_id": target_user_id}
 
 
 async def _backfill_mess_id_once():

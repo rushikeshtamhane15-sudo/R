@@ -124,7 +124,7 @@ export default function MessSwitcher({ variant = "pill" }) {
   const TriggerEl = variant === "pill" ? (
     <button
       type="button"
-      className="inline-flex items-center gap-1.5 rounded-full bg-white/15 hover:bg-white/25 text-white px-2.5 h-7 text-[10.5px] font-extrabold tracking-wide max-w-[180px]"
+      className="inline-flex items-center gap-1 rounded-full bg-white/15 hover:bg-white/25 text-white px-2 h-7 text-[10px] font-extrabold tracking-wide max-w-[110px] sm:max-w-[160px]"
       data-testid="mess-switcher-pill"
       onClick={() => loadList()}
     >

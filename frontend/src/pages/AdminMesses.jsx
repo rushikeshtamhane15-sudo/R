@@ -75,14 +75,29 @@ export default function AdminMesses() {
 
   const assignOwner = async (m) => {
     const next = prompt(
-      `Assign franchise owner to "${m.name}"\n\nEnter the user_id (or leave blank to UNASSIGN):`,
-      m.owner_user_id || "",
+      `Assign franchise owner to "${m.name}"\n\n` +
+      `Enter the franchise manager's 10-digit MOBILE NUMBER (we'll look them up).\n` +
+      `Leave BLANK to UNASSIGN.\n\n` +
+      `They must have already signed up via OTP at least once on efoodcare.in.`,
+      m.owner_phone || "",
     );
     if (next === null) return;
+    const trimmed = next.trim();
     try {
-      await api.patch(`/admin/messes/${m.mess_id}/owner`, { owner_user_id: next.trim() || null });
-      toast.success(next ? "Owner assigned — user promoted to franchise_owner" : "Owner cleared");
+      const payload = trimmed
+        ? { owner_phone: trimmed }
+        : { owner_user_id: null };
+      const res = await api.patch(`/admin/messes/${m.mess_id}/owner`, payload);
+      if (trimmed) {
+        toast.success(`Owner assigned · user promoted to franchise_owner. Ask them to LOG OUT and log back in to access /admin.`);
+      } else {
+        toast.success("Owner cleared");
+      }
       load();
+      // Log promoted user_id so admin can verify
+      if (res?.data?.promoted_user_id) {
+        console.log("[franchise-assign] promoted user_id:", res.data.promoted_user_id);
+      }
     } catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
   };
 
