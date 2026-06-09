@@ -27,6 +27,16 @@ function readCached() {
   } catch { return null; }
 }
 
+// iter-78 #2: strip raw lat/lng coords from old session caches so we never
+// show "20.892, 77.764" to a user — only real reverse-geocoded addresses.
+const COORD_LABEL_RE = /^-?\d{1,3}\.\d+\s*,\s*-?\d{1,3}\.\d+$/;
+function safeLabel(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  if (COORD_LABEL_RE.test(s)) return "";
+  return s;
+}
+
 /**
  * Request a serviceability fix. Returns:
  *   { ok: true, lat, lng, km, label }    — got a fresh in-range fix
@@ -45,8 +55,8 @@ export async function ensureServiceableFix({ persistToUser = true } = {}) {
   const cached = readCached();
   if (cached && cached.lat && cached.lng) {
     const km = haversineKm(cached.lat, cached.lng, kitchen.lat, kitchen.lng);
-    if (km <= kitchen.radius) return { ok: true, lat: cached.lat, lng: cached.lng, km: +km.toFixed(1), label: cached.label || "" };
-    return { ok: false, reason: "out-of-range", km: +km.toFixed(1), radius: kitchen.radius, label: cached.label || "" };
+    if (km <= kitchen.radius) return { ok: true, lat: cached.lat, lng: cached.lng, km: +km.toFixed(1), label: safeLabel(cached.label) };
+    return { ok: false, reason: "out-of-range", km: +km.toFixed(1), radius: kitchen.radius, label: safeLabel(cached.label) };
   }
 
   // 3) No cache → request a fresh GPS fix
@@ -65,10 +75,10 @@ export async function ensureServiceableFix({ persistToUser = true } = {}) {
   const { latitude: lat, longitude: lng } = pos.coords;
   const km = haversineKm(lat, lng, kitchen.lat, kitchen.lng);
 
-  let label = `${lat.toFixed(3)}, ${lng.toFixed(3)}`;
+  let label = "";
   try {
     const g = await api.get(`/geo/reverse?lat=${lat}&lng=${lng}`);
-    label = g.data.label || label;
+    label = g.data.label || "";
   } catch { /* ignore */ }
 
   try { sessionStorage.setItem(SS_KEY, JSON.stringify({ lat, lng, km, label })); } catch {}

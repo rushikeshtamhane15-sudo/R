@@ -1,16 +1,31 @@
 import React from "react";
 
 /**
- * HeroParticles — iter-65 #1
+ * HeroParticles — iter-65 #1 / iter-78 #3
  *
  * Pure-CSS parallax / ambient layer behind the landing hero:
  *   • Soft "steam" plumes rising from the bottom (3 layered blurred blobs).
- *   • Floating "PURE VEG" chips drifting upward (5 chips, staggered).
+ *   • Floating "0% bad stuff" chips drifting upward (matches the home
+ *     page "Never on your plate" promise — 8 chips, staggered).
  *   • Slow mouse-driven parallax shift via CSS variables set on
  *     parent in Landing.jsx (--px, --py from 0..1).
  *
  * No JS animation. Honors prefers-reduced-motion via CSS.
  */
+// iter-78 #3: floating chips now show ALL the brand "0% bad stuff"
+// promises — sourced 1:1 from server.py `healthy_never_items` so the
+// floating ring matches the on-page "Never on your plate" card.
+const BAD_STUFF_CHIPS = [
+  "0% AJINOMOTO",
+  "0% MAIDA",
+  "0% ARTIFICIAL FLAVOURS",
+  "0% ARTIFICIAL COLOURS",
+  "0% POLISHED GRAINS",
+  "0% REFINED OIL",
+  "0% PALM OIL",
+  "0% PRE-MADE GRAVY",
+];
+
 export default function HeroParticles() {
   return (
     <div className="efc-hero-particles absolute inset-0 -z-[1] overflow-hidden pointer-events-none" data-testid="hero-particles" aria-hidden="true">
@@ -19,12 +34,10 @@ export default function HeroParticles() {
       <span className="efc-steam efc-steam--b" />
       <span className="efc-steam efc-steam--c" />
 
-      {/* Floating pure-veg chips */}
-      <span className="efc-chip efc-chip--1">PURE VEG</span>
-      <span className="efc-chip efc-chip--2">0% MAIDA</span>
-      <span className="efc-chip efc-chip--3">NO AJINOMOTO</span>
-      <span className="efc-chip efc-chip--4">PURE VEG</span>
-      <span className="efc-chip efc-chip--5">NO REFINED OIL</span>
+      {/* Floating "0% bad stuff" chips */}
+      {BAD_STUFF_CHIPS.map((label, i) => (
+        <span key={label} className={`efc-chip efc-chip--${i + 1}`}>{label}</span>
+      ))}
 
       <style>{`
         .efc-hero-particles { mask-image: linear-gradient(to bottom, rgba(0,0,0,0.92), rgba(0,0,0,0.96) 70%, rgba(0,0,0,0.4) 100%); }
@@ -60,23 +73,27 @@ export default function HeroParticles() {
           font-size: 9px;
           letter-spacing: 0.18em;
           font-weight: 800;
-          color: #065f46;
-          background: rgba(236, 253, 245, 0.85);
-          border: 1px solid rgba(16, 185, 129, 0.45);
+          color: #a02323;
+          background: rgba(254, 242, 242, 0.85);
+          border: 1px solid rgba(160, 35, 35, 0.4);
           border-radius: 999px;
-          box-shadow: 0 4px 12px -4px rgba(16,185,129,0.35), inset 0 1px 0 rgba(255,255,255,0.5);
+          box-shadow: 0 4px 12px -4px rgba(160,35,35,0.35), inset 0 1px 0 rgba(255,255,255,0.5);
           backdrop-filter: blur(4px);
           white-space: nowrap;
-          animation: efc-chip-float 22s linear infinite;
+          animation: efc-chip-float 24s linear infinite;
           opacity: 0;
           transform: translate3d(calc(var(--px,0)*-12px), 0, 0) rotate(-2deg);
           will-change: transform, opacity;
         }
-        .efc-chip--1 { left: 12%; animation-delay: 0s;    color: #065f46; }
-        .efc-chip--2 { left: 32%; animation-delay: 4s;    color: #a02323; background: rgba(254, 242, 242, 0.85); border-color: rgba(160,35,35,0.4); }
-        .efc-chip--3 { left: 52%; animation-delay: 8s;    color: #92400e; background: rgba(254, 252, 232, 0.9);  border-color: rgba(217,119,6,0.4); }
-        .efc-chip--4 { left: 72%; animation-delay: 12s;   color: #065f46; }
-        .efc-chip--5 { left: 88%; animation-delay: 16.5s; color: #065f46; }
+        /* 8 chips evenly distributed across the hero width with staggered delays */
+        .efc-chip--1 { left:  6%; animation-delay:  0s;   }
+        .efc-chip--2 { left: 18%; animation-delay:  3s;   color: #065f46; background: rgba(236, 253, 245, 0.88); border-color: rgba(16,185,129,0.4); }
+        .efc-chip--3 { left: 32%; animation-delay:  6s;   color: #92400e; background: rgba(254, 252, 232, 0.9);  border-color: rgba(217,119,6,0.4); }
+        .efc-chip--4 { left: 46%; animation-delay:  9s;   }
+        .efc-chip--5 { left: 58%; animation-delay: 12s;   color: #065f46; background: rgba(236, 253, 245, 0.88); border-color: rgba(16,185,129,0.4); }
+        .efc-chip--6 { left: 70%; animation-delay: 15s;   color: #92400e; background: rgba(254, 252, 232, 0.9);  border-color: rgba(217,119,6,0.4); }
+        .efc-chip--7 { left: 82%; animation-delay: 18s;   }
+        .efc-chip--8 { left: 92%; animation-delay: 21s;   color: #065f46; background: rgba(236, 253, 245, 0.88); border-color: rgba(16,185,129,0.4); }
 
         @keyframes efc-chip-float {
           0%   { transform: translate3d(calc(var(--px,0)*-12px), 0,      0) rotate(-2deg); opacity: 0; }

@@ -1436,3 +1436,55 @@ Massive 14-item user batch covering UI sizing polish + a Paytm Dynamic QR self-o
 
 **Smoke test (preview)**: `/partners` renders with all 6 feature tiles, login CTA visible, page is mobile-responsive (414×896 verified).
 
+
+
+### Iteration 78 — UI Polish Batch (Feb 9, 2026)
+**User-reported CSS / spacing issues, all fixed in one batch:**
+
+1. **Login marquee (top white card)** — Replaced chunky white-halo border with the same 3-D polish-glint sweep animation used by the `101% Pure Veg` badge (`.login-marquee-3d`). Border is now a thin emerald hairline + soft outer shadow; sweep glint moves left→right every 6 s.
+2. **No lat/long ever shown to users** — Three call sites scrubbed:
+   - `lib/serviceability.js`: fallback label is now `""` instead of `lat.toFixed(3), lng.toFixed(3)`. Added `safeLabel()` helper that strips coord-pattern strings (`/^-?\d+\.\d+\s*,\s*-?\d+\.\d+$/`) from old session caches.
+   - `components/ServiceabilityPill.jsx`: ticker uses `info.label || "your area"`.
+   - `components/LocationPill.jsx`: reverse-geocode fallback uses `"your area"` instead of coords.
+   - `pages/Plans.jsx` already renders `hero.label || "your area"`.
+3. **Header brand-tagline truncation** — Removed `truncate` from `header-tagline`, now uses `whitespace-normal break-words` so `GHAR SE ACHHA KHANA` is always fully visible.
+4. **Home page hero spacing + font** (`pages/Landing.jsx`):
+   - Overline → H1: `mb-3` → `mb-6 sm:mb-8`
+   - H1 → subtitle: `mt-5` → `mt-10 sm:mt-12`
+   - Subtitle → CTA: `mt-6` → `mt-12 sm:mt-14`
+   - Subtitle font: `text-[15px] sm:text-xl` → `text-[17px] sm:text-2xl`, weight `font-medium` → `font-semibold`
+5. **Floating bad-stuff chips** (`components/HeroParticles.jsx`) — Was 5 chips with a mix of positive/negative phrases. Now renders **all 8 negative-only chips** matching the home "Never on your plate" promise: `0% Ajinomoto, Maida, Artificial Flavours, Artificial Colours, Polished Grains, Refined Oil, Palm Oil, Pre-made Gravy`. Brand-red tint dominant with green/amber variants per chip.
+6. **Mess menu container** (`components/TodayMessMenuFlash.jsx`):
+   - Vertical padding: `p-3 / py-1.5` → `px-3 py-2 / py-1` (shorter card)
+   - Heading icon: 28×28 → 24×24, font `text-[14px] sm:text-base` → `text-[13px] sm:text-[15px]`
+   - Separator: `divide-x-2 divide-white/70` → explicit `border-r-[3px] border-white/85` on the left column for thicker, perfectly-centered divider that always renders (even if one meal is empty, a placeholder column keeps the divider in the exact middle).
+7. **Custom subscription plan** (`pages/Plans.jsx`) — Vertical footprint trimmed:
+   - Outer padding `p-4 sm:p-6 gap-4 sm:gap-6` → `p-3 sm:p-4 gap-3 sm:gap-4`
+   - H2 size `text-lg sm:text-2xl md:text-3xl` → `text-base sm:text-xl md:text-2xl`
+   - Button height `h-10` → `h-8 sm:h-9`, day-preset padding `py-2` → `py-1.5`, days input `h-9`
+   - Right summary card: padding `p-4` → `p-3`, amount `text-3xl` → `text-2xl`, Subscribe button `h-9` → `h-8`
+8. **AdminMesses action buttons overflow on mobile** — `flex sm:flex-col` → `grid grid-cols-2 sm:flex sm:flex-col` so all 4 buttons (Metrics / Edit / Owner / Activate/Deactivate) fit in a 2×2 grid on phones without horizontal overflow.
+9. **CartSaverBanner odd vertical wrap** (`components/CartSaverBanner.jsx`) — Moved `Resume order` button to a separate full-width row below the title/body. Body text now uses full card width instead of being squeezed by the inline button.
+10. **Login bottom red pill truncation** — Removed `whitespace-nowrap` + `truncate` from the "You are one step away from ghar se accha khana" pill; now wraps to 2 lines with `rounded-2xl` (was rounded-full pill).
+
+**Files changed**:
+- `frontend/src/App.css` (added `.login-marquee-3d` sweep keyframes)
+- `frontend/src/pages/Login.jsx`
+- `frontend/src/pages/Landing.jsx`
+- `frontend/src/pages/Plans.jsx`
+- `frontend/src/pages/AdminMesses.jsx`
+- `frontend/src/components/Header.jsx`
+- `frontend/src/components/HeroParticles.jsx`
+- `frontend/src/components/TodayMessMenuFlash.jsx`
+- `frontend/src/components/CartSaverBanner.jsx`
+- `frontend/src/components/LocationPill.jsx`
+- `frontend/src/components/ServiceabilityPill.jsx`
+- `frontend/src/lib/serviceability.js`
+
+**Smoke-tested (preview, 390×844)**:
+- `/login` — marquee thin border + sweep animation, brand+tagline fully visible, bottom pill wraps cleanly.
+- `/home` — overline → H1 → subtitle → CTA all have generous breathing room, subtitle visibly larger, `0% AJINOMOTO` floating chip visible (and 7 more cycle in).
+- `/plans` — custom subscription card is noticeably shorter, summary right-rail compact, no lat/long shown.
+
+**Production deployment note**: Preview only. User must redeploy from Emergent dashboard to push these changes to `efoodcare.in`.
+

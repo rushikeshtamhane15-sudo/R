@@ -270,15 +270,9 @@ export default function Login() {
             chunkier border (4-px) + a much wider soft shadow puddle so the
             white card reads as a clear premium frame rather than a hairline. */}
         {c.marquee_show !== false && (
-          <div className="w-screen -mx-3 sm:-mx-6 max-w-none" aria-hidden data-testid="login-top-marquee">
-            <div
-              className="bg-white border-y border-white rounded-lg py-1"
-              style={{
-                boxShadow:
-                  "0 14px 32px -6px rgba(255,255,255,0.85), 0 6px 14px rgba(0,0,0,0.15), inset 0 0 0 3px rgba(255,255,255,1), inset 0 -1px 0 rgba(0,0,0,0.04)",
-              }}
-            >
-              <TrustChipsMarquee className="py-1.5" testid="login-trust-marquee" />
+          <div className="w-screen -mx-3 sm:-mx-6 max-w-none px-3 sm:px-6" aria-hidden data-testid="login-top-marquee">
+            <div className="login-marquee-3d bg-white rounded-lg py-0.5">
+              <TrustChipsMarquee className="py-1" testid="login-trust-marquee" />
             </div>
           </div>
         )}
@@ -510,7 +504,7 @@ export default function Login() {
             against the off-white bg. */}
         <div className="mt-6 sm:mt-8 px-3 sm:px-6" data-testid="login-tagline-pill-wrap">
           <span
-            className="flex w-full items-center justify-center gap-2 rounded-full bg-primary text-white text-[11px] sm:text-xs font-extrabold px-3 py-1.5 tracking-wide shadow-md whitespace-nowrap"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary text-white text-[11px] sm:text-xs font-extrabold px-3 py-2 tracking-wide shadow-md text-center leading-snug"
             data-testid="login-tagline-pill"
           >
             <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -519,7 +513,7 @@ export default function Login() {
               <circle cx="5.5" cy="18.5" r="2.5"/>
               <circle cx="18.5" cy="18.5" r="2.5"/>
             </svg>
-            <span className="truncate">You are one step away from ghar se accha khana</span>
+            <span>You are one step away from ghar se accha khana</span>
           </span>
         </div>
         {/* Spacer below the form — pushes the form into the middle of the

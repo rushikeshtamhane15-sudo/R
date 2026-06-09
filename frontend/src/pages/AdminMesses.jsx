@@ -181,7 +181,7 @@ export default function AdminMesses() {
                 {m.fssai_number && <p className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" /> FSSAI {m.fssai_number}</p>}
               </div>
             </div>
-            <div className="flex sm:flex-col gap-1.5 sm:w-[170px]">
+            <div className="grid grid-cols-2 sm:flex sm:flex-col gap-1.5 sm:w-[170px] shrink-0">
               <Link to={`/admin/messes/${m.mess_id}/metrics`} data-testid={`mess-metrics-${m.slug}`} className="inline-flex items-center justify-center gap-1 rounded-full h-8 text-xs font-extrabold bg-primary text-white hover:bg-primary/90 px-3">
                 <BarChart3 className="h-3.5 w-3.5" /> Metrics
               </Link>

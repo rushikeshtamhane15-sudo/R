@@ -590,3 +590,35 @@
             0 28px 50px -20px rgba(20, 12, 5, 0.26);
     }
 }
+
+
+/* === Login marquee 3D sweep — iter-78 #1 ===
+   Same polish-glint sweep used by `.pure-veg-3d` on the restaurant hero,
+   applied to the login top marquee wrapper. Thin border, soft outer
+   shadow, and an animated brand-green glint sweeping left → right every
+   6 s. The wrapper relies on `position: relative; overflow: hidden;` so
+   the sweep stays inside the rounded card. */
+.login-marquee-3d {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(5, 122, 58, 0.35);
+    box-shadow:
+        0 2px 6px rgba(5, 122, 58, 0.10),
+        0 0 0 1px rgba(5, 122, 58, 0.06),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+.login-marquee-3d::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -40%;
+    width: 22%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent 0%, rgba(5, 122, 58, 0.14) 50%, transparent 100%);
+    animation: pure-veg-sweep 6s linear infinite;
+    pointer-events: none;
+    z-index: 2;
+}
+@media (prefers-reduced-motion: reduce) {
+    .login-marquee-3d::before { animation: none; }
+}

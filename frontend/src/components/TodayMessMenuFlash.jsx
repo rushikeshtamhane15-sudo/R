@@ -316,11 +316,10 @@ export default function TodayMessMenuFlash({ compact = false }) {
 
       {active ? (
         <div
-          /* iter-77 #2: use the location-pill gradient background (white→
-             mint→primary glow), bigger heading, and lunch/dinner ALWAYS
-             side-by-side (was sm: only) with a thick white vertical
-             separator between them. */
-          className="rounded-2xl p-3 overflow-hidden relative bg-gradient-to-br from-emerald-700 via-emerald-600 to-emerald-800"
+          /* iter-77 #2 / iter-78 #4: compact green mess-menu card. Reduced
+             vertical padding, thicker centered separator between Lunch and
+             Dinner so the divider reads as the design focal-point. */
+          className="rounded-2xl px-3 py-2 overflow-hidden relative bg-gradient-to-br from-emerald-700 via-emerald-600 to-emerald-800"
           style={{
             color: cfg.text_color,
             boxShadow: "0 14px 30px -10px rgba(5,95,70,0.55), inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -1px 2px rgba(0,0,0,0.2)",
@@ -328,35 +327,46 @@ export default function TodayMessMenuFlash({ compact = false }) {
         >
           <span aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.08] bg-[radial-gradient(circle_at_20%_20%,_white_2px,_transparent_2px),radial-gradient(circle_at_80%_60%,_white_1.5px,_transparent_1.5px)] bg-[length:36px_36px,_54px_54px]" />
           <div className="flex items-center gap-2 z-10 relative">
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/22 shrink-0">
-              {tab === "today" ? <ChefHat className="h-4 w-4" /> : <Sunrise className="h-4 w-4" />}
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-white/22 shrink-0">
+              {tab === "today" ? <ChefHat className="h-3.5 w-3.5" /> : <Sunrise className="h-3.5 w-3.5" />}
             </span>
             <div className="min-w-0">
-              <p className="font-display font-extrabold text-[14px] sm:text-base leading-tight tracking-tight" data-testid="mess-card-heading">{cardLabel}</p>
+              <p className="font-display font-extrabold text-[13px] sm:text-[15px] leading-tight tracking-tight" data-testid="mess-card-heading">{cardLabel}</p>
             </div>
           </div>
-          <div className="mt-2 grid grid-cols-2 z-10 relative divide-x-2 divide-white/70">
-            {active.lunch ? (
-              <div className="flex items-start gap-1.5 px-2 py-1.5 pr-3">
-                <Sun className="h-3.5 w-3.5 text-amber-200 mt-0.5 shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-[10px] tracking-[0.16em] uppercase font-bold opacity-80">Lunch</p>
-                  <p className="text-[12.5px] sm:text-[13px] font-bold leading-snug">{active.lunch}</p>
-                </div>
-              </div>
-            ) : <div />}
-            {active.dinner ? (
-              <div className="flex items-start gap-1.5 px-2 py-1.5 pl-3">
-                <Moon className="h-3.5 w-3.5 text-blue-200 mt-0.5 shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-[10px] tracking-[0.16em] uppercase font-bold opacity-80">Dinner</p>
-                  <p className="text-[12.5px] sm:text-[13px] font-bold leading-snug">{active.dinner}</p>
-                </div>
-              </div>
-            ) : <div />}
+          {/* Two equal columns with a centered, thicker white separator.
+              Both columns render even when one meal is missing so the
+              divider always sits in the exact horizontal centre. */}
+          <div className="mt-1.5 grid grid-cols-2 z-10 relative">
+            <div className="flex items-start gap-1.5 px-2 py-1 pr-3 border-r-[3px] border-white/85">
+              {active.lunch ? (
+                <>
+                  <Sun className="h-3.5 w-3.5 text-amber-200 mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] tracking-[0.16em] uppercase font-bold opacity-80">Lunch</p>
+                    <p className="text-[12.5px] sm:text-[13px] font-bold leading-snug">{active.lunch}</p>
+                  </div>
+                </>
+              ) : (
+                <span className="text-[11px] opacity-60 italic">Lunch off today</span>
+              )}
+            </div>
+            <div className="flex items-start gap-1.5 px-2 py-1 pl-3">
+              {active.dinner ? (
+                <>
+                  <Moon className="h-3.5 w-3.5 text-blue-200 mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] tracking-[0.16em] uppercase font-bold opacity-80">Dinner</p>
+                    <p className="text-[12.5px] sm:text-[13px] font-bold leading-snug">{active.dinner}</p>
+                  </div>
+                </>
+              ) : (
+                <span className="text-[11px] opacity-60 italic">Dinner off today</span>
+              )}
+            </div>
           </div>
           {active.note && (
-            <p className="mt-1.5 text-[10px] sm:text-[11px] italic opacity-85 z-10 relative">★ {active.note}</p>
+            <p className="mt-1 text-[10px] sm:text-[11px] italic opacity-85 z-10 relative">★ {active.note}</p>
           )}
 
           {/* inline Order Now */}

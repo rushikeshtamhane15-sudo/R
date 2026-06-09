@@ -245,91 +245,90 @@ export default function Plans() {
         )}
       </div>
 
-      {/* Custom subscription — iter-64 #5: tighter horizontal footprint */}
-      <div className="mt-10 max-w-2xl mx-auto px-3 sm:px-0" data-testid="custom-plan-section">
+      {/* Custom subscription — iter-64 #5 / iter-78 #5: tighter vertical footprint */}
+      <div className="mt-7 max-w-2xl mx-auto px-3 sm:px-0" data-testid="custom-plan-section">
         <div
-          className="rounded-2xl border border-border bg-card p-4 sm:p-6 grid lg:grid-cols-5 gap-4 sm:gap-6"
+          className="rounded-2xl border border-border bg-card p-3 sm:p-4 grid lg:grid-cols-5 gap-3 sm:gap-4"
           style={{ boxShadow: "0 6px 18px -12px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04), inset 0 0 0 2px rgba(160,35,35,0.35), inset 0 1px 0 rgba(255,255,255,0.6)" }}
         >
           <div className="lg:col-span-3 min-w-0">
             <p className="text-[10px] sm:text-xs tracking-overline uppercase font-bold text-secondary flex items-center gap-1.5"><Sparkles className="h-3 w-3" /> Build your own</p>
-            <h2 className="font-display font-extrabold text-lg sm:text-2xl md:text-3xl tracking-tight mt-2 leading-tight break-words">Pick any number of days.</h2>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-2 leading-snug">Pay exactly for the days you'll eat. <span className="font-semibold text-foreground">₹{MEAL_PRICE_FULL}/meal</span> for full tiffin or dining; <span className="font-semibold text-foreground">₹{MEAL_PRICE_HALF}/meal</span> for half tiffin.</p>
+            <h2 className="font-display font-extrabold text-base sm:text-xl md:text-2xl tracking-tight mt-1.5 leading-tight break-words">Pick any number of days.</h2>
+            <p className="text-[11px] sm:text-xs text-muted-foreground mt-1.5 leading-snug">Pay exactly for the days you'll eat. <span className="font-semibold text-foreground">₹{MEAL_PRICE_FULL}/meal</span> for full tiffin or dining; <span className="font-semibold text-foreground">₹{MEAL_PRICE_HALF}/meal</span> for half tiffin.</p>
 
             {/* Iter-58 #3: stack — Service tabs first (row), Tiffin size tabs UNDER as a 2nd row. */}
-            <div className="mt-6 flex flex-col items-stretch gap-5">
+            <div className="mt-3 flex flex-col items-stretch gap-3">
               <div className="text-center" data-testid="custom-service">
-                <label className="text-sm sm:text-base tracking-overline uppercase font-extrabold text-muted-foreground">Service</label>
-                <div className="mt-2.5 flex flex-row gap-2 justify-center flex-nowrap">
+                <label className="text-xs sm:text-sm tracking-overline uppercase font-extrabold text-muted-foreground">Service</label>
+                <div className="mt-1.5 flex flex-row gap-2 justify-center flex-nowrap">
                   {SERVICES.map((s) => (
                     <button
                       key={s.id} type="button" onClick={() => setService(s.id)}
                       data-testid={`custom-service-${s.id}`}
-                      className={`px-4 sm:px-5 h-10 rounded-full text-xs sm:text-sm font-bold border-2 transition-colors flex items-center gap-1.5 whitespace-nowrap ${service === s.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
+                      className={`px-3 sm:px-4 h-8 sm:h-9 rounded-full text-[11px] sm:text-xs font-bold border-2 transition-colors flex items-center gap-1.5 whitespace-nowrap ${service === s.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
                     >
                       <s.icon className="h-3.5 w-3.5 shrink-0" /> {s.label}
                     </button>
                   ))}
                 </div>
                 {/* thin red divider below Service tabs */}
-                <hr className="mt-3 mx-auto w-32 h-0.5 border-0 bg-primary rounded-sm" data-testid="service-divider" />
+                <hr className="mt-2 mx-auto w-28 h-0.5 border-0 bg-primary rounded-sm" data-testid="service-divider" />
               </div>
 
               <div className={`text-center transition-opacity ${service !== "tiffin" ? "opacity-40 pointer-events-none" : ""}`} data-testid="custom-tiffin-size">
-                <label className="text-sm sm:text-base tracking-overline uppercase font-extrabold text-muted-foreground">Tiffin size</label>
-                <div className="mt-2.5 flex flex-row gap-2 justify-center flex-nowrap">
+                <label className="text-xs sm:text-sm tracking-overline uppercase font-extrabold text-muted-foreground">Tiffin size</label>
+                <div className="mt-1.5 flex flex-row gap-2 justify-center flex-nowrap">
                   {[
                     { id: "half", label: "3 chapati" },
                     { id: "full", label: "5 chapati" },
                   ].map((t) => (
                     <button
                       key={t.id} type="button" onClick={() => setTiffinSize(t.id)}
-                      className={`px-4 sm:px-5 h-10 rounded-full text-xs sm:text-sm font-bold border-2 transition-colors whitespace-nowrap ${tiffinSize === t.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
+                      className={`px-3 sm:px-4 h-8 sm:h-9 rounded-full text-[11px] sm:text-xs font-bold border-2 transition-colors whitespace-nowrap ${tiffinSize === t.id ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
                       data-testid={`custom-tiffin-${t.id}`}
                     >{t.label}</button>
                   ))}
                 </div>
                 {/* thin red divider below Tiffin size tabs */}
-                <hr className="mt-3 mx-auto w-32 h-0.5 border-0 bg-primary rounded-sm" data-testid="tiffin-size-divider" />
+                <hr className="mt-2 mx-auto w-28 h-0.5 border-0 bg-primary rounded-sm" data-testid="tiffin-size-divider" />
               </div>
             </div>
 
-            <div className="mt-6 flex flex-wrap gap-2 justify-center" data-testid="day-presets">
+            <div className="mt-3 flex flex-wrap gap-1.5 justify-center" data-testid="day-presets">
               {[3, 5, 7, 10, 15, 21].map((d) => (
                 <button key={d} type="button" onClick={() => setDays(d)}
                   data-testid={`day-preset-${d}`}
-                  className={`px-4 py-2 rounded-full text-sm font-semibold border transition-colors ${Number(days) === d ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${Number(days) === d ? "bg-primary text-primary-foreground border-primary" : "border-border hover:border-primary"}`}
                 >{d} days</button>
               ))}
             </div>
 
-            <div className="mt-6 max-w-xs">
-              <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Days</label>
-              <Input type="number" min={MIN_DAYS} max={MAX_DAYS} value={days} onChange={(e) => setDays(e.target.value)} className="mt-2 rounded-xl text-lg font-display font-bold" data-testid="custom-days-input" />
-              <p className="text-xs text-muted-foreground mt-1.5">Between {MIN_DAYS} and {MAX_DAYS} days</p>
+            <div className="mt-3 max-w-xs">
+              <label className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Days</label>
+              <Input type="number" min={MIN_DAYS} max={MAX_DAYS} value={days} onChange={(e) => setDays(e.target.value)} className="mt-1 rounded-xl h-9 text-base font-display font-bold" data-testid="custom-days-input" />
+              <p className="text-[10px] text-muted-foreground mt-1">Between {MIN_DAYS} and {MAX_DAYS} days</p>
             </div>
           </div>
 
-          {/* iter-77 #5: tiny bottom summary card — compact padding, smaller
-              amount headline, slimmer button so the right-rail isn't taller
-              than the picker on the left. */}
-          <div className="lg:col-span-2 bg-primary text-primary-foreground rounded-2xl p-4 flex flex-col justify-between" data-testid="custom-summary">
+          {/* iter-77 #5 / iter-78 #5: tighter bottom summary card — slimmer
+              padding, smaller amount headline, shorter button. */}
+          <div className="lg:col-span-2 bg-primary text-primary-foreground rounded-2xl p-3 flex flex-col justify-between" data-testid="custom-summary">
             <div>
               <p className="text-[9px] tracking-overline uppercase font-bold text-primary-foreground/70">{service === "tiffin" ? "Tiffin plan" : "Dining plan"}</p>
-              <p className="font-display font-extrabold text-3xl mt-1.5 leading-none">₹{customPreview.amount.toLocaleString("en-IN")}</p>
-              <div className="mt-3 pt-3 border-t border-white/15 grid grid-cols-2 gap-2 text-xs">
+              <p className="font-display font-extrabold text-2xl mt-1 leading-none">₹{customPreview.amount.toLocaleString("en-IN")}</p>
+              <div className="mt-2 pt-2 border-t border-white/15 grid grid-cols-2 gap-2 text-xs">
                 <div>
                   <p className="text-[9px] tracking-overline uppercase font-bold text-primary-foreground/70">Days</p>
-                  <p className="font-display font-bold text-base mt-0.5" data-testid="custom-days">{customPreview.days}</p>
+                  <p className="font-display font-bold text-sm mt-0.5" data-testid="custom-days">{customPreview.days}</p>
                 </div>
                 <div>
                   <p className="text-[9px] tracking-overline uppercase font-bold text-primary-foreground/70">Meals</p>
-                  <p className="font-display font-bold text-base mt-0.5" data-testid="custom-meals">{customPreview.meals}</p>
+                  <p className="font-display font-bold text-sm mt-0.5" data-testid="custom-meals">{customPreview.meals}</p>
                 </div>
               </div>
-              <p className="text-[11px] text-primary-foreground/80 mt-2.5 leading-snug">≈ ₹{customPreview.perDay}/day · ₹{customPreview.mealPrice}/meal{service === "tiffin" && tiffinSize === "half" ? " · Half tiffin" : ""}</p>
+              <p className="text-[10px] text-primary-foreground/80 mt-1.5 leading-snug">≈ ₹{customPreview.perDay}/day · ₹{customPreview.mealPrice}/meal{service === "tiffin" && tiffinSize === "half" ? " · Half tiffin" : ""}</p>
             </div>
-            <Button onClick={startCustomCheckout} data-testid="custom-subscribe-button" className="mt-3 w-full rounded-full bg-white text-primary hover:bg-white/90 h-9 text-xs font-semibold">
+            <Button onClick={startCustomCheckout} data-testid="custom-subscribe-button" className="mt-2 w-full rounded-full bg-white text-primary hover:bg-white/90 h-8 text-xs font-semibold">
               Subscribe for {customPreview.days} day{customPreview.days > 1 ? "s" : ""}
             </Button>
           </div>

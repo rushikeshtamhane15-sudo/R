@@ -58,26 +58,28 @@ export default function CartSaverBanner({ onResume }) {
 
   return (
     <div
-      className="relative rounded-xl border border-amber-300 bg-gradient-to-r from-amber-50 via-orange-50 to-red-50 px-3 py-2.5 mb-3 flex items-start gap-2.5 shadow-sm"
+      className="relative rounded-xl border border-amber-300 bg-gradient-to-r from-amber-50 via-orange-50 to-red-50 px-3 py-2.5 mb-3 shadow-sm"
       data-testid="cart-saver-banner"
     >
-      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-amber-500 text-white shrink-0 animate-pulse">
-        <Flame className="h-3.5 w-3.5" />
-      </span>
-      <div className="flex-1 min-w-0">
-        <p className="text-[10px] tracking-[0.18em] uppercase font-extrabold text-amber-900" data-testid="cart-saver-title">{banner.title}</p>
-        <p className="text-[12px] sm:text-sm font-bold text-foreground leading-snug mt-0.5" data-testid="cart-saver-body">{banner.body}</p>
+      <div className="flex items-start gap-2.5">
+        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-amber-500 text-white shrink-0 animate-pulse">
+          <Flame className="h-3.5 w-3.5" />
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] tracking-[0.18em] uppercase font-extrabold text-amber-900" data-testid="cart-saver-title">{banner.title}</p>
+          <p className="text-[12px] sm:text-sm font-bold text-foreground leading-snug mt-0.5" data-testid="cart-saver-body">{banner.body}</p>
+        </div>
+        <button type="button" onClick={dismiss} className="shrink-0 p-1 text-muted-foreground hover:text-foreground" data-testid="cart-saver-dismiss" aria-label="Dismiss">
+          <X className="h-4 w-4" />
+        </button>
       </div>
       <button
         type="button"
         onClick={resume}
-        className="shrink-0 inline-flex items-center gap-1 rounded-full bg-amber-600 text-white px-3 h-8 text-[11px] font-extrabold hover:bg-amber-700"
+        className="mt-2 w-full inline-flex items-center justify-center gap-1 rounded-full bg-amber-600 text-white px-3 h-8 text-[11px] font-extrabold hover:bg-amber-700"
         data-testid="cart-saver-cta"
       >
         <ShoppingCart className="h-3 w-3" /> {banner.cta_label || "Resume order"}
-      </button>
-      <button type="button" onClick={dismiss} className="shrink-0 p-1 text-muted-foreground hover:text-foreground" data-testid="cart-saver-dismiss" aria-label="Dismiss">
-        <X className="h-4 w-4" />
       </button>
     </div>
   );

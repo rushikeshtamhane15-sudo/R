@@ -55,11 +55,11 @@ export default function ServiceabilityPill() {
             const lng = pos.coords.longitude;
             const km = haversineKm(lat, lng, dispatch_lat, dispatch_lng);
 
-            let label = `${lat.toFixed(3)}, ${lng.toFixed(3)}`;
+            let label = "";
             let pincode = ""; let area = ""; let city = ""; let pincodeVerified = false;
             try {
               const g = await api.get(`/geo/reverse?lat=${lat}&lng=${lng}`);
-              label = g.data.label || label;
+              label = g.data.label || "";
               pincode = g.data.pincode || "";
               area = g.data.area || "";
               city = g.data.city || "";
@@ -132,8 +132,11 @@ export default function ServiceabilityPill() {
     : "0 6px 16px -6px rgba(146,64,14,0.45), 0 2px 6px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.32), inset 0 -1px 2px rgba(0,0,0,0.18)";
 
   // iter-60 #1: marquee ticker — repeat the content twice so the loop is seamless.
+  // iter-78 #2: never expose raw lat/lng to the user — fall back to a friendly
+  // generic label when reverse-geocode hasn't returned an address yet.
+  const safeLabel = (info.label || "").trim() || "your area";
   const tickerText = isIn
-    ? `WE DELIVER HERE  ·  ${info.km} km from kitchen  ·  ${info.label || "—"}`
+    ? `WE DELIVER HERE  ·  ${info.km} km from kitchen  ·  ${safeLabel}`
     : `OUTSIDE DELIVERY ZONE  ·  ${info.km} km away  ·  ${(info.km - info.radius).toFixed(1)} km past our ${info.radius} km radius`;
 
   return (

@@ -60,10 +60,10 @@ export default function LocationPill({ className = "", variant = "default" }) {
         const city = a.city || a.county || a.state_district || "";
         const pin = a.postcode || "";
         const built = [area, city, pin].filter(Boolean).join(", ");
-        const final = built || (j?.display_name?.split(",").slice(0, 2).join(", ")) || `${lat.toFixed(2)}, ${lng.toFixed(2)}`;
+        const final = built || (j?.display_name?.split(",").slice(0, 2).join(", ")) || "your area";
         if (!cancel) { sessionStorage.setItem(key, final); setLabel(final); }
       } catch {
-        if (!cancel) setLabel(`${lat.toFixed(2)}, ${lng.toFixed(2)}`);
+        if (!cancel) setLabel("your area");
       }
     })();
     return () => { cancel = true; };

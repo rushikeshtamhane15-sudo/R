@@ -91,7 +91,7 @@ export default function Landing() {
             floating in the vertical middle of the hero. */}
         <div className="flex-1 flex items-start">
           <div className="w-full max-w-7xl mx-auto px-6 md:px-8 lg:px-12 pt-2 pb-1 sm:pt-3 sm:pb-3 md:py-5">
-          <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="text-xs sm:text-sm tracking-overline uppercase font-bold text-secondary mt-4 sm:mt-5 mb-3 sm:mb-4">
+          <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="text-xs sm:text-sm tracking-overline uppercase font-bold text-secondary mt-4 sm:mt-5 mb-6 sm:mb-8">
             {c.hero_overline || "UPI · WALLET · E-MEAL PASS"}
           </motion.p>
           <motion.h1 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="font-display font-extrabold text-[34px] leading-[1.02] sm:text-6xl lg:text-7xl tracking-tight max-w-4xl">
@@ -99,10 +99,10 @@ export default function Landing() {
             <br className="hidden md:block" />
             {c.hero_title_line2 || "ab ek e-Meal Pass pe."}
           </motion.h1>
-          <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mt-5 sm:mt-6 text-[15px] sm:text-xl max-w-2xl text-muted-foreground leading-relaxed font-medium">
+          <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mt-10 sm:mt-12 text-[17px] sm:text-2xl max-w-2xl text-muted-foreground leading-relaxed font-semibold">
             {c.hero_subtitle || "30-day tiffin subscriptions with a smart wallet. Pay once by UPI, check-in by QR, skip a few days — we pause your wallet, no meals wasted."}
           </motion.p>
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mt-6 sm:mt-7 flex flex-wrap gap-3 sm:gap-4">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mt-12 sm:mt-14 flex flex-wrap gap-3 sm:gap-4">
             {/* iter-64 #3: 'Get your e-Meal Pass' should always go to /plans
                 so users can compare and choose before sign-up. */}
             <Link to="/plans" data-testid="hero-cta-start">
