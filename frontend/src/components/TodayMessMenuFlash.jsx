@@ -68,6 +68,16 @@ export default function TodayMessMenuFlash({ compact = false }) {
       catch { setData(null); }
     })();
   }, []);
+
+  // iter-77 #9: auto-fill phone from logged-in user's profile so delivery
+  // doesn't ask them to re-type a number we already have on file.
+  useEffect(() => {
+    if (!user || phone) return;
+    const raw = String(user.phone || "").replace(/\D/g, "");
+    const ten = raw.startsWith("91") && raw.length > 10 ? raw.slice(-10) : raw;
+    if (ten.length === 10) setPhone(ten);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
   useEffect(() => {
     // iter-73 #9: when the user just logged in (or already had a pending mess
     // order in sessionStorage), re-hydrate the form and auto-fire the order
@@ -306,43 +316,44 @@ export default function TodayMessMenuFlash({ compact = false }) {
 
       {active ? (
         <div
-          /* iter-73 #1: compressed vertical padding (p-3 → p-2.5) +
-             tighter gaps so the container reads slimmer on mobile. */
-          className="rounded-2xl p-2.5 overflow-hidden relative"
+          /* iter-77 #2: use the location-pill gradient background (white→
+             mint→primary glow), bigger heading, and lunch/dinner ALWAYS
+             side-by-side (was sm: only) with a thick white vertical
+             separator between them. */
+          className="rounded-2xl p-3 overflow-hidden relative bg-gradient-to-br from-emerald-700 via-emerald-600 to-emerald-800"
           style={{
-            background: `linear-gradient(145deg, ${cfg.bg_gradient_from} 0%, ${cfg.bg_gradient_mid} 45%, ${cfg.bg_gradient_to} 100%)`,
             color: cfg.text_color,
-            boxShadow: "0 10px 24px -10px rgba(5,95,70,0.45), inset 0 1px 0 rgba(255,255,255,0.2), inset 0 -1px 2px rgba(0,0,0,0.18)",
+            boxShadow: "0 14px 30px -10px rgba(5,95,70,0.55), inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -1px 2px rgba(0,0,0,0.2)",
           }}
         >
-          <span aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.06] bg-[linear-gradient(transparent_50%,_rgba(255,255,255,1)_50%)] bg-[length:100%_3px]" />
+          <span aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.08] bg-[radial-gradient(circle_at_20%_20%,_white_2px,_transparent_2px),radial-gradient(circle_at_80%_60%,_white_1.5px,_transparent_1.5px)] bg-[length:36px_36px,_54px_54px]" />
           <div className="flex items-center gap-2 z-10 relative">
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-white/22 shrink-0">
-              {tab === "today" ? <ChefHat className="h-3 w-3" /> : <Sunrise className="h-3 w-3" />}
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/22 shrink-0">
+              {tab === "today" ? <ChefHat className="h-4 w-4" /> : <Sunrise className="h-4 w-4" />}
             </span>
             <div className="min-w-0">
-              <p className="text-[9px] tracking-[0.18em] uppercase font-extrabold opacity-85">{cardLabel}</p>
+              <p className="font-display font-extrabold text-[14px] sm:text-base leading-tight tracking-tight" data-testid="mess-card-heading">{cardLabel}</p>
             </div>
           </div>
-          <div className="mt-1 grid sm:grid-cols-2 gap-1.5 z-10 relative">
-            {active.lunch && (
-              <div className="flex items-start gap-1.5 bg-white/8 rounded-xl px-2 py-1">
-                <Sun className="h-3 w-3 text-amber-200 mt-0.5 shrink-0" />
+          <div className="mt-2 grid grid-cols-2 z-10 relative divide-x-2 divide-white/70">
+            {active.lunch ? (
+              <div className="flex items-start gap-1.5 px-2 py-1.5 pr-3">
+                <Sun className="h-3.5 w-3.5 text-amber-200 mt-0.5 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-[9px] tracking-[0.16em] uppercase font-bold opacity-75">Lunch</p>
-                  <p className="text-[12px] font-bold leading-tight">{active.lunch}</p>
+                  <p className="text-[10px] tracking-[0.16em] uppercase font-bold opacity-80">Lunch</p>
+                  <p className="text-[12.5px] sm:text-[13px] font-bold leading-snug">{active.lunch}</p>
                 </div>
               </div>
-            )}
-            {active.dinner && (
-              <div className="flex items-start gap-1.5 bg-white/8 rounded-xl px-2 py-1">
-                <Moon className="h-3 w-3 text-blue-200 mt-0.5 shrink-0" />
+            ) : <div />}
+            {active.dinner ? (
+              <div className="flex items-start gap-1.5 px-2 py-1.5 pl-3">
+                <Moon className="h-3.5 w-3.5 text-blue-200 mt-0.5 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-[9px] tracking-[0.16em] uppercase font-bold opacity-75">Dinner</p>
-                  <p className="text-[12px] font-bold leading-tight">{active.dinner}</p>
+                  <p className="text-[10px] tracking-[0.16em] uppercase font-bold opacity-80">Dinner</p>
+                  <p className="text-[12.5px] sm:text-[13px] font-bold leading-snug">{active.dinner}</p>
                 </div>
               </div>
-            )}
+            ) : <div />}
           </div>
           {active.note && (
             <p className="mt-1.5 text-[10px] sm:text-[11px] italic opacity-85 z-10 relative">★ {active.note}</p>

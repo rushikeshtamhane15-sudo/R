@@ -13,7 +13,19 @@ import {
   TrendingUp, Loader2, ChevronLeft,
 } from "lucide-react";
 
-function MetricCard({ icon: Icon, label, value, sub, accent = "primary", testId }) {
+function Sparkline({ values = [], width = 110, height = 28, accent = "currentColor" }) {
+  if (!values.length) return null;
+  const max = Math.max(1, ...values);
+  const step = width / (values.length - 1 || 1);
+  const points = values.map((v, i) => `${(i * step).toFixed(1)},${(height - (v / max) * (height - 4) - 2).toFixed(1)}`).join(" ");
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="block mt-1" aria-hidden>
+      <polyline points={points} fill="none" stroke={accent} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function MetricCard({ icon: Icon, label, value, sub, accent = "primary", testId, spark }) {
   const ring = {
     primary: "bg-primary/10 text-primary",
     emerald: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
@@ -30,6 +42,9 @@ function MetricCard({ icon: Icon, label, value, sub, accent = "primary", testId 
         <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-muted-foreground">{label}</p>
       </div>
       <p className="mt-2 font-display font-extrabold text-2xl sm:text-3xl tabular-nums leading-tight">{value}</p>
+      {spark && spark.length > 0 && (
+        <Sparkline values={spark} accent={`var(--${accent === "primary" ? "primary" : "foreground"})`} />
+      )}
       {sub && <p className="text-[11px] mt-1 text-muted-foreground">{sub}</p>}
     </div>
   );
@@ -75,7 +90,7 @@ function MetricsBody({ source, headerExtra }) {
             <MetricCard testId="metric-subscribers"  icon={Users}        label="Active subscribers" value={data.subscribers_active}  sub={`${data.subscribers_total} all-time`} accent="primary" />
             <MetricCard testId="metric-revenue-sub"  icon={IndianRupee}  label="Subscription revenue (active)" value={`₹${data.subscription_revenue_active.toLocaleString("en-IN")}`} sub="Sum of active passes' amount_paid" accent="emerald" />
             <MetricCard testId="metric-revenue-ord"  icon={ShoppingCart} label={`Order revenue · ${data.window_days}d`} value={`₹${data.order_revenue_window.toLocaleString("en-IN")}`} sub={`${data.order_count_window} orders`} accent="amber" />
-            <MetricCard testId="metric-checkins"     icon={ScanLine}     label={`QR check-ins · ${data.window_days}d`} value={data.checkins_window} sub={`${data.checkins_per_day_avg} / day average`} accent="blue" />
+            <MetricCard testId="metric-checkins"     icon={ScanLine}     label={`QR check-ins · ${data.window_days}d`} value={data.checkins_window} sub={`${data.checkins_per_day_avg} / day average`} accent="blue" spark={data.checkins_per_day_series} />
             <MetricCard testId="metric-capacity"     icon={Activity}     label="Daily capacity" value={data.capacity_daily} sub={`Lunch+Dinner combined`} accent="fuchsia" />
             <MetricCard testId="metric-utilization"  icon={TrendingUp}   label="Kitchen utilization" value={`${data.utilization_pct}%`} sub={`Check-ins / (capacity × ${data.window_days} days)`} accent="emerald" />
           </div>

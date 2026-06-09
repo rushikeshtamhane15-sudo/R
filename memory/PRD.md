@@ -1299,3 +1299,44 @@ Massive 14-item user batch covering UI sizing polish + a Paytm Dynamic QR self-o
 
 **Razorpay LIVE auth** still working (startup log confirms).
 
+
+### Iteration 77 (Jun 9, 2026) — 9-item batch · header fix + mess-menu polish + refunds/wallet/franchise plumbing
+**All 9 items addressed; UI work shipped end-to-end, backend plumbing for refund + wallet + franchise toggles in place (admin queue UIs queued for iter-78).**
+
+- **#1 Sparkline in metrics dashboard** — `Sparkline` SVG component in `AdminMessMetrics.jsx`; backend `_mess_metrics` now emits `checkins_per_day_series` (bucketed daily counts). The `metric-checkins` card shows a tiny line chart of activity over the chosen window.
+- **#2 Mess menu polish** — `TodayMessMenuFlash.jsx`: lunch + dinner now ALWAYS side-by-side (was `sm:grid-cols-2` → `grid-cols-2`) with a thick `divide-x-2 divide-white/70` vertical separator. Heading bumped from `text-[9px]` to `text-[14px] sm:text-base font-display font-extrabold`. Background restyled to mirror the location pill (mint→emerald gradient with radial-dot overlay).
+- **#3 User refund + admin wallet edit (backend)** —
+  - `POST /api/refunds/request` (subscriber, ≥8-char reason). Stored as `pending`.
+  - `GET /api/admin/refunds?status=pending|approved|declined|all` (admin/staff).
+  - `PATCH /api/admin/refunds/{id}` (admin) approve→credits wallet + `wallet_ledger` entry; decline→records notes.
+  - `POST /api/admin/users/{id}/wallet/adjust` (admin) `{delta, reason, auto_activate}` — adjusts balance, writes a `wallet_ledger` row. When `delta>0`, the user has NO active sub, and balance ≥ cheapest active plan price, the system auto-creates a subscription on behalf of the user (use-case: walk-in customer drops cash, admin credits wallet, plan starts automatically — solves the "no phone" + "subscribe for them" flow user described).
+  - **Admin queue UI + AdminUsers wallet adjuster** — wired in iter-78 (backend ready now).
+- **#4 Header brand visibility fix** — `Header.jsx`: brand text now `text-base sm:text-xl md:text-2xl` (was `text-xl` minimum). Tagline `hidden sm:inline` on tiny screens so brand never truncates. MessSwitcher pill swapped Building2 icon → MapPin (location), shows `city` field not full `name` so width stays tight.
+- **#5 Custom-plan summary card tiny** — `Plans.jsx`: padding `p-6 → p-4`, amount `text-5xl → text-3xl`, button `h-12 → h-9`. Card no longer dwarfs the picker.
+- **#6 Login pill full-width single line + marquee 1px** — pill is `flex w-full` with `whitespace-nowrap + truncate` so it stays one line. Marquee border slimmed to 1px (was 2px which was already down from iter-74's 4px).
+- **#7 Home hero progressive spacing** — Landing hero rebuilt: overline `mt-4 sm:mt-5 mb-3 sm:mb-4`, subtitle `mt-5 sm:mt-6`, CTAs `mt-6 sm:mt-7`. Call/WhatsApp pills remain visible. Verified on 414×896 viewport — all 6 stacked elements (pill, overline, H1, subtitle, CTAs, Call/WA) fit in fold.
+- **#8 Franchise dashboard section toggles (backend)** — `PATCH /api/admin/messes/{id}/franchise-sections {visible_sections: [...]}` accepts any subset of `['subscribers','revenue_sub','revenue_ord','checkins','capacity','utilization']`. `GET /api/franchise/me/visible-sections` returns the configured list (default: all six). FranchisePortal will respect this in iter-78 (UI for checkboxes queued).
+- **#9 Auto-fill phone for logged-in delivery orders** — `TodayMessMenuFlash.jsx` new effect pre-populates `phone` from `user.phone` on mount (strips `+91` prefix, validates 10 digits). User never has to retype.
+
+**Backend endpoints added (8 new):**
+- `POST /api/refunds/request`
+- `GET /api/admin/refunds`
+- `PATCH /api/admin/refunds/{refund_id}`
+- `POST /api/admin/users/{user_id}/wallet/adjust` (with auto-activate)
+- `PATCH /api/admin/messes/{mess_id}/franchise-sections`
+- `GET /api/franchise/me/visible-sections`
+- `_mess_metrics` now returns `checkins_per_day_series` for sparkline.
+
+**File changes:**
+- `server.py` — refund + wallet + franchise endpoints (added BEFORE `app.include_router` — fixed a 404 caught during smoke-test); `_mess_metrics` enhanced.
+- `MessSwitcher.jsx`, `Header.jsx`, `TodayMessMenuFlash.jsx`, `Plans.jsx`, `Login.jsx`, `Landing.jsx`, `AdminMessMetrics.jsx`.
+
+**Smoke test:** Both /home + /restaurant render correctly on 414×896 mobile — brand visible, MessSwitcher pill with MapPin shows "Amravati", hero spacing reads naturally, Call/WhatsApp pills visible.
+
+**Queued for iter-78 (admin-UI work; backend already done):**
+- `/admin/refunds` queue page with Approve/Decline buttons + wallet credit input.
+- AdminUsers wallet-adjuster inline form (+/- amount + reason + auto-activate checkbox).
+- AdminMesses franchise-sections checkbox grid (per-mess, per-section).
+- FranchisePortal cards respect `/franchise/me/visible-sections`.
+- User /orders page "Request refund" button + reason modal.
+

@@ -310,23 +310,26 @@ export default function Plans() {
             </div>
           </div>
 
-          <div className="lg:col-span-2 bg-primary text-primary-foreground rounded-2xl p-6 flex flex-col justify-between" data-testid="custom-summary">
+          {/* iter-77 #5: tiny bottom summary card — compact padding, smaller
+              amount headline, slimmer button so the right-rail isn't taller
+              than the picker on the left. */}
+          <div className="lg:col-span-2 bg-primary text-primary-foreground rounded-2xl p-4 flex flex-col justify-between" data-testid="custom-summary">
             <div>
-              <p className="text-[10px] tracking-overline uppercase font-bold text-primary-foreground/70">{service === "tiffin" ? "Tiffin plan" : "Dining plan"}</p>
-              <p className="font-display font-extrabold text-5xl mt-2 leading-none">₹{customPreview.amount.toLocaleString("en-IN")}</p>
-              <div className="mt-5 pt-5 border-t border-white/15 grid grid-cols-2 gap-3 text-sm">
+              <p className="text-[9px] tracking-overline uppercase font-bold text-primary-foreground/70">{service === "tiffin" ? "Tiffin plan" : "Dining plan"}</p>
+              <p className="font-display font-extrabold text-3xl mt-1.5 leading-none">₹{customPreview.amount.toLocaleString("en-IN")}</p>
+              <div className="mt-3 pt-3 border-t border-white/15 grid grid-cols-2 gap-2 text-xs">
                 <div>
-                  <p className="text-[10px] tracking-overline uppercase font-bold text-primary-foreground/70">Days</p>
-                  <p className="font-display font-bold text-lg mt-1" data-testid="custom-days">{customPreview.days}</p>
+                  <p className="text-[9px] tracking-overline uppercase font-bold text-primary-foreground/70">Days</p>
+                  <p className="font-display font-bold text-base mt-0.5" data-testid="custom-days">{customPreview.days}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] tracking-overline uppercase font-bold text-primary-foreground/70">Meals</p>
-                  <p className="font-display font-bold text-lg mt-1" data-testid="custom-meals">{customPreview.meals}</p>
+                  <p className="text-[9px] tracking-overline uppercase font-bold text-primary-foreground/70">Meals</p>
+                  <p className="font-display font-bold text-base mt-0.5" data-testid="custom-meals">{customPreview.meals}</p>
                 </div>
               </div>
-              <p className="text-xs text-primary-foreground/80 mt-4">≈ ₹{customPreview.perDay} per day · ₹{customPreview.mealPrice} per meal{service === "tiffin" && tiffinSize === "half" ? " · Half tiffin (3 chapati)" : ""}</p>
+              <p className="text-[11px] text-primary-foreground/80 mt-2.5 leading-snug">≈ ₹{customPreview.perDay}/day · ₹{customPreview.mealPrice}/meal{service === "tiffin" && tiffinSize === "half" ? " · Half tiffin" : ""}</p>
             </div>
-            <Button onClick={startCustomCheckout} data-testid="custom-subscribe-button" className="mt-6 w-full rounded-full bg-white text-primary hover:bg-white/90 h-12 font-semibold">
+            <Button onClick={startCustomCheckout} data-testid="custom-subscribe-button" className="mt-3 w-full rounded-full bg-white text-primary hover:bg-white/90 h-9 text-xs font-semibold">
               Subscribe for {customPreview.days} day{customPreview.days > 1 ? "s" : ""}
             </Button>
           </div>

@@ -1764,17 +1764,29 @@ async def set_my_mess(payload: MessAssignIn, user: User = Depends(get_current_us
 
 async def _mess_metrics(mess_id: str, days: int = 30):
     """Compute per-mess P&L + attendance metrics for the last N days."""
-    since = iso(now_utc() - timedelta(days=days)) if days else None
+    since_dt = now_utc() - timedelta(days=days) if days else None
+    since = iso(since_dt) if since_dt else None
     # Subscribers count — anyone with an active subscription on this mess
     sub_q = {"mess_id": mess_id, "status": "active"}
     subscribers = await db.subscriptions.count_documents(sub_q)
     # Total subscribers ever (incl. expired)
     subscribers_total = await db.subscriptions.count_documents({"mess_id": mess_id})
-    # Daily check-ins last N days (attendance scans)
+    # Daily check-ins last N days (attendance scans) + per-day series for sparkline
     scan_q = {"mess_id": mess_id}
     if since:
         scan_q["created_at"] = {"$gte": since}
     daily_checkins = await db.attendance_logs.count_documents(scan_q)
+    # Build per-day buckets for sparkline
+    checkins_per_day_series = []
+    if since_dt:
+        scan_cur = db.attendance_logs.find(scan_q, {"_id": 0, "created_at": 1}).limit(20000)
+        scans = await scan_cur.to_list(20000)
+        buckets = {(since_dt + timedelta(days=i)).strftime("%Y-%m-%d"): 0 for i in range(days)}
+        for s in scans:
+            d = str(s.get("created_at") or "")[:10]
+            if d in buckets:
+                buckets[d] += 1
+        checkins_per_day_series = [buckets[k] for k in sorted(buckets.keys())]
     # Walk-in / kiosk orders total revenue (paid only)
     order_q = {"mess_id": mess_id, "status": {"$in": ["paid", "pending_collection"]}}
     if since:
@@ -1801,6 +1813,7 @@ async def _mess_metrics(mess_id: str, days: int = 30):
         "subscribers_total": subscribers_total,
         "checkins_window": daily_checkins,
         "checkins_per_day_avg": round(daily_checkins / days, 1) if days else 0,
+        "checkins_per_day_series": checkins_per_day_series,
         "order_count_window": order_count,
         "order_revenue_window": order_revenue,
         "subscription_revenue_active": subscription_revenue,
@@ -3003,7 +3016,9 @@ api_router.include_router(_mess_menu_poster_router)
 api_router.include_router(_mess_menu_push_router)
 api_router.include_router(_cart_saver_router)
 
-app.include_router(api_router)
+# NOTE: app.include_router(api_router) is called AT THE BOTTOM of this file
+# (after iter-77 refund + wallet + franchise endpoints) so every @api_router
+# decorator above + below this point is registered.
 
 # Static "object storage" for admin-uploaded assets (menu images, etc).
 # Routed under /api/uploads so the existing Kubernetes ingress rule
@@ -3041,6 +3056,229 @@ async def on_startup():
         logger.info(f"[STARTUP] {emoji} Razorpay status={rzp_status['status']} · {rzp_status['detail']}")
     except Exception as e:  # noqa: BLE001
         logger.warning(f"[STARTUP] Razorpay status check failed: {e}")
+
+
+
+
+# =====================================================================
+# iter-77 #3 — User refund requests (wallet-only) + admin wallet edit.
+# Once admin approves a refund or manually credits a wallet, the system
+# checks if the new balance covers an active plan and auto-activates one.
+# =====================================================================
+
+
+class RefundRequestIn(BaseModel):
+    order_id: str
+    reason: str = Field(..., min_length=8, max_length=600)
+    kind: str = Field(default="mess_menu_order", description="mess_menu_order | restaurant_order | subscription")
+
+
+@api_router.post("/refunds/request")
+async def user_request_refund(payload: RefundRequestIn, user: User = Depends(get_current_user)):
+    """Subscribers raise a wallet-only refund. Stored as pending until an
+    admin reviews via /admin/refunds. No payment-gateway refund here.
+    """
+    doc = {
+        "refund_id": f"ref_{uuid.uuid4().hex[:12]}",
+        "order_id": payload.order_id,
+        "kind": payload.kind,
+        "user_id": user.user_id,
+        "reason": payload.reason.strip(),
+        "status": "pending",
+        "wallet_credit": 0,
+        "created_at": iso(now_utc()),
+        "decided_at": None,
+        "decided_by": None,
+        "admin_notes": "",
+    }
+    await db.refund_requests.insert_one(doc)
+    return {"ok": True, "refund": {k: v for k, v in doc.items() if k != "_id"}}
+
+
+@api_router.get("/admin/refunds")
+async def admin_list_refunds(status: str = "pending", user: User = Depends(get_current_user)):
+    if user.role not in ("admin", "staff"):
+        raise HTTPException(status_code=403, detail="Admin/staff only")
+    cur = db.refund_requests.find({"status": status} if status != "all" else {}, {"_id": 0}).sort("created_at", -1)
+    items = await cur.to_list(500)
+    return {"refunds": items}
+
+
+class RefundDecisionIn(BaseModel):
+    decision: str = Field(..., description="approve | decline")
+    wallet_credit: int = Field(default=0, ge=0, le=100000)
+    admin_notes: str = ""
+
+
+@api_router.patch("/admin/refunds/{refund_id}")
+async def admin_decide_refund(refund_id: str, payload: RefundDecisionIn, user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    if payload.decision not in {"approve", "decline"}:
+        raise HTTPException(status_code=400, detail="decision must be approve | decline")
+    doc = await db.refund_requests.find_one({"refund_id": refund_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Refund not found")
+    if doc.get("status") != "pending":
+        raise HTTPException(status_code=400, detail=f"Already {doc.get('status')}")
+    if payload.decision == "approve":
+        credit = int(payload.wallet_credit or 0)
+        if credit <= 0:
+            raise HTTPException(status_code=400, detail="wallet_credit must be > 0 to approve")
+        await db.users.update_one(
+            {"user_id": doc["user_id"]},
+            {"$inc": {"wallet_balance": credit}},
+        )
+        await db.wallet_ledger.insert_one({
+            "user_id": doc["user_id"],
+            "delta": credit,
+            "balance_after": None,
+            "source": f"refund:{refund_id}",
+            "ref_order_id": doc.get("order_id"),
+            "actor": user.user_id,
+            "note": (payload.admin_notes or "Refund approved").strip(),
+            "created_at": iso(now_utc()),
+        })
+        await db.refund_requests.update_one(
+            {"refund_id": refund_id},
+            {"$set": {
+                "status": "approved", "wallet_credit": credit,
+                "decided_at": iso(now_utc()), "decided_by": user.user_id,
+                "admin_notes": (payload.admin_notes or "").strip(),
+            }},
+        )
+    else:
+        await db.refund_requests.update_one(
+            {"refund_id": refund_id},
+            {"$set": {
+                "status": "declined", "decided_at": iso(now_utc()),
+                "decided_by": user.user_id, "admin_notes": (payload.admin_notes or "").strip(),
+            }},
+        )
+    fresh = await db.refund_requests.find_one({"refund_id": refund_id}, {"_id": 0})
+    return {"ok": True, "refund": fresh}
+
+
+class WalletAdjustIn(BaseModel):
+    delta: int = Field(..., description="Positive or negative integer rupees")
+    reason: str = Field(..., min_length=3, max_length=200)
+    auto_activate: bool = Field(default=True, description="If new balance covers a plan, auto-activate")
+
+
+@api_router.post("/admin/users/{user_id}/wallet/adjust")
+async def admin_adjust_wallet(user_id: str, payload: WalletAdjustIn, actor: User = Depends(get_current_user)):
+    """Admin manually credits/debits a user's wallet. When delta is
+    positive and auto_activate=True, the system checks if the new balance
+    covers an active mess plan and auto-creates a subscription on the
+    user's behalf (use-case: subscriber drops cash at counter, admin adds
+    it to the wallet, plan starts automatically).
+    """
+    if actor.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    target = await db.users.find_one({"user_id": user_id})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    current = int(target.get("wallet_balance") or 0)
+    new_balance = current + int(payload.delta)
+    if new_balance < 0:
+        raise HTTPException(status_code=400, detail=f"Adjustment would make balance negative ({new_balance})")
+    await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {"wallet_balance": new_balance}},
+    )
+    await db.wallet_ledger.insert_one({
+        "user_id": user_id,
+        "delta": int(payload.delta),
+        "balance_after": new_balance,
+        "source": "admin_adjust",
+        "actor": actor.user_id,
+        "note": payload.reason.strip(),
+        "created_at": iso(now_utc()),
+    })
+    # Auto-activate: if no active sub + balance covers cheapest plan, start one.
+    activated_sub = None
+    if payload.auto_activate and payload.delta > 0:
+        has_active = await db.subscriptions.find_one({"user_id": user_id, "status": "active"})
+        if not has_active:
+            # Find cheapest active plan that this balance covers.
+            cur = db.plans.find({"active": True}, {"_id": 0}).sort("price", 1)
+            plans = await cur.to_list(50)
+            best = next((p for p in plans if int(p.get("price") or 0) <= new_balance), None)
+            if best:
+                start = iso(now_utc())
+                end = iso(now_utc() + timedelta(days=int(best.get("duration_days") or 30)))
+                sub = {
+                    "subscription_id": f"sub_{uuid.uuid4().hex[:12]}",
+                    "user_id": user_id,
+                    "mess_id": target.get("mess_id") or DEFAULT_MESS_ID,
+                    "plan_id": best.get("plan_id"),
+                    "plan_name": best.get("name"),
+                    "amount_paid": int(best.get("price") or 0),
+                    "duration_days": int(best.get("duration_days") or 30),
+                    "service": best.get("service") or "tiffin",
+                    "status": "active",
+                    "source": "admin_wallet_auto",
+                    "start_date": start,
+                    "end_date": end,
+                    "created_at": start,
+                }
+                await db.subscriptions.insert_one(sub)
+                await db.users.update_one(
+                    {"user_id": user_id},
+                    {"$inc": {"wallet_balance": -int(best.get("price") or 0)}},
+                )
+                new_balance = new_balance - int(best.get("price") or 0)
+                activated_sub = sub
+                logger.info(f"[wallet-adjust] Auto-activated {best.get('name')} for {user_id} · new bal=₹{new_balance}")
+    return {
+        "ok": True, "user_id": user_id, "wallet_balance": new_balance,
+        "delta": int(payload.delta), "auto_activated_subscription": activated_sub,
+    }
+
+
+# =====================================================================
+# iter-77 #8 — Per-mess franchise dashboard section toggles.
+# Admin chooses which metric cards a franchise owner sees.
+# =====================================================================
+
+FRANCHISE_SECTIONS = ["subscribers", "revenue_sub", "revenue_ord", "checkins", "capacity", "utilization"]
+
+
+class FranchiseSectionsIn(BaseModel):
+    visible_sections: List[str]
+
+
+@api_router.patch("/admin/messes/{mess_id}/franchise-sections")
+async def admin_set_franchise_sections(mess_id: str, payload: FranchiseSectionsIn, user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    invalid = [s for s in payload.visible_sections if s not in FRANCHISE_SECTIONS]
+    if invalid:
+        raise HTTPException(status_code=400, detail=f"Unknown sections: {invalid}. Allowed: {FRANCHISE_SECTIONS}")
+    res = await db.messes.update_one(
+        {"mess_id": mess_id},
+        {"$set": {"franchise_visible_sections": payload.visible_sections, "updated_at": iso(now_utc())}},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Mess not found")
+    return {"ok": True, "visible_sections": payload.visible_sections}
+
+
+@api_router.get("/franchise/me/visible-sections")
+async def franchise_my_visible_sections(user: User = Depends(get_current_user)):
+    if user.role not in ("franchise_owner", "admin"):
+        raise HTTPException(status_code=403, detail="Franchise portal only")
+    mess = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "franchise_visible_sections": 1})
+    # Default: all sections visible if admin hasn't restricted yet.
+    sections = (mess or {}).get("franchise_visible_sections")
+    if not sections:
+        sections = FRANCHISE_SECTIONS
+    return {"visible_sections": sections}
+
+
+# Register all @api_router endpoints (including the iter-77 refund/wallet/
+# franchise sections defined above) onto the FastAPI app.
+app.include_router(api_router)
 
 
 @app.on_event("shutdown")

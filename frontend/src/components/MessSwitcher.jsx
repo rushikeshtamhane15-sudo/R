@@ -128,8 +128,8 @@ export default function MessSwitcher({ variant = "pill" }) {
       data-testid="mess-switcher-pill"
       onClick={() => loadList()}
     >
-      <Building2 className="h-3 w-3 shrink-0" />
-      <span className="truncate" title={current?.name}>{current?.name || "Pick branch"}</span>
+      <MapPin className="h-3 w-3 shrink-0" />
+      <span className="truncate" title={current?.name}>{current?.city || current?.name?.split("·")?.[1]?.trim() || current?.name || "Pick branch"}</span>
     </button>
   ) : (
     <Button variant="ghost" className="rounded-full" data-testid="mess-switcher-btn" onClick={() => loadList()}>
