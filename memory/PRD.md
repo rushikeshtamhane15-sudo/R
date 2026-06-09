@@ -1408,3 +1408,31 @@ Massive 14-item user batch covering UI sizing polish + a Paytm Dynamic QR self-o
 
 **Production deployment note**: This fix is in preview. User must redeploy from Emergent dashboard to push iter-76 through iter-80 to efoodcare.in before the franchise flow works end-to-end on the live domain.
 
+
+### Iteration 81 (Jun 9, 2026) — Dedicated /partners portal
+
+**User ask**: "Separate franchise/partner web app so they can access their data without visiting efoodcare website" — picked option **(a)** Same app, separate URL.
+
+**Shipped**:
+- New page `/app/frontend/src/pages/PartnerPortal.jsx` at route `/partners`.
+- Purple/fuchsia branding (gradient `#2a0f3a → #6a2898`) — visually distinct from the efoodcare red customer-facing site.
+- Custom header: "efoodcare · Partners · FRANCHISE & BRANCH PORTAL" with own logo box (fuchsia Building2 icon).
+- Hero: "The franchise portal where you see only your branch."
+- 6 feature tiles: Subscribers / Revenue / Attendance+utilisation / Daily menu / Walk-in wall kiosk / Strict data isolation.
+- Role-aware CTAs:
+  - Logged out → "Partner login" + "Apply to franchise" (email mailto link).
+  - Subscriber → "You're not a franchise partner yet" banner + apply email.
+  - franchise_owner → auto-redirects to `/admin/control-tower` on mount.
+  - admin → can browse + has a "Manage all branches" CTA.
+- Contact strip at bottom (phone, email, HQ link).
+
+**DNS / hosting**: zero backend changes. The customer points `partners.efoodcare.in` at the same hosting; that subdomain's index automatically lands on `/partners`. Alternatively the user can also share the path `efoodcare.in/partners` directly with franchise managers.
+
+**File changes**:
+- New: `pages/PartnerPortal.jsx` (~155 lines, branded UI).
+- `App.js`: import + new route `<Route path="/partners" element={<PartnerPortal />} />`.
+
+**Production deployment note**: Preview-only. Redeploy from Emergent dashboard to push to efoodcare.in/partners.
+
+**Smoke test (preview)**: `/partners` renders with all 6 feature tiles, login CTA visible, page is mobile-responsive (414×896 verified).
+
