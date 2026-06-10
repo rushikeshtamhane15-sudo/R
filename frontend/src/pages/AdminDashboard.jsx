@@ -16,18 +16,24 @@ export default function AdminOverview() {
   const [period, setPeriod] = useState("cycle");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
 
   const refresh = async (p = period, d = date) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ period: p });
       if (d) params.set("date", d);
-      const [s, a] = await Promise.all([
+      const [s, a] = await Promise.allSettled([
         api.get(`/admin/stats?${params.toString()}`),
         api.get("/admin/attendance/today"),
       ]);
-      setStats(s.data);
-      setAttendance(a.data.attendance || []);
+      // iter-93: don't blow up the page when one of the two calls fails.
+      // We surface the error inline (see "could not load" branch below).
+      if (s.status === "fulfilled") setStats(s.value.data);
+      else { setStats(null); setLoadError(s.reason?.response?.data?.detail || s.reason?.message || "Failed to load stats"); }
+      if (a.status === "fulfilled") setAttendance(a.value.data.attendance || []);
+      else setAttendance([]);
+      if (s.status === "fulfilled") setLoadError(null);
     } finally {
       setLoading(false);
     }
@@ -45,7 +51,25 @@ export default function AdminOverview() {
     ];
   }, [stats]);
 
-  if (!stats && loading) return <div className="text-muted-foreground">Loading…</div>;
+  if (!stats && loading) return <div className="text-muted-foreground" data-testid="overview-loading">Loading…</div>;
+
+  // iter-93: when /admin/stats fails (or returns null), render a graceful
+  // error state instead of crashing on stats.period_label below.
+  if (!stats) {
+    return (
+      <div data-testid="admin-dashboard-error" className="max-w-2xl">
+        <p className="text-xs tracking-overline uppercase font-bold text-secondary">Control room</p>
+        <h1 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-2">Overview</h1>
+        <div className="mt-6 rounded-2xl border border-red-500/30 bg-red-500/5 p-5 text-sm">
+          <p className="font-bold text-red-700 dark:text-red-300">Could not load dashboard.</p>
+          <p className="text-red-700/80 dark:text-red-300/80 mt-1">{loadError || "Please refresh in a moment."}</p>
+          <button onClick={() => refresh()} className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-red-600 text-white px-4 h-9 text-xs font-bold" data-testid="overview-retry">
+            <RefreshCw className="h-3.5 w-3.5" /> Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div data-testid="admin-dashboard">
