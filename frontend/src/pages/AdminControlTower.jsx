@@ -61,6 +61,11 @@ export default function AdminControlTower() {
             Auto-refreshing every 60 s.
             {refreshedAt && <span className="ml-1">Last update {refreshedAt.toLocaleTimeString()}</span>}
           </p>
+          {data?.scope === "branch" && (
+            <p className="text-[11px] mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300 px-2.5 h-6 font-bold" data-testid="ct-branch-scope">
+              · Branch view · your mess only
+            </p>
+          )}
         </div>
         <Button variant="outline" onClick={load} className="rounded-full" disabled={loading} data-testid="ct-refresh">
           <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} /> Refresh

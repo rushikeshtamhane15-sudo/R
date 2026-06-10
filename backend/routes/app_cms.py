@@ -188,7 +188,7 @@ async def get_guest_cart(token: str):
 # ---------------------------------------------------------------------------
 @router.get("/admin/restaurant/takeaway-pendency")
 async def list_takeaway_pendency(user: server.User = Depends(server.get_current_user), collected: Optional[bool] = None):
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(403, "Admin or staff only")
     q = {}
     if collected is not None:
@@ -205,7 +205,7 @@ class CollectTakeaway(BaseModel):
 
 @router.post("/admin/restaurant/takeaway-pendency/collect")
 async def collect_takeaway(payload: CollectTakeaway, user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(403, "Admin or staff only")
     rec = await server.db.restaurant_tiffin_pendency.find_one({"pendency_id": payload.pendency_id}, {"_id": 0})
     if not rec:
@@ -303,7 +303,7 @@ class ExpenseConfig(BaseModel):
 
 @router.get("/admin/pnl/expenses")
 async def get_expenses(user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(403, "Admin or staff only")
     doc = await server.db.app_config.find_one({"_id": "monthly_expenses"}, {"_id": 0}) or {}
     return {
@@ -340,7 +340,7 @@ async def get_pnl_daily(
     next month, matching the revenue reset cadence. Without `cycle`, falls
     back to the last `days` rows for backwards-compat.
     """
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(403, "Admin or staff only")
 
     from datetime import datetime, timedelta, timezone
@@ -443,7 +443,7 @@ async def get_pnl_daily(
 async def add_manual_takeaway(payload: ManualTakeaway, user: server.User = Depends(server.get_current_user)):
     """Walk-in / unknown user took a steel tiffin (no order in our system).
     Admin captures their details so we can call them back."""
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(403, "Admin or staff only")
     import uuid
     pid = f"rtp_manual_{uuid.uuid4().hex[:10]}"

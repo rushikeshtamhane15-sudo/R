@@ -27,7 +27,7 @@ def make_router(db) -> APIRouter:
     router = APIRouter(prefix="/admin/delivery", tags=["delivery"])
 
     async def admin_only(user: User = Depends(get_current_user)) -> User:
-        if user.role != "admin":
+        if user.role not in ("admin", "franchise_owner"):
             raise HTTPException(status_code=403, detail="Admin only")
         return user
 

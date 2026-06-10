@@ -1676,6 +1676,38 @@ class MessStatusIn(BaseModel):
     status: str
 
 
+class KitchenRadiusIn(BaseModel):
+    lat: float
+    lng: float
+    radius_km: Optional[float] = None
+    address: Optional[str] = None
+
+
+@api_router.patch("/franchise/me/kitchen")
+async def franchise_update_kitchen(payload: KitchenRadiusIn, user: User = Depends(get_current_user)):
+    """iter-94 #2: franchise owners pin their own kitchen lat/lng/radius/address.
+    Auto-scoped to their own mess — they cannot edit another branch."""
+    if user.role not in ("franchise_owner", "admin"):
+        raise HTTPException(status_code=403, detail="Franchise portal only")
+    if user.role == "admin":
+        raise HTTPException(status_code=400, detail="Admins should use /admin/messes/{id} to edit any mess")
+    if not (-90.0 <= payload.lat <= 90.0) or not (-180.0 <= payload.lng <= 180.0):
+        raise HTTPException(status_code=400, detail="Invalid coordinates")
+    m = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+    if not m:
+        raise HTTPException(status_code=403, detail="No mess assigned")
+    update: dict = {"lat": payload.lat, "lng": payload.lng, "updated_at": iso(now_utc())}
+    if payload.radius_km is not None:
+        if payload.radius_km < 0 or payload.radius_km > 50:
+            raise HTTPException(status_code=400, detail="radius_km must be 0–50")
+        update["radius_km"] = payload.radius_km
+    if payload.address is not None:
+        update["address"] = payload.address.strip()
+    await db.messes.update_one({"mess_id": m["mess_id"]}, {"$set": update})
+    out = await db.messes.find_one({"mess_id": m["mess_id"]}, {"_id": 0})
+    return {"ok": True, "mess": out}
+
+
 @api_router.patch("/admin/messes/{mess_id}/status")
 async def admin_set_mess_status(mess_id: str, payload: MessStatusIn, user: User = Depends(get_current_user)):
     if user.role != "admin":
@@ -3370,6 +3402,7 @@ FRANCHISE_PAGES = [
     {"key": "/admin/pnl",                   "label": "Profit & loss"},
     {"key": "/admin/restaurant-orders",     "label": "Restaurant orders"},
     {"key": "/admin/restaurant-hours",      "label": "Restaurant hours / capacity"},
+    {"key": "/admin/kitchen-radius",        "label": "My kitchen & radius"},
     {"key": "/admin/delivery",              "label": "Tiffin delivery"},
     {"key": "/admin/live",                  "label": "Live tracking"},
     {"key": "/admin/scanner",               "label": "QR Scanner"},
@@ -3418,6 +3451,21 @@ async def admin_set_franchise_sections(mess_id: str, payload: FranchiseSectionsI
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Mess not found")
     return {"ok": True, "visible_sections": payload.visible_sections}
+
+
+@api_router.get("/franchise/me/mess")
+async def franchise_my_mess(user: User = Depends(get_current_user)):
+    """iter-94 #1: returns the franchise owner's mess (city, name, lat/lng, radius)
+    so the AdminLayout can render the branch-context pill and the
+    Kitchen & Radius settings page can prefill."""
+    if user.role not in ("franchise_owner", "admin"):
+        raise HTTPException(status_code=403, detail="Franchise portal only")
+    if user.role == "admin":
+        return {"mess": None, "scope": "global"}
+    mess = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0})
+    if not mess:
+        raise HTTPException(status_code=403, detail="No mess assigned")
+    return {"mess": mess, "scope": "branch"}
 
 
 @api_router.get("/franchise/me/visible-sections")

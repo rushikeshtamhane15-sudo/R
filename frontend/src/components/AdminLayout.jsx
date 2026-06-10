@@ -35,6 +35,7 @@ const SECTIONS = [
       { to: "/admin/cash-analytics", label: "Cash analytics", icon: ClipboardList, roles: FRANCHISE_VIEW },
       { to: "/admin/partial-payments", label: "Partial payments", icon: ClipboardList, roles: FRANCHISE_VIEW },
       { to: "/admin/kitchen-settings", label: "Kitchen & radius", icon: MapPin, roles: ["admin"] },
+      { to: "/admin/kitchen-radius", label: "My kitchen & radius", icon: MapPin, roles: ["franchise_owner"] },
       { to: "/admin/pnl", label: "Profit & loss", icon: ClipboardList, roles: FRANCHISE_VIEW },
       { to: "/admin/restaurant", label: "Restaurant menu", icon: ChefHat, roles: ["admin"] },
       { to: "/admin/restaurant-orders", label: "Restaurant orders", icon: ChefHat, roles: FRANCHISE_VIEW },
@@ -192,6 +193,26 @@ export default function AdminLayout() {
     .filter((sec) => sec.items.length > 0);
 
   // Find current page label for the mobile header
+  // iter-94 #1: branch context pill — shows "Amravati · You" for franchise
+  // owners and "HQ · All branches" for admins. Click drops you to the
+  // messes & franchise admin page so a multi-hat user can review/switch.
+  const [branchPill, setBranchPill] = useState(null); // { label, sub, color }
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      if (role === "franchise_owner") {
+        try {
+          const r = await api.get("/franchise/me/mess");
+          const m = r.data?.mess;
+          if (mounted && m) setBranchPill({ label: m.city || m.name, sub: "you", color: "fuchsia" });
+        } catch { /* keep null */ }
+      } else if (role === "admin") {
+        if (mounted) setBranchPill({ label: "HQ", sub: "all branches", color: "primary" });
+      }
+    })();
+    return () => { mounted = false; };
+  }, [role]);
+
   const current = filteredSections.flatMap((s) => s.items).find((it) => location.pathname === it.to || (location.pathname.startsWith(it.to) && it.to !== "/admin"));
   // iter-85: helper to label the workspace by role — franchise owners see
   // "Franchise Console", staff see "Staff workspace", admins see "Admin".
@@ -266,11 +287,38 @@ export default function AdminLayout() {
             <p className="text-[10px] tracking-overline uppercase font-bold text-secondary truncate">{workspaceShort}</p>
             <p className="font-display font-extrabold text-base leading-tight truncate">{currentLabel}</p>
           </div>
+          {branchPill && (
+            <button
+              type="button"
+              onClick={() => navigate("/admin/messes")}
+              className={`shrink-0 inline-flex items-center gap-1 rounded-full text-[10px] font-extrabold uppercase tracking-[0.12em] px-2.5 h-7 transition-colors ${branchPill.color === "fuchsia" ? "bg-fuchsia-500/15 text-fuchsia-700 hover:bg-fuchsia-500/25 dark:text-fuchsia-300" : "bg-primary/15 text-primary hover:bg-primary/25"}`}
+              data-testid="branch-pill"
+              aria-label={`Branch ${branchPill.label} · ${branchPill.sub}`}
+              title={`Branch context — ${branchPill.label} · ${branchPill.sub}`}
+            >
+              <MapPin className="h-3 w-3" />
+              <span className="truncate max-w-[7rem]">{branchPill.label}</span>
+              <span className="opacity-60 normal-case font-bold tracking-normal">· {branchPill.sub}</span>
+            </button>
+          )}
         </div>
       </div>
 
       <div className="grid lg:grid-cols-[260px_1fr] gap-6 lg:gap-10">
         <aside className="hidden lg:block lg:sticky lg:top-24 lg:self-start" data-testid="admin-sidebar">
+          {branchPill && (
+            <button
+              type="button"
+              onClick={() => navigate("/admin/messes")}
+              className={`mb-3 inline-flex items-center gap-1.5 rounded-full text-[11px] font-extrabold uppercase tracking-[0.14em] px-3 h-8 transition-colors ${branchPill.color === "fuchsia" ? "bg-fuchsia-500/15 text-fuchsia-700 hover:bg-fuchsia-500/25 dark:text-fuchsia-300" : "bg-primary/15 text-primary hover:bg-primary/25"}`}
+              data-testid="branch-pill-desktop"
+              title={`Branch context — ${branchPill.label} · ${branchPill.sub}`}
+            >
+              <MapPin className="h-3.5 w-3.5" />
+              <span className="truncate max-w-[9rem]">{branchPill.label}</span>
+              <span className="opacity-60 normal-case font-bold tracking-normal">· {branchPill.sub}</span>
+            </button>
+          )}
           <NavList filteredSections={filteredSections} />
         </aside>
 

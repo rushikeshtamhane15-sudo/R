@@ -74,6 +74,7 @@ import AdminMesses from "./pages/AdminMesses";
 import AdminRestaurantHours from "./pages/AdminRestaurantHours";
 import AdminWalletTopup from "./pages/AdminWalletTopup";
 import AdminFranchiseOnboarding from "./pages/AdminFranchiseOnboarding";
+import AdminKitchenRadius from "./pages/AdminKitchenRadius";
 import { AdminMessMetrics, FranchisePortal } from "./pages/AdminMessMetrics";
 import { Privacy, Refund } from "./pages/PolicyPage";
 
@@ -201,6 +202,7 @@ function AppRoutes() {
             <Route path="restaurant-hours" element={<AdminRestaurantHours />} />
             <Route path="wallet-topup" element={<AdminWalletTopup />} />
             <Route path="franchise-onboarding" element={<AdminFranchiseOnboarding />} />
+            <Route path="kitchen-radius" element={<AdminKitchenRadius />} />
           </Route>
 
           {/* Redirects */}
