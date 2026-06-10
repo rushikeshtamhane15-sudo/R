@@ -90,7 +90,9 @@ export default function ServiceabilityPill() {
     return () => { done = true; };
   }, [retryNonce, user]);
 
-  const wrap = "w-full px-2 pt-2";
+  // iter-83 #2: zero top padding so the location pill sits flush against
+  // the kitchen-closed chip above it — combined they read as one status strip.
+  const wrap = "w-full px-2 pt-1";
 
   if (state === "detecting") {
     return (

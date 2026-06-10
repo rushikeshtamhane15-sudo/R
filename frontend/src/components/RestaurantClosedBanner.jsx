@@ -103,14 +103,14 @@ export default function RestaurantClosedBanner() {
 
   return (
     <>
-      {/* iter-81 #2: tiny single-row closed chip — no headline, only the
-          clock icon + countdown so it doesn't overlap the location pill
-          above and takes minimal vertical space. Tap → opens the popup
-          for full details. */}
+      {/* iter-81 #2 / iter-83 #2: tiny single-row closed chip — no
+          headline, only the clock icon + countdown. Slimmer padding
+          (py-1) and zero bottom margin so the chip sits flush against
+          the location pill below it for a clean status-strip stack. */}
       <button
         type="button"
         onClick={() => setPopupOpen(true)}
-        className="sticky top-0 z-40 -mx-3 sm:-mx-6 mb-2 w-screen sm:w-auto block py-1.5 bg-amber-50 border-y border-amber-300 hover:bg-amber-100 transition-colors"
+        className="sticky top-0 z-40 -mx-3 sm:-mx-6 w-screen sm:w-auto block py-1 bg-amber-50 border-y border-amber-300 hover:bg-amber-100 transition-colors"
         data-testid="restaurant-closed-chip"
         aria-label="Kitchen closed details"
       >

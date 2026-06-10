@@ -197,10 +197,10 @@ export default function Restaurant() {
         description="Order zero-adulteration home-style meals from efoodcare — 90-minute fresh delivery. No Ajinomoto, No Maida, No Refined or Palm oil. Subscription meal plans and à-la-carte tiffins."
       />
       <HeroPanel theme={theme} meta={meta} />
-      {/* iter-82 #1: kitchen-closed chip now sits ABOVE the location pill
-          so the two don't overlap. Small spacer between them. */}
+      {/* iter-82 #1 / iter-83 #2: closed chip sits directly above the
+          location pill — no spacer, tight visual stack so both pills
+          read as one connected status strip. */}
       <RestaurantClosedBanner />
-      <div className="mt-2 sm:mt-3" />
       <ServiceabilityPill />
 
       <div className="max-w-6xl mx-auto px-3 sm:px-5">

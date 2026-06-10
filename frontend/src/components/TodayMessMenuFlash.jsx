@@ -335,49 +335,45 @@ export default function TodayMessMenuFlash({ compact = false }) {
 
       {active ? (
         <div
-          /* iter-79 #3: professional mess-menu card.
-             — Vertical "LUNCH" / "DINNER" badge headers (pill chips) instead
-               of inline text+icon, so each meal reads like a restaurant menu
-               section header.
-             — Menu items split on "+" / "," into a real bullet list — no
-               more awkward inline string wrapping across 4 narrow lines.
-             — Centered divider is a thin gold seam with a tiny diamond,
-               giving the card a printed-menu feel.
-             — Slight inner glow + grain noise preserved. */
-          className="rounded-2xl px-3 pt-2.5 pb-3 overflow-hidden relative bg-gradient-to-br from-emerald-700 via-emerald-600 to-emerald-800"
+          /* iter-79 #3 / iter-83 #4: tighter vertical footprint —
+             reduced outer padding + smaller header + slimmer inter-row
+             gap so the card no longer dominates the mobile viewport.
+             — LUNCH / DINNER badge headers with sun/moon icon.
+             — Items split on "+" / "," into a real bullet list.
+             — Centered gold-diamond seam between Lunch and Dinner. */
+          className="rounded-2xl px-3 py-2 overflow-hidden relative bg-gradient-to-br from-emerald-700 via-emerald-600 to-emerald-800"
           style={{
             color: cfg.text_color,
-            boxShadow: "0 14px 30px -10px rgba(5,95,70,0.55), inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -1px 2px rgba(0,0,0,0.2)",
+            boxShadow: "0 12px 24px -10px rgba(5,95,70,0.5), inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -1px 2px rgba(0,0,0,0.2)",
           }}
         >
           <span aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.08] bg-[radial-gradient(circle_at_20%_20%,_white_2px,_transparent_2px),radial-gradient(circle_at_80%_60%,_white_1.5px,_transparent_1.5px)] bg-[length:36px_36px,_54px_54px]" />
           {/* Header row: chef-hat + date */}
           <div className="flex items-center gap-2 z-10 relative">
-            <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-white/22 shrink-0">
-              {tab === "today" ? <ChefHat className="h-3.5 w-3.5" /> : <Sunrise className="h-3.5 w-3.5" />}
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-lg bg-white/22 shrink-0">
+              {tab === "today" ? <ChefHat className="h-3 w-3" /> : <Sunrise className="h-3 w-3" />}
             </span>
             <div className="min-w-0 flex-1">
-              <p className="font-display font-extrabold text-[13px] sm:text-[15px] leading-tight tracking-tight" data-testid="mess-card-heading">{cardLabel}</p>
+              <p className="font-display font-extrabold text-[12px] sm:text-[14px] leading-tight tracking-tight" data-testid="mess-card-heading">{cardLabel}</p>
             </div>
             <span className="hidden sm:inline-flex items-center gap-1 text-[9px] tracking-[0.18em] uppercase font-bold opacity-75 bg-white/15 rounded-full px-2 py-0.5">Today&apos;s Special</span>
           </div>
 
           {/* iter-81 #3: removed the top horizontal seam — the Lunch/Dinner
               row separator below now serves as the only divider. */}
-          {/* iter-81 #3: stacked Lunch (top) / Dinner (bottom) so each row
-              gets the full container width — items can spread horizontally
-              without forcing 4-line wraps. Horizontal gold seam between. */}
-          <div className="mt-1.5 z-10 relative space-y-2">
+          {/* iter-81 #3 / iter-83 #4: stacked Lunch (top) / Dinner (bottom),
+              tighter row gap + list spacing. */}
+          <div className="mt-1 z-10 relative space-y-1">
             {/* LUNCH row */}
-            <div className="py-0.5" data-testid="mess-lunch-col">
-              <div className="flex items-center gap-1.5 mb-1">
+            <div data-testid="mess-lunch-col">
+              <div className="flex items-center gap-1.5">
                 <Sun className="h-3 w-3 text-amber-200 shrink-0" />
                 <span className="text-[9.5px] tracking-[0.22em] uppercase font-extrabold text-amber-200">Lunch</span>
               </div>
               {active.lunch ? (
-                <ul className="flex flex-wrap gap-x-3 gap-y-0.5">
+                <ul className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0">
                   {splitMenuItems(active.lunch).map((it, i) => (
-                    <li key={i} className="flex items-center gap-1.5 text-[12px] leading-snug font-semibold">
+                    <li key={i} className="flex items-center gap-1.5 text-[12px] leading-tight font-semibold">
                       <span aria-hidden className="inline-block h-1 w-1 rounded-full bg-white/60 shrink-0" />
                       <span>{it}</span>
                     </li>
@@ -389,22 +385,22 @@ export default function TodayMessMenuFlash({ compact = false }) {
             </div>
 
             {/* Horizontal gold seam separator with central diamond */}
-            <div className="flex items-center gap-2 opacity-70" aria-hidden>
+            <div className="flex items-center gap-2 opacity-70 py-0.5" aria-hidden>
               <span className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-300/60 to-amber-300/60" />
               <span className="w-1.5 h-1.5 rotate-45 bg-amber-300/80 shadow-sm" />
               <span className="flex-1 h-px bg-gradient-to-l from-transparent via-amber-300/60 to-amber-300/60" />
             </div>
 
             {/* DINNER row */}
-            <div className="py-0.5" data-testid="mess-dinner-col">
-              <div className="flex items-center gap-1.5 mb-1">
+            <div data-testid="mess-dinner-col">
+              <div className="flex items-center gap-1.5">
                 <Moon className="h-3 w-3 text-blue-200 shrink-0" />
                 <span className="text-[9.5px] tracking-[0.22em] uppercase font-extrabold text-blue-200">Dinner</span>
               </div>
               {active.dinner ? (
-                <ul className="flex flex-wrap gap-x-3 gap-y-0.5">
+                <ul className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0">
                   {splitMenuItems(active.dinner).map((it, i) => (
-                    <li key={i} className="flex items-center gap-1.5 text-[12px] leading-snug font-semibold">
+                    <li key={i} className="flex items-center gap-1.5 text-[12px] leading-tight font-semibold">
                       <span aria-hidden className="inline-block h-1 w-1 rounded-full bg-white/60 shrink-0" />
                       <span>{it}</span>
                     </li>
@@ -417,7 +413,7 @@ export default function TodayMessMenuFlash({ compact = false }) {
           </div>
 
           {active.note && (
-            <p className="mt-2 text-[10px] sm:text-[11px] italic opacity-85 z-10 relative flex items-start gap-1">
+            <p className="mt-1 text-[10px] sm:text-[11px] italic opacity-85 z-10 relative flex items-start gap-1">
               <span className="text-amber-300">★</span>
               <span>{active.note}</span>
             </p>

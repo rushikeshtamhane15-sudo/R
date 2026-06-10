@@ -99,7 +99,7 @@ export default function Landing() {
             <br className="hidden md:block" />
             {c.hero_title_line2 || "ab ek e-Meal Pass pe."}
           </motion.h1>
-          <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mt-10 sm:mt-12 text-[17px] sm:text-2xl max-w-2xl text-muted-foreground leading-relaxed font-semibold">
+          <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mt-8 sm:mt-10 text-[17px] sm:text-2xl max-w-2xl text-muted-foreground leading-relaxed font-semibold">
             {c.hero_subtitle || "30-day tiffin subscriptions with a smart wallet. Pay once by UPI, check-in by QR, skip a few days — we pause your wallet, no meals wasted."}
           </motion.p>
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mt-7 sm:mt-8 flex flex-wrap gap-3 sm:gap-4">

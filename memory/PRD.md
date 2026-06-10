@@ -1728,3 +1728,37 @@ User-reported batch of 4 polish issues — all shipped and smoke-tested:
 
 **Production deployment note**: Preview only. Click **Deploy** in Emergent dashboard to push to `efoodcare.in`.
 
+
+
+### Iteration 83 — Pixel-polish batch: marquee, status strip, home hero, mess card (Feb 10, 2026)
+
+#### #1 Login marquee thinner + bottom pill nudged down
+- `App.css`: `.login-marquee-3d` border simplified to hairline `border-top` + `border-bottom` only (was full 1 px border + extra shadow + `0 0 0 1px` ring). Smaller shadow.
+- `Login.jsx` marquee inner wrapper: removed `py-0.5` and switched inner marquee padding from `py-1` → `py-0.5`. Card now reads as a tight ribbon.
+- Bottom red pill wrapper `mt-6 sm:mt-8` → `mt-10 sm:mt-12` — sits lower, with more breathing room from the form card.
+
+#### #2 Status strip — kitchen chip + location pill flush together
+- `pages/Restaurant.jsx`: removed the `<div className="mt-2 sm:mt-3" />` spacer. The two pills now stack flush so they read as one visual element.
+- `components/RestaurantClosedBanner.jsx`: chip `mb-2` → `mb-0`, `py-1.5` → `py-1`. Tighter.
+- `components/ServiceabilityPill.jsx` outer wrap `pt-2` → `pt-1` so the green pill sits flush against the amber chip above.
+
+#### #3 Home hero subtitle moved 2pt up
+- `pages/Landing.jsx`: subtitle margin-top `mt-10 sm:mt-12` → `mt-8 sm:mt-10`. Tightens the visual rhythm between H1 and the "30-day subscription…" line without crowding them.
+
+#### #4 Mess menu container — slimmer vertical footprint
+- `components/TodayMessMenuFlash.jsx`:
+  - Outer padding `pt-2.5 pb-3` → `py-2`.
+  - Header icon box `h-6 w-6` → `h-5 w-5`, icon glyph `h-3.5 w-3.5` → `h-3 w-3`.
+  - Heading text `text-[13px] sm:text-[15px]` → `text-[12px] sm:text-[14px]`.
+  - Inter-row gap `space-y-2` → `space-y-1`, item list `gap-y-0.5 leading-snug` → `gap-y-0 leading-tight`, removed per-row `py-0.5` + `mb-1` headers.
+  - Note margin `mt-2` → `mt-1`.
+  - Card outer shadow softened (`30px-10px` → `24px-10px`).
+- Net effect: the card lost ~30 % of its previous height while keeping the same gold-diamond seam, LUNCH/DINNER section pills, and bullet-list items.
+
+**Smoke-tested (preview, 390×844)**:
+- `/restaurant`: chip flush against location pill ✅ ; mess card ~30 % shorter, still readable ✅
+- `/login`: marquee hairline-thin ribbon ✅ ; bottom red pill sits lower with extra gap ✅
+- `/home`: subtitle 2 pt closer to H1 ✅
+
+**Production deployment note**: Preview only. Click **Deploy** in Emergent dashboard to push to `efoodcare.in`.
+
