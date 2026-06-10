@@ -18,6 +18,12 @@ Build a tiffin / dining subscription app with:
 
 ## Implemented (Feb 2026)
 
+### Iteration 93 (Feb 11, 2026) — Franchise Full Operational Rights + Mess Menu Polish
+- **Franchise role-grant** expanded across all "admin/staff" operational endpoints (raw materials GET/PUT + stock-topup, tiffin stock, cash totals/pending-deposit/mark-deposited, kitchen settings GET/PUT, kitchen close-out, kitchen recent + reconcile, refunds list, mess metrics, counter QR, attendance scan, mess-menu calendar admin POST/DELETE, notifications bank-deposit). Franchise can now operate every operational page from their dashboard.
+- **Crash-proof Dashboard**: `AdminOverview` switched to `Promise.allSettled` + graceful error card (testid `overview-retry`) so a single failed call never blanks the page.
+- **Pro Mess Menu container**: Lunch + Dinner each sit in their own ring card (amber / blue) with service-time chips (`12 – 3 pm` / `7 – 10 pm`) and items laid out in a uniform 2-col (mobile) / 3-col (sm+) grid — replaces the prior wrap-jumble for a much more professional read.
+- Tests: **53/53 pass** (34 iter-93 + 19 iter-92 regression). Visual smoke verified at 412px and 1280px.
+
 ### Iteration 92 (Feb 11, 2026) — Franchise Home + Branch-Scoped Dashboard + Operational Edit Rights
 - **Partner Portal is now `/` for franchise owners**: replaces the consumer Restaurant home. CTAs link to `/admin` (Dashboard) and `/admin/control-tower`. Auto-redirect removed.
 - **Clean B2B shell for franchise role**: hides the red consumer Header + Hindi adulteration marquee on every franchise page (`/`, `/admin/*`). The Partner Portal renders standalone.
