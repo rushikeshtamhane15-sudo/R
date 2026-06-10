@@ -55,7 +55,7 @@ def _strip(doc: dict | None) -> dict | None:
 
 @router.post("/admin/mess-menu/upsert")
 async def upsert_one(payload: MessMenuIn, user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     try:
         datetime.fromisoformat(payload.date)
@@ -75,7 +75,7 @@ async def upsert_one(payload: MessMenuIn, user: server.User = Depends(server.get
 
 @router.post("/admin/mess-menu/bulk")
 async def upsert_bulk(payload: BulkIn, user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     if len(payload.items) > 62:
         raise HTTPException(status_code=400, detail="Cap is 62 days per bulk call")
@@ -103,7 +103,7 @@ async def upsert_bulk(payload: BulkIn, user: server.User = Depends(server.get_cu
 
 @router.delete("/admin/mess-menu/{date}")
 async def remove_one(date: str, user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     res = await server.db.mess_menu.delete_one({"date": date})
     return {"ok": True, "deleted": res.deleted_count}
@@ -111,7 +111,7 @@ async def remove_one(date: str, user: server.User = Depends(server.get_current_u
 
 @router.get("/admin/mess-menu")
 async def admin_month(month: str = Query(..., description="YYYY-MM"), user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     try:
         start = datetime.strptime(month + "-01", "%Y-%m-%d").date()
@@ -194,14 +194,14 @@ class MessMenuConfigIn(BaseModel):
 
 @router.get("/admin/mess-menu/config")
 async def admin_get_config(user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     return await _get_config()
 
 
 @router.put("/admin/mess-menu/config")
 async def admin_put_config(payload: MessMenuConfigIn, user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     update = {"key": CONFIG_KEY, **payload.model_dump()}
     await server.db.app_config.update_one({"key": CONFIG_KEY}, {"$set": update}, upsert=True)
@@ -583,7 +583,7 @@ async def admin_get_kiosk_bt(user: server.User = Depends(server.get_current_user
 
 @router.put("/admin/kiosk/bt-config")
 async def admin_put_kiosk_bt(payload: KioskBtConfigIn, user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     await server.db.app_config.update_one(
         {"key": KIOSK_BT_KEY},
@@ -614,7 +614,7 @@ async def admin_get_kiosk_qr_provider(user: server.User = Depends(server.get_cur
 
 @router.put("/admin/kiosk/qr-provider")
 async def admin_put_kiosk_qr_provider(payload: KioskQrProviderIn, user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     if payload.provider not in {"paytm", "razorpay"}:
         raise HTTPException(status_code=400, detail="provider must be paytm | razorpay")

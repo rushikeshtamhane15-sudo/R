@@ -38,7 +38,7 @@ const SECTIONS = [
       { to: "/admin/pnl", label: "Profit & loss", icon: ClipboardList, roles: FRANCHISE_VIEW },
       { to: "/admin/restaurant", label: "Restaurant menu", icon: ChefHat, roles: ["admin"] },
       { to: "/admin/restaurant-orders", label: "Restaurant orders", icon: ChefHat, roles: FRANCHISE_VIEW },
-      { to: "/admin/restaurant-hours", label: "Restaurant hours / capacity", icon: Clock, roles: ["admin"] },
+      { to: "/admin/restaurant-hours", label: "Restaurant hours / capacity", icon: Clock, roles: FRANCHISE_VIEW },
       { to: "/admin/wallet-topup", label: "Manual wallet top-up", icon: Wallet, roles: ["admin"] },
       { to: "/admin/whatsapp", label: "WhatsApp outbox", icon: MessageCircle, roles: ["admin"] },
       { to: "/admin/delivery", label: "Tiffin delivery", icon: Truck, roles: FRANCHISE_VIEW },
@@ -146,7 +146,11 @@ export default function AdminLayout() {
 
   // Find current page label for the mobile header
   const current = filteredSections.flatMap((s) => s.items).find((it) => location.pathname === it.to || (location.pathname.startsWith(it.to) && it.to !== "/admin"));
-  const currentLabel = current?.label || (role === "staff" ? "Staff workspace" : "Admin");
+  // iter-85: helper to label the workspace by role — franchise owners see
+  // "Franchise Console", staff see "Staff workspace", admins see "Admin".
+  const workspaceLabel = role === "franchise_owner" ? "Franchise Console" : role === "staff" ? "Staff workspace" : "Admin";
+  const workspaceShort = role === "franchise_owner" ? "Franchise" : role === "staff" ? "Staff" : "Admin";
+  const currentLabel = current?.label || workspaceLabel;
 
   return (
     <div className="max-w-7xl mx-auto px-2 sm:px-4 md:px-8 lg:px-12 py-3 md:py-8" data-testid="admin-layout">
@@ -186,6 +190,11 @@ export default function AdminLayout() {
           <Shield className="h-3.5 w-3.5" /> Staff workspace
         </p>
       )}
+      {role === "franchise_owner" && (
+        <p className="text-xs tracking-overline uppercase font-bold text-secondary mb-3 hidden lg:inline-flex items-center gap-1.5" data-testid="franchise-mode-tag">
+          <Shield className="h-3.5 w-3.5" /> Franchise Console · independent branch
+        </p>
+      )}
 
       {/* Mobile / tablet header bar — sticky for fast nav switching */}
       <div className="lg:hidden sticky top-0 z-30 -mx-3 sm:-mx-4 mb-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border" data-testid="admin-mobile-header">
@@ -198,7 +207,7 @@ export default function AdminLayout() {
             </SheetTrigger>
             <SheetContent side="left" className="w-72 p-0 overflow-y-auto" data-testid="admin-drawer">
               <div className="px-5 py-5 border-b border-border">
-                <p className="text-[10px] tracking-overline uppercase font-bold text-secondary">{role === "staff" ? "Staff workspace" : "Admin"}</p>
+                <p className="text-[10px] tracking-overline uppercase font-bold text-secondary">{workspaceLabel}</p>
                 <p className="font-display font-extrabold text-lg leading-tight mt-1 truncate">{user?.name || user?.email}</p>
               </div>
               <div className="px-3 py-4">
@@ -207,7 +216,7 @@ export default function AdminLayout() {
             </SheetContent>
           </Sheet>
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] tracking-overline uppercase font-bold text-secondary truncate">{role === "staff" ? "Staff" : "Admin"}</p>
+            <p className="text-[10px] tracking-overline uppercase font-bold text-secondary truncate">{workspaceShort}</p>
             <p className="font-display font-extrabold text-base leading-tight truncate">{currentLabel}</p>
           </div>
         </div>

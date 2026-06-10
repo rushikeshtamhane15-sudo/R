@@ -78,7 +78,9 @@ class AdjustIn(BaseModel):
 
 # === Public-admin endpoints ===================================================
 def _admin_or_staff(user):
-    if user.role not in ("admin", "staff"):
+    # iter-85: franchise owners get full operational control over their own
+    # branch — tiffin stock is per-mess, so franchise can read & write here.
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
 
 

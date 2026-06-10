@@ -182,14 +182,14 @@ class PushConfigIn(BaseModel):
 
 @router.get("/admin/mess-menu/push/config")
 async def admin_get_push_cfg(user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     return await _get_push_config()
 
 
 @router.put("/admin/mess-menu/push/config")
 async def admin_put_push_cfg(payload: PushConfigIn, user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     await server.db.app_config.update_one(
         {"key": PUSH_CONFIG_KEY},
@@ -201,7 +201,7 @@ async def admin_put_push_cfg(payload: PushConfigIn, user: server.User = Depends(
 
 @router.post("/admin/mess-menu/push/preview")
 async def admin_preview(meal: Optional[str] = None, user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     if meal is not None and meal not in ("lunch", "dinner"):
         raise HTTPException(status_code=400, detail="meal must be lunch or dinner")
@@ -213,7 +213,7 @@ async def admin_preview(meal: Optional[str] = None, user: server.User = Depends(
 
 @router.post("/admin/mess-menu/push/send-now")
 async def admin_send_now(meal: Optional[str] = None, user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     if meal is not None and meal not in ("lunch", "dinner"):
         raise HTTPException(status_code=400, detail="meal must be lunch or dinner")

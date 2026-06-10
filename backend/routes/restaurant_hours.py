@@ -37,13 +37,34 @@ DEFAULT_MESSAGE = "We only deliver between our standard working hours"
 SETTINGS_KEY = "restaurant_hours"
 
 
+def _settings_key_for_mess(mess_id: str | None) -> str:
+    """iter-85: per-branch hours config — admin (no branch) uses the legacy
+    key `restaurant_hours`; each mess has its own `restaurant_hours:{mess_id}`."""
+    if not mess_id:
+        return SETTINGS_KEY
+    return f"{SETTINGS_KEY}:{mess_id}"
+
+
+async def _resolve_caller_mess_id(user: "server.User") -> str | None:
+    """Look up the mess_id owned by a franchise_owner. Admins return None
+    so they keep using the global config (or pass mess_id explicitly)."""
+    if user.role != "franchise_owner":
+        return None
+    doc = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+    return (doc or {}).get("mess_id")
+
+
 def _hhmm_to_time(s: str) -> dtime:
     h, m = (int(x) for x in s.split(":", 1))
     return dtime(hour=h, minute=m)
 
 
-async def _load_config() -> dict:
-    doc = await server.db.app_settings.find_one({"_id": SETTINGS_KEY}, {"_id": 0})
+async def _load_config(mess_id: str | None = None) -> dict:
+    key = _settings_key_for_mess(mess_id)
+    doc = await server.db.app_settings.find_one({"_id": key}, {"_id": 0})
+    # Fall back to the global config if no per-branch override exists yet.
+    if not doc and mess_id:
+        doc = await server.db.app_settings.find_one({"_id": SETTINGS_KEY}, {"_id": 0})
     cfg = {
         "mode": "auto",
         "open_time": DEFAULT_OPEN,
@@ -56,12 +77,14 @@ async def _load_config() -> dict:
     return cfg
 
 
-async def _hourly_order_count() -> int:
-    """How many restaurant orders were created in the last 60 min."""
+async def _hourly_order_count(mess_id: str | None = None) -> int:
+    """How many restaurant orders were created in the last 60 min (optionally
+    scoped to a specific mess)."""
     since = server.now_utc() - timedelta(minutes=60)
-    return await server.db.restaurant_orders.count_documents(
-        {"created_at": {"$gte": server.iso(since)}}
-    )
+    q: dict = {"created_at": {"$gte": server.iso(since)}}
+    if mess_id:
+        q["mess_id"] = mess_id
+    return await server.db.restaurant_orders.count_documents(q)
 
 
 def _next_open_at_ist(now_ist: datetime, open_time: dtime, close_time: dtime) -> datetime:
@@ -82,8 +105,8 @@ def _next_open_at_ist(now_ist: datetime, open_time: dtime, close_time: dtime) ->
     return today_open + timedelta(days=1)
 
 
-async def _compute_status() -> dict:
-    cfg = await _load_config()
+async def _compute_status(mess_id: str | None = None) -> dict:
+    cfg = await _load_config(mess_id)
     now_ist = datetime.now(IST)
     open_t = _hhmm_to_time(cfg["open_time"])
     close_t = _hhmm_to_time(cfg["close_time"])
@@ -101,7 +124,7 @@ async def _compute_status() -> dict:
 
     # Capacity gate applies in all open modes (manual_on + auto).
     if is_open and cfg["capacity_per_hour"] > 0:
-        count = await _hourly_order_count()
+        count = await _hourly_order_count(mess_id)
         if count >= cfg["capacity_per_hour"]:
             is_open = False
             reason = "capacity_full"
@@ -124,13 +147,13 @@ async def _compute_status() -> dict:
     }
 
 
-async def _assert_open() -> None:
+async def _assert_open(mess_id: str | None = None) -> None:
     """Raise HTTP 423 with user-friendly detail if restaurant is closed.
 
     Called from the restaurant order creation path so we block at the
     earliest possible point (no Razorpay order generated when closed).
     """
-    status = await _compute_status()
+    status = await _compute_status(mess_id)
     if not status["open"]:
         # 423 Locked maps well to "service temporarily unavailable".
         raise HTTPException(
@@ -145,15 +168,16 @@ async def _assert_open() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Public — used by Restaurant.jsx + popup
+# Public — used by Restaurant.jsx + popup. Accepts optional ?mess_id= to scope
+# to a specific branch; defaults to the global config when omitted.
 # ---------------------------------------------------------------------------
 @router.get("/restaurant/status")
-async def get_restaurant_status():
-    return await _compute_status()
+async def get_restaurant_status(mess_id: str | None = None):
+    return await _compute_status(mess_id)
 
 
 # ---------------------------------------------------------------------------
-# Admin — read / write config
+# Admin / Franchise — read / write config (scoped to the caller's branch).
 # ---------------------------------------------------------------------------
 class HoursConfigIn(BaseModel):
     mode: str = Field(..., pattern=r"^(manual_on|manual_off|auto)$")
@@ -167,31 +191,37 @@ class HoursConfigIn(BaseModel):
 async def admin_get_hours(user: server.User = Depends(server.get_current_user)):
     if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
-    cfg = await _load_config()
-    status = await _compute_status()
-    cfg["current_hourly_order_count"] = await _hourly_order_count()
+    branch_id = await _resolve_caller_mess_id(user)
+    cfg = await _load_config(branch_id)
+    status = await _compute_status(branch_id)
+    cfg["current_hourly_order_count"] = await _hourly_order_count(branch_id)
     cfg["status"] = status
+    cfg["scope"] = "branch" if branch_id else "global"
+    cfg["mess_id"] = branch_id
     return cfg
 
 
 @router.post("/admin/restaurant/hours")
 async def admin_set_hours(payload: HoursConfigIn, user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     # Sanity check: open < close
     if _hhmm_to_time(payload.open_time) >= _hhmm_to_time(payload.close_time):
         raise HTTPException(status_code=400, detail="open_time must be before close_time")
+    branch_id = await _resolve_caller_mess_id(user)
+    key = _settings_key_for_mess(branch_id)
     await server.db.app_settings.update_one(
-        {"_id": SETTINGS_KEY},
+        {"_id": key},
         {"$set": {
             "mode": payload.mode,
             "open_time": payload.open_time,
             "close_time": payload.close_time,
             "capacity_per_hour": payload.capacity_per_hour,
             "closed_message": payload.closed_message.strip() or DEFAULT_MESSAGE,
+            "mess_id": branch_id,
             "updated_at": server.iso(server.now_utc()),
             "updated_by": user.user_id,
         }},
         upsert=True,
     )
-    return await _compute_status()
+    return await _compute_status(branch_id)

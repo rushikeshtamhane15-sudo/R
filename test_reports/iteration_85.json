@@ -1,0 +1,41 @@
+{
+  "summary": "iter-85 franchise_owner role unlocks tested end-to-end. Backend: 16/18 pytest pass in /app/backend/tests/test_iter85_franchise.py (tiffin-stock GET/topup/history, mess_menu_cal upsert+bulk+delete+get_month+config GET/PUT, mess_menu_push config+preview, restaurant_hours per-branch GET returns scope='branch' & mess_id='efoodcare-amravati', POST writes to app_settings._id='restaurant_hours:efoodcare-amravati' without touching global, GET /api/restaurant/status?mess_id= picks branch config & falls back to global when missing, negative wallet-adjust correctly 403). 2 backend failures expose a real BUG — POST /api/admin/tiffin-stock/adjust (line 135) and PUT /api/admin/tiffin-stock/threshold (line 169) still require role=='admin' so franchise_owner gets 403; review request says both should be reachable. Frontend (Playwright, cookie-session as franchise_owner): franchise-mode-tag pill renders ' Franchise Console · independent branch', 'Franchise Console' appears on /admin, wallet-topup sidebar link hidden (0 occurrences), restaurant-hours link visible. /admin/tiffin-stock loads with no 'Admin/staff only' banner — In stock=65 / Active tiffin subs=0 / Daily expected use=0 / Last top-up cards all present. /admin/restaurant-hours and /admin/mess-menu render fully (Working Hours form + Day-wise Calendar). Mobile drawer relabel to 'Franchise Console' confirmed at 390x844.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/admin/tiffin-stock/adjust", "issue": "Returns 403 'Admin only' for franchise_owner. tiffin_stock.py line 135 still has `if user.role != 'admin'`. Review request requires franchise_owner access.", "priority": "HIGH"},
+      {"endpoint": "PUT /api/admin/tiffin-stock/threshold", "issue": "Returns 403 'Admin only' for franchise_owner. tiffin_stock.py line 169 still has `if user.role != 'admin'`. Review request requires franchise_owner access.", "priority": "HIGH"}
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter85_franchise.py",
+    "/app/test_reports/pytest/iter85_results.xml"
+  ],
+  "action_items": [
+    "tiffin_stock.py:135 — change `if user.role != 'admin'` to `_admin_or_staff(user)` (or `user.role not in ('admin','franchise_owner')`) for /admin/tiffin-stock/adjust",
+    "tiffin_stock.py:169 — same for /admin/tiffin-stock/threshold so franchise can edit low-stock threshold for their branch"
+  ],
+  "critical_code_review_comments": [
+    "tiffin_stock.py: stock is currently a single global singleton `db.tiffin_stock/_id=active` shared across all branches. Once franchise unlock ships, two franchises hitting topup will race on the same counter. To make franchise truly independent of HQ, the singleton needs to become per-mess (`_id=active:{mess_id}` or similar) and `_load_state` / `decrement_stock_db` need a mess_id arg. Out of scope for this iter, but it's the natural follow-up.",
+    "mess_menu_cal.py + mess_menu_push.py: still operate on globally-keyed collections (db.mess_menu by date, db.mess_menu_broadcasts by date, db.app_config by key). Multiple franchises will overwrite each other. Per-branch scoping needed if more than one mess exists.",
+    "restaurant_hours.py `_resolve_caller_mess_id` does `db.messes.find_one({owner_user_id: user.user_id})` — if a franchise owns multiple messes, this picks an arbitrary one. Consider raising 409 or surfacing a mess picker.",
+    "restaurant_hours.py admin POST: an admin user has `_resolve_caller_mess_id` return None so they keep writing to global. There is no way for an admin to write to a *specific* branch's config from the same endpoint — they would have to do it via direct Mongo. Consider adding optional `mess_id` query/body param so HQ admin can manage a branch's hours.",
+    "mess_menu_cal.py `admin_put_kiosk_bt` (line 586) and `admin_put_kiosk_qr_provider` (line 617) accept franchise_owner but their corresponding GET handlers `admin_get_kiosk_bt` (line 575) and `admin_get_kiosk_qr_provider` (line 606) still restrict to `('admin','staff')`. Franchise can write the config but cannot read it back through the API — split brain. Either tighten both PUTs back to admin/staff, or open both GETs to franchise_owner.",
+    "AdminLayout.jsx: 403s in console while franchise dashboard loads (/api/admin/users?... close-out, etc.) — non-blocking but means the dashboard widgets are still calling HQ-only endpoints. Should either hide those widgets for franchise or gate the network calls upstream to keep the console clean."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter85_franchise.py"
+  ],
+  "success_rate": {"backend": "89% (16/18)", "frontend": "100% (4 page-route checks + sidebar relabel + mobile drawer + hidden wallet link)"},
+  "test_credentials": "Backend tests seed their own franchise_owner via /api/auth/send-otp (dev_otp). UI test used cookie-session token (fe_iter85_ui_d3944babcbcf287e) — already cleaned up.",
+  "seed_data_creation": "Pytest fixture created one ephemeral phone user, promoted to role=franchise_owner, assigned owner_user_id='<user_id>' on mess_id='efoodcare-amravati'. All teardown ran (user + session + per-branch app_settings doc removed). UI test user (user_ef5815666108) and session also deleted post-run. owner_user_id on efoodcare-amravati was $unset back to clean state. db.messes.efoodcare-amravati doc itself was preserved (or created with name='TEST Amravati Branch' if it didn't exist; main agent should verify the seed name on this mess is fine).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Reusable: /app/backend/tests/test_iter85_franchise.py — module-scoped fixture franchise_session creates a fresh franchise_owner each run. Two failures in TestTiffinStockFranchise are deliberate — they assert that adjust/threshold are reachable. After main agent fixes tiffin_stock.py lines 135 & 169, these should turn green. Per-branch settings key format: `restaurant_hours:{mess_id}`. GET /api/restaurant/status accepts ?mess_id= for per-branch lookup. Wallet-topup remains HQ-only (verified 403 for franchise). Note: efoodcare-amravati was set as the canonical franchise mess for this test — main agent should make sure preview seed scripts still create/keep that mess id.",
+  "rca of the issue": "Two endpoints in routes/tiffin_stock.py were missed during the iter-85 franchise unlock pass. `_admin_or_staff()` was updated to include 'franchise_owner' (line 80–84) and is used by /admin/tiffin-stock (GET), /admin/tiffin-stock/topup, and /admin/tiffin-stock/history. But /admin/tiffin-stock/adjust (line 135) and /admin/tiffin-stock/threshold (line 169) bypass the helper and have inline `if user.role != 'admin'` checks. Fix: replace the inline check with `_admin_or_staff(user)` to match the rest of the file. After fix, re-run pytest backend/tests/test_iter85_franchise.py::TestTiffinStockFranchise::test_adjust_franchise_should_be_allowed and ...test_threshold_franchise_should_be_allowed to confirm green."
+}
