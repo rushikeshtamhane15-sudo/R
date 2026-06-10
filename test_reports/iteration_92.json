@@ -1,0 +1,40 @@
+{
+  "summary": "iter-92 full verification — Franchise owner home + /admin branch-scoping. Backend: 19/19 iter-92 pytest pass covering /admin/stats (admin global vs FR branch w/ mess_id), /admin/attendance/today, /admin/restaurant/orders branch-scoped list, POST /orders/{id}/status & /assign-rider with cross-branch 403, /admin/users/{id}/wallet-adjust & /wallet-history cross-branch 403, PATCH /admin/refunds/{id} cross-branch 403. Regression: 13/13 iter-90 + 10/10 iter-91 = 23/23 still pass (42/42 total). Frontend (Playwright): GET / as franchise_owner renders Partner Portal hero 'The franchise portal where you see only your branch.' with both CTAs (`partner-go-dashboard` → /admin, `partner-go-control` → /admin/control-tower) and franchise bottom-nav with all 5 testids in correct order (Home → Dashboard → Control → Account → Logout). /admin renders AdminOverview with the `overview-branch-scope` badge text '· Branch view · your mess only' and KPI cards (TOTAL USERS 392, ACTIVE SUBS 61 — properly branch-scoped values). No regression: guest at / sees the consumer Restaurant homepage (no partner CTA / no franchise bottom-nav). State fully restored: efoodcare-amravati owner_user_id=user_bb39434e1a5c, user fields name=Test FR, phone=9999999999, address=Test, email=fr@efoodcare.in.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Franchise / (Partner Portal)", "issues": ["The red consumer app shell (efoodcare logo + 'Amravati' location pill + ₹0 cart + hamburger menu + Hindi adulteration marquee) still renders ABOVE the purple Partner Portal hero for franchise_owner. The marquee + cart icon + Amravati pill are consumer-facing UI that look out-of-place on a B2B partner portal page. Recommend: when role=franchise_owner on `/`, suppress the red top app-bar + marquee, or render the Partner Portal as a full-bleed standalone page. Same shell shows on /admin too (above the green Franchise console)."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter92_franchise_branch_scope.py",
+    "/app/test_reports/pytest/iter92_results.xml"
+  ],
+  "action_items": [
+    "[OPTIONAL DESIGN] Hide the red consumer app-bar + marquee for franchise_owner role on / and /admin — currently it renders above the Partner Portal hero / Franchise console, which dilutes the B2B feel.",
+    "[OPTIONAL] Add `data-testid` attributes to AdminOverview KPI cards (e.g. `admin-kpi-total-users`, `admin-kpi-active-subs`, `admin-period-cycle`, `admin-refresh`) for future regression coverage — currently only `overview-branch-scope` is testid-tagged."
+  ],
+  "critical_code_review_comments": [
+    "admin.py: GET /admin/stats — `scope: 'branch' if franchise_mess_id else 'global'` correctly omits / nulls mess_id for admin and populates it for FR. Numbers like TOTAL USERS=392 (branch) vs the global figure (much larger) prove the auto-scoping query works.",
+    "rider.py & restaurant_orders.py & server.py — all three 403 error messages use slightly different phrasings: 'Order not in your branch' (rider), 'User not in your branch' (server.py wallet), 'Refund not in your branch' (server.py refunds). All contain 'branch' which the tests assert; UX/i18n could standardise to a single key.",
+    "rider.py:435-441 — branch check happens BEFORE the order-status validity check (line 442). So an FR who tries to transition an already-delivered cross-branch order gets 403 'Order not in your branch' instead of leaking 'Cannot transition from delivered'. Good ordering — no info leak.",
+    "server.py:2243 wallet-adjust requires `reason` field (Pydantic). The endpoint name in iter-91 was `note`; iter-92 callers must use `reason`. Not a bug — tests confirmed working — but the field name is inconsistent with the wallet_ledger doc which stores it as `note`. Consider renaming or aliasing for clarity.",
+    "AdminOverview: KPI cards lack individual `data-testid` attributes. Only the `overview-branch-scope` pill is testable; the actual numeric values (TOTAL USERS, ACTIVE SUBS, REVENUE, CHECK-INS) and period buttons (Billing cycle / Day / Month / Year), Refresh button have no testids — future testing harder.",
+    "PartnerPortal.jsx + HomeRoute wrapper: works as expected (auto-redirect removed; consumer home still served for non-franchise roles). Partner Portal renders inside the global App shell (header + marquee) — see design-issues note above."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter92_franchise_branch_scope.py"
+  ],
+  "success_rate": {
+    "backend": "100% (19/19 iter-92 + 13/13 iter-90 + 10/10 iter-91 regression = 42/42)",
+    "frontend": "100% (Partner Portal hero + CTAs + 5 franchise bottom-nav testids + /admin branch-scope pill + CTA→/admin & /admin/control-tower navigation + no-regression for guest)"
+  },
+  "test_credentials": "Backend pytest seeded ephemeral TEST_IT92_admin_* + TEST_IT92_franchise_owner_* (×2) + TEST_IT92_subscriber_* (×2) + TEST_IT92_rider_* directly in Mongo, plus a secondary TEST_IT92_branch_b_* mess. UI used a single ephemeral cookie session TEST_UI92_fr_sess_* mapped to the existing seed user_bb39434e1a5c (efoodcare-amravati owner). All seeded data + sessions deleted.",
+  "seed_data_creation": "All TEST_IT92_* and TEST_UI92_* artefacts deleted; efoodcare-amravati restored to owner_user_id=user_bb39434e1a5c with franchise_visible_pages=null, franchise_visible_sections=null. Default franchise_owner user fields restored: name=Test FR, phone=9999999999, address=Test, email=fr@efoodcare.in.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Reusable: /app/backend/tests/test_iter92_franchise_branch_scope.py — 19 tests across 8 classes (TestAdminStats, TestAttendance, TestRestaurantOrdersList, TestOrderStatus, TestAssignRider, TestWalletAdjust, TestWalletHistory, TestRefundDecision). Module-scope `world` fixture builds a complete two-branch sandbox (admin + 2 FRs + 2 subscribers + 2 orders + 2 refunds + 1 rider + a fresh secondary mess) and tears down cleanly via `^TEST_IT92_sess_` regex. NB: /admin/users/{id}/wallet-adjust expects `reason` field (not `note`); the wallet_ledger doc stores it as `note` internally. For UI: when seeding a cookie session, use `httpOnly:True, secure:True, sameSite:'None'` matching the backend cookie. AdminOverview KPI cards have NO testids yet — only `overview-branch-scope` pill is testable.",
+  "rca of the issue": "No production bugs. All 7 backend access-control and scoping points behave exactly as the iter-92 spec dictates. Frontend Partner-Portal homepage + /admin Branch-view badge + CTA wiring + bottom-nav order all match spec. One minor design observation: the red consumer app-shell (logo + Amravati + cart + marquee) still renders above the Partner Portal hero and the Franchise console for franchise_owner — recommend hiding it for this role on / and /admin."
+}

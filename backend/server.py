@@ -2246,8 +2246,9 @@ async def admin_wallet_adjust(target_user_id: str, payload: WalletAdjustRequest,
     - delta > 0  → credit (refund / goodwill / promo).
     - delta < 0  → debit  (correction / chargeback).
     - extend_days  → optionally pushes the active subscription end_date forward.
-    - restore_meals→ optionally adds meals back (lowers meals_used; never below 0)."""
-    if user.role != "admin":
+    - restore_meals→ optionally adds meals back (lowers meals_used; never below 0).
+    iter-92 #3: franchise_owner can adjust wallets of users in *their* branch only."""
+    if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     if abs(float(payload.delta)) < 0.005 and not payload.extend_days and not payload.restore_meals:
         raise HTTPException(status_code=400, detail="Provide a non-zero delta, extend_days, or restore_meals")
@@ -2256,6 +2257,12 @@ async def admin_wallet_adjust(target_user_id: str, payload: WalletAdjustRequest,
     target = await db.users.find_one({"user_id": target_user_id}, {"_id": 0})
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
+    if user.role == "franchise_owner":
+        m = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+        if not m:
+            raise HTTPException(status_code=403, detail="No mess assigned")
+        if target.get("mess_id") != m["mess_id"]:
+            raise HTTPException(status_code=403, detail="User not in your branch")
 
     sub = await db.subscriptions.find_one({"user_id": target_user_id, "status": "active"}, {"_id": 0})
     if not sub and (payload.delta or payload.extend_days or payload.restore_meals):
@@ -2329,8 +2336,16 @@ async def admin_wallet_adjust(target_user_id: str, payload: WalletAdjustRequest,
 
 @api_router.get("/admin/users/{target_user_id}/wallet-history")
 async def admin_wallet_history(target_user_id: str, user: User = Depends(get_current_user)):
-    if user.role != "admin":
+    # iter-92 #3: franchise_owner can read wallet history of their branch's users.
+    if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
+    if user.role == "franchise_owner":
+        m = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+        if not m:
+            raise HTTPException(status_code=403, detail="No mess assigned")
+        target = await db.users.find_one({"user_id": target_user_id}, {"_id": 0, "mess_id": 1})
+        if (target or {}).get("mess_id") != m["mess_id"]:
+            raise HTTPException(status_code=403, detail="User not in your branch")
     txns = await db.wallet_transactions.find({"user_id": target_user_id}, {"_id": 0}).sort("ts", -1).to_list(200)
     overrides = await db.wallet_overrides.find({"target_user_id": target_user_id}, {"_id": 0}).sort("ts", -1).to_list(200)
     return {"transactions": txns, "overrides": overrides}
@@ -3188,13 +3203,21 @@ class RefundDecisionIn(BaseModel):
 
 @api_router.patch("/admin/refunds/{refund_id}")
 async def admin_decide_refund(refund_id: str, payload: RefundDecisionIn, user: User = Depends(get_current_user)):
-    if user.role != "admin":
+    # iter-92 #3: franchise_owner can approve/decline refunds for their branch.
+    if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     if payload.decision not in {"approve", "decline"}:
         raise HTTPException(status_code=400, detail="decision must be approve | decline")
     doc = await db.refund_requests.find_one({"refund_id": refund_id})
     if not doc:
         raise HTTPException(status_code=404, detail="Refund not found")
+    if user.role == "franchise_owner":
+        m = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+        if not m:
+            raise HTTPException(status_code=403, detail="No mess assigned")
+        u = await db.users.find_one({"user_id": doc.get("user_id")}, {"_id": 0, "mess_id": 1})
+        if (u or {}).get("mess_id") != m["mess_id"]:
+            raise HTTPException(status_code=403, detail="Refund not in your branch")
     if doc.get("status") != "pending":
         raise HTTPException(status_code=400, detail=f"Already {doc.get('status')}")
     if payload.decision == "approve":

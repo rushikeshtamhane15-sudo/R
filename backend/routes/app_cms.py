@@ -40,11 +40,14 @@ DEFAULT_BOTTOM_NAV: dict = {
     ],
     # iter-89 #1: franchise_owner default bottom nav — CMS-editable from
     # /admin/bottom-nav-editor by HQ admin.
+    # iter-92 #1: "Home" now lands on `/` (Partner Portal — the franchise
+    # owner's homepage), Control Tower is a dedicated tab, and the contact
+    # slot is dropped to make room.
     "franchise": [
-        {"id": "fr-dashboard", "label": "Dashboard", "icon": "LayoutDashboard", "to": "/admin/control-tower", "visible": True},
+        {"id": "fr-home",      "label": "Home",      "icon": "Home",            "to": "/",                    "visible": True},
+        {"id": "fr-dashboard", "label": "Dashboard", "icon": "LayoutDashboard", "to": "/admin",               "visible": True},
+        {"id": "fr-control",   "label": "Control",   "icon": "Radio",           "to": "/admin/control-tower", "visible": True},
         {"id": "fr-account",   "label": "Account",   "icon": "User",            "to": "/profile",             "visible": True},
-        {"id": "fr-contact",   "label": "Contact",   "icon": "Phone",           "to": "/contact",             "visible": True},
-        {"id": "fr-home",      "label": "Home",      "icon": "Home",            "to": "/home",                "visible": True},
         {"id": "fr-logout",    "label": "Logout",    "icon": "LogOut",          "to": "__logout__",           "visible": True},
     ],
 }

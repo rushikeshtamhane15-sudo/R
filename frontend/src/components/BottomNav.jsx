@@ -5,13 +5,13 @@ import { api } from "../lib/api";
 import { toast } from "sonner";
 import {
   Home, ChefHat, LayoutDashboard, Bike, User, Phone, LogIn, LogOut, Receipt,
-  ShoppingBag, Wallet, Heart, Settings, Bell, MapPin, Clock, Star, ScanLine,
+  ShoppingBag, Wallet, Heart, Settings, Bell, MapPin, Clock, Star, ScanLine, Radio,
 } from "lucide-react";
 
 // Icons admin can pick from (mapped from lucide-react names sent by backend).
 const ICON_MAP = {
   Home, ChefHat, LayoutDashboard, Bike, User, Phone, LogIn, LogOut, Receipt,
-  ShoppingBag, Wallet, Heart, Settings, Bell, MapPin, Clock, Star, ScanLine,
+  ShoppingBag, Wallet, Heart, Settings, Bell, MapPin, Clock, Star, ScanLine, Radio,
 };
 
 /**
@@ -51,11 +51,13 @@ export default function BottomNav() {
 
   // iter-88 #1: franchise nav fallback — uses the same item shape as the
   // CMS bottom-nav config so existing rendering code works unchanged.
+  // iter-92 #1: "Home" now lands the franchise owner on the Partner Portal
+  // (which IS their home, since they took over `/`).
   const FRANCHISE_FALLBACK = [
-    { id: "fr-dashboard", label: "Dashboard", icon: "LayoutDashboard", to: "/admin/control-tower", visible: true },
+    { id: "fr-home",      label: "Home",      icon: "Home",            to: "/",                    visible: true },
+    { id: "fr-dashboard", label: "Dashboard", icon: "LayoutDashboard", to: "/admin",               visible: true },
+    { id: "fr-control",   label: "Control",   icon: "Radio",           to: "/admin/control-tower", visible: true },
     { id: "fr-account",   label: "Account",   icon: "User",            to: "/profile",             visible: true },
-    { id: "fr-contact",   label: "Contact",   icon: "Phone",           to: "/contact",             visible: true },
-    { id: "fr-home",      label: "Home",      icon: "Home",            to: "/home",                visible: true },
     { id: "fr-logout",    label: "Logout",    icon: "LogOut",          to: "__logout__",           visible: true },
   ];
   let items = (config?.[role] || []).filter((it) => it.visible !== false);

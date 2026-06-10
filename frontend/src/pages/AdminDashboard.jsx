@@ -53,6 +53,11 @@ export default function AdminOverview() {
         <div>
           <p className="text-xs tracking-overline uppercase font-bold text-secondary">Control room</p>
           <h1 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-2">Overview</h1>
+          {stats?.scope === "branch" && (
+            <p className="text-[11px] mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300 px-2.5 h-6 font-bold" data-testid="overview-branch-scope">
+              · Branch view · your mess only
+            </p>
+          )}
         </div>
         <button
           type="button"

@@ -92,11 +92,19 @@ function RequireAuth({ children, roles }) {
 function AdminIndex() {
   const { user } = useAuth();
   if (user?.role === "staff") return <Navigate to="/admin/deliveries-today" replace />;
-  // iter-80: franchise owners get a safe, role-scoped landing (Control Tower
-  // is the most useful admin page they have access to — AdminOverview makes
-  // admin-only fetches and was rendering blank for franchise_owner).
-  if (user?.role === "franchise_owner") return <Navigate to="/admin/control-tower" replace />;
+  // iter-92 #2: franchise_owner now renders the AdminOverview Dashboard,
+  // auto-scoped to their branch by the backend (was previously routed to
+  // /admin/control-tower because the Dashboard wasn't role-aware).
   return <AdminOverview />;
+}
+
+function HomeRoute() {
+  // iter-92 #1: franchise owners get the Partner Portal as their landing page
+  // (replaces the consumer-facing Restaurant home). Everyone else continues
+  // to see the existing Restaurant homepage.
+  const { user } = useAuth();
+  if (user?.role === "franchise_owner") return <PartnerPortal />;
+  return <Restaurant />;
 }
 
 function AppRoutes() {
@@ -118,7 +126,7 @@ function AppRoutes() {
       <AnnouncementBar />
       <main className="flex-1 pb-16 md:pb-0">
         <Routes>
-          <Route path="/" element={<Restaurant />} />
+          <Route path="/" element={<HomeRoute />} />
           <Route path="/home" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/restaurant" element={<Restaurant />} />

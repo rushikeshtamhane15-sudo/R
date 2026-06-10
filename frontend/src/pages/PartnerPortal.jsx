@@ -12,8 +12,8 @@
  * Pair this with DNS — point `partners.efoodcare.in` at the same hosting and
  * its index hits /partners automatically. No backend change required.
  */
-import React, { useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
 import {
@@ -23,12 +23,9 @@ import {
 
 export default function PartnerPortal() {
   const { user, logout } = useAuth();
-  const navigate = useNavigate();
-
-  // iter-81: franchise owners get auto-routed to their dashboard.
-  useEffect(() => {
-    if (user?.role === "franchise_owner") navigate("/admin/control-tower", { replace: true });
-  }, [user, navigate]);
+  // iter-92 #1: PartnerPortal is now the franchise owner's HOME (mounted at "/").
+  // The legacy auto-redirect to /admin/control-tower has been removed so the
+  // page stays visible. CTAs in the hero handle "Open dashboard" intent.
 
   return (
     <div className="min-h-screen text-white" data-testid="partner-portal" style={{
@@ -75,9 +72,14 @@ export default function PartnerPortal() {
 
         <div className="mt-7 flex flex-wrap gap-2.5">
           {user?.role === "franchise_owner" ? (
-            <Link to="/admin/control-tower" data-testid="partner-go-dashboard" className="inline-flex items-center gap-2 rounded-full bg-white text-fuchsia-700 px-5 h-12 font-extrabold text-sm hover:-translate-y-0.5 transition-transform">
-              Open your dashboard <ArrowRight className="h-4 w-4" />
-            </Link>
+            <>
+              <Link to="/admin" data-testid="partner-go-dashboard" className="inline-flex items-center gap-2 rounded-full bg-white text-fuchsia-700 px-5 h-12 font-extrabold text-sm hover:-translate-y-0.5 transition-transform">
+                Open your dashboard <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link to="/admin/control-tower" data-testid="partner-go-control" className="inline-flex items-center gap-2 rounded-full bg-white/15 backdrop-blur border border-white/25 text-white px-5 h-12 font-extrabold text-sm hover:bg-white/25">
+                Control Tower
+              </Link>
+            </>
           ) : user?.role === "admin" ? (
             <Link to="/admin/messes" data-testid="partner-admin-cta" className="inline-flex items-center gap-2 rounded-full bg-white text-fuchsia-700 px-5 h-12 font-extrabold text-sm">
               Manage all branches <ArrowRight className="h-4 w-4" />

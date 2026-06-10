@@ -76,9 +76,30 @@ async def admin_stats(
 
     `active_subscriptions` now only counts subs whose user still exists
     with role='subscriber' — stops phantom counts from orphaned seeds.
+
+    iter-92 #2: franchise_owner can call this endpoint too — every metric
+    is then auto-scoped to *their* mess_id (subscribers, revenue, attendance).
     """
-    if user.role != "admin":
+    if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
+
+    # iter-92: resolve the franchise owner's mess for branch scoping.
+    franchise_mess_id: Optional[str] = None
+    franchise_user_ids: Optional[set] = None
+    if user.role == "franchise_owner":
+        m = await server.db.messes.find_one(
+            {"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1, "name": 1},
+        )
+        if not m:
+            raise HTTPException(status_code=403, detail="No mess assigned")
+        franchise_mess_id = m["mess_id"]
+        ids = set()
+        cursor = server.db.users.find({"mess_id": franchise_mess_id}, {"_id": 0, "user_id": 1})
+        async for u in cursor:
+            uid = u.get("user_id")
+            if uid:
+                ids.add(uid)
+        franchise_user_ids = ids
 
     if period not in {"day", "month", "year", "cycle"}:
         period = "cycle"
@@ -120,14 +141,24 @@ async def admin_stats(
     win_start_iso = win_start.astimezone(timezone.utc).isoformat()
     win_end_iso = win_end.astimezone(timezone.utc).isoformat()
 
-    total_users = await server.db.users.count_documents({})
-    total_subscribers = await server.db.users.count_documents({"role": "subscriber"})
+    # iter-92: scope queries by mess when invoked by a franchise owner.
+    if franchise_mess_id:
+        total_users = await server.db.users.count_documents({"mess_id": franchise_mess_id})
+        total_subscribers = await server.db.users.count_documents(
+            {"mess_id": franchise_mess_id, "role": "subscriber"},
+        )
+    else:
+        total_users = await server.db.users.count_documents({})
+        total_subscribers = await server.db.users.count_documents({"role": "subscriber"})
 
     # iter-65 #10 fix: only count subs whose user record still exists
     # with role=subscriber (drops orphans + seeded stale rows).
     active_subs = 0
+    sub_filter: dict = {"status": "active"}
+    if franchise_mess_id:
+        sub_filter["mess_id"] = franchise_mess_id
     async for sub in server.db.subscriptions.find(
-        {"status": "active"}, {"_id": 0, "user_id": 1},
+        sub_filter, {"_id": 0, "user_id": 1},
     ):
         uid = sub.get("user_id")
         if not uid:
@@ -141,12 +172,18 @@ async def admin_stats(
     # Today's attendance — still anchored to "today" (not the window) so
     # the Today's check-ins card always reads the live counter.
     d = server.today_str()
-    today_att = await server.db.attendance.count_documents({"date_str": d})
+    att_today_filter: dict = {"date_str": d}
+    if franchise_user_ids is not None:
+        att_today_filter["user_id"] = {"$in": list(franchise_user_ids)}
+    today_att = await server.db.attendance.count_documents(att_today_filter)
 
     # Revenue inside the chosen window only
     revenue = 0.0
+    rev_filter: dict = {"status": "paid", "created_at": {"$gte": win_start_iso, "$lt": win_end_iso}}
+    if franchise_user_ids is not None:
+        rev_filter["user_id"] = {"$in": list(franchise_user_ids)}
     async for p in server.db.payment_orders.find(
-        {"status": "paid", "created_at": {"$gte": win_start_iso, "$lt": win_end_iso}},
+        rev_filter,
         {"_id": 0, "amount": 1},
     ):
         revenue += float(p.get("amount", 0) or 0)
@@ -160,7 +197,10 @@ async def admin_stats(
         trend = []
         for i in range(days_span):
             day = (win_start + timedelta(days=i)).strftime("%Y-%m-%d")
-            cnt = await server.db.attendance.count_documents({"date_str": day})
+            day_filter: dict = {"date_str": day}
+            if franchise_user_ids is not None:
+                day_filter["user_id"] = {"$in": list(franchise_user_ids)}
+            cnt = await server.db.attendance.count_documents(day_filter)
             trend.append({"date": day, "count": cnt})
 
     return {
@@ -175,15 +215,31 @@ async def admin_stats(
         "period_label": win_label,
         "window_start": win_start.date().isoformat(),
         "window_end": (win_end - timedelta(seconds=1)).date().isoformat(),
+        "scope": "branch" if franchise_mess_id else "global",
+        "mess_id": franchise_mess_id,
     }
 
 
 @router.get("/admin/attendance/today")
 async def admin_today_attendance(user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    # iter-92 #2: franchise_owner sees branch-scoped attendance only.
+    if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     d = server.today_str()
-    recs = await server.db.attendance.find({"date_str": d}, {"_id": 0}).sort("checked_at", -1).to_list(500)
+    q: dict = {"date_str": d}
+    if user.role == "franchise_owner":
+        m = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+        if not m:
+            raise HTTPException(status_code=403, detail="No mess assigned")
+        user_ids: list = []
+        async for u in server.db.users.find(
+            {"mess_id": m["mess_id"]}, {"_id": 0, "user_id": 1},
+        ):
+            uid = u.get("user_id")
+            if uid:
+                user_ids.append(uid)
+        q["user_id"] = {"$in": user_ids}
+    recs = await server.db.attendance.find(q, {"_id": 0}).sort("checked_at", -1).to_list(500)
     # Enrich each attendance row with the user's name + phone so the admin
     # "today's check-ins" list shows WHO checked in, not just IDs. We batch-load
     # the user profiles via a single $in lookup and stitch them in.
