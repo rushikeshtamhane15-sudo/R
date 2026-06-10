@@ -1658,3 +1658,46 @@ Backend already had `POST /api/admin/users/{id}/wallet-adjust` and `GET /api/adm
 - OTP-less Mobile Login — blocked, awaiting credentials.
 - Paytm Business Dynamic QR — blocked, awaiting `PAYTM_MID`.
 
+
+
+### Iteration 81 — Contact CMS + Restaurant Chip + Mess Menu Restack + Login Edge-to-Edge (Feb 10, 2026)
+
+User-reported batch of 4 polish issues — all shipped and smoke-tested:
+
+#### #1 Contact page — full text editing rights
+- Extended `DEFAULT_CONTENT["contact"]` in `backend/server.py` with 14 new admin-editable keys: `overline`, `nearest_label`, `default_label`, `perm_hint`, `cta_directions`, `distance_suffix`, `label_branch`, `label_address`, `label_phone`, `label_whatsapp`, `whatsapp_value`, `label_email`, `label_manager`, `label_fssai`, `label_hours`. The `_load_content()` helper auto-merges these into pre-existing site_content docs so old DBs upgrade transparently.
+- Rewired every visible label in `pages/Contact.jsx` to read from CMS first, with sensible fallbacks.
+- `pages/AdminContent.jsx` `contact` editor now exposes all 22 fields (was 8), grouped by location-aware labels / row labels / legacy fallbacks.
+- Verified via `GET /api/content/contact` — all 18 keys returned post-merge.
+
+#### #2 Restaurant closed chip — tiny single-row
+- `components/RestaurantClosedBanner.jsx` now renders the chip as a single-row pill: `<clock-icon> Kitchen opens in 8h 35m · Daily 10:00–22:00 [Info]`. The "Kitchen is currently closed" headline is gone — the closed state is implied by the amber styling.
+- Height roughly halved: padding `py-2` → `py-1.5`, no flex-column inside, no big circle icon.
+- Whole chip is now tappable (was a `<div>` with a child button) — clicking anywhere opens the full popup.
+- Fixes the overlap with the location pill above by reducing the chip's vertical footprint.
+
+#### #3 Mess menu — vertical Lunch/Dinner stack
+- `components/TodayMessMenuFlash.jsx` switched from a 3-column `grid-cols-[1fr_auto_1fr]` (Lunch | seam | Dinner) to a single-column `space-y-2` stack with a horizontal gold-diamond seam between Lunch (top) and Dinner (bottom).
+- Items in each row now use `flex flex-wrap gap-x-3` instead of vertical `space-y-0.5` bullet list — so on wider containers all 5-6 items fit on a single line (`Dal bhaji · bhendi sabji · 5 roti · rice · salad`) instead of awkward 4-line wraps.
+- Removed the redundant top horizontal seam between header and menu (the inter-row seam now serves as the only divider).
+
+#### #4 Login — marquee + bottom pill TRUE edge-to-edge
+- `pages/Login.jsx` top marquee wrapper: removed `px-3 sm:px-6` and `rounded-lg` so the chips ride flush against the left and right viewport edges. The `login-marquee-3d` sweep animation still plays.
+- Bottom red pill: moved out of its `px-3 sm:px-6` parent into a full-bleed `w-screen -mx-3 sm:-mx-6` wrapper. Pill loses its `rounded-2xl` since edge-to-edge rectangle reads cleaner on mobile and the tagline now never truncates.
+
+**Files changed**:
+- `backend/server.py` — 14 new keys in `DEFAULT_CONTENT["contact"]`
+- `frontend/src/pages/AdminContent.jsx` — expanded contact CMS field list
+- `frontend/src/pages/Contact.jsx` — wired all labels to CMS variables
+- `frontend/src/components/RestaurantClosedBanner.jsx` — slim single-row chip
+- `frontend/src/components/TodayMessMenuFlash.jsx` — vertical Lunch/Dinner stack with horizontal flex-wrap items
+- `frontend/src/pages/Login.jsx` — full-bleed marquee + bottom pill
+
+**Smoke-tested (390×844 preview)**:
+- `/restaurant`: amber chip is one line "Kitchen opens in 1h 12m · Daily 10:00–22:00 [Info]" — no overlap with green location pill above ✅
+- Mess card: LUNCH section (top, full-width horizontal items) → gold diamond seam → DINNER section (bottom, full-width horizontal items) ✅
+- `/login`: marquee chips go edge-to-edge, no white gaps; bottom red banner spans full screen width, tagline reads in full ✅
+- `/api/content/contact`: returns all 18 keys including the new `nearest_label`, `cta_directions`, `label_*` set ✅
+
+**Production deployment note**: Preview only. Click **Deploy** in Emergent dashboard to push to `efoodcare.in`.
+

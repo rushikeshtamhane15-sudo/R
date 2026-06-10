@@ -359,29 +359,26 @@ export default function TodayMessMenuFlash({ compact = false }) {
             <div className="min-w-0 flex-1">
               <p className="font-display font-extrabold text-[13px] sm:text-[15px] leading-tight tracking-tight" data-testid="mess-card-heading">{cardLabel}</p>
             </div>
-            <span className="hidden sm:inline-flex items-center gap-1 text-[9px] tracking-[0.18em] uppercase font-bold opacity-75 bg-white/15 rounded-full px-2 py-0.5">Today's Special</span>
+            <span className="hidden sm:inline-flex items-center gap-1 text-[9px] tracking-[0.18em] uppercase font-bold opacity-75 bg-white/15 rounded-full px-2 py-0.5">Today&apos;s Special</span>
           </div>
 
-          {/* Decorative gold seam separator between header and menu */}
-          <div className="mt-2 z-10 relative flex items-center gap-2 opacity-70">
-            <span className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-300/60 to-amber-300/60" />
-            <span className="w-1.5 h-1.5 rotate-45 bg-amber-300/80 shadow-sm" />
-            <span className="flex-1 h-px bg-gradient-to-l from-transparent via-amber-300/60 to-amber-300/60" />
-          </div>
-
-          {/* Two-column menu — LUNCH | DINNER as printed-menu sections */}
-          <div className="mt-1.5 grid grid-cols-[1fr_auto_1fr] gap-x-2 z-10 relative">
-            {/* LUNCH column */}
-            <div className="py-1" data-testid="mess-lunch-col">
+          {/* iter-81 #3: removed the top horizontal seam — the Lunch/Dinner
+              row separator below now serves as the only divider. */}
+          {/* iter-81 #3: stacked Lunch (top) / Dinner (bottom) so each row
+              gets the full container width — items can spread horizontally
+              without forcing 4-line wraps. Horizontal gold seam between. */}
+          <div className="mt-1.5 z-10 relative space-y-2">
+            {/* LUNCH row */}
+            <div className="py-0.5" data-testid="mess-lunch-col">
               <div className="flex items-center gap-1.5 mb-1">
                 <Sun className="h-3 w-3 text-amber-200 shrink-0" />
                 <span className="text-[9.5px] tracking-[0.22em] uppercase font-extrabold text-amber-200">Lunch</span>
               </div>
               {active.lunch ? (
-                <ul className="space-y-0.5">
+                <ul className="flex flex-wrap gap-x-3 gap-y-0.5">
                   {splitMenuItems(active.lunch).map((it, i) => (
-                    <li key={i} className="flex items-start gap-1.5 text-[12px] leading-snug font-semibold">
-                      <span aria-hidden className="mt-1 inline-block h-1 w-1 rounded-full bg-white/60 shrink-0" />
+                    <li key={i} className="flex items-center gap-1.5 text-[12px] leading-snug font-semibold">
+                      <span aria-hidden className="inline-block h-1 w-1 rounded-full bg-white/60 shrink-0" />
                       <span>{it}</span>
                     </li>
                   ))}
@@ -391,24 +388,24 @@ export default function TodayMessMenuFlash({ compact = false }) {
               )}
             </div>
 
-            {/* Centered vertical seam between columns */}
-            <div className="flex flex-col items-center justify-stretch self-stretch" aria-hidden>
-              <span className="flex-1 w-px bg-gradient-to-b from-transparent via-amber-300/60 to-transparent" />
-              <span className="w-1.5 h-1.5 rotate-45 bg-amber-300/80 my-1" />
-              <span className="flex-1 w-px bg-gradient-to-t from-transparent via-amber-300/60 to-transparent" />
+            {/* Horizontal gold seam separator with central diamond */}
+            <div className="flex items-center gap-2 opacity-70" aria-hidden>
+              <span className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-300/60 to-amber-300/60" />
+              <span className="w-1.5 h-1.5 rotate-45 bg-amber-300/80 shadow-sm" />
+              <span className="flex-1 h-px bg-gradient-to-l from-transparent via-amber-300/60 to-amber-300/60" />
             </div>
 
-            {/* DINNER column */}
-            <div className="py-1" data-testid="mess-dinner-col">
+            {/* DINNER row */}
+            <div className="py-0.5" data-testid="mess-dinner-col">
               <div className="flex items-center gap-1.5 mb-1">
                 <Moon className="h-3 w-3 text-blue-200 shrink-0" />
                 <span className="text-[9.5px] tracking-[0.22em] uppercase font-extrabold text-blue-200">Dinner</span>
               </div>
               {active.dinner ? (
-                <ul className="space-y-0.5">
+                <ul className="flex flex-wrap gap-x-3 gap-y-0.5">
                   {splitMenuItems(active.dinner).map((it, i) => (
-                    <li key={i} className="flex items-start gap-1.5 text-[12px] leading-snug font-semibold">
-                      <span aria-hidden className="mt-1 inline-block h-1 w-1 rounded-full bg-white/60 shrink-0" />
+                    <li key={i} className="flex items-center gap-1.5 text-[12px] leading-snug font-semibold">
+                      <span aria-hidden className="inline-block h-1 w-1 rounded-full bg-white/60 shrink-0" />
                       <span>{it}</span>
                     </li>
                   ))}

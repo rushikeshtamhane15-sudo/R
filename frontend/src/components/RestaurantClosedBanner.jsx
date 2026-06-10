@@ -100,38 +100,32 @@ export default function RestaurantClosedBanner() {
 
   return (
     <>
-      {/* Sticky countdown chip — sits at the very top of the restaurant page */}
-      <div
-        className="sticky top-0 z-40 -mx-3 sm:-mx-6 mb-3 px-3 sm:px-6 py-2 bg-amber-50 border-y border-amber-300"
+      {/* iter-81 #2: tiny single-row closed chip — no headline, only the
+          clock icon + countdown so it doesn't overlap the location pill
+          above and takes minimal vertical space. Tap → opens the popup
+          for full details. */}
+      <button
+        type="button"
+        onClick={() => setPopupOpen(true)}
+        className="sticky top-0 z-40 -mx-3 sm:-mx-6 mb-2 w-screen sm:w-auto block py-1.5 bg-amber-50 border-y border-amber-300 hover:bg-amber-100 transition-colors"
         data-testid="restaurant-closed-chip"
+        aria-label="Kitchen closed details"
       >
-        <div className="flex items-center gap-2 max-w-5xl mx-auto">
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-amber-500 text-white shrink-0">
-            <Clock className="h-3.5 w-3.5" />
-          </span>
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] tracking-[0.18em] uppercase font-extrabold text-amber-900">
-              {reasonHeadline(status.reason)}
-            </p>
-            <p className="text-xs sm:text-sm font-bold text-amber-900 truncate">
-              {countdown ? `Kitchen opens in ${countdown}` : "Please check back soon"}
-              {status.open_time && status.close_time && (
-                <span className="hidden sm:inline ml-2 text-amber-800/80 font-semibold tracking-wide">
-                  · Daily {status.open_time}–{status.close_time}
-                </span>
-              )}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setPopupOpen(true)}
-            className="shrink-0 rounded-full bg-amber-600 text-white text-[10px] font-extrabold px-3 h-7 hover:bg-amber-700"
-            data-testid="restaurant-closed-info-btn"
-          >
+        <div className="flex items-center gap-2 max-w-5xl mx-auto px-3 sm:px-6">
+          <Clock className="h-3.5 w-3.5 text-amber-700 shrink-0" />
+          <p className="text-[11px] sm:text-xs font-extrabold text-amber-900 truncate flex-1 text-left">
+            {countdown ? `Kitchen opens in ${countdown}` : "Kitchen reopens soon"}
+            {status.open_time && status.close_time && (
+              <span className="hidden sm:inline ml-2 text-amber-800/80 font-semibold tracking-wide">
+                · Daily {status.open_time}–{status.close_time}
+              </span>
+            )}
+          </p>
+          <span className="shrink-0 rounded-full bg-amber-600 text-white text-[10px] font-extrabold px-2 h-5 inline-flex items-center" data-testid="restaurant-closed-info-btn">
             Info
-          </button>
+          </span>
         </div>
-      </div>
+      </button>
 
       {/* First-visit popup */}
       {popupOpen && (

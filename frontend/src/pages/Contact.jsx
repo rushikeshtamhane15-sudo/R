@@ -109,8 +109,23 @@ export default function Contact() {
   if (loading || !branch) return <div className="p-12 text-center text-muted-foreground" data-testid="contact-loading">Loading…</div>;
 
   const title = cms?.title || "We're a phone call away";
+  const overline = cms?.overline || "We're here for you";
   const intro = cms?.intro || "Reach out for orders, support or franchise enquiries — we usually reply within an hour.";
   const hours = cms?.hours || "Mon–Sun · 09:00–22:00 IST";
+  const nearestLabel = cms?.nearest_label || "Your nearest branch:";
+  const defaultLabel = cms?.default_label || "Showing default branch:";
+  const permHint = cms?.perm_hint || "Enable location to auto-pick your nearest branch.";
+  const ctaDirections = cms?.cta_directions || "Get directions";
+  const distanceSuffix = cms?.distance_suffix || "km away";
+  const labelBranch = cms?.label_branch || "Branch";
+  const labelAddress = cms?.label_address || "Address";
+  const labelPhone = cms?.label_phone || "Phone";
+  const labelWhatsapp = cms?.label_whatsapp || "WhatsApp";
+  const whatsappValue = cms?.whatsapp_value || "Chat with us on WhatsApp";
+  const labelEmail = cms?.label_email || "Email";
+  const labelManager = cms?.label_manager || "Branch manager";
+  const labelFssai = cms?.label_fssai || "FSSAI";
+  const labelHours = cms?.label_hours || "Hours";
   const distanceKm = (me && branch.lat && branch.lng) ? haversineKm(me.lat, me.lng, branch.lat, branch.lng).toFixed(1) : null;
   const mapSrc = (branch.lat && branch.lng) ? buildOsmEmbed(branch.lat, branch.lng) : "";
 
@@ -120,7 +135,7 @@ export default function Contact() {
   return (
     <div className="max-w-5xl mx-auto px-6 md:px-8 py-12" data-testid="contact-page">
       <SEO title="Contact us · branch directory" path="/contact" description={`Reach efoodcare ${branch.city || "support"}. ${branch.address}. Phone: ${branch.manager_phone}.`} />
-      <p className="text-xs tracking-overline uppercase font-bold text-secondary">We&apos;re here for you</p>
+      <p className="text-xs tracking-overline uppercase font-bold text-secondary">{overline}</p>
       <h1 className="font-display font-extrabold text-4xl md:text-5xl tracking-tight mt-3">{title}</h1>
       <p className="text-muted-foreground mt-3 max-w-2xl leading-relaxed">{intro}</p>
 
@@ -128,14 +143,14 @@ export default function Contact() {
       <div className="mt-6 inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/30 px-3 py-1.5" data-testid="contact-branch-pill">
         <MapPin className="h-3.5 w-3.5 text-primary" />
         <span className="text-xs font-extrabold text-primary tracking-wide">
-          {me ? "Your nearest branch:" : "Showing default branch:"} <span className="text-foreground">{branch.name}</span>
-          {distanceKm && <span className="text-muted-foreground font-semibold ml-2">· {distanceKm} km away</span>}
+          {me ? nearestLabel : defaultLabel} <span className="text-foreground">{branch.name}</span>
+          {distanceKm && <span className="text-muted-foreground font-semibold ml-2">· {distanceKm} {distanceSuffix}</span>}
         </span>
       </div>
 
       {permissionDenied && (
         <p className="mt-2 text-[11px] text-muted-foreground" data-testid="contact-perm-hint">
-          Enable location to auto-pick your nearest branch.
+          {permHint}
         </p>
       )}
 
@@ -159,20 +174,20 @@ export default function Contact() {
 
       <div className="mt-10 grid md:grid-cols-5 gap-6">
         <div className="md:col-span-2 space-y-3">
-          <ContactRow icon={Building2} label="Branch" value={branch.name} />
-          <ContactRow icon={MapPin} label="Address" value={branch.address} multiline />
-          <ContactRow icon={Phone} label="Phone" value={branch.manager_phone || (cms?.phone)} href={branch.manager_phone ? `tel:${digitsOnly(branch.manager_phone)}` : null} />
+          <ContactRow icon={Building2} label={labelBranch} value={branch.name} />
+          <ContactRow icon={MapPin} label={labelAddress} value={branch.address} multiline />
+          <ContactRow icon={Phone} label={labelPhone} value={branch.manager_phone || (cms?.phone)} href={branch.manager_phone ? `tel:${digitsOnly(branch.manager_phone)}` : null} />
           {waLink && (
-            <ContactRow icon={MessageCircle} label="WhatsApp" value="Chat with us on WhatsApp" href={waLink} />
+            <ContactRow icon={MessageCircle} label={labelWhatsapp} value={whatsappValue} href={waLink} />
           )}
-          <ContactRow icon={Mail} label="Email" value={branch.manager_email || cms?.email} href={`mailto:${branch.manager_email || cms?.email}`} />
+          <ContactRow icon={Mail} label={labelEmail} value={branch.manager_email || cms?.email} href={`mailto:${branch.manager_email || cms?.email}`} />
           {branch.manager_name && (
-            <ContactRow icon={ChefHat} label="Branch manager" value={branch.manager_name} />
+            <ContactRow icon={ChefHat} label={labelManager} value={branch.manager_name} />
           )}
           {branch.fssai_number && (
-            <ContactRow icon={Building2} label="FSSAI" value={branch.fssai_number} />
+            <ContactRow icon={Building2} label={labelFssai} value={branch.fssai_number} />
           )}
-          <ContactRow icon={Clock} label="Hours" value={hours} />
+          <ContactRow icon={Clock} label={labelHours} value={hours} />
         </div>
         <div className="md:col-span-3 surface-3d rounded-2xl overflow-hidden border border-border bg-card" data-testid="contact-map">
           {mapSrc ? (
@@ -190,28 +205,28 @@ export default function Contact() {
                 type="button"
                 onClick={askDirections}
                 className="absolute inset-0 z-[300] cursor-pointer bg-transparent focus:outline-none"
-                aria-label={`Get directions to ${branch.name}`}
-                data-testid="get-directions-tap"
-              />
-              <div className="absolute top-3 left-3 right-3 z-[350] flex items-center gap-2 pointer-events-none">
-                <button
-                  type="button"
-                  onClick={askDirections}
-                  className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground pl-1.5 pr-4 py-1 shadow-lg text-xs sm:text-sm font-bold hover:shadow-xl transition-shadow"
-                  data-testid="get-directions-btn"
-                >
-                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-primary">
-                    <Navigation className="h-3.5 w-3.5" />
-                  </span>
-                  Get directions
-                </button>
-                {distanceKm && (
-                  <span className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-white/95 backdrop-blur text-foreground text-[11px] sm:text-xs font-semibold px-2.5 py-1 shadow" data-testid="distance-pill">
-                    <MapPin className="h-3 w-3 text-primary" />
-                    <span className="tabular-nums">{distanceKm} km away</span>
-                  </span>
-                )}
-              </div>
+                  aria-label={`${ctaDirections} to ${branch.name}`}
+                  data-testid="get-directions-tap"
+                />
+                <div className="absolute top-3 left-3 right-3 z-[350] flex items-center gap-2 pointer-events-none">
+                  <button
+                    type="button"
+                    onClick={askDirections}
+                    className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground pl-1.5 pr-4 py-1 shadow-lg text-xs sm:text-sm font-bold hover:shadow-xl transition-shadow"
+                    data-testid="get-directions-btn"
+                  >
+                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-primary">
+                      <Navigation className="h-3.5 w-3.5" />
+                    </span>
+                    {ctaDirections}
+                  </button>
+                  {distanceKm && (
+                    <span className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-white/95 backdrop-blur text-foreground text-[11px] sm:text-xs font-semibold px-2.5 py-1 shadow" data-testid="distance-pill">
+                      <MapPin className="h-3 w-3 text-primary" />
+                      <span className="tabular-nums">{distanceKm} {distanceSuffix}</span>
+                    </span>
+                  )}
+                </div>
               <MapBrandCaption />
               <div
                 aria-hidden

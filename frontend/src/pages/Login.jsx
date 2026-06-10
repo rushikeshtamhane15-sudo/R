@@ -270,8 +270,8 @@ export default function Login() {
             chunkier border (4-px) + a much wider soft shadow puddle so the
             white card reads as a clear premium frame rather than a hairline. */}
         {c.marquee_show !== false && (
-          <div className="w-screen -mx-3 sm:-mx-6 max-w-none px-3 sm:px-6" aria-hidden data-testid="login-top-marquee">
-            <div className="login-marquee-3d bg-white rounded-lg py-0.5">
+          <div className="w-screen -mx-3 sm:-mx-6 max-w-none" aria-hidden data-testid="login-top-marquee">
+            <div className="login-marquee-3d bg-white py-0.5">
               <TrustChipsMarquee className="py-1" testid="login-trust-marquee" />
             </div>
           </div>
@@ -498,13 +498,13 @@ export default function Login() {
           </AnimatePresence>
         </div>
         </div>
-        {/* iter-74 #11 + iter-75 #4: tiny red pill teaser below the form
-            card, now FULL WIDTH with a small delivery-truck icon. Sits
-            centered, single-line, drops a subtle drop-shadow so it floats
-            against the off-white bg. */}
-        <div className="mt-6 sm:mt-8 px-3 sm:px-6" data-testid="login-tagline-pill-wrap">
+        {/* iter-81 #4: bottom red pill is now FULL-BLEED edge-to-edge on
+            mobile — matches the top marquee. No side padding, no rounded
+            corners — sits like a bottom banner so the message reads in
+            full without truncation. */}
+        <div className="mt-6 sm:mt-8 w-screen -mx-3 sm:-mx-6 max-w-none" data-testid="login-tagline-pill-wrap">
           <span
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary text-white text-[11px] sm:text-xs font-extrabold px-3 py-2 tracking-wide shadow-md text-center leading-snug"
+            className="flex w-full items-center justify-center gap-2 bg-primary text-white text-[11px] sm:text-xs font-extrabold px-4 py-2 tracking-wide shadow-md text-center leading-snug"
             data-testid="login-tagline-pill"
           >
             <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
