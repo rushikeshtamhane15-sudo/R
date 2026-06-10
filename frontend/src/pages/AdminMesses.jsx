@@ -105,13 +105,19 @@ export default function AdminMesses() {
   };
 
   // iter-90: open the page-access editor for a mess.
+  // iter-91: also load metric-section toggles so both can be saved together.
   const openPagesEditor = async (m) => {
     try {
-      const r = await api.get(`/admin/messes/${m.mess_id}/franchise-pages`);
+      const [pagesR, sectionsR] = await Promise.all([
+        api.get(`/admin/messes/${m.mess_id}/franchise-pages`),
+        api.get(`/admin/messes/${m.mess_id}/franchise-sections`),
+      ]);
       setPagesEditor({
         mess: m,
-        catalog: r.data?.catalog || [],
-        allowed: new Set(r.data?.visible_pages || []),
+        catalog: pagesR.data?.catalog || [],
+        allowed: new Set(pagesR.data?.visible_pages || []),
+        sectionsCatalog: sectionsR.data?.catalog || [],
+        allowedSections: new Set(sectionsR.data?.visible_sections || []),
       });
     } catch (e) { toast.error(e?.response?.data?.detail || "Could not load page list"); }
   };
@@ -125,18 +131,36 @@ export default function AdminMesses() {
     });
   };
 
+  const toggleSection = (key) => {
+    setPagesEditor((p) => {
+      if (!p) return p;
+      const next = new Set(p.allowedSections);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return { ...p, allowedSections: next };
+    });
+  };
+
   const setAllPages = (on) => {
     setPagesEditor((p) => p ? { ...p, allowed: on ? new Set(p.catalog.map((c) => c.key)) : new Set() } : p);
+  };
+
+  const setAllSections = (on) => {
+    setPagesEditor((p) => p ? { ...p, allowedSections: on ? new Set(p.sectionsCatalog.map((c) => c.key)) : new Set() } : p);
   };
 
   const savePages = async () => {
     if (!pagesEditor) return;
     setPagesSaving(true);
     try {
-      await api.patch(`/admin/messes/${pagesEditor.mess.mess_id}/franchise-pages`, {
-        visible_pages: Array.from(pagesEditor.allowed),
-      });
-      toast.success("Page access updated");
+      await Promise.all([
+        api.patch(`/admin/messes/${pagesEditor.mess.mess_id}/franchise-pages`, {
+          visible_pages: Array.from(pagesEditor.allowed),
+        }),
+        api.patch(`/admin/messes/${pagesEditor.mess.mess_id}/franchise-sections`, {
+          visible_sections: Array.from(pagesEditor.allowedSections),
+        }),
+      ]);
+      toast.success("Franchise access updated");
       setPagesEditor(null);
     } catch (e) { toast.error(e?.response?.data?.detail || "Save failed"); }
     finally { setPagesSaving(false); }
@@ -257,34 +281,66 @@ export default function AdminMesses() {
               </button>
             </div>
             <div className="px-5 py-3 border-b border-border flex items-center gap-2 text-xs">
+              <span className="font-bold text-foreground/80 mr-1">Admin pages</span>
               <button onClick={() => setAllPages(true)} className="rounded-full px-3 py-1 bg-muted hover:bg-accent font-semibold" data-testid="franchise-pages-all">Select all</button>
               <button onClick={() => setAllPages(false)} className="rounded-full px-3 py-1 bg-muted hover:bg-accent font-semibold" data-testid="franchise-pages-none">Clear</button>
-              <span className="ml-auto text-muted-foreground">{pagesEditor.allowed.size} / {pagesEditor.catalog.length} selected</span>
+              <span className="ml-auto text-muted-foreground">{pagesEditor.allowed.size} / {pagesEditor.catalog.length}</span>
             </div>
-            <div className="overflow-y-auto p-3 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-              {pagesEditor.catalog.map((p) => {
-                const on = pagesEditor.allowed.has(p.key);
-                return (
-                  <label key={p.key} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer transition-colors ${on ? "bg-primary/10 text-foreground" : "bg-muted/30 hover:bg-accent text-foreground"}`} data-testid={`franchise-page-row-${p.key.replace(/\//g, "-")}`}>
-                    <input
-                      type="checkbox"
-                      checked={on}
-                      onChange={() => togglePage(p.key)}
-                      className="h-4 w-4 accent-primary"
-                      data-testid={`franchise-page-cb-${p.key.replace(/\//g, "-")}`}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate">{p.label}</p>
-                      <p className="text-[11px] text-muted-foreground truncate">{p.key}</p>
-                    </div>
-                  </label>
-                );
-              })}
+            <div className="overflow-y-auto flex-1 min-h-0">
+              <div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                {pagesEditor.catalog.map((p) => {
+                  const on = pagesEditor.allowed.has(p.key);
+                  return (
+                    <label key={p.key} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer transition-colors ${on ? "bg-primary/10 text-foreground" : "bg-muted/30 hover:bg-accent text-foreground"}`} data-testid={`franchise-page-row-${p.key.replace(/\//g, "-")}`}>
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        onChange={() => togglePage(p.key)}
+                        className="h-4 w-4 accent-primary"
+                        data-testid={`franchise-page-cb-${p.key.replace(/\//g, "-")}`}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate">{p.label}</p>
+                        <p className="text-[11px] text-muted-foreground truncate">{p.key}</p>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+
+              {/* iter-91: Franchise Console metrics — same modal, second group */}
+              <div className="px-5 py-3 border-t border-border flex items-center gap-2 text-xs">
+                <span className="font-bold text-foreground/80 mr-1">Console metrics</span>
+                <button onClick={() => setAllSections(true)} className="rounded-full px-3 py-1 bg-muted hover:bg-accent font-semibold" data-testid="franchise-sections-all">Select all</button>
+                <button onClick={() => setAllSections(false)} className="rounded-full px-3 py-1 bg-muted hover:bg-accent font-semibold" data-testid="franchise-sections-none">Clear</button>
+                <span className="ml-auto text-muted-foreground">{pagesEditor.allowedSections.size} / {pagesEditor.sectionsCatalog.length}</span>
+              </div>
+              <p className="px-5 -mt-1 text-[11px] text-muted-foreground">Tiles shown on the franchise Mess Metrics dashboard.</p>
+              <div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                {pagesEditor.sectionsCatalog.map((s) => {
+                  const on = pagesEditor.allowedSections.has(s.key);
+                  return (
+                    <label key={s.key} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer transition-colors ${on ? "bg-primary/10 text-foreground" : "bg-muted/30 hover:bg-accent text-foreground"}`} data-testid={`franchise-section-row-${s.key}`}>
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        onChange={() => toggleSection(s.key)}
+                        className="h-4 w-4 accent-primary"
+                        data-testid={`franchise-section-cb-${s.key}`}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate">{s.label}</p>
+                        <p className="text-[11px] text-muted-foreground truncate">{s.key}</p>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
             </div>
             <div className="p-4 border-t border-border flex items-center gap-2 justify-end">
               <Button onClick={() => setPagesEditor(null)} variant="ghost" className="rounded-full" disabled={pagesSaving}>Cancel</Button>
               <Button onClick={savePages} disabled={pagesSaving} className="rounded-full bg-primary" data-testid="franchise-pages-save">
-                {pagesSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null} Save page access
+                {pagesSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null} Save franchise access
               </Button>
             </div>
           </div>

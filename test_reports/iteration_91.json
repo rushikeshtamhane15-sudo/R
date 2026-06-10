@@ -1,0 +1,34 @@
+{
+  "summary": "iter-91 full verification — Backend (new GET /admin/messes/{id}/franchise-sections + existing PATCH + /franchise/me/visible-sections) and Frontend (AdminMesses dual-group modal, FranchisePortal section filter, AdminMessMetrics admin view unaffected). 10/10 iter-91 pytest pass + 13/13 iter-90 regression pass. UI verified end-to-end: Pages button opens single modal with both groups (21 admin-pages + 6 console-metrics) each with their own Select-all/Clear buttons. Save fires TWO parallel PATCH requests (/franchise-pages and /franchise-sections), shows ONE 'Franchise access updated' toast, modal closes. Franchise owner at /franchise sees exactly the 4 unchecked-aware tiles (revenue_sub + capacity hidden as expected). Admin view at /admin/messes/efoodcare-amravati/metrics always shows all 6 tiles (no regression). State restored to franchise_visible_sections=null, franchise_visible_pages=null, owner_user_id=user_bb39434e1a5c.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter91_franchise_sections.py",
+    "/app/test_reports/pytest/iter91_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py:3408 — /franchise/me/visible-sections uses `if not sections` (truthy), so an empty list [] (admin explicitly unchecks ALL) falls back to ALL 6. Compare with FRANCHISE_PAGES handler (server.py for visible-pages) which uses `sections is None`. Inconsistency: with pages, admin can truly hide everything; with sections an empty list silently shows all. Consider `if sections is None` for parity. (Low risk in practice since the UI never sends [].)",
+    "server.py:3381 — GET franchise-sections returns `visible_sections: list(FRANCHISE_SECTIONS)` (a copy) on null; good — no shared-list mutation risk.",
+    "AdminMesses.jsx:163 — toast.success fires even if one of the two Promise.all PATCHes succeeds and the other fails before being awaited? Actually Promise.all rejects fast on first failure, so the catch branch handles it. Confirmed: catch shows the failed-call's `.response.data.detail` toast. OK as-is.",
+    "AdminMessMetrics.jsx:106 — `const showAll = !visibleSections` means while the franchise visible-sections fetch is in-flight (state still null), showAll is true so all 6 tiles render → then the API resolves and 2 tiles disappear. Minor flicker but acceptable since the API is fast.",
+    "AdminMesses.jsx:115-121 — openPagesEditor uses Promise.all without per-call error isolation: if either GET fails, the whole modal fails to open. Consider Promise.allSettled so the modal still opens with whatever did load (and per-group inline error)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter91_franchise_sections.py"
+  ],
+  "success_rate": {
+    "backend": "100% (10/10 iter-91 + 13/13 iter-90 regression)",
+    "frontend": "100% (modal renders two groups with correct testids + 21 page CBs + 6 section CBs + 2 parallel PATCHes + single toast + modal closes; franchise portal renders exactly 4 tiles when 2 hidden; admin metrics view always shows 6)"
+  },
+  "test_credentials": "Backend pytest seeded ephemeral TEST_IT91_admin_* and TEST_IT91_fr_* users/sessions directly in Mongo (avoiding OTP rate-limit). UI tests used cookie sessions TEST_UI91_admin_sess_* (admin) and TEST_UI91_fr_sess_* (franchise_owner) — all deleted post-run.",
+  "seed_data_creation": "All TEST_UI91_* and TEST_IT91_* users + sessions deleted. mess efoodcare-amravati restored: owner_user_id=user_bb39434e1a5c, franchise_visible_pages=null, franchise_visible_sections=null (defaults to all 6 visible).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Reusable: /app/backend/tests/test_iter91_franchise_sections.py — 10 tests across 4 classes (TestGetFranchiseSections, TestPatchFranchiseSections, TestMyVisibleSections, TestZRestore). Module-scope fixtures seed admin + franchise_owner directly in Mongo. Mirrors iter90 pattern. For UI: Pages button testid is `mess-pages-{slug}` (not in the modal); section CBs are `franchise-section-cb-{key}` for keys subscribers/revenue_sub/revenue_ord/checkins/capacity/utilization; per-group selectors `franchise-pages-all/none` + `franchise-sections-all/none`; single save `franchise-pages-save`. FranchisePortal route is /franchise (not /franchise/me/metrics — code shows it's mounted at /franchise in App.js).",
+  "rca of the issue": "No production bugs found. New GET /admin/messes/{id}/franchise-sections returns {visible_sections, catalog} of 6 entries with proper auth gating (401 unauth, 403 non-admin, 404 unknown mess). PATCH still rejects invalid keys with 400. Frontend AdminMesses.openPagesEditor parallel-loads both endpoints; modal renders two groups with their own bulk-toggle buttons; savePages does Promise.all of 2 PATCH calls and shows ONE success toast on resolution. FranchisePortal at /franchise loads /franchise/me/visible-sections and conditionally renders tiles via show(key). AdminMessMetrics (admin view) passes visibleSections=undefined → showAll=true → renders all 6 tiles. Only minor concern: empty-list semantics in /franchise/me/visible-sections (uses `if not sections` instead of `is None`) — code review note added."
+}

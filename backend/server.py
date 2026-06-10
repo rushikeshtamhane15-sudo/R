@@ -3319,6 +3319,17 @@ async def admin_adjust_wallet(user_id: str, payload: WalletAdjustIn, actor: User
 
 FRANCHISE_SECTIONS = ["subscribers", "revenue_sub", "revenue_ord", "checkins", "capacity", "utilization"]
 
+# iter-91: human-friendly labels for the metric sections — mirrored in the
+# admin Pages modal so HQ can flip them on/off per branch.
+FRANCHISE_SECTIONS_CATALOG = [
+    {"key": "subscribers",  "label": "Active subscribers"},
+    {"key": "revenue_sub",  "label": "Subscription revenue"},
+    {"key": "revenue_ord",  "label": "Restaurant revenue"},
+    {"key": "checkins",     "label": "QR check-ins"},
+    {"key": "capacity",     "label": "Daily capacity"},
+    {"key": "utilization",  "label": "Kitchen utilization"},
+]
+
 # iter-90: list of admin nav pages a franchise owner can be granted per-mess.
 # Keep in sync with AdminLayout.jsx FRANCHISE_VIEW items.
 FRANCHISE_PAGES = [
@@ -3353,6 +3364,21 @@ class FranchiseSectionsIn(BaseModel):
 
 class FranchisePagesIn(BaseModel):
     visible_pages: List[str]
+
+
+@api_router.get("/admin/messes/{mess_id}/franchise-sections")
+async def admin_get_franchise_sections(mess_id: str, user: User = Depends(get_current_user)):
+    """iter-91: GET counterpart of the franchise-sections PATCH so the admin
+    UI can prefill the metric checkboxes. Null in db ⇒ all sections visible."""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    mess = await db.messes.find_one({"mess_id": mess_id}, {"_id": 0, "franchise_visible_sections": 1})
+    if not mess:
+        raise HTTPException(status_code=404, detail="Mess not found")
+    sections = mess.get("franchise_visible_sections")
+    if sections is None:
+        sections = list(FRANCHISE_SECTIONS)
+    return {"visible_sections": sections, "catalog": FRANCHISE_SECTIONS_CATALOG}
 
 
 @api_router.patch("/admin/messes/{mess_id}/franchise-sections")

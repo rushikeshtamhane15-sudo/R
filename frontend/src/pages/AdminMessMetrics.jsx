@@ -87,7 +87,7 @@ function MetricCard({ icon: Icon, label, value, sub, accent = "primary", testId,
   );
 }
 
-function MetricsBody({ source, headerExtra }) {
+function MetricsBody({ source, headerExtra, visibleSections }) {
   const [days, setDays] = useState(30);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -101,6 +101,10 @@ function MetricsBody({ source, headerExtra }) {
     finally { setLoading(false); }
   }, [source.url, days]);
   useEffect(() => { load(); }, [load]);
+
+  // iter-91: per-mess franchise visibility — null = show everything (admin view).
+  const showAll = !visibleSections;
+  const show = (key) => showAll || visibleSections.includes(key);
 
   return (
     <div data-testid={source.testIdRoot}>
@@ -124,12 +128,24 @@ function MetricsBody({ source, headerExtra }) {
       ) : !data ? null : (
         <>
           <div className="mt-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-            <MetricCard testId="metric-subscribers"  icon={Users}        label="Active subscribers" value={data.subscribers_active}  sub={`${data.subscribers_total} all-time`} accent="primary" />
-            <MetricCard testId="metric-revenue-sub"  icon={IndianRupee}  label="Subscription revenue (active)" value={`₹${data.subscription_revenue_active.toLocaleString("en-IN")}`} sub={`New signups · last ${data.window_days}d`} accent="emerald" spark={data.subscription_revenue_series} />
-            <MetricCard testId="metric-revenue-ord"  icon={ShoppingCart} label={`Order revenue · ${data.window_days}d`} value={`₹${data.order_revenue_window.toLocaleString("en-IN")}`} sub={`${data.order_count_window} orders`} accent="amber" spark={data.order_revenue_series} />
-            <MetricCard testId="metric-checkins"     icon={ScanLine}     label={`QR check-ins · ${data.window_days}d`} value={data.checkins_window} sub={`${data.checkins_per_day_avg} / day average`} accent="blue" spark={data.checkins_per_day_series} />
-            <MetricCard testId="metric-capacity"     icon={Activity}     label="Daily capacity" value={data.capacity_daily} sub={`Lunch+Dinner combined`} accent="fuchsia" />
-            <MetricCard testId="metric-utilization"  icon={TrendingUp}   label="Kitchen utilization" value={`${data.utilization_pct}%`} sub={`Check-ins / (capacity × ${data.window_days} days)`} accent="emerald" />
+            {show("subscribers") && (
+              <MetricCard testId="metric-subscribers"  icon={Users}        label="Active subscribers" value={data.subscribers_active}  sub={`${data.subscribers_total} all-time`} accent="primary" />
+            )}
+            {show("revenue_sub") && (
+              <MetricCard testId="metric-revenue-sub"  icon={IndianRupee}  label="Subscription revenue (active)" value={`₹${data.subscription_revenue_active.toLocaleString("en-IN")}`} sub={`New signups · last ${data.window_days}d`} accent="emerald" spark={data.subscription_revenue_series} />
+            )}
+            {show("revenue_ord") && (
+              <MetricCard testId="metric-revenue-ord"  icon={ShoppingCart} label={`Order revenue · ${data.window_days}d`} value={`₹${data.order_revenue_window.toLocaleString("en-IN")}`} sub={`${data.order_count_window} orders`} accent="amber" spark={data.order_revenue_series} />
+            )}
+            {show("checkins") && (
+              <MetricCard testId="metric-checkins"     icon={ScanLine}     label={`QR check-ins · ${data.window_days}d`} value={data.checkins_window} sub={`${data.checkins_per_day_avg} / day average`} accent="blue" spark={data.checkins_per_day_series} />
+            )}
+            {show("capacity") && (
+              <MetricCard testId="metric-capacity"     icon={Activity}     label="Daily capacity" value={data.capacity_daily} sub={`Lunch+Dinner combined`} accent="fuchsia" />
+            )}
+            {show("utilization") && (
+              <MetricCard testId="metric-utilization"  icon={TrendingUp}   label="Kitchen utilization" value={`${data.utilization_pct}%`} sub={`Check-ins / (capacity × ${data.window_days} days)`} accent="emerald" />
+            )}
           </div>
           {/* iter-79 Batch C #8: total daily revenue trend (orders + subscriptions) */}
           {data.total_revenue_series && data.total_revenue_series.length > 0 && (
@@ -172,12 +188,27 @@ export function AdminMessMetrics() {
 }
 
 export function FranchisePortal() {
+  // iter-91: respect per-mess section visibility set by HQ admin.
+  const [visibleSections, setVisibleSections] = useState(null);
+  useEffect(() => {
+    let mounted = true;
+    const fetchSections = async () => {
+      try {
+        const r = await api.get("/franchise/me/visible-sections");
+        if (mounted) setVisibleSections(r.data?.visible_sections || []);
+      } catch (_e) { if (mounted) setVisibleSections(null); /* fail-open: show all */ }
+    };
+    fetchSections();
+    return () => { mounted = false; };
+  }, []);
+
   return (
     <div className="min-h-[calc(100vh-72px)] bg-background">
       <div className="max-w-6xl mx-auto px-5 md:px-8 py-8">
         <p className="text-xs tracking-overline uppercase font-bold text-secondary">Franchise portal · efoodcare</p>
         <MetricsBody
           source={{ url: "/franchise/me/metrics", testIdRoot: "franchise-portal" }}
+          visibleSections={visibleSections}
         />
       </div>
     </div>
