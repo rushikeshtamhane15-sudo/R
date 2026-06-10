@@ -230,7 +230,7 @@ PENDING_DEPOSIT_THRESHOLD = 10_000
 
 @router.get("/admin/notifications/bank-deposit")
 async def bank_deposit_notice(user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
     # Compute current pending total
     pend_pipe = [

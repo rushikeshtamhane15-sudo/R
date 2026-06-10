@@ -1,0 +1,33 @@
+{
+  "summary": "iter-93 verified end-to-end. Backend: new pytest suite test_iter93_franchise_ops.py = 34/34 PASS covering all franchise_owner role-grant endpoints (raw-materials GET/PUT, stock-topup POST, tiffin-stock, payments cash-totals/cash-pending-deposit/mark-deposited, kitchen-settings GET/PUT, kitchen recent + reconcile, kitchen close-out GET/POST, refunds list, mess metrics, counter QR, attendance scan, mess-menu calendar POST/DELETE, notifications/bank-deposit) all return non-403 for franchise_owner. Subscriber regression: 7/7 still 403. Admin regression: 7/7 still 200. iter-92 suite still 19/19 PASS. Total 53/53 backend tests green. Frontend (Playwright at 412px mobile and 1280px desktop): Today's Mess Menu now renders two distinct ring-cards — amber Lunch with '12 – 3 PM' chip + blue Dinner with '7 – 10 PM' chip, items in `grid-cols-2 sm:grid-cols-3` consistent layout, data-testids `mess-lunch-col` + `mess-dinner-col` present with item children. 'Order this menu' button visible, today/tomorrow toggle works without errors. Visual screenshots confirm pro polish — ringed cards, service-time labels right-aligned, uniform 2/3-col grid replacing the previous wrap-jumble.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter93_franchise_ops.py",
+    "/app/test_reports/pytest/iter93_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Spec listed `GET /api/admin/bank/deposits` but no such route exists in the codebase. The actual bank-deposit related endpoints are `/admin/bank-account` (admin CMS, intentionally admin-only) and `/admin/notifications/bank-deposit` (notification banner, now franchise-accessible). Tested the latter — passes. Suggest E1 confirm whether the spec meant the notifications endpoint or whether a `/admin/bank/deposits` listing endpoint is expected to exist.",
+    "Most GET endpoints under `/api/admin/payments/*`, `/api/admin/kitchen*`, `/api/admin/raw-materials`, `/api/admin/tiffin-stock`, `/api/admin/refunds`, `/api/admin/messes/{id}/metrics` correctly include `franchise_owner` in their role gate. PUT/POST write endpoints (stock-topup, mark-deposited, kitchen-settings PUT, mess-menu calendar POST/DELETE, close-out POST, attendance/scan) also correctly return non-403 for FR. Good consistency.",
+    "Per the iter-93 scope note: these endpoints are NOT branch-scoped yet — only the 200 vs 403 gate is in place. FR_A can currently call these endpoints with their session and act globally where data permits. Consider follow-up iter to branch-scope writes (raw-materials/cash/kitchen-settings) by mess_id to prevent one franchise from mutating another franchise's data.",
+    "TodayMessMenuFlash.jsx 360-423: clean, accessible ring-card layout with `data-testid` preserved on both `mess-lunch-col` and `mess-dinner-col`. `grid-cols-2 sm:grid-cols-3` Tailwind classes correctly drive responsive 2/3-col item alignment. `Sun`/`Moon` icons in amber/blue tints, service-window pills ('12 – 3 pm', '7 – 10 pm') sit on the right of each header. 'Off today' fallback path retained for missing meals. No design issues."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter93_franchise_ops.py"
+  ],
+  "success_rate": {
+    "backend": "100% (34/34 iter-93 + 19/19 iter-92 regression = 53/53)",
+    "frontend": "100% (lunch+dinner ringed cards, service-time chips, 2/3-col grid, testids present, order CTA + tomorrow toggle working)"
+  },
+  "test_credentials": "Backend pytest seeded ephemeral TEST_IT93_admin_*, TEST_IT93_franchise_owner_*, TEST_IT93_subscriber_* directly in Mongo. FR set as owner_user_id of efoodcare-amravati during the test then restored to user_bb39434e1a5c on teardown.",
+  "seed_data_creation": "All TEST_IT93_* artefacts deleted after run; efoodcare-amravati owner_user_id restored to user_bb39434e1a5c. No persistent state changes.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Reusable: /app/backend/tests/test_iter93_franchise_ops.py — 34 tests in 3 classes (TestFranchiseAccess200 with parametrize across read endpoints + individual POST/PUT/DELETE; TestSubscriber403 regression; TestAdmin200 regression). Module-scope `world` fixture seeds admin + franchise_owner + subscriber sessions, sets FR as owner of efoodcare-amravati, then restores on teardown. The spec's `/admin/bank/deposits` endpoint does NOT exist — `/admin/notifications/bank-deposit` is what's actually accessible. iter-93 is NOT branch-scoping these endpoints — only the role gate was widened. UI: `mess-lunch-col` / `mess-dinner-col` testids are stable handles for the ring cards; both contain a `ul.grid-cols-2.sm:grid-cols-3` when items exist, or an italic 'Off today' span when the meal is missing.",
+  "rca of the issue": "No production bugs. Both iter-93 deliverables verified: (a) franchise_owner role-grant expansion is correctly applied across all listed operational endpoints (read + write); (b) Today's Mess Menu visual polish — Lunch/Dinner ring-cards with service-time chips and uniform 2/3-col item grid — is rendering exactly as specified at both mobile (412px → 2 cols) and desktop (1280px → 3 cols) viewports."
+}

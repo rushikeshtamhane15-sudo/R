@@ -265,7 +265,7 @@ async def cash_assign(payload: AssignStaffIn, user: server.User = Depends(server
     staff = await server.db.users.find_one({"user_id": payload.staff_user_id}, {"_id": 0, "name": 1, "phone": 1, "role": 1})
     if not staff:
         raise HTTPException(status_code=404, detail="Staff not found")
-    if staff.get("role") not in ("admin", "staff"):
+    if staff.get("role") not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=400, detail="Assignee must be admin or staff")
     r = await server.db.payment_orders.update_one(
         {"order_id": payload.order_id, "status": "pending_cash"},
@@ -282,7 +282,7 @@ async def cash_assign(payload: AssignStaffIn, user: server.User = Depends(server
 
 @router.post("/admin/payments/cash-collect/resend-otp")
 async def cash_resend_otp(order_id: str = Body(..., embed=True), user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
     order = await server.db.payment_orders.find_one({"order_id": order_id}, {"_id": 0})
     if not order:
@@ -326,7 +326,7 @@ async def cancel_my_cash_order(order_id: str = Body(..., embed=True), user: serv
 
 @router.post("/staff/cash-collect/verify-otp")
 async def cash_verify_otp(payload: VerifyCashOtpIn, user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
     order = await server.db.payment_orders.find_one({"order_id": payload.order_id}, {"_id": 0})
     if not order:
@@ -510,7 +510,7 @@ async def clear_partial_balance(sub_id: str = Body(..., embed=True), amount: flo
 # ---------------------------------------------------------------------------
 @router.get("/admin/payments/pending-cash")
 async def admin_pending_cash(user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
     rows = await server.db.payment_orders.find(
         {"status": "pending_cash"}, {"_id": 0, "cash_otp": 0},  # never expose OTP server-side
@@ -528,7 +528,7 @@ async def admin_pending_cash(user: server.User = Depends(server.get_current_user
 
 @router.get("/admin/payments/pending-partials")
 async def admin_pending_partials(user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
     subs = await server.db.subscriptions.find(
         {"pending_amount": {"$gt": 0}}, {"_id": 0},

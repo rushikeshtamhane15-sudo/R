@@ -114,7 +114,7 @@ async def _maybe_raise_alert(date_str: str, payload: dict, recon: dict, actor_id
 
 @router.post("/kitchen/close-out")
 async def submit_close_out(payload: CloseOutIn, user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Kitchen / admin only")
     recon = await _reconcile(payload.date, payload.tiffins_dispatched)
     doc = {
@@ -136,7 +136,7 @@ async def submit_close_out(payload: CloseOutIn, user: server.User = Depends(serv
 
 @router.get("/kitchen/close-out")
 async def get_close_out(date: str = Query(...), user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Kitchen / admin only")
     doc = await server.db.kitchen_closeouts.find_one({"date": date}, {"_id": 0})
     if not doc:
@@ -148,8 +148,8 @@ async def get_close_out(date: str = Query(...), user: server.User = Depends(serv
 
 @router.get("/admin/kitchen/recent")
 async def admin_kitchen_recent(days: int = Query(14, ge=1, le=90), user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
+    if user.role not in ("admin", "staff", "franchise_owner"):
+        raise HTTPException(status_code=403, detail="Admin or staff only")
     today = server.now_utc().date()
     items = []
     for i in range(days):
@@ -165,6 +165,6 @@ async def admin_kitchen_recent(days: int = Query(14, ge=1, le=90), user: server.
 
 @router.get("/admin/kitchen/reconcile")
 async def admin_live_reconcile(date: str = Query(...), tiffins: int = Query(0, ge=0), user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
+    if user.role not in ("admin", "staff", "franchise_owner"):
+        raise HTTPException(status_code=403, detail="Admin or staff only")
     return {"date": date, **(await _reconcile(date, tiffins))}

@@ -340,7 +340,7 @@ async def kiosk_place_order(payload: KioskOrderIn, user: server.User = Depends(s
     cash / online (Paytm Dynamic QR) / mixed split-payments. Online portion
     is collected by flashing a UPI Dynamic QR pointing at the merchant VPA.
     """
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin or staff only")
     if payload.service not in {"takeaway", "dining"}:
         raise HTTPException(status_code=400, detail="Wall-kiosk supports takeaway/dining only")
@@ -482,7 +482,7 @@ async def kiosk_confirm_payment(payload: KioskPaymentConfirmIn, user: server.Use
     mixed payment are settled, the order transitions to pending_collection
     so the auto-print + counter check-in can proceed normally.
     """
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin or staff only")
     doc = await server.db.mess_menu_orders.find_one({"order_id": payload.order_id})
     if not doc:
@@ -638,7 +638,7 @@ async def kiosk_poll_payment_status(order_id: str, user: server.User = Depends(s
     Auto-marks online_paid=true on match so staff don't need to tap "Mark
     paid" manually.
     """
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
     doc = await server.db.mess_menu_orders.find_one({"order_id": order_id})
     if not doc:

@@ -26,7 +26,7 @@ def _ist_now() -> datetime:
 # ---------------------------------------------------------------------------
 @router.get("/admin/payments/cash-totals")
 async def cash_totals(user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
     now = _ist_now()
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -71,7 +71,7 @@ async def cash_totals(user: server.User = Depends(server.get_current_user)):
 @router.get("/admin/payments/cash-pending-deposit")
 async def cash_pending_deposit(user: server.User = Depends(server.get_current_user)):
     """List collected cash orders that haven't been marked as deposited yet."""
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
     rows = await server.db.payment_orders.find(
         {"status": "paid", "payment_mode": "cash", "deposited_to_bank": {"$ne": True}},
@@ -121,7 +121,7 @@ class KitchenSettingsIn(BaseModel):
 
 @router.get("/admin/kitchen-settings")
 async def get_kitchen(user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
     doc = await server.db.delivery_settings.find_one({"_id": "active"}, {"_id": 0}) or {}
     return {

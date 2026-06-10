@@ -1875,7 +1875,7 @@ async def _mess_metrics(mess_id: str, days: int = 30):
 
 @api_router.get("/admin/messes/{mess_id}/metrics")
 async def admin_mess_metrics(mess_id: str, days: int = 30, user: User = Depends(get_current_user)):
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
     days = max(1, min(int(days or 30), 365))
     return await _mess_metrics(mess_id, days)
@@ -2026,7 +2026,7 @@ async def _mark_attendance(target_user: dict, meal_type: str, marked_by: str, me
 
 @api_router.post("/attendance/scan")
 async def staff_scan(payload: StaffScanRequest, user: User = Depends(get_current_user)):
-    if user.role not in ("staff", "admin"):
+    if user.role not in ("staff", "admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Staff/Admin only")
     token = (payload.qr_token or "").strip()
 
@@ -2146,7 +2146,7 @@ async def self_scan(payload: SelfScanRequest, user: User = Depends(get_current_u
 
 @api_router.get("/counter/qr")
 async def counter_qr(meal: str = "lunch", location: str = "main", user: User = Depends(get_current_user)):
-    if user.role not in ("staff", "admin"):
+    if user.role not in ("staff", "admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Staff/Admin only")
     if meal not in ("lunch", "dinner"):
         raise HTTPException(status_code=400, detail="meal must be lunch or dinner")
@@ -2643,7 +2643,7 @@ async def _count_active_persons() -> dict:
 
 
 def _admin_or_staff(user: User):
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin or staff only")
 
 
@@ -2817,7 +2817,7 @@ class RawMaterialStockTopup(BaseModel):
 @api_router.put("/admin/raw-materials")
 async def update_raw_materials(payload: RawMaterialPatch, user: User = Depends(get_current_user)):
     # Admin + staff can both edit/add rows. Staff frequently knows current market rates.
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin or staff only")
     items = [i.dict(exclude_none=True) for i in payload.items]
     if not items:
@@ -2836,7 +2836,7 @@ async def update_raw_materials(payload: RawMaterialPatch, user: User = Depends(g
 async def topup_raw_materials_stock(payload: RawMaterialStockTopup, user: User = Depends(get_current_user)):
     """Admin/staff add a partial or full month's stock for a single item.
     Resets the consumption clock to now."""
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin or staff only")
     items = await _load_raw_materials()
     found = False
@@ -3188,7 +3188,7 @@ async def user_request_refund(payload: RefundRequestIn, user: User = Depends(get
 
 @api_router.get("/admin/refunds")
 async def admin_list_refunds(status: str = "pending", user: User = Depends(get_current_user)):
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
     cur = db.refund_requests.find({"status": status} if status != "all" else {}, {"_id": 0}).sort("created_at", -1)
     items = await cur.to_list(500)
