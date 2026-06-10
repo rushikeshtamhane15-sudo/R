@@ -90,9 +90,10 @@ export default function ServiceabilityPill() {
     return () => { done = true; };
   }, [retryNonce, user]);
 
-  // iter-83 #2: zero top padding so the location pill sits flush against
-  // the kitchen-closed chip above it — combined they read as one status strip.
-  const wrap = "w-full px-2 pt-1";
+  // iter-83 #2 / iter-84 #3: zero outer padding + rectangular inner pill so
+  // the location strip is TRUE edge-to-edge full bleed, matching the
+  // amber kitchen chip directly above it.
+  const wrap = "w-full";
 
   if (state === "detecting") {
     return (
@@ -144,7 +145,7 @@ export default function ServiceabilityPill() {
   return (
     <div className={wrap} data-testid={isIn ? "serviceability-pill-in-range" : "serviceability-pill-out-of-range"}>
       <div
-        className="relative w-full flex items-center gap-1.5 px-2 py-[3px] rounded-lg overflow-hidden text-white"
+        className="relative w-full flex items-center gap-1.5 px-3 sm:px-4 py-1 overflow-hidden text-white"
         style={{ background: gradient, boxShadow: shadow }}
       >
         <span aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.06] bg-[linear-gradient(transparent_50%,_rgba(255,255,255,1)_50%)] bg-[length:100%_3px]" />

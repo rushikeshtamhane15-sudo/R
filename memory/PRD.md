@@ -1762,3 +1762,29 @@ User-reported batch of 4 polish issues — all shipped and smoke-tested:
 
 **Production deployment note**: Preview only. Click **Deploy** in Emergent dashboard to push to `efoodcare.in`.
 
+
+
+### Iteration 84 — Pixel-polish: home hero nudge + login marquee compact + 3D pill sweep + status strip full-bleed (Feb 10, 2026)
+
+#### #1 Home hero rhythm
+- `pages/Landing.jsx`: subtitle margin `mt-8 sm:mt-10` → `mt-5 sm:mt-7` (up ~12 px) and CTA group `mt-7 sm:mt-8` → `mt-10 sm:mt-12` (down ~12 px). Clearer visual breathing room around the headline and the "Get your e-Meal Pass" button.
+
+#### #2 Login marquee compact + bottom pill 3D sweep
+- `components/TrustChipsMarquee.jsx`: added optional `compact` prop that swaps chip class to `text-[8.5px] sm:text-[9.5px] px-2 py-0.5` (was `text-[10px] sm:text-[11px] px-2.5 py-1`). Default chip styling unchanged so other pages (e.g. Restaurant) are unaffected.
+- `pages/Login.jsx`: `<TrustChipsMarquee compact />` on the top login marquee.
+- `App.css`: new `.login-bottom-pill-3d` class applying the same `pure-veg-sweep` glint animation that the top marquee uses — soft white 14 % gradient sliding left → right every 6 s across the bottom red pill. Both edge-to-edge banners now share the same brand polish-glint motion.
+- `pages/Login.jsx`: bottom pill wrapper picks up the new class.
+
+#### #3 Kitchen chip + location pill TRUE full-bleed
+- `components/ServiceabilityPill.jsx`:
+  - Outer `wrap` simplified from `w-full px-2 pt-1` → `w-full` (removed both side padding and top padding).
+  - Inner pill changed from `px-2 py-[3px] rounded-lg` → `px-3 sm:px-4 py-1` (rectangular, no rounded corners). The pill is now truly edge-to-edge with comfortable inner padding for the marquee ticker.
+- Net effect: amber kitchen chip + green/orange location pill now form one continuous rectangular status strip flush against the viewport edges — no rounded corners "cutting" content as the user reported. Loading and permission-needed states still render as standalone rounded cards (those are not full-bleed by design).
+
+**Smoke-tested (preview, 390×844)**:
+- `/restaurant`: status strip = `Kitchen opens in 0m · Daily 10:00–22:00 [Info]` (amber, rectangular, edge-to-edge) stacked directly above `OUTSIDE DELIVERY ZONE · 485.4 km away…` (orange, rectangular, edge-to-edge) ✅
+- `/login`: marquee chips noticeably smaller hairline ribbon; bottom red pill shows a subtle white glint sweeping across every 6 s ✅
+- `/home`: subtitle 12 px closer to H1, CTA 12 px lower — better rhythm ✅
+
+**Production deployment note**: Preview only. Click **Deploy** in Emergent dashboard to push to `efoodcare.in`.
+

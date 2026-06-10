@@ -18,14 +18,19 @@ const TRUST_CHIPS = [
   "No Pre Made Gravy",
 ];
 
-export default function TrustChipsMarquee({ className = "", testid = "trust-chips" }) {
+export default function TrustChipsMarquee({ className = "", testid = "trust-chips", compact = false }) {
+  // iter-84 #2: `compact` slims the chip font/padding for use on the login
+  // page where the marquee should read as a slim hairline ribbon.
+  const chipCls = compact
+    ? "flex-shrink-0 text-[8.5px] sm:text-[9.5px] font-extrabold uppercase tracking-wide rounded-full px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 whitespace-nowrap dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900/40"
+    : "flex-shrink-0 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wide rounded-full px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 whitespace-nowrap dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900/40";
   return (
     <section className={`overflow-hidden ${className}`} data-testid={testid}>
       <div className="flex items-center gap-2 animate-trust-marquee py-1" style={{ width: "max-content" }}>
         {[...TRUST_CHIPS, ...TRUST_CHIPS].map((label, i) => (
           <span
             key={`${label}-${i}`}
-            className="flex-shrink-0 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wide rounded-full px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 whitespace-nowrap dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900/40"
+            className={chipCls}
             data-testid={i < TRUST_CHIPS.length ? `trust-chip-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}` : undefined}
           >
             {label}

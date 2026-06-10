@@ -621,3 +621,27 @@
 @media (prefers-reduced-motion: reduce) {
     .login-marquee-3d::before { animation: none; }
 }
+
+/* iter-84 #2: same polish-glint sweep applied to the bottom red tagline
+   pill so both edge-to-edge banners (top marquee + bottom pill) share
+   the same animated brand polish. White glint at 14 % opacity slides
+   left → right every 6 s across the red banner. */
+.login-bottom-pill-3d {
+    position: relative;
+    overflow: hidden;
+}
+.login-bottom-pill-3d::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -40%;
+    width: 22%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.22) 50%, transparent 100%);
+    animation: pure-veg-sweep 6s linear infinite;
+    pointer-events: none;
+    z-index: 2;
+}
+@media (prefers-reduced-motion: reduce) {
+    .login-bottom-pill-3d::before { animation: none; }
+}

@@ -272,7 +272,7 @@ export default function Login() {
         {c.marquee_show !== false && (
           <div className="w-screen -mx-3 sm:-mx-6 max-w-none" aria-hidden data-testid="login-top-marquee">
             <div className="login-marquee-3d bg-white">
-              <TrustChipsMarquee className="py-0.5" testid="login-trust-marquee" />
+              <TrustChipsMarquee className="py-0.5" testid="login-trust-marquee" compact />
             </div>
           </div>
         )}
@@ -502,7 +502,7 @@ export default function Login() {
             mobile — matches the top marquee. No side padding, no rounded
             corners — sits like a bottom banner so the message reads in
             full without truncation. */}
-        <div className="mt-10 sm:mt-12 w-screen -mx-3 sm:-mx-6 max-w-none" data-testid="login-tagline-pill-wrap">
+        <div className="mt-10 sm:mt-12 w-screen -mx-3 sm:-mx-6 max-w-none login-bottom-pill-3d" data-testid="login-tagline-pill-wrap">
           <span
             className="flex w-full items-center justify-center gap-2 bg-primary text-white text-[11px] sm:text-xs font-extrabold px-4 py-2 tracking-wide shadow-md text-center leading-snug"
             data-testid="login-tagline-pill"
