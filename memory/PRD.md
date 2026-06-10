@@ -18,6 +18,14 @@ Build a tiffin / dining subscription app with:
 
 ## Implemented (Feb 2026)
 
+### Iteration 94 (Feb 12, 2026) — Branch Pill + Kitchen Radius Page + Critical Control Tower Scope Bug Fix
+- **🔴 Critical fix — Control Tower was leaking GLOBAL counts to franchise owners** (e.g. "7 restaurant orders in-flight" with 0 actually in their branch). Refactored `routes/control_tower.py` to thread a per-mess `{user_id: {$in: branch_users}}` filter into every count + rider/staff `mess_id` filter. Response now includes `scope: branch|global` and `mess_id`. Frontend Control Tower shows a `· Branch view · your mess only` pill (testid `ct-branch-scope`).
+- **🟣 Branch-context pill in AdminLayout** (mobile header + desktop sidebar): franchise owner sees fuchsia `AMRAVATI · you` (testid `branch-pill` / `branch-pill-desktop`); admin sees primary `HQ · all branches`. Clicking navigates to `/admin/messes`.
+- **🍳 NEW `/admin/kitchen-radius` page for franchise owners** to pin their own kitchen lat/lng/radius/address with `Use my current location` geolocation helper and Google Maps preview link. Backend: `PATCH /api/franchise/me/kitchen` + `GET /api/franchise/me/mess`. Hard-isolated — franchise cannot edit another branch.
+- **🚚 Franchise rights expanded** to Tiffin delivery (`/admin/delivery/*`), Take-away pendency (`/admin/restaurant/takeaway-pendency/*`) — both previously 403'd.
+- **📌 UI: Kitchen-opens chip** now full-width edge-to-edge with symmetric `px-3 sm:px-4` padding (no more clipping) and `mb-2` gap above the location bar.
+- Tests: **28/28 backend pass** (iter-94 suite) + **6/6 UI checks** + 53 iter-92/93 regression.
+
 ### Iteration 93 (Feb 11, 2026) — Franchise Full Operational Rights + Mess Menu Polish
 - **Franchise role-grant** expanded across all "admin/staff" operational endpoints (raw materials GET/PUT + stock-topup, tiffin stock, cash totals/pending-deposit/mark-deposited, kitchen settings GET/PUT, kitchen close-out, kitchen recent + reconcile, refunds list, mess metrics, counter QR, attendance scan, mess-menu calendar admin POST/DELETE, notifications bank-deposit). Franchise can now operate every operational page from their dashboard.
 - **Crash-proof Dashboard**: `AdminOverview` switched to `Promise.allSettled` + graceful error card (testid `overview-retry`) so a single failed call never blanks the page.
