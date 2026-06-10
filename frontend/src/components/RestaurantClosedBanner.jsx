@@ -33,9 +33,12 @@ function formatCountdown(mins) {
 }
 
 function reasonHeadline(reason) {
-  if (reason === "manual_off") return "Kitchen is closed";
+  // iter-82 #3: friendlier copy across all 3 reasons. "Kitchen will open soon"
+  // reads more reassuring than "Kitchen is currently closed" and matches the
+  // countdown chip tone.
+  if (reason === "manual_off") return "Kitchen is closed today";
   if (reason === "capacity_full") return "Kitchen is at full capacity";
-  return "Kitchen is currently closed";
+  return "Kitchen will open soon";
 }
 
 export default function RestaurantClosedBanner() {

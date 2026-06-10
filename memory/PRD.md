@@ -1701,3 +1701,30 @@ User-reported batch of 4 polish issues — all shipped and smoke-tested:
 
 **Production deployment note**: Preview only. Click **Deploy** in Emergent dashboard to push to `efoodcare.in`.
 
+
+
+### Iteration 82 — Tiny UI polish: chip order + dashboard dedup + friendlier copy (Feb 10, 2026)
+
+3 quick fixes batched from user screenshots:
+
+1. **Kitchen-closed chip moved ABOVE the location pill** (`pages/Restaurant.jsx`):
+   - Was: `HeroPanel → ServiceabilityPill → [RestaurantClosedBanner]`
+   - Now: `HeroPanel → RestaurantClosedBanner → 12px spacer → ServiceabilityPill`
+   - Eliminates the overlap reported on the user screenshot — the slim amber chip now sits cleanly above the orange "outside-zone" pill with breathing room.
+
+2. **Removed duplicate Lunch / Dinner text block on the user dashboard** (`pages/SubscriberDashboard.jsx`):
+   - The green `TodayMessMenuFlash` card already renders both meals in full (LUNCH row + DINNER row, flex-wrap items).
+   - The plain `<p>Jeera Rice · Dal Tadka · …</p>` block below was visual repetition — deleted.
+   - Dashboard `data-testid="todays-menu"` container is now just the title + the mess-menu card.
+
+3. **Friendlier closed-popup headline** (`components/RestaurantClosedBanner.jsx`):
+   - `reasonHeadline()` default copy changed `"Kitchen is currently closed"` → `"Kitchen will open soon"`.
+   - `manual_off` headline tightened to `"Kitchen is closed today"`.
+   - `capacity_full` stays as `"Kitchen is at full capacity"`.
+
+**Smoke-tested (preview, 390×844)**:
+- `/restaurant`: chip at top (`Kitchen opens in 45m · Daily 10:00–22:00 [Info]`), spacer, then orange location pill, then mess menu — no overlap ✅
+- `pages/SubscriberDashboard.jsx` dedup change: clean — `TodayMessMenuFlash` is the only menu display.
+
+**Production deployment note**: Preview only. Click **Deploy** in Emergent dashboard to push to `efoodcare.in`.
+

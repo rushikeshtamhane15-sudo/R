@@ -197,11 +197,13 @@ export default function Restaurant() {
         description="Order zero-adulteration home-style meals from efoodcare — 90-minute fresh delivery. No Ajinomoto, No Maida, No Refined or Palm oil. Subscription meal plans and à-la-carte tiffins."
       />
       <HeroPanel theme={theme} meta={meta} />
+      {/* iter-82 #1: kitchen-closed chip now sits ABOVE the location pill
+          so the two don't overlap. Small spacer between them. */}
+      <RestaurantClosedBanner />
+      <div className="mt-2 sm:mt-3" />
       <ServiceabilityPill />
 
       <div className="max-w-6xl mx-auto px-3 sm:px-5">
-        {/* iter-79 Batch B #4: closed-hours sticky chip + popup */}
-        <RestaurantClosedBanner />
         {/* Mess menu daily flash — top of the menu container per iter-62 #8 */}
         <div className="mt-3">
           <TodayMessMenuFlash compact />
