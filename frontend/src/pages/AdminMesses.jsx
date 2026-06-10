@@ -11,7 +11,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Building2, MapPin, Phone, Mail, ShieldCheck, Loader2, Power, PowerOff, Pencil, BarChart3, UserPlus } from "lucide-react";
+import { Plus, Building2, MapPin, Phone, Mail, ShieldCheck, Loader2, Power, PowerOff, Pencil, BarChart3, UserPlus, ListChecks, X } from "lucide-react";
 
 const EMPTY = {
   slug: "", name: "", tagline: "", address: "", city: "", state: "Maharashtra",
@@ -25,6 +25,9 @@ export default function AdminMesses() {
   const [editing, setEditing] = useState(null); // null | "new" | mess_id
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
+  // iter-90: page-access editor — open per mess
+  const [pagesEditor, setPagesEditor] = useState(null); // { mess, catalog, allowed }
+  const [pagesSaving, setPagesSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -99,6 +102,44 @@ export default function AdminMesses() {
         console.log("[franchise-assign] promoted user_id:", res.data.promoted_user_id);
       }
     } catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
+  };
+
+  // iter-90: open the page-access editor for a mess.
+  const openPagesEditor = async (m) => {
+    try {
+      const r = await api.get(`/admin/messes/${m.mess_id}/franchise-pages`);
+      setPagesEditor({
+        mess: m,
+        catalog: r.data?.catalog || [],
+        allowed: new Set(r.data?.visible_pages || []),
+      });
+    } catch (e) { toast.error(e?.response?.data?.detail || "Could not load page list"); }
+  };
+
+  const togglePage = (key) => {
+    setPagesEditor((p) => {
+      if (!p) return p;
+      const next = new Set(p.allowed);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return { ...p, allowed: next };
+    });
+  };
+
+  const setAllPages = (on) => {
+    setPagesEditor((p) => p ? { ...p, allowed: on ? new Set(p.catalog.map((c) => c.key)) : new Set() } : p);
+  };
+
+  const savePages = async () => {
+    if (!pagesEditor) return;
+    setPagesSaving(true);
+    try {
+      await api.patch(`/admin/messes/${pagesEditor.mess.mess_id}/franchise-pages`, {
+        visible_pages: Array.from(pagesEditor.allowed),
+      });
+      toast.success("Page access updated");
+      setPagesEditor(null);
+    } catch (e) { toast.error(e?.response?.data?.detail || "Save failed"); }
+    finally { setPagesSaving(false); }
   };
 
   return (
@@ -187,6 +228,7 @@ export default function AdminMesses() {
               </Link>
               <Button onClick={() => startEdit(m)} variant="outline" className="rounded-full h-8 text-xs" data-testid={`mess-edit-${m.slug}`}><Pencil className="h-3.5 w-3.5 mr-1" /> Edit</Button>
               <Button onClick={() => assignOwner(m)} variant="outline" className="rounded-full h-8 text-xs" data-testid={`mess-assign-owner-${m.slug}`}><UserPlus className="h-3.5 w-3.5 mr-1" /> Owner</Button>
+              <Button onClick={() => openPagesEditor(m)} variant="outline" className="rounded-full h-8 text-xs" data-testid={`mess-pages-${m.slug}`}><ListChecks className="h-3.5 w-3.5 mr-1" /> Pages</Button>
               {m.status !== "active" ? (
                 <Button onClick={() => setStatus(m.mess_id, "active")} className="rounded-full h-8 text-xs bg-emerald-600 hover:bg-emerald-700" data-testid={`mess-activate-${m.slug}`}><Power className="h-3.5 w-3.5 mr-1" /> Approve</Button>
               ) : (
@@ -196,6 +238,58 @@ export default function AdminMesses() {
           </div>
         ))}
       </div>
+
+      {/* iter-90: Franchise page-access editor modal */}
+      {pagesEditor && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => !pagesSaving && setPagesEditor(null)} data-testid="franchise-pages-modal">
+          <div onClick={(e) => e.stopPropagation()} className="w-full sm:max-w-2xl max-h-[92vh] bg-card rounded-t-2xl sm:rounded-2xl border border-border shadow-2xl flex flex-col">
+            <div className="flex items-start gap-3 p-5 border-b border-border">
+              <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary inline-flex items-center justify-center shrink-0">
+                <ListChecks className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] tracking-overline uppercase font-bold text-secondary">Page access</p>
+                <h2 className="font-display font-extrabold text-lg leading-tight truncate">{pagesEditor.mess.name}</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Toggle which admin pages this branch's franchise owner can open.</p>
+              </div>
+              <button onClick={() => setPagesEditor(null)} className="inline-flex h-9 w-9 items-center justify-center rounded-xl hover:bg-accent" aria-label="Close" data-testid="franchise-pages-close">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="px-5 py-3 border-b border-border flex items-center gap-2 text-xs">
+              <button onClick={() => setAllPages(true)} className="rounded-full px-3 py-1 bg-muted hover:bg-accent font-semibold" data-testid="franchise-pages-all">Select all</button>
+              <button onClick={() => setAllPages(false)} className="rounded-full px-3 py-1 bg-muted hover:bg-accent font-semibold" data-testid="franchise-pages-none">Clear</button>
+              <span className="ml-auto text-muted-foreground">{pagesEditor.allowed.size} / {pagesEditor.catalog.length} selected</span>
+            </div>
+            <div className="overflow-y-auto p-3 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+              {pagesEditor.catalog.map((p) => {
+                const on = pagesEditor.allowed.has(p.key);
+                return (
+                  <label key={p.key} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer transition-colors ${on ? "bg-primary/10 text-foreground" : "bg-muted/30 hover:bg-accent text-foreground"}`} data-testid={`franchise-page-row-${p.key.replace(/\//g, "-")}`}>
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={() => togglePage(p.key)}
+                      className="h-4 w-4 accent-primary"
+                      data-testid={`franchise-page-cb-${p.key.replace(/\//g, "-")}`}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate">{p.label}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">{p.key}</p>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="p-4 border-t border-border flex items-center gap-2 justify-end">
+              <Button onClick={() => setPagesEditor(null)} variant="ghost" className="rounded-full" disabled={pagesSaving}>Cancel</Button>
+              <Button onClick={savePages} disabled={pagesSaving} className="rounded-full bg-primary" data-testid="franchise-pages-save">
+                {pagesSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null} Save page access
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

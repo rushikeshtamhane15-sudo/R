@@ -52,11 +52,11 @@ export default function BottomNav() {
   // iter-88 #1: franchise nav fallback — uses the same item shape as the
   // CMS bottom-nav config so existing rendering code works unchanged.
   const FRANCHISE_FALLBACK = [
-    { id: "fr-dashboard", label: "Dashboard", icon: "layout-dashboard", to: "/admin/control-tower", visible: true },
-    { id: "fr-account",   label: "Account",   icon: "user",             to: "/profile",             visible: true },
-    { id: "fr-contact",   label: "Contact",   icon: "phone",            to: "/contact",             visible: true },
-    { id: "fr-home",      label: "Home",      icon: "home",             to: "/home",                visible: true },
-    { id: "fr-logout",    label: "Logout",    icon: "log-out",          action: "logout",           visible: true },
+    { id: "fr-dashboard", label: "Dashboard", icon: "LayoutDashboard", to: "/admin/control-tower", visible: true },
+    { id: "fr-account",   label: "Account",   icon: "User",            to: "/profile",             visible: true },
+    { id: "fr-contact",   label: "Contact",   icon: "Phone",           to: "/contact",             visible: true },
+    { id: "fr-home",      label: "Home",      icon: "Home",            to: "/home",                visible: true },
+    { id: "fr-logout",    label: "Logout",    icon: "LogOut",          to: "__logout__",           visible: true },
   ];
   let items = (config?.[role] || []).filter((it) => it.visible !== false);
   if (isFranchise && items.length === 0) items = FRANCHISE_FALLBACK;

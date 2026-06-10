@@ -1,0 +1,39 @@
+{
+  "summary": "iter-90 full verification — Backend (4 new franchise-page endpoints) + Frontend (AdminFranchiseOnboarding form, AdminMesses Pages modal, AdminLayout sidebar filter). 13/13 backend tests passing. UI: onboarding form renders all 3 data-testids and wires PATCH /admin/messes/{id}/owner; Pages modal opens with 21 checkboxes + Select-all/Clear/Save; PATCH /franchise-pages persists and modal closes with success toast; franchise_owner sidebar correctly filters to the whitelist (3 items rendered when whitelist=3), admin sidebar still shows full 44 entries (no regression). State restored to franchise_visible_pages=null and owner_user_id=user_bb39434e1a5c after run.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "AdminLayout.jsx franchisePages init flicker", "issue": "When role=franchise_owner and the /franchise/me/visible-pages fetch hasn't returned yet (franchisePages===null), filteredSections hides EVERY admin item, so the sidebar momentarily renders as empty (still shows section headers via .filter only when items>0, so actually nothing). For a slow network this is a perceived 'broken sidebar' flash. Consider showing a skeleton or rendering allowed-by-role items first then filtering once loaded.", "selector": "components/AdminLayout.jsx:186", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter90_franchise_pages.py",
+    "/app/test_reports/pytest/iter90_results.xml"
+  ],
+  "action_items": [
+    "(Nit) review_request says the Pages-button data-testid is `mess-pages-dining-pass-scan` but actual is `mess-pages-{slug}` (e.g. `mess-pages-efoodcare-amravati`). Implementation is correct; just update the review_request docstring.",
+    "(Optional UI polish) Render a sidebar skeleton or fall back to role-only items while franchisePages is loading to avoid empty-sidebar flash for franchise_owner."
+  ],
+  "critical_code_review_comments": [
+    "server.py:3438 — franchise_my_visible_pages defaults to FRANCHISE_PAGES when mess.franchise_visible_pages is null. This is intentional but should be DOCUMENTED in an OpenAPI description so consumers know null != empty.",
+    "AdminFranchiseOnboarding.jsx:115 — uses a native <select> inside the modal-less page; option text mixes city, type label, and ownership status. Acceptable now but consider switching to a shadcn Select with proper data-testid per option once the list grows past ~10 branches.",
+    "AdminMesses.jsx:268 — data-testid uses `p.key.replace(/\\//g,'-')`, so /admin → 'franchise-page-cb--admin' (double-dash). Works fine but the double dash is unusual — fine as-is.",
+    "server.py:3324 FRANCHISE_PAGES is a Python list duplicated by intent with AdminLayout.jsx SECTIONS routes. Recommend a comment cross-link or a generated json artifact, otherwise the two will drift. (Comment already says 'Keep in sync with AdminLayout.jsx FRANCHISE_VIEW items' — that referenced constant name isn't present in AdminLayout.jsx anymore; rename the comment to point to SECTIONS.)",
+    "AdminLayout.jsx:131 — on API failure setFranchisePages([]) silently hides the entire admin sidebar with no user feedback. Add a toast or a 'page list unavailable' inline notice so a franchise owner knows why nav is empty."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter90_franchise_pages.py"
+  ],
+  "success_rate": {"backend": "100% (13/13)", "frontend": "100% (onboarding form + 3 testids + PATCH /owner observed; Pages modal opens with 21 rows + Select-all/Clear/Save + PATCH 200 + auto-close + success toast; franchise_owner sidebar = exact whitelist; admin sidebar = full 44 entries)"},
+  "test_credentials": "Backend pytest seeded ephemeral TEST_IT90_admin_* and TEST_IT90_fr_* users + sessions directly in Mongo (avoiding OTP rate-limit). UI test used cookie sessions TEST_UI90_sess_* (admin) and TEST_UI90_fr_sess_* (franchise_owner) — all deleted post-run.",
+  "seed_data_creation": "All TEST_UI90_* and TEST_IT90_* users + sessions removed; mess.efoodcare-amravati restored to owner_user_id=user_bb39434e1a5c and franchise_visible_pages=null (defaults to all 21 pages, so existing franchise owner login is unaffected).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Reusable: /app/backend/tests/test_iter90_franchise_pages.py — 13 tests, 3 classes (TestPagesCatalog, TestGetFranchisePages, TestPatchFranchisePages, TestMyVisiblePages) + a TestZRestore class to put franchise_visible_pages back. Module-scope admin_session + franchise_session fixtures seed Mongo directly (skip OTP). Note: the franchise_session fixture temporarily reassigns mess.owner_user_id to the test user, then restores; if running this in parallel with other tests touching the mess owner, race conditions could occur. UI testid for Pages button is `mess-pages-{slug}` (NOT `mess-pages-dining-pass-scan` as the review request stated). For franchise_owner sidebar test you MUST set users.phone, address, name on the seed user, otherwise AdminLayout redirects to /profile due to the iter-88 profileIncomplete guard.",
+  "rca of the issue": "No production bugs found. Backend FRANCHISE_PAGES constant defines 21 entries; all 4 endpoints (catalog, GET mess pages, PATCH mess pages, /franchise/me/visible-pages) gate by role correctly (admin-only for the first three; franchise_owner+admin for the fourth). Null franchise_visible_pages returns the full list. Frontend AdminFranchiseOnboarding loads /admin/messes for the dropdown, posts owner_phone to /admin/messes/{id}/owner, and shows success/error toasts. AdminMesses Pages button opens a modal that loads catalog+visible_pages, toggles via local Set state, and PATCHes on Save. AdminLayout franchise_owner load fetches /franchise/me/visible-pages on mount and filters SECTIONS via items.filter(it => franchisePages.includes(it.to)) — verified to render exactly 3 nav items when whitelist=3 and admin still sees the full 44-entry nav. Only minor caveat: while franchisePages===null (in-flight fetch), the entire sidebar is empty for franchise_owner — could be UX-polished but not a bug."
+}

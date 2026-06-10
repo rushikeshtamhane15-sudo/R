@@ -73,6 +73,7 @@ import AdminKitchenSettings from "./pages/AdminKitchenSettings";
 import AdminMesses from "./pages/AdminMesses";
 import AdminRestaurantHours from "./pages/AdminRestaurantHours";
 import AdminWalletTopup from "./pages/AdminWalletTopup";
+import AdminFranchiseOnboarding from "./pages/AdminFranchiseOnboarding";
 import { AdminMessMetrics, FranchisePortal } from "./pages/AdminMessMetrics";
 import { Privacy, Refund } from "./pages/PolicyPage";
 
@@ -185,6 +186,7 @@ function AppRoutes() {
             <Route path="messes/:messId/metrics" element={<AdminMessMetrics />} />
             <Route path="restaurant-hours" element={<AdminRestaurantHours />} />
             <Route path="wallet-topup" element={<AdminWalletTopup />} />
+            <Route path="franchise-onboarding" element={<AdminFranchiseOnboarding />} />
           </Route>
 
           {/* Redirects */}

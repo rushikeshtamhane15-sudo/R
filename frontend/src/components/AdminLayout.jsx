@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
 import { api } from "../lib/api";
-import { LayoutDashboard, Package, Truck, ScanLine, QrCode, Utensils, Users, Palette, Home, Shield, FileText, MapPin, FootprintsIcon, LogIn, Megaphone, Radio, Layout, Wheat, ClipboardList, Menu, MessageSquareQuote, UtensilsCrossed, MessageCircle, ChefHat, Bike, AlertTriangle, X, Clock, Wallet } from "lucide-react";
+import { LayoutDashboard, Package, Truck, ScanLine, QrCode, Utensils, Users, Palette, Home, Shield, FileText, MapPin, FootprintsIcon, LogIn, Megaphone, Radio, Layout, Wheat, ClipboardList, Menu, MessageSquareQuote, UtensilsCrossed, MessageCircle, ChefHat, Bike, AlertTriangle, X, Clock, Wallet, UserPlus } from "lucide-react";
 
 // `roles`: which roles can see the item. Default: admin only.
 // iter-78 #2: helper that grants franchise_owner read-only access to the
@@ -67,6 +67,7 @@ const SECTIONS = [
       { to: "/admin/content/contact", label: "Contact Us", icon: MapPin, roles: ["admin"] },
       { to: "/admin/content/footer", label: "Footer", icon: FootprintsIcon, roles: ["admin"] },
       { to: "/admin/messes", label: "Messes & franchise", icon: UtensilsCrossed, roles: ["admin"] },
+      { to: "/admin/franchise-onboarding", label: "Franchise onboarding", icon: UserPlus, roles: ["admin"] },
       { to: "/admin/theme", label: "Design tokens", icon: Palette, roles: ["admin"] },
     ],
   },
@@ -111,9 +112,27 @@ export default function AdminLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [pendingDeposit, setPendingDeposit] = useState(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  // iter-90: per-mess page-access whitelist for franchise owners.
+  // null = not loaded yet · array = allowed page keys (e.g. /admin/users).
+  const [franchisePages, setFranchisePages] = useState(null);
 
   // Auto-close drawer on route change
   useEffect(() => { setDrawerOpen(false); }, [location.pathname]);
+
+  // iter-90: franchise owners load their per-mess page whitelist so the
+  // sidebar only shows what HQ admin has granted them.
+  useEffect(() => {
+    if (role !== "franchise_owner") return;
+    let mounted = true;
+    const fetchPages = async () => {
+      try {
+        const r = await api.get("/franchise/me/visible-pages");
+        if (mounted) setFranchisePages(r.data?.visible_pages || []);
+      } catch (_e) { if (mounted) setFranchisePages([]); }
+    };
+    fetchPages();
+    return () => { mounted = false; };
+  }, [role]);
 
   // iter-88 #1: franchise owners MUST complete their profile (name + phone +
   // address) before they can access the console. If any are missing, bounce
@@ -155,8 +174,21 @@ export default function AdminLayout() {
   const showBanner = !bannerDismissed && pendingDeposit && pendingDeposit.show && role !== "subscriber";
 
   // Filter sections per role; hide a section when it ends up with zero visible items.
+  // iter-90: when role is franchise_owner, ALSO filter by the per-mess
+  // page whitelist (admin-controlled). null/undefined = not loaded → hide
+  // all role-scoped items until we know. Empty list = show nothing.
   const filteredSections = SECTIONS
-    .map((sec) => ({ ...sec, items: sec.items.filter((it) => (it.roles || ["admin"]).includes(role)) }))
+    .map((sec) => ({
+      ...sec,
+      items: sec.items.filter((it) => {
+        if (!(it.roles || ["admin"]).includes(role)) return false;
+        if (role === "franchise_owner") {
+          if (franchisePages === null) return false;
+          return franchisePages.includes(it.to);
+        }
+        return true;
+      }),
+    }))
     .filter((sec) => sec.items.length > 0);
 
   // Find current page label for the mobile header

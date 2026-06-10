@@ -3319,9 +3319,40 @@ async def admin_adjust_wallet(user_id: str, payload: WalletAdjustIn, actor: User
 
 FRANCHISE_SECTIONS = ["subscribers", "revenue_sub", "revenue_ord", "checkins", "capacity", "utilization"]
 
+# iter-90: list of admin nav pages a franchise owner can be granted per-mess.
+# Keep in sync with AdminLayout.jsx FRANCHISE_VIEW items.
+FRANCHISE_PAGES = [
+    {"key": "/admin",                       "label": "Dashboard"},
+    {"key": "/admin/control-tower",         "label": "Control Tower"},
+    {"key": "/admin/users",                 "label": "Users & Roles"},
+    {"key": "/admin/restaurant-tracking",   "label": "Restaurant tracking"},
+    {"key": "/admin/restaurant-takeaway",   "label": "Take-away tiffins"},
+    {"key": "/admin/deliveries-today",      "label": "Today's deliveries"},
+    {"key": "/admin/raw-materials",         "label": "Raw materials"},
+    {"key": "/admin/tiffin-stock",          "label": "Tiffin stock"},
+    {"key": "/admin/cash-collections",      "label": "Cash collections"},
+    {"key": "/admin/cash-analytics",        "label": "Cash analytics"},
+    {"key": "/admin/partial-payments",      "label": "Partial payments"},
+    {"key": "/admin/pnl",                   "label": "Profit & loss"},
+    {"key": "/admin/restaurant-orders",     "label": "Restaurant orders"},
+    {"key": "/admin/restaurant-hours",      "label": "Restaurant hours / capacity"},
+    {"key": "/admin/delivery",              "label": "Tiffin delivery"},
+    {"key": "/admin/live",                  "label": "Live tracking"},
+    {"key": "/admin/scanner",               "label": "QR Scanner"},
+    {"key": "/admin/kiosk",                 "label": "Wall Kiosk"},
+    {"key": "/admin/counter",               "label": "Counter QR"},
+    {"key": "/admin/menu",                  "label": "Daily Menu"},
+    {"key": "/admin/mess-menu",             "label": "Mess Menu Calendar"},
+]
+FRANCHISE_PAGE_KEYS = {p["key"] for p in FRANCHISE_PAGES}
+
 
 class FranchiseSectionsIn(BaseModel):
     visible_sections: List[str]
+
+
+class FranchisePagesIn(BaseModel):
+    visible_pages: List[str]
 
 
 @api_router.patch("/admin/messes/{mess_id}/franchise-sections")
@@ -3350,6 +3381,63 @@ async def franchise_my_visible_sections(user: User = Depends(get_current_user)):
     if not sections:
         sections = FRANCHISE_SECTIONS
     return {"visible_sections": sections}
+
+
+# =====================================================================
+# iter-90 — Per-mess franchise PAGE access toggles (admin nav filtering).
+# Admin chooses which admin nav pages a franchise owner can see.
+# =====================================================================
+
+@api_router.get("/admin/franchise/pages-catalog")
+async def admin_franchise_pages_catalog(user: User = Depends(get_current_user)):
+    """Catalog of every page key + label that can be toggled per mess."""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    return {"pages": FRANCHISE_PAGES}
+
+
+@api_router.get("/admin/messes/{mess_id}/franchise-pages")
+async def admin_get_franchise_pages(mess_id: str, user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    mess = await db.messes.find_one({"mess_id": mess_id}, {"_id": 0, "franchise_visible_pages": 1})
+    if not mess:
+        raise HTTPException(status_code=404, detail="Mess not found")
+    pages = mess.get("franchise_visible_pages")
+    # null/empty → return defaults so the UI can show every page checked initially.
+    if pages is None:
+        pages = [p["key"] for p in FRANCHISE_PAGES]
+    return {"visible_pages": pages, "catalog": FRANCHISE_PAGES}
+
+
+@api_router.patch("/admin/messes/{mess_id}/franchise-pages")
+async def admin_set_franchise_pages(mess_id: str, payload: FranchisePagesIn, user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    invalid = [p for p in payload.visible_pages if p not in FRANCHISE_PAGE_KEYS]
+    if invalid:
+        raise HTTPException(status_code=400, detail=f"Unknown pages: {invalid}")
+    res = await db.messes.update_one(
+        {"mess_id": mess_id},
+        {"$set": {"franchise_visible_pages": payload.visible_pages, "updated_at": iso(now_utc())}},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Mess not found")
+    return {"ok": True, "visible_pages": payload.visible_pages}
+
+
+@api_router.get("/franchise/me/visible-pages")
+async def franchise_my_visible_pages(user: User = Depends(get_current_user)):
+    """Franchise owner reads the page list they're allowed to see in the admin nav."""
+    if user.role not in ("franchise_owner", "admin"):
+        raise HTTPException(status_code=403, detail="Franchise portal only")
+    if user.role == "admin":
+        return {"visible_pages": [p["key"] for p in FRANCHISE_PAGES]}
+    mess = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "franchise_visible_pages": 1})
+    pages = (mess or {}).get("franchise_visible_pages")
+    if pages is None:
+        pages = [p["key"] for p in FRANCHISE_PAGES]
+    return {"visible_pages": pages}
 
 
 # Register all @api_router endpoints (including the iter-77 refund/wallet/
