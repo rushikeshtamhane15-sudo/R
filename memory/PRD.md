@@ -18,6 +18,17 @@ Build a tiffin / dining subscription app with:
 
 ## Implemented (Feb 2026)
 
+### Iteration 92 (Feb 11, 2026) — Franchise Home + Branch-Scoped Dashboard + Operational Edit Rights
+- **Partner Portal is now `/` for franchise owners**: replaces the consumer Restaurant home. CTAs link to `/admin` (Dashboard) and `/admin/control-tower`. Auto-redirect removed.
+- **Clean B2B shell for franchise role**: hides the red consumer Header + Hindi adulteration marquee on every franchise page (`/`, `/admin/*`). The Partner Portal renders standalone.
+- **Franchise bottom-nav** updated to: Home (`/`) · Dashboard (`/admin`) · Control (`/admin/control-tower`) · Account (`/profile`) · Logout. New `Radio` icon added. DB `app_config.bottom_nav.franchise` unset so the new defaults kick in (CMS-editable as before).
+- **HQ admin Dashboard now works for franchise owners**: `/admin/stats` and `/admin/attendance/today` auto-scope by their mess_id (subscribers, revenue window, attendance trend all branch-only). Response includes `scope: branch|global` and `mess_id`. The Dashboard shows a "Branch view · your mess only" badge.
+- **Operational edit rights granted (branch-scoped 403 elsewhere)**:
+  - `/admin/restaurant/orders` (list) + `/orders/{id}/status` + `/orders/{id}/assign-rider`
+  - `/admin/users/{id}/wallet-adjust` + `/wallet-history`
+  - `/admin/refunds/{id}` approve/decline
+- Tests: **42/42 pass** (19 iter-92 + 23 regression). Frontend Playwright: Partner Portal hero, both CTAs, 5 bottom-nav testids, branch-scope badge, KPI numbers, guest-no-regression — all 100%.
+
 ### Iteration 91 (Feb 11, 2026) — Unified Franchise Access Modal
 - **Same `/admin/messes` Pages modal now controls BOTH admin pages AND Franchise Console metrics**: two groups (21 admin pages + 6 metric tiles) with independent Select-all/Clear shortcuts and a single Save button that fires both PATCHes in parallel.
 - **Franchise Console metric filtering live**: `FranchisePortal` now fetches `/franchise/me/visible-sections` and hides any metric tile the HQ admin un-checked (admin views still see all 6). Empty list now means *truly hidden* (parity fix with the pages handler).

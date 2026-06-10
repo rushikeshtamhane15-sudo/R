@@ -109,6 +109,7 @@ function HomeRoute() {
 
 function AppRoutes() {
   const location = useLocation();
+  const { user } = useAuth();
   if (location.hash?.includes("session_id=")) return <AuthCallback />;
   const isKiosk = location.pathname.startsWith("/k/");
 
@@ -120,10 +121,15 @@ function AppRoutes() {
     );
   }
 
+  // iter-92 #1: franchise owners get a clean B2B shell — suppress the
+  // consumer-facing red Header + Hindi adulteration marquee on every page
+  // they see (their app is the Partner Portal + the franchise admin area).
+  const isFranchise = user?.role === "franchise_owner";
+
   return (
     <div className="min-h-screen flex flex-col">
-      <Header />
-      <AnnouncementBar />
+      {!isFranchise && <Header />}
+      {!isFranchise && <AnnouncementBar />}
       <main className="flex-1 pb-16 md:pb-0">
         <Routes>
           <Route path="/" element={<HomeRoute />} />
