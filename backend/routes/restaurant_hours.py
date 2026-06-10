@@ -188,10 +188,15 @@ class HoursConfigIn(BaseModel):
 
 
 @router.get("/admin/restaurant/hours")
-async def admin_get_hours(user: server.User = Depends(server.get_current_user)):
+async def admin_get_hours(mess_id: str | None = None, user: server.User = Depends(server.get_current_user)):
     if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
-    branch_id = await _resolve_caller_mess_id(user)
+    # iter-86 #2: HQ admin can pass ?mess_id= to peek at a specific branch's
+    # config. Franchise owner is always pinned to their own branch.
+    if user.role == "admin" and mess_id:
+        branch_id = mess_id
+    else:
+        branch_id = await _resolve_caller_mess_id(user)
     cfg = await _load_config(branch_id)
     status = await _compute_status(branch_id)
     cfg["current_hourly_order_count"] = await _hourly_order_count(branch_id)
@@ -202,13 +207,17 @@ async def admin_get_hours(user: server.User = Depends(server.get_current_user)):
 
 
 @router.post("/admin/restaurant/hours")
-async def admin_set_hours(payload: HoursConfigIn, user: server.User = Depends(server.get_current_user)):
+async def admin_set_hours(payload: HoursConfigIn, mess_id: str | None = None, user: server.User = Depends(server.get_current_user)):
     if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
-    # Sanity check: open < close
     if _hhmm_to_time(payload.open_time) >= _hhmm_to_time(payload.close_time):
         raise HTTPException(status_code=400, detail="open_time must be before close_time")
-    branch_id = await _resolve_caller_mess_id(user)
+    # iter-86 #2: HQ admin can pass ?mess_id= to write a specific branch's
+    # config; otherwise admin writes to global. Franchise stays scoped.
+    if user.role == "admin" and mess_id:
+        branch_id = mess_id
+    else:
+        branch_id = await _resolve_caller_mess_id(user)
     key = _settings_key_for_mess(branch_id)
     await server.db.app_settings.update_one(
         {"_id": key},

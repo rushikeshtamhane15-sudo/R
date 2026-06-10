@@ -1,0 +1,36 @@
+{
+  "summary": "iter-86 full verification — per-mess tiffin_stock, admin-can-set-any-branch hours, kiosk GET unlock for franchise_owner, Branch P&L card backend+frontend, Restaurant page 90-min CALL+WA pills, ServiceabilityPill py-1.5. Backend: 15/15 pytest passing in /app/backend/tests/test_iter86_pnl_perbranch.py. Frontend: BranchPnlCard renders above the Today KPIs on /admin/control-tower with all 6 data-testids (pnl-today/window/cost/margin/target-pct/edit-toggle), edit form reveals pnl-cost-input/pnl-target-input/pnl-save, save fires 'Saved' toast and refreshes KPIs (Window 30d went from 0 → ₹1,24,000 after seed). Restaurant page 90-min banner contains hero-90min-call (tel:+919175560211) and hero-90min-whatsapp (wa.me/919175560211) mini-pills with hairline white dividers. ServiceabilityPill source code confirms py-1 → py-1.5 (file line 148, in-range pill).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter86_pnl_perbranch.py",
+    "/app/test_reports/pytest/iter86_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "branch_pnl.py _window_revenue: filters orders by status in ('paid','pending_collection'). Restaurant orders / takeaway flows may have other terminal statuses (e.g. 'completed', 'delivered') — verify all revenue-bearing statuses are included so P&L does not under-report.",
+    "branch_pnl.py: subscriptions revenue uses `start_date` and `amount_paid`. If subscriptions are renewed monthly with a separate renewal payment, the renewal $ may not show up in this window unless start_date is updated. Consider summing from a dedicated `subscription_payments` collection if it exists.",
+    "branch_pnl.py: gross_margin_pct denominator is total_revenue_window, but in finance circles gross-margin% is typically (revenue-COGS)/revenue. period_cost here is fixed overhead, not COGS, so labelling 'Gross margin' is slightly misleading — consider renaming to 'Net margin' or 'Operating margin'. Non-blocking.",
+    "tiffin_stock.py decrement_stock_db callers must pass mess_id from the order/roster doc. Verified routes/delivery/customer.py:82 and admin.py:384 do so, but any future call site must do likewise or the per-branch counter desyncs.",
+    "BranchPnlCard.jsx: API returns {scope:'global', mess_id: null} for HQ admin — UI shows 'Global scoreboard' headline. Good. But the 'Edit costs' POST without a mess_id query param will write to branch_costs:default which then is read by HQ admin only. Franchise owners get their own per-mess key. Behavior is correct but worth documenting.",
+    "BranchPnlCard.jsx 'save' fn declares `void r` then sets data from r2 — `r` is unused, can be removed (Number(fixedCost) and toast.success path don't need first response).",
+    "AdminControlTower mounts <BranchPnlCard days={30} /> for every admin/franchise. HQ admin sees global; franchise sees their own. There is no branch selector for HQ admin to switch between branches from the UI even though the endpoint accepts ?mess_id= — main agent may want to add a dropdown later."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter86_pnl_perbranch.py"
+  ],
+  "success_rate": {"backend": "100% (15/15)", "frontend": "100% (BranchPnlCard render+edit+save flow, 90-min CALL+WA pills, py-1.5 source-verified)"},
+  "test_credentials": "Backend pytest seeds its own franchise_owner via /api/auth/send-otp dev_otp; admin fixture uses email admin@efoodcare.com (allowlisted via ADMIN_EMAILS). UI test used cookie-session token fe_iter86_ui_9bb30ee1f62af30b (already cleaned up).",
+  "seed_data_creation": "Pytest fixture creates an ephemeral phone user (role=franchise_owner) owning mess_id=efoodcare-amravati and a transient admin session. All teardown ran: per-branch app_settings docs (restaurant_hours:efoodcare-amravati, branch_costs:efoodcare-amravati) and tiffin_stock active:efoodcare-amravati doc deleted post-run; UI test user_bb39434e1a5c + session also deleted.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Reusable: /app/backend/tests/test_iter86_pnl_perbranch.py covers all 5 backend changes from iter-86 — per-mess tiffin stock (5 tests), admin per-branch hours (2), kiosk GET unlock (2), Branch P&L (6 incl config defaults+persist+pct_target_hit math). Module-scoped fixtures `franchise_session` and `admin_session` can be reused for future per-branch tests. iter-85 BUG (tiffin-stock adjust/threshold 403 for franchise_owner) is now fixed — _admin_or_staff() includes franchise_owner. Test does NOT re-cover adjust/threshold (already green via iter-85 test). Branch_pnl revenue source: orders w/ status in (paid, pending_collection) + subscriptions w/ start_date in window. If statuses change, update the test fixture.",
+  "rca of the issue": "No bugs found in iter-86. All endpoints honor the documented contract: GET /admin/tiffin-stock + topup write to `active:{mess_id}` for franchise, leave `active` (legacy) alone for admin; HQ admin can peek any branch via ?mess_id=. Movements log includes mess_id. /admin/restaurant/hours POST with ?mess_id=X writes to `restaurant_hours:X`. /admin/kiosk/bt-config + /admin/kiosk/qr-provider GETs return 200 for franchise. /admin/branch-pnl exposes all 13 required keys; scope is 'branch' for franchise/explicit-mess_id and 'global' for admin-without-mess_id. pct_target_hit math = round(total_revenue_window / monthly_target * 100, 1) — verified numerically. UI: BranchPnlCard sits above Today KPIs grid (y=283 vs KPI tiles at y≈660), all data-testids present, Save fires 'Saved' toast and re-fetches. 90-min badge contains both CALL and WA mini-pills with correct hrefs. ServiceabilityPill in-range div uses py-1.5 (line 148)."
+}

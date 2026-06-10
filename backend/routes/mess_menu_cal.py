@@ -573,7 +573,7 @@ class KioskBtConfigIn(BaseModel):
 
 @router.get("/admin/kiosk/bt-config")
 async def admin_get_kiosk_bt(user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
     doc = await server.db.app_config.find_one({"key": KIOSK_BT_KEY}, {"_id": 0})
     if not doc:
@@ -604,7 +604,7 @@ class KioskQrProviderIn(BaseModel):
 
 @router.get("/admin/kiosk/qr-provider")
 async def admin_get_kiosk_qr_provider(user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
     doc = await server.db.app_config.find_one({"key": KIOSK_QR_KEY}, {"_id": 0})
     if not doc:

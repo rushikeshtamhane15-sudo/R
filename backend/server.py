@@ -3061,6 +3061,7 @@ from routes.mess_menu_poster import router as _mess_menu_poster_router
 from routes.mess_menu_push import router as _mess_menu_push_router, tick_daily_menu_push
 from routes.cart_saver import router as _cart_saver_router
 from routes.restaurant_hours import router as _restaurant_hours_router
+from routes.branch_pnl import router as _branch_pnl_router
 api_router.include_router(_auth_router)
 api_router.include_router(_auth_google_router)
 api_router.include_router(_payments_router)
@@ -3089,6 +3090,7 @@ api_router.include_router(_mess_menu_poster_router)
 api_router.include_router(_mess_menu_push_router)
 api_router.include_router(_cart_saver_router)
 api_router.include_router(_restaurant_hours_router)
+api_router.include_router(_branch_pnl_router)
 
 # NOTE: app.include_router(api_router) is called AT THE BOTTOM of this file
 # (after iter-77 refund + wallet + franchise endpoints) so every @api_router

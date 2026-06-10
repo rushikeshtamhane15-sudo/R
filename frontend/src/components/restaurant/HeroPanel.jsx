@@ -1,6 +1,9 @@
 import React, { useEffect, useRef } from "react";
-import { ChefHat, Truck } from "lucide-react";
+import { ChefHat, Truck, Phone, MessageCircle } from "lucide-react";
 import { BRAND_LOGO_URL } from "../../lib/brand";
+
+const SUPPORT_PHONE_DIGITS = "919175560211";  // brand support number
+const SUPPORT_PHONE_DISPLAY = "+919175560211";
 
 /**
  * HeroPanel — top "red plate" of /restaurant.
@@ -179,6 +182,29 @@ export default function HeroPanel({ theme, meta }) {
               <span className="text-[12px] sm:text-sm font-extrabold tracking-tight">
                 {theme?.hero_delivery_badge || "90 minutes Fresh Meal Delivery"}
               </span>
+              {/* iter-86 #7: super-tiny inline CALL + WhatsApp pills with a
+                  hairline divider — sits inside the 90-min badge. */}
+              <span aria-hidden className="inline-block h-3 w-px bg-white/40 mx-0.5" />
+              <a
+                href={`tel:${SUPPORT_PHONE_DISPLAY}`}
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1 rounded-full bg-white/95 text-emerald-700 px-1.5 py-[1px] text-[9px] font-extrabold tracking-wide hover:bg-white"
+                data-testid="hero-90min-call"
+                aria-label="Call us"
+              >
+                <Phone className="h-2.5 w-2.5" /> CALL
+              </a>
+              <span aria-hidden className="inline-block h-3 w-px bg-white/40" />
+              <a
+                href={`https://wa.me/${SUPPORT_PHONE_DIGITS}?text=${encodeURIComponent("Hi efoodcare, I would like to order.")}`}
+                target="_blank" rel="noreferrer noopener"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1 rounded-full bg-white/95 text-emerald-700 px-1.5 py-[1px] text-[9px] font-extrabold tracking-wide hover:bg-white"
+                data-testid="hero-90min-whatsapp"
+                aria-label="WhatsApp us"
+              >
+                <MessageCircle className="h-2.5 w-2.5" /> WA
+              </a>
             </div>
           </div>
         );

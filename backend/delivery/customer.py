@@ -84,6 +84,7 @@ def make_customer_router(db) -> APIRouter:
                 db, count=1,
                 reason=f"Customer-confirmed delivery {roster_id}",
                 source="customer-confirm", user_id=user.user_id,
+                mess_id=(roster or {}).get("mess_id"),
             )
         except Exception:
             pass

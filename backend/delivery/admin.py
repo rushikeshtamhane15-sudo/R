@@ -386,6 +386,7 @@ def make_router(db) -> APIRouter:
                     db, count=1,
                     reason=f"Delivered to roster {roster_id} ({item['meal_type']})",
                     source="admin-deliver", user_id=item["user_id"],
+                    mess_id=item.get("mess_id"),
                 )
             except Exception as _e:  # noqa: BLE001
                 pass

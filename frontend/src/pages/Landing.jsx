@@ -112,11 +112,11 @@ export default function Landing() {
               <Button size="lg" variant="outline" className="rounded-full px-7 sm:px-8 h-11 sm:h-12 text-sm sm:text-base">{c.hero_cta_secondary || (user ? "Go to dashboard" : "Sign in")}</Button>
             </Link>
           </motion.div>
-          {/* iter-65 #5 + iter-73 #8 + iter-74 #8: tiny side-by-side
-              Call us / WhatsApp pills, now CENTER-aligned on the hero. */}
+          {/* iter-65 #5 + iter-73 #8 + iter-74 #8 / iter-86 #6: nudged
+              downward, more breathing room from the CTA buttons. */}
           <motion.div
             initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}
-            className="mt-4 sm:mt-6 flex flex-row justify-center gap-2"
+            className="mt-7 sm:mt-9 flex flex-row justify-center gap-2"
             data-testid="hero-contact-pills"
           >
             <a

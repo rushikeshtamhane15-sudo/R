@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import KitchenCloseOutCard from "../components/KitchenCloseOutCard";
+import BranchPnlCard from "../components/BranchPnlCard";
 
 /**
  * AdminControlTower — iter-59 #8
@@ -64,6 +65,12 @@ export default function AdminControlTower() {
         <Button variant="outline" onClick={load} className="rounded-full" disabled={loading} data-testid="ct-refresh">
           <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} /> Refresh
         </Button>
+      </div>
+
+      {/* iter-86 #5: Branch P&L scoreboard — surfaces revenue / cost /
+          margin / target hit % per branch. */}
+      <div className="mt-5">
+        <BranchPnlCard days={30} />
       </div>
 
       {/* TODAY KPIs */}
