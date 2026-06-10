@@ -1843,3 +1843,59 @@ User asked: franchise owners should operate their own branch independently — f
 
 **Production deployment note**: Preview only. Click **Deploy** in Emergent dashboard to push to `efoodcare.in`.
 
+
+
+### Iteration 86 — Per-branch isolation hardening + Branch P&L card + UI polish (Feb 10, 2026)
+
+#### #1 Per-mess tiffin_stock (singleton → per-branch)
+`routes/tiffin_stock.py` fully rewritten:
+- `_stock_id(mess_id)` returns `active:{mess_id}` (or legacy `active` when no mess scope).
+- `_resolve_target_mess(user, mess_id_param)` pins franchise_owner to their own branch; admin/staff respect the optional `?mess_id=` query param.
+- All 5 endpoints (`GET`, `POST /topup`, `POST /adjust`, `GET /history`, `PUT /threshold`) accept optional `?mess_id=`.
+- `decrement_stock_db()` now takes a `mess_id` kwarg. Updated 2 call sites: `delivery/customer.py:82` and `delivery/admin.py:384` — both pass `roster.mess_id` / `item.mess_id`.
+- `tiffin_stock_movements` rows include `mess_id` for audit.
+
+#### #2 Admin per-branch hours override
+`routes/restaurant_hours.py` — both `GET` and `POST /api/admin/restaurant/hours` now accept optional `?mess_id=`. Admin uses it directly to manage any branch; franchise stays pinned to their own.
+
+#### #3 Kiosk GET split-brain fix
+`routes/mess_menu_cal.py` — `GET /api/admin/kiosk/bt-config` and `GET /api/admin/kiosk/qr-provider` now allow `franchise_owner` (matching their PUT counterparts).
+
+#### #4 AdminHome 403s — investigated
+Franchise lands on `/admin/control-tower` (already gated). The 403s noted earlier come from `/admin/users` etc., which franchise never navigates to (sidebar links are admin-only). No fix needed beyond ensuring no widget on `/admin/control-tower` hits an admin-only endpoint.
+
+#### #5 Branch P&L card (NEW)
+**Backend** `routes/branch_pnl.py`:
+- `GET /api/admin/branch-pnl?days=30[&mess_id=X]` returns 13 fields: today_revenue, order/sub/total_revenue_window, fixed_daily_cost, monthly_target, period_cost, gross_margin, gross_margin_pct, pct_target_hit, days, mess_id, scope, counts.
+- `GET/POST /api/admin/branch-pnl/config` persists per-branch fixed cost + monthly target to `app_settings._id="branch_costs:{mess_id|default}"`. Franchise scoped to own branch.
+- Default fallbacks: `fixed_daily_cost=1500`, `monthly_target=150000`.
+
+**Frontend** `components/BranchPnlCard.jsx`:
+- 4 KPI tiles (Today / Window 30d / Period cost / Gross margin) + Target hit chip (green/amber/red by % hit).
+- Inline "Edit costs" toggle → fixed_daily_cost + monthly_target inputs + Save.
+- Mounted at top of `/admin/control-tower` — first thing every franchise owner sees on login.
+
+#### #6 Restaurant location pill +2pt spacing
+`components/ServiceabilityPill.jsx` inner pill `py-1` → `py-1.5`.
+
+#### #7 90-min badge — inline CALL + WhatsApp mini-pills
+`components/restaurant/HeroPanel.jsx`:
+- New `SUPPORT_PHONE_DIGITS` / `SUPPORT_PHONE_DISPLAY` brand constants.
+- 90-min badge now contains two `text-[9px]` mini-pills with hairline white dividers: `CALL` (`tel:+919175560211`) and `WA` (`wa.me/919175560211?text=…`). Both use `event.stopPropagation()` so they don't bubble to any parent badge tap.
+
+**Testing** (`backend/tests/test_iter86_pnl_perbranch.py` — 15 pytest cases, all green):
+- Per-mess tiffin top-up isolation, history scoping, decrement with mess_id.
+- Admin per-branch hours read/write via ?mess_id=.
+- Kiosk GET unlock for franchise.
+- P&L config defaults + persist + scope.
+- pct_target_hit math verification.
+- Frontend Playwright: BranchPnlCard renders above KPIs, edit→save→refresh loop works, 90-min CALL+WA pills present, ServiceabilityPill py-1.5 verified.
+
+**Non-blocking observations** (from code review):
+- `_window_revenue` filters orders by `status in (paid, pending_collection)` — may miss other terminal statuses if added later.
+- Subscription revenue uses `start_date` + `amount_paid` — won't capture monthly renewal payments if those use a separate `subscription_payments` collection.
+- "Gross margin" label is technically Net/Operating margin (period_cost is fixed overhead, not COGS).
+- No branch selector in BranchPnlCard for HQ admin to switch branches via UI; endpoint supports it.
+
+**Production deployment note**: Preview only. Click **Deploy** in Emergent dashboard to push to `efoodcare.in`.
+

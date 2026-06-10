@@ -41,7 +41,7 @@ export default function BranchPnlCard({ days = 30 }) {
   const save = async () => {
     setSaving(true);
     try {
-      const r = await api.post("/admin/branch-pnl/config", {
+      await api.post("/admin/branch-pnl/config", {
         fixed_daily_cost: Number(fixedCost) || 0,
         monthly_target: Number(target) || 0,
       });
@@ -50,7 +50,6 @@ export default function BranchPnlCard({ days = 30 }) {
       const r2 = await api.get(`/admin/branch-pnl?days=${days}`);
       setData(r2.data);
       setEditing(false);
-      void r;
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Save failed");
     } finally { setSaving(false); }
