@@ -175,15 +175,15 @@ export default function AdminLayout() {
 
   // Filter sections per role; hide a section when it ends up with zero visible items.
   // iter-90: when role is franchise_owner, ALSO filter by the per-mess
-  // page whitelist (admin-controlled). null/undefined = not loaded → hide
-  // all role-scoped items until we know. Empty list = show nothing.
+  // page whitelist (admin-controlled). While the whitelist is still loading
+  // (franchisePages === null) we render role-allowed items so the sidebar
+  // doesn't flash empty — we narrow once the fetch resolves.
   const filteredSections = SECTIONS
     .map((sec) => ({
       ...sec,
       items: sec.items.filter((it) => {
         if (!(it.roles || ["admin"]).includes(role)) return false;
-        if (role === "franchise_owner") {
-          if (franchisePages === null) return false;
+        if (role === "franchise_owner" && Array.isArray(franchisePages)) {
           return franchisePages.includes(it.to);
         }
         return true;

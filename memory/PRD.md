@@ -18,6 +18,25 @@ Build a tiffin / dining subscription app with:
 
 ## Implemented (Feb 2026)
 
+### Iteration 90 (Feb 11, 2026) — Franchise Onboarding + Per-Mess Page Access
+- **NEW page `/admin/franchise-onboarding`**: One-tap form (phone + branch dropdown + "Make franchise owner") that calls `PATCH /admin/messes/{mess_id}/owner` with `owner_phone`. Replaces the manual MongoDB workflow.
+- **NEW Pages button on `/admin/messes`**: Per-mess modal with 21 checkboxes mapping to franchise-accessible admin nav items. Select-all / Clear shortcuts. Saves a `franchise_visible_pages` whitelist per mess.
+- **AdminLayout sidebar filter**: When `role=franchise_owner`, intersects the nav with the per-mess whitelist (no flash — defaults to role-allowed items while loading). HQ admins unaffected.
+- **Backend**: `FRANCHISE_PAGES` constant (21 entries); `GET /api/admin/franchise/pages-catalog`; `GET|PATCH /api/admin/messes/{id}/franchise-pages` (null in db ⇒ all pages by default); `GET /api/franchise/me/visible-pages`. Tests 13/13 pass.
+
+
+- **NEW page `/admin/franchise-onboarding`**: One-tap form (phone + branch dropdown + "Make franchise owner") that calls `PATCH /admin/messes/{mess_id}/owner` with `owner_phone`. Replaces the manual MongoDB workflow. Surfaces success/error inline with next-step instruction (the new owner must log out + back in to load the Franchise Console).
+- **NEW Pages button on `/admin/messes`**: Per-mess modal with 21 checkboxes mapping to franchise-accessible admin nav items. Select-all / Clear shortcuts. Saves a `franchise_visible_pages` whitelist per mess.
+- **AdminLayout sidebar filter**: When `role=franchise_owner`, the sidebar fetches `/franchise/me/visible-pages` and intersects the nav with the per-mess whitelist (no flash — defaults to role-allowed items while loading). HQ admins are unaffected.
+- **Backend**:
+  - `FRANCHISE_PAGES` constant (21 entries: key + label)
+  - `GET /api/admin/franchise/pages-catalog` (admin only)
+  - `GET /api/admin/messes/{id}/franchise-pages` returns `{visible_pages, catalog}` (null in db ⇒ all pages by default)
+  - `PATCH /api/admin/messes/{id}/franchise-pages` (admin only; rejects unknown keys with 400)
+  - `GET /api/franchise/me/visible-pages` (franchise_owner + admin)
+- Tests: 13/13 pass (`/app/backend/tests/test_iter90_franchise_pages.py`). UI: form + modal + sidebar filter verified end-to-end.
+
+
 ### Iteration 1 — Core MVP
 - Backend API: Google auth, plans, Stripe checkout (later removed), staff/self scan, counter QR, admin stats/users/role/menu
 - Frontend: Landing, Login, Dashboard, Plans, Counter, Self-Scan, Admin
