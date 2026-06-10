@@ -170,36 +170,39 @@ export default function HeroPanel({ theme, meta }) {
       case "ninety_min":
         return (
           <div key={`${el.key}-${idx}`} className={`mt-2.5 ${wrapClass}`} style={wrapStyle}>
-            <div
-              className="badge-3d inline-flex items-center gap-2 rounded-full px-3 py-1"
-              style={{
-                backgroundColor: theme?.ninety_min_bg_color || "#059669",
-                color: theme?.ninety_min_text_color || "#ffffff",
-              }}
-              data-testid="ninety-min-banner"
-            >
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/95 text-emerald-700 text-[11px] font-extrabold">⏱</span>
-              <span className="text-[12px] sm:text-sm font-extrabold tracking-tight">
-                {theme?.hero_delivery_badge || "90 minutes Fresh Meal Delivery"}
-              </span>
-              {/* iter-86 #7: super-tiny inline CALL + WhatsApp pills with a
-                  hairline divider — sits inside the 90-min badge. */}
-              <span aria-hidden className="inline-block h-3 w-px bg-white/40 mx-0.5" />
+            <div className="inline-flex items-center gap-1.5 flex-wrap">
+              <div
+                className="badge-3d inline-flex items-center gap-2 rounded-full px-3 py-1"
+                style={{
+                  backgroundColor: theme?.ninety_min_bg_color || "#059669",
+                  color: theme?.ninety_min_text_color || "#ffffff",
+                }}
+                data-testid="ninety-min-banner"
+              >
+                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/95 text-emerald-700 text-[11px] font-extrabold">⏱</span>
+                <span className="text-[12px] sm:text-sm font-extrabold tracking-tight">
+                  {theme?.hero_delivery_badge || "90 minutes Fresh Meal Delivery"}
+                </span>
+              </div>
+              {/* iter-87 #1: super-tiny CALL + WhatsApp pills sit BESIDE the
+                  90-min pill (not inside) with a hairline divider between them.
+                  Match the green badge's color theme. */}
+              <span aria-hidden className="inline-block h-3.5 w-px bg-white/30 mx-0.5" />
               <a
                 href={`tel:${SUPPORT_PHONE_DISPLAY}`}
                 onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-1 rounded-full bg-white/95 text-emerald-700 px-1.5 py-[1px] text-[9px] font-extrabold tracking-wide hover:bg-white"
+                className="inline-flex items-center gap-1 rounded-full bg-white/95 text-emerald-700 px-2 py-[2px] text-[9.5px] font-extrabold tracking-wide hover:bg-white shadow-sm"
                 data-testid="hero-90min-call"
                 aria-label="Call us"
               >
                 <Phone className="h-2.5 w-2.5" /> CALL
               </a>
-              <span aria-hidden className="inline-block h-3 w-px bg-white/40" />
+              <span aria-hidden className="inline-block h-3.5 w-px bg-white/30" />
               <a
                 href={`https://wa.me/${SUPPORT_PHONE_DIGITS}?text=${encodeURIComponent("Hi efoodcare, I would like to order.")}`}
                 target="_blank" rel="noreferrer noopener"
                 onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-1 rounded-full bg-white/95 text-emerald-700 px-1.5 py-[1px] text-[9px] font-extrabold tracking-wide hover:bg-white"
+                className="inline-flex items-center gap-1 rounded-full bg-white/95 text-emerald-700 px-2 py-[2px] text-[9.5px] font-extrabold tracking-wide hover:bg-white shadow-sm"
                 data-testid="hero-90min-whatsapp"
                 aria-label="WhatsApp us"
               >
