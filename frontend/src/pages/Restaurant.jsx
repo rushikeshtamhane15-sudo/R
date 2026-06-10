@@ -197,9 +197,9 @@ export default function Restaurant() {
         description="Order zero-adulteration home-style meals from efoodcare — 90-minute fresh delivery. No Ajinomoto, No Maida, No Refined or Palm oil. Subscription meal plans and à-la-carte tiffins."
       />
       <HeroPanel theme={theme} meta={meta} />
-      {/* iter-82 #1 / iter-83 #2: closed chip sits directly above the
-          location pill — no spacer, tight visual stack so both pills
-          read as one connected status strip. */}
+      {/* iter-88 #3: ~8 px breathing room between hero container and the
+          kitchen / location status strip. */}
+      <div className="h-2 sm:h-2.5" />
       <RestaurantClosedBanner />
       <ServiceabilityPill />
 

@@ -115,6 +115,21 @@ export default function AdminLayout() {
   // Auto-close drawer on route change
   useEffect(() => { setDrawerOpen(false); }, [location.pathname]);
 
+  // iter-88 #1: franchise owners MUST complete their profile (name + phone +
+  // address) before they can access the console. If any are missing, bounce
+  // them to /profile with a `?next=/admin/control-tower` return param and a
+  // toast prompting completion.
+  const profileIncomplete = role === "franchise_owner" && user && (
+    !String(user.name || "").trim() ||
+    !String(user.phone || "").trim() ||
+    !String(user.address || "").trim()
+  );
+  useEffect(() => {
+    if (profileIncomplete && !location.pathname.startsWith("/profile")) {
+      navigate(`/profile?next=${encodeURIComponent(location.pathname)}&reason=franchise-onboard`, { replace: true });
+    }
+  }, [profileIncomplete, location.pathname, navigate]);
+
   // Poll the pending-bank-deposit notification every 60s for admin/staff
   useEffect(() => {
     if (role !== "admin" && role !== "staff") return;

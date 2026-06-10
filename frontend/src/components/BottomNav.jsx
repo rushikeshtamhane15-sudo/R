@@ -31,13 +31,17 @@ export default function BottomNav() {
     api.get("/bottom-nav").then((r) => setConfig(r.data)).catch(() => {});
   }, []);
 
+  // iter-88 #1: franchise_owner gets their own bottom nav (Dashboard /
+  // Account / Contact / Home / Logout). Other admins/staff/delivery still
+  // hide the bottom nav (they use the AdminLayout sidebar).
   if (user && (user.role === "admin" || user.role === "staff" || user.role === "delivery_boy")) return null;
 
+  const isFranchise = user?.role === "franchise_owner";
   const isRider = user?.role === "rider";
-  const role = isRider ? "rider" : (user ? "subscriber" : "guest");
+  const role = isFranchise ? "franchise" : isRider ? "rider" : (user ? "subscriber" : "guest");
 
   const handleLogout = async () => {
-    try { await api.post("/auth/logout"); } catch {}
+    try { await api.post("/auth/logout"); } catch { /* ignore */ }
     setUser(null);
     toast.success("Logged out");
     navigate("/login", { replace: true });
@@ -45,13 +49,28 @@ export default function BottomNav() {
 
   const nextParam = `?next=${encodeURIComponent(location.pathname + (location.search || ""))}`;
 
-  // Resolve the live items list (CMS or fallback)
-  const items = (config?.[role] || []).filter((it) => it.visible !== false);
+  // iter-88 #1: franchise nav fallback — uses the same item shape as the
+  // CMS bottom-nav config so existing rendering code works unchanged.
+  const FRANCHISE_FALLBACK = [
+    { id: "fr-dashboard", label: "Dashboard", icon: "layout-dashboard", to: "/admin/control-tower", visible: true },
+    { id: "fr-account",   label: "Account",   icon: "user",             to: "/profile",             visible: true },
+    { id: "fr-contact",   label: "Contact",   icon: "phone",            to: "/contact",             visible: true },
+    { id: "fr-home",      label: "Home",      icon: "home",             to: "/home",                visible: true },
+    { id: "fr-logout",    label: "Logout",    icon: "log-out",          action: "logout",           visible: true },
+  ];
+  let items = (config?.[role] || []).filter((it) => it.visible !== false);
+  if (isFranchise && items.length === 0) items = FRANCHISE_FALLBACK;
   if (items.length === 0) return null;
+
+  // Make the franchise bottom nav visible on every screen size (admin sidebar
+  // is hidden on mobile so they'd otherwise have no nav).
+  const visibilityCls = isFranchise || isRider
+    ? "md:flex md:max-w-2xl md:mx-auto md:rounded-t-2xl"
+    : "md:hidden";
 
   return (
     <nav
-      className={`${isRider ? "md:flex md:max-w-2xl md:mx-auto md:rounded-t-2xl" : "md:hidden"} fixed bottom-0 inset-x-0 z-30 bg-background border-t border-border shadow-[0_-4px_12px_rgba(0,0,0,0.04)]`}
+      className={`${visibilityCls} fixed bottom-0 inset-x-0 z-30 bg-background border-t border-border shadow-[0_-4px_12px_rgba(0,0,0,0.04)]`}
       data-testid="bottom-nav"
     >
       <ul className="flex w-full">

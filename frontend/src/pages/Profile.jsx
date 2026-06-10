@@ -56,6 +56,8 @@ export default function Profile() {
   const cameraInputRef = useRef(null);
 
   const next = new URLSearchParams(location.search).get("next");
+  const reason = new URLSearchParams(location.search).get("reason");
+  const isFranchiseOnboard = reason === "franchise-onboard";
 
   useEffect(() => {
     if (user) setForm({
@@ -125,10 +127,16 @@ export default function Profile() {
       <SEO title="My profile" path="/profile" includeBusinessSchema={false} description="Manage your efoodcare profile, delivery address and subscription details." />
       <p className="text-xs tracking-overline uppercase font-bold text-secondary">Your details</p>
       <h1 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-2">
-        {next ? "Complete profile before checkout" : "Profile"}
+        {isFranchiseOnboard ? "Complete profile to access Franchise Console" : next ? "Complete profile before checkout" : "Profile"}
       </h1>
-      {next && (
-        <p className="text-muted-foreground mt-3 text-sm">A selfie/photo, name, phone and delivery address are required. We'll save them for your subscription and future checkouts.</p>
+      {isFranchiseOnboard && (
+        <div className="mt-3 rounded-2xl bg-amber-50 border border-amber-300 px-4 py-3" data-testid="franchise-onboard-banner">
+          <p className="text-sm font-bold text-amber-900">Your branch dashboard is one step away</p>
+          <p className="text-xs text-amber-800 mt-1 leading-relaxed">A complete profile (name, phone, delivery address) is required before you can manage your franchise. Fill the fields below and tap Save — we&apos;ll redirect you to your console.</p>
+        </div>
+      )}
+      {next && !isFranchiseOnboard && (
+        <p className="text-muted-foreground mt-3 text-sm">A selfie/photo, name, phone and delivery address are required. We&apos;ll save them for your subscription and future checkouts.</p>
       )}
       {isComplete && !next && (
         <div className="mt-4 flex items-center gap-2 text-sm text-primary">

@@ -1899,3 +1899,28 @@ Franchise lands on `/admin/control-tower` (already gated). The 403s noted earlie
 
 **Production deployment note**: Preview only. Click **Deploy** in Emergent dashboard to push to `efoodcare.in`.
 
+
+
+### Iteration 88 — Franchise BottomNav + Profile Guard + 90-min pill 1-line + Hero spacing (Feb 10, 2026)
+
+#### #1 Franchise = full admin of their console + bottom nav + profile guard
+- `components/BottomNav.jsx`: franchise_owner now gets their own bottom nav. New `FRANCHISE_FALLBACK` array with 5 items: Dashboard (`/admin/control-tower`) · Account (`/profile`) · Contact (`/contact`) · Home (`/home`) · Logout. Visible on every screen size (was hidden for admin/staff/delivery roles — still hidden for those).
+- `components/AdminLayout.jsx`: new `profileIncomplete` effect — if a franchise_owner is missing `name`, `phone`, or `address`, they're force-redirected to `/profile?next=/admin/control-tower&reason=franchise-onboard` so they cannot reach the console until profile is complete.
+- `pages/Profile.jsx`: new `franchise-onboard` reason handling shows an amber banner: `"Your branch dashboard is one step away · Fill the fields below and tap Save — we'll redirect you to your console."` Title becomes `"Complete profile to access Franchise Console"`. After save, the existing `next=` param sends them onward to control-tower.
+- Franchise's full admin authority within console was already wired in iter-85/86 — they have read+write on tiffin stock, mess menu, restaurant hours, restaurant orders, branch settings, plus the new Branch P&L card. Wallet top-up remains HQ-only.
+
+#### #2 CALL + WA pills on a single line with the 90-min badge
+- `components/restaurant/HeroPanel.jsx`: container `flex-wrap` → `flex-nowrap max-w-full`. Each child has `shrink-0 whitespace-nowrap`. CALL + WA pills shrunk slightly (`px-1.5 py-[2px]` from `px-2 py-[2px]`, gap `gap-0.5` from `gap-1`). The 90-min badge inner gap `gap-2 px-3 py-1` → `gap-1.5 px-2.5 py-1`. Net: `[⏱ 90 minutes Fresh Meal Delivery] | [📞 CALL] | [💬 WA]` fits on a single 390 px row.
+
+#### #3 8 px breathing gap below hero
+- `pages/Restaurant.jsx`: added `<div className="h-2 sm:h-2.5" />` between `HeroPanel` and the kitchen chip / location pill stack. Hero no longer collides with the amber/orange status strip.
+
+**Smoke-tested (preview, 390×844)**: 90-min row, CALL, WA all on one line ✅ ; 8 px gap visible below hero ✅ ; webpack compiles with 23 pre-existing warnings, 0 errors ✅.
+
+**Production deployment note**: Preview only. Click **Deploy** in Emergent dashboard to push to `efoodcare.in`.
+
+**Known follow-ups** (non-blocking):
+- BottomNav `FRANCHISE_FALLBACK` is hardcoded; could be CMS-editable via the existing `bottom-nav-editor` admin page (would need to add `franchise` role to its allowed set).
+- Profile guard checks 3 fields (name/phone/address); user's earlier intent was "compulsory profile" — selfie photo is NOT yet required for franchise. Add to guard if needed.
+- The profile guard's `useEffect` triggers a lint warning (`react-hooks/set-state-in-effect`) — false positive, the effect calls `navigate()` (a side effect, not setState). Not blocking.
+
