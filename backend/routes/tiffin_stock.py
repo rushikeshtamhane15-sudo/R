@@ -132,8 +132,7 @@ async def topup(payload: TopupIn, user: server.User = Depends(server.get_current
 
 @router.post("/admin/tiffin-stock/adjust")
 async def adjust(payload: AdjustIn, user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
+    _admin_or_staff(user)
     delta = int(payload.delta)
     res = await server.db.tiffin_stock.find_one_and_update(
         {"_id": "active"},
@@ -166,8 +165,7 @@ async def history(limit: int = 50, user: server.User = Depends(server.get_curren
 
 @router.put("/admin/tiffin-stock/threshold")
 async def set_threshold(threshold: int = Body(..., embed=True), user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
+    _admin_or_staff(user)
     t = max(0, min(10000, int(threshold)))
     await server.db.tiffin_stock.update_one(
         {"_id": "active"}, {"$set": {"low_threshold": t}}, upsert=True,
