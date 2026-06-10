@@ -18,6 +18,11 @@ Build a tiffin / dining subscription app with:
 
 ## Implemented (Feb 2026)
 
+### Iteration 91 (Feb 11, 2026) — Unified Franchise Access Modal
+- **Same `/admin/messes` Pages modal now controls BOTH admin pages AND Franchise Console metrics**: two groups (21 admin pages + 6 metric tiles) with independent Select-all/Clear shortcuts and a single Save button that fires both PATCHes in parallel.
+- **Franchise Console metric filtering live**: `FranchisePortal` now fetches `/franchise/me/visible-sections` and hides any metric tile the HQ admin un-checked (admin views still see all 6). Empty list now means *truly hidden* (parity fix with the pages handler).
+- **Backend**: new `GET /api/admin/messes/{id}/franchise-sections` returns `{visible_sections, catalog}` with human-readable labels for the 6 keys. Tests 10/10 pass + iter-90 regression 13/13.
+
 ### Iteration 90 (Feb 11, 2026) — Franchise Onboarding + Per-Mess Page Access
 - **NEW page `/admin/franchise-onboarding`**: One-tap form (phone + branch dropdown + "Make franchise owner") that calls `PATCH /admin/messes/{mess_id}/owner` with `owner_phone`. Replaces the manual MongoDB workflow.
 - **NEW Pages button on `/admin/messes`**: Per-mess modal with 21 checkboxes mapping to franchise-accessible admin nav items. Select-all / Clear shortcuts. Saves a `franchise_visible_pages` whitelist per mess.

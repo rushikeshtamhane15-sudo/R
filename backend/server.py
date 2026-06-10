@@ -3402,10 +3402,10 @@ async def franchise_my_visible_sections(user: User = Depends(get_current_user)):
     if user.role not in ("franchise_owner", "admin"):
         raise HTTPException(status_code=403, detail="Franchise portal only")
     mess = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "franchise_visible_sections": 1})
-    # Default: all sections visible if admin hasn't restricted yet.
+    # Null in db ⇒ default to ALL sections. Empty list ⇒ admin explicitly hid everything.
     sections = (mess or {}).get("franchise_visible_sections")
-    if not sections:
-        sections = FRANCHISE_SECTIONS
+    if sections is None:
+        sections = list(FRANCHISE_SECTIONS)
     return {"visible_sections": sections}
 
 
