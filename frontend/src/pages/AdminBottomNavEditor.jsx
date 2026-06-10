@@ -18,6 +18,7 @@ const ROLES = [
   { key: "subscriber", title: "Logged-in customer", note: "Subscribers + restaurant order users" },
   { key: "guest",      title: "Guest (logged-out)", note: "Visitors before they sign up" },
   { key: "rider",      title: "Rider",              note: "Delivery riders (visible on desktop too)" },
+  { key: "franchise",  title: "Franchise owner",    note: "Bottom nav shown to franchise_owner users (mobile + desktop)" },
 ];
 
 export default function AdminBottomNavEditor() {
@@ -91,6 +92,7 @@ export default function AdminBottomNavEditor() {
         subscriber: config.subscriber,
         rider: config.rider,
         guest: config.guest,
+        franchise: config.franchise,
       });
       toast.success("Bottom nav saved · live for all users");
       load();

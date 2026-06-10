@@ -1,0 +1,40 @@
+{
+  "summary": "iter-89 full verification — (1) bottom-nav CMS now exposes 'franchise' role tab (Admin /admin/bottom-nav editor renders 4 sections: subscriber/guest/rider/franchise with title 'Franchise owner'). PUT /api/admin/bottom-nav accepts franchise array; persisted edit (added 'TestNav1' item) survives GET. (2) GET /api/admin/users + POST /api/admin/role now unlocked for franchise_owner: scoping returns franchise themselves + in-branch users with mess_id match + active-subscription-by-branch users; excludes out-of-branch admins. FRANCHISE_ASSIGNABLE_ROLES whitelist enforced (admin/franchise_owner → 403). Targeting admin-role users → 403. mess_id auto-pinned to franchise branch on role change. Admin retains global scope.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "BottomNav.jsx FRANCHISE_FALLBACK array", "issue": "Logout fallback item uses `action: 'logout'` but the renderer (line 82) only checks `it.to === '__logout__'` — the fallback Logout button will render with href=null/undefined and won't trigger logout. Only triggered when /api/bottom-nav fails AND user is franchise_owner.", "selector": "components/BottomNav.jsx:54-60 vs :82", "priority": "LOW"},
+      {"component": "BottomNav.jsx FRANCHISE_FALLBACK icons", "issue": "Fallback uses kebab-case icon names ('layout-dashboard', 'user', 'phone', 'home', 'log-out') but ICON_MAP keys are PascalCase ('LayoutDashboard','User',...). Fallback icons all degrade to default ChefHat. CMS defaults use correct PascalCase so production users see them; only kicks in when API fails.", "selector": "components/BottomNav.jsx:54-60", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter89_franchise.py",
+    "/app/test_reports/pytest/iter89_results.xml"
+  ],
+  "action_items": [
+    "(Minor) Fix BottomNav.jsx FRANCHISE_FALLBACK: change last item from {icon:'log-out', action:'logout'} to {icon:'LogOut', to:'__logout__'} and change other icons to PascalCase to match ICON_MAP. CMS default path works correctly today, so this only impacts the rare API-failure case.",
+    "(Note) The review request says route is /admin/bottom-nav-editor but actual route in App.js is /admin/bottom-nav. Either align the route or the docs."
+  ],
+  "critical_code_review_comments": [
+    "routes/admin.py admin_users franchise scoping uses an `async for ... in ... if ...` comprehension to collect sub_user_ids. Works on Motor cursor but is unusual; prefer a server-side $match on subscriptions then $in users for performance.",
+    "routes/admin.py admin_set_role for franchise: pins target's mess_id to franchise's branch but doesn't validate that the target was previously in a different branch — a no-op user gets reassigned silently. Consider logging this for audit.",
+    "BottomNav.jsx FRANCHISE_FALLBACK contains stale icon-name + action-key conventions that diverge from the CMS contract used everywhere else. If kept, document why; otherwise drop it since CMS always returns defaults from app_cms.DEFAULT_BOTTOM_NAV.",
+    "AdminBottomNavEditor.jsx: save() PUT body always sends all 4 roles every save; server validates length 1-6 for every present role, so deleting all items in one role and saving would 400 the whole payload (incl. unrelated roles). Acceptable since the UI guards deletion with min-1.",
+    "Route mismatch: review_request mentions /admin/bottom-nav-editor; App.js registers /admin/bottom-nav. Sidebar nav label is 'Bottom nav & sound'. Update one of them to avoid future confusion."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter89_franchise.py"
+  ],
+  "success_rate": {"backend": "100% (11/11)", "frontend": "100% (4 franchise sections render at /admin/bottom-nav, edit+save persists 'TestNav1' via PUT/GET, franchise_owner /admin/users 200 + Branch shown in header, BottomNav renders Dashboard/Account/Contact/Home/Logout with fr-logout testid for franchise_owner)"},
+  "test_credentials": "Backend pytest seeds ephemeral phones via /api/auth/send-otp dev_otp (TEST_IT89_admin / TEST_IT89_franchise / TEST_IT89_sub / TEST_IT89_otheradmin). UI test used cookie sessions sess_ui89_admin_1781077236305 + sess_ui89_fr_1781077236305 — cleaned up post-run.",
+  "seed_data_creation": "All seed users + sessions + mess + subscription deleted; app_config.bottom_nav.franchise key unset to remove TestNav1 pollution.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Reusable: /app/backend/tests/test_iter89_franchise.py (11 tests covering all iter-89 backend changes — bottom-nav franchise CMS PUT/GET + length validation, admin/users scoping for franchise vs admin, admin/role whitelist + admin-target guard + mess_id auto-pin + admin override). Module-scoped franchise_session + admin_session fixtures reusable. Route name caveat: /admin/bottom-nav (NOT /admin/bottom-nav-editor); sidebar label is 'Bottom nav & sound'. Two minor frontend bugs in BottomNav.jsx FRANCHISE_FALLBACK (icon casing + logout action key) — only activate when /api/bottom-nav fetch fails, so not user-visible in normal operation.",
+  "rca of the issue": "No production bugs. Backend: app_cms.DEFAULT_BOTTOM_NAV adds 'franchise' key + BottomNavPatch accepts franchise + loop iterates all 4 roles — verified end-to-end. admin.py admin_users branches on user.role: franchise_owner builds $or query from mess_id match + own user_id + in-branch subscription user_ids; admin/role refuses non-whitelisted roles (403 'Franchise can only assign: ...') and refuses admin/franchise_owner targets (403 'Cannot change role of admin or another franchise owner'), then on update $set mess_id=branch. Frontend: AdminBottomNavEditor ROLES array includes 'franchise' (4 entries), save() puts config.franchise; CMS default franchise items render in BottomNav for role='franchise_owner' (mapped via `isFranchise ? 'franchise' : ...`). The FRANCHISE_FALLBACK in BottomNav.jsx is a no-op in normal flow because GET /bottom-nav always returns DEFAULT_BOTTOM_NAV.franchise when no CMS override exists — fallback only activates on network failure."
+}

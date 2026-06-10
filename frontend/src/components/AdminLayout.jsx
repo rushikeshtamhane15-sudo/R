@@ -18,7 +18,7 @@ const SECTIONS = [
       { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true, roles: FRANCHISE_VIEW },
       { to: "/admin/control-tower", label: "Control Tower", icon: Radio, roles: FRANCHISE_VIEW },
       { to: "/admin/plans", label: "Plans", icon: Package, roles: ["admin"] },
-      { to: "/admin/users", label: "Users & Roles", icon: Users, roles: ["admin"] },
+      { to: "/admin/users", label: "Users & Roles", icon: Users, roles: FRANCHISE_VIEW },
       { to: "/admin/rider-applications", label: "Rider applications", icon: Bike, roles: ["admin"] },
       { to: "/admin/restaurant-tracking", label: "Restaurant tracking", icon: Truck, roles: FRANCHISE_VIEW },
       { to: "/admin/restaurant-takeaway", label: "Take-away tiffins", icon: Package, roles: FRANCHISE_VIEW },

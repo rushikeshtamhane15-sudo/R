@@ -206,29 +206,68 @@ async def admin_today_attendance(user: server.User = Depends(server.get_current_
 
 @router.get("/admin/users")
 async def admin_users(user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    # iter-89 #2: franchise_owner can view users — scoped to their branch.
+    if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
-    users = await server.db.users.find({}, {"_id": 0}).to_list(1000)
+    q: dict = {}
+    if user.role == "franchise_owner":
+        mess_doc = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+        branch = (mess_doc or {}).get("mess_id")
+        if branch:
+            # Include themselves + anyone with mess_id matching their branch
+            # OR any subscription tying them to this branch.
+            sub_user_ids = [
+                s["user_id"]
+                async for s in server.db.subscriptions.find({"mess_id": branch}, {"_id": 0, "user_id": 1})
+                if s.get("user_id")
+            ]
+            q = {"$or": [{"mess_id": branch}, {"user_id": {"$in": sub_user_ids + [user.user_id]}}]}
+        else:
+            q = {"user_id": user.user_id}
+    users = await server.db.users.find(q, {"_id": 0}).to_list(1000)
     return {"users": users}
+
+
+# Roles a franchise_owner is allowed to ASSIGN (cannot create admin /
+# franchise_owner, that's HQ-only).
+FRANCHISE_ASSIGNABLE_ROLES = {"subscriber", "staff", "rider", "delivery_boy"}
 
 
 @router.post("/admin/role")
 async def admin_set_role(payload: server.SetRoleRequest, user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    # iter-89 #2: franchise_owner can assign limited roles within their branch.
+    if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     if not payload.email and not payload.phone:
         raise HTTPException(status_code=400, detail="email or phone required")
+    if user.role == "franchise_owner" and payload.role not in FRANCHISE_ASSIGNABLE_ROLES:
+        raise HTTPException(status_code=403, detail=f"Franchise can only assign: {', '.join(sorted(FRANCHISE_ASSIGNABLE_ROLES))}")
     query = {}
     if payload.email:
         query["email"] = payload.email.strip().lower()
     if payload.phone:
         query["phone"] = payload.phone.strip()
-    # Match user by EITHER email OR phone (using $or so admins can pass just one)
     if payload.email and payload.phone:
         match = {"$or": [{"email": query["email"]}, {"phone": query["phone"]}]}
     else:
         match = query
-    result = await server.db.users.update_one(match, {"$set": {"role": payload.role}})
+    # Franchise can only update users in their own branch — refuse if the
+    # target user has a different mess_id or a higher-privilege role.
+    if user.role == "franchise_owner":
+        mess_doc = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+        branch = (mess_doc or {}).get("mess_id")
+        target = await server.db.users.find_one(match, {"_id": 0, "user_id": 1, "mess_id": 1, "role": 1})
+        if not target:
+            raise HTTPException(status_code=404, detail="User not found")
+        if target.get("role") in ("admin", "franchise_owner"):
+            raise HTTPException(status_code=403, detail="Cannot change role of admin or another franchise owner")
+        # Pin the user to this franchise's branch when assigning a role.
+        result = await server.db.users.update_one(
+            {"user_id": target["user_id"]},
+            {"$set": {"role": payload.role, "mess_id": branch}},
+        )
+    else:
+        result = await server.db.users.update_one(match, {"$set": {"role": payload.role}})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
     return {"ok": True}

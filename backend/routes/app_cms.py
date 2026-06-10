@@ -38,6 +38,15 @@ DEFAULT_BOTTOM_NAV: dict = {
         {"id": "contact",    "label": "Contact",      "icon": "Phone",           "to": "/contact",       "visible": True},
         {"id": "login",      "label": "Login",        "icon": "LogIn",           "to": "__login__",      "visible": True},
     ],
+    # iter-89 #1: franchise_owner default bottom nav — CMS-editable from
+    # /admin/bottom-nav-editor by HQ admin.
+    "franchise": [
+        {"id": "fr-dashboard", "label": "Dashboard", "icon": "LayoutDashboard", "to": "/admin/control-tower", "visible": True},
+        {"id": "fr-account",   "label": "Account",   "icon": "User",            "to": "/profile",             "visible": True},
+        {"id": "fr-contact",   "label": "Contact",   "icon": "Phone",           "to": "/contact",             "visible": True},
+        {"id": "fr-home",      "label": "Home",      "icon": "Home",            "to": "/home",                "visible": True},
+        {"id": "fr-logout",    "label": "Logout",    "icon": "LogOut",          "to": "__logout__",           "visible": True},
+    ],
 }
 
 
@@ -53,13 +62,14 @@ class BottomNavPatch(BaseModel):
     subscriber: Optional[List[NavItem]] = None
     rider: Optional[List[NavItem]] = None
     guest: Optional[List[NavItem]] = None
+    franchise: Optional[List[NavItem]] = None
 
 
 @router.get("/bottom-nav")
 async def get_bottom_nav():
     doc = await server.db.app_config.find_one({"_id": "bottom_nav"}, {"_id": 0}) or {}
     out = {}
-    for role in ("subscriber", "rider", "guest"):
+    for role in ("subscriber", "rider", "guest", "franchise"):
         out[role] = doc.get(role) or DEFAULT_BOTTOM_NAV[role]
     return out
 
@@ -69,7 +79,7 @@ async def put_bottom_nav(payload: BottomNavPatch, user: server.User = Depends(se
     if user.role != "admin":
         raise HTTPException(403, "Admin only")
     update = {}
-    for role in ("subscriber", "rider", "guest"):
+    for role in ("subscriber", "rider", "guest", "franchise"):
         items = getattr(payload, role)
         if items is None:
             continue
