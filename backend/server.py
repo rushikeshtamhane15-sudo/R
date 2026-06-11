@@ -2868,6 +2868,8 @@ async def _compute_raw_materials_fresh(mess_id: Optional[str] = None) -> dict:
             "day_cost": round(total_day_cost, 2),
         },
         "low_stock_alerts": low_stock_alerts,
+        "scope": "branch" if mess_id else "global",
+        "mess_id": mess_id,
         "computed_at": iso(now_utc()),
         "notes": [
             "Quantities: per person per month (toor dal, rice, wheat, oil). Vegetables track ₹ instead of kg.",

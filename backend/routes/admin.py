@@ -233,6 +233,7 @@ async def admin_today_attendance(user: server.User = Depends(server.get_current_
                 user_ids.append(uid)
         q["user_id"] = {"$in": user_ids}
     recs = await server.db.attendance.find(q, {"_id": 0}).sort("checked_at", -1).to_list(500)
+    return {"attendance": recs, "scope": "branch" if mid else "global", "mess_id": mid}
     # Enrich each attendance row with the user's name + phone so the admin
     # "today's check-ins" list shows WHO checked in, not just IDs. We batch-load
     # the user profiles via a single $in lookup and stitch them in.

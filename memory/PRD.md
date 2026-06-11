@@ -18,6 +18,12 @@ Build a tiffin / dining subscription app with:
 
 ## Implemented (Feb 2026)
 
+### Iteration 95 (Feb 12, 2026) — Branch-Scoped Franchise Writes + HQ Branch-Switcher
+- **🔐 Branch-scoped writes**: introduced unified `effective_mess_id(user, as_mess_id)` helper. Raw materials now persist to `db.raw_materials_config{_id:<mess_id>}` (per-mess) with auto-seeding from the global defaults on first read; the HQ-global `{_id:"active"}` doc stays immutable while franchises mutate. Same per-mess pattern for `db.delivery_settings` (kitchen-settings). Cash totals / pending-deposit / mark-deposited filter by `user_id ∈ branch users`, including silent-skip of cross-branch order_ids on `mark-deposited`. Two-franchise data isolation is now hard-guaranteed.
+- **🔁 HQ Admin Branch-Switcher popover** anchored to the AdminLayout pill (mobile + desktop). HQ admin clicks the pill → popover with `HQ · all branches` + a row per mess (testids `branch-switcher-popover`, `branch-switcher-all`, `branch-switcher-<mess_id>`). Choice persists in `localStorage.efc_as_mess_id`. An axios interceptor auto-stamps `?as_mess_id=<id>` onto every `/admin/*` call (skips `/franchise/*` and `/auth/*`). Backend `/admin/stats`, `/admin/attendance/today`, `/admin/control-tower`, raw-materials, cash, kitchen-settings all honour the param for admins. Franchise owners cannot override scope.
+- **Response symmetry**: every branch-aware GET now echoes `scope: "branch"|"global"` + `mess_id` so the frontend can render the `Branch view` badge reliably.
+- Tests: **17/17 iter-95 pytest pass + 28/28 iter-94 regression + Playwright UI 100%** (popover, axios stamping verified per-route, localStorage round-trip, view-as pill in fuchsia, HQ revert).
+
 ### Iteration 94 (Feb 12, 2026) — Branch Pill + Kitchen Radius Page + Critical Control Tower Scope Bug Fix
 - **🔴 Critical fix — Control Tower was leaking GLOBAL counts to franchise owners** (e.g. "7 restaurant orders in-flight" with 0 actually in their branch). Refactored `routes/control_tower.py` to thread a per-mess `{user_id: {$in: branch_users}}` filter into every count + rider/staff `mess_id` filter. Response now includes `scope: branch|global` and `mess_id`. Frontend Control Tower shows a `· Branch view · your mess only` pill (testid `ct-branch-scope`).
 - **🟣 Branch-context pill in AdminLayout** (mobile header + desktop sidebar): franchise owner sees fuchsia `AMRAVATI · you` (testid `branch-pill` / `branch-pill-desktop`); admin sees primary `HQ · all branches`. Clicking navigates to `/admin/messes`.
