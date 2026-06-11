@@ -187,15 +187,19 @@ async def get_guest_cart(token: str):
 # steel-tiffin items. Admin needs name + phone + address to call back later.
 # ---------------------------------------------------------------------------
 @router.get("/admin/restaurant/takeaway-pendency")
-async def list_takeaway_pendency(user: server.User = Depends(server.get_current_user), collected: Optional[bool] = None):
+async def list_takeaway_pendency(user: server.User = Depends(server.get_current_user), collected: Optional[bool] = None, as_mess_id: Optional[str] = None):
+    # iter-96 #2: branch-scope by user_id ∈ users-in-mess so franchise owners
+    # only see their own branch's pendency. Admins can opt-in via ?as_mess_id.
     if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(403, "Admin or staff only")
-    q = {}
+    mid = await server.effective_mess_id(user, as_mess_id)
+    user_ids = await server._users_in_mess(mid)
+    q: dict = {} if user_ids is None else {"user_id": {"$in": user_ids}}
     if collected is not None:
         q["collected"] = collected
     rows = await server.db.restaurant_tiffin_pendency.find(q, {"_id": 0}).sort("delivered_at", -1).to_list(500)
     pending = sum(r.get("tiffin_count", 0) for r in rows if not r.get("collected"))
-    return {"rows": rows, "pending_count": pending}
+    return {"rows": rows, "pending_count": pending, "scope": "branch" if mid else "global", "mess_id": mid}
 
 
 class CollectTakeaway(BaseModel):
@@ -210,6 +214,14 @@ async def collect_takeaway(payload: CollectTakeaway, user: server.User = Depends
     rec = await server.db.restaurant_tiffin_pendency.find_one({"pendency_id": payload.pendency_id}, {"_id": 0})
     if not rec:
         raise HTTPException(404, "Pendency not found")
+    # iter-96 #2: franchise can only mark THEIR branch's pendency.
+    if user.role == "franchise_owner":
+        m = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+        if not m:
+            raise HTTPException(403, "No mess assigned")
+        u = await server.db.users.find_one({"user_id": rec.get("user_id")}, {"_id": 0, "mess_id": 1})
+        if (u or {}).get("mess_id") != m["mess_id"]:
+            raise HTTPException(403, "Pendency not in your branch")
     if rec.get("collected"):
         raise HTTPException(400, "Already collected")
     n = int(rec.get("tiffin_count") or 0)

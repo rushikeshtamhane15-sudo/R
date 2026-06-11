@@ -6,7 +6,8 @@
  */
 import React, { useEffect, useState, useCallback } from "react";
 import { api } from "../lib/api";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
@@ -20,6 +21,9 @@ const EMPTY = {
 };
 
 export default function AdminMesses() {
+  // iter-96 #1: hard-block franchise owners from this HQ-only page.
+  // (Guard placed after hooks to satisfy react-hooks/rules-of-hooks.)
+  const { user } = useAuth();
   const [messes, setMesses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null); // null | "new" | mess_id
@@ -29,12 +33,14 @@ export default function AdminMesses() {
   const [pagesEditor, setPagesEditor] = useState(null); // { mess, catalog, allowed }
   const [pagesSaving, setPagesSaving] = useState(false);
 
+  const isFranchise = user?.role === "franchise_owner";
   const load = useCallback(async () => {
+    if (isFranchise) { setLoading(false); return; } // iter-96: skip fetch for FR (will be redirected)
     setLoading(true);
     try { const r = await api.get("/admin/messes"); setMesses(r.data?.messes || []); }
     catch { toast.error("Failed to load messes"); }
     finally { setLoading(false); }
-  }, []);
+  }, [isFranchise]);
   useEffect(() => { load(); }, [load]);
 
   const startCreate = () => { setForm(EMPTY); setEditing("new"); };
@@ -165,6 +171,9 @@ export default function AdminMesses() {
     } catch (e) { toast.error(e?.response?.data?.detail || "Save failed"); }
     finally { setPagesSaving(false); }
   };
+
+  // iter-96 #1: hard-block franchise owners — HQ-only page.
+  if (user?.role === "franchise_owner") return <Navigate to="/admin/kitchen-radius" replace />;
 
   return (
     <div data-testid="admin-messes-page">

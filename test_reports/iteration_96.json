@@ -1,0 +1,38 @@
+{
+  "summary": "iter-96 verified end-to-end. Backend 14/14 NEW pytest cases PASS + iter-95 regression 17/17 PASS. Playwright UI flow: all 7 FR assertions + 5 admin-regression assertions PASS. Branch scope on /api/admin/restaurant/takeaway-pendency and /api/admin/restaurant/orders works for FR + admin ?as_mess_id. FR cross-branch collect → 403 'Pendency not in your branch'. FR /admin/messes POST/PUT both return 403 ('Admin only', NOT 422). UI: FR /admin/messes & /admin/franchise-onboarding redirect to /admin/kitchen-radius, no toast, no spurious 'Add a mess' button, no Messes-in-sidebar, branch pill is disabled (cursor-default, no chevron, no popover on click).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter96_branch_scope.py",
+    "/app/backend/tests/test_iter95_branch_writes.py",
+    "/app/test_reports/pytest/iter96_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "app_cms.collect_takeaway: FR-vs-rec.user_id mess membership check uses messes.owner_user_id → user.mess_id — correctly aligned with the rest of the codebase's effective_mess_id resolver, so consistent. Good explicit 403 message 'Pendency not in your branch' (testable).",
+    "restaurant_orders.admin_orders uses _users_in_mess(mid) — returns None for global, list for branch; the {'user_id':{'$in':[...]}} pattern correctly returns 0 rows when no users live in that branch (e.g., Yavatmal). Verified with a freshly seeded MESS_B that has no orders.",
+    "AdminMesses.jsx load() early-returns for franchise_owner BEFORE the GET fires — confirmed no Failed-to-load toast and no 401/403 in network. Navigate redirect is placed AFTER hooks (rule-of-hooks safe).",
+    "AdminLayout pill: disabled+cursor-default+no-chevron all gated by role !== 'franchise_owner'. Click is a true no-op (verified — popover count remained 0 after force-click).",
+    "Note (pre-existing, not iter-96): the assign-owner endpoint is PATCH not POST. Spec mentioned POST; tests accept 403/404/405 for POST and assert PATCH→403 strictly. Main agent may want to add a POST alias if the doc has been published externally."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter96_branch_scope.py"
+  ],
+  "success_rate": {
+    "backend": "100% (14/14 iter-96 + 17/17 iter-95 regression)",
+    "frontend": "100% (7/7 FR-UX + 5/5 admin-regression)"
+  },
+  "test_credentials": "Seeded TEST_IT96_* (backend pytest) and TEST_IT96UI_* (Playwright UI) — all cleaned up. Production user user_bb39434e1a5c remains owner of efoodcare-amravati. efoodcare-yavatmal mess kept in DB for future multi-branch tests (no real data attached).",
+  "seed_data_creation": "Backend fixture creates admin + FR + 2 subscribers (in-mess Amravati, out-of-mess Yavatmal) + 2 restaurant_orders + 3 takeaway_pendency rows (2 in Amravati, 1 in Yavatmal for cross-branch test). UI seed creates separate TEST_IT96UI_* admin + FR sessions, deleted on completion.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Test file /app/backend/tests/test_iter96_branch_scope.py is self-contained (own fixture, own teardown, doesn't depend on iter-95 fixture). It overlaps MESS_A=efoodcare-amravati ownership during the test, so DO NOT run iter-95 + iter-96 in the same pytest invocation without --forked or separate processes (both rebind owner_user_id). Tested in isolation both passed cleanly. UI seed data uses session cookies (HttpOnly) — to impersonate a user, set cookie domain=dining-pass-scan.preview.emergentagent.com, path=/, sameSite=None, secure=True. Branch pill desktop selector: [data-testid='branch-pill-desktop']; popover: [data-testid='branch-switcher-popover'].",
+  "rca of the issue": "User-reported triple bug was caused by: (1) AdminMesses/Onboarding rendered HQ-only controls for franchise_owner without redirect or guard — fixed with Navigate redirect + load() early-return; (2) /admin/restaurant/takeaway-pendency had NO branch filter — now uses _users_in_mess() filter; (3) /admin/restaurant/orders also had NO branch filter — same fix. All three are addressed and verified. The branch pill UX (clickable but redundant for FR) was hardened to read-only badge."
+}

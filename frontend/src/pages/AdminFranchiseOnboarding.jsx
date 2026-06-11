@@ -7,12 +7,16 @@
  */
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
+import { Navigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
 import { UserPlus, Loader2, ShieldCheck, Building2, Phone, CheckCircle2 } from "lucide-react";
 
 export default function AdminFranchiseOnboarding() {
+  // iter-96 #1: franchise owners cannot promote new franchises — HQ-only.
+  const { user } = useAuth();
   const [messes, setMesses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [phone, setPhone] = useState("");
@@ -21,6 +25,7 @@ export default function AdminFranchiseOnboarding() {
   const [result, setResult] = useState(null);
 
   useEffect(() => {
+    if (user?.role === "franchise_owner") { setLoading(false); return; } // iter-96: skip — will be redirected
     (async () => {
       try {
         const r = await api.get("/admin/messes");
@@ -31,7 +36,7 @@ export default function AdminFranchiseOnboarding() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [user]);
 
   const selectedMess = useMemo(
     () => messes.find((m) => m.mess_id === messId),
@@ -40,6 +45,9 @@ export default function AdminFranchiseOnboarding() {
 
   const phoneDigits = phone.replace(/\D+/g, "");
   const canSubmit = phoneDigits.length === 10 && !!messId && !saving;
+
+  // iter-96 #1: hard-block franchise owners — HQ-only feature.
+  if (user?.role === "franchise_owner") return <Navigate to="/admin/kitchen-radius" replace />;
 
   const promote = async () => {
     if (!canSubmit) {

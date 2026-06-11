@@ -237,25 +237,17 @@ async def my_orders(user: server.User = Depends(server.get_current_user), limit:
 
 
 @router.get("/admin/restaurant/orders")
-async def admin_orders(user: server.User = Depends(server.get_current_user), limit: int = 50):
-    # iter-92 #3: franchise_owner can view their branch's restaurant orders
-    # (scoped via the ordering user's mess_id).
-    if user.role not in ("admin", "franchise_owner"):
+async def admin_orders(user: server.User = Depends(server.get_current_user), limit: int = 50, as_mess_id: str | None = None):
+    # iter-92 #3 / iter-96 #3: franchise_owner sees their branch's orders;
+    # HQ admin can view-as a branch via ?as_mess_id=...
+    if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     limit = max(1, min(500, int(limit)))
-    q: dict = {}
-    if user.role == "franchise_owner":
-        m = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
-        if not m:
-            raise HTTPException(status_code=403, detail="No mess assigned")
-        user_ids: list = []
-        async for u in server.db.users.find({"mess_id": m["mess_id"]}, {"_id": 0, "user_id": 1}):
-            uid = u.get("user_id")
-            if uid:
-                user_ids.append(uid)
-        q["user_id"] = {"$in": user_ids}
+    mid = await server.effective_mess_id(user, as_mess_id)
+    user_ids = await server._users_in_mess(mid)
+    q: dict = {} if user_ids is None else {"user_id": {"$in": user_ids}}
     rows = await server.db.restaurant_orders.find(q, {"_id": 0}).sort("created_at", -1).to_list(limit)
-    return {"orders": rows}
+    return {"orders": rows, "scope": "branch" if mid else "global", "mess_id": mid}
 
 
 # ---------------------------------------------------------------------------

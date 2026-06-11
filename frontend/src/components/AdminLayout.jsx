@@ -304,11 +304,12 @@ export default function AdminLayout() {
               trigger={({ open, toggle }) => (
                 <button
                   type="button"
-                  onClick={role === "franchise_owner" ? () => navigate("/admin/messes") : toggle}
-                  className={`shrink-0 inline-flex items-center gap-1 rounded-full text-[10px] font-extrabold uppercase tracking-[0.12em] px-2.5 h-7 transition-colors ${branchPill.color === "fuchsia" ? "bg-fuchsia-500/15 text-fuchsia-700 hover:bg-fuchsia-500/25 dark:text-fuchsia-300" : "bg-primary/15 text-primary hover:bg-primary/25"} ${open ? "ring-2 ring-primary/30" : ""}`}
+                  onClick={role === "franchise_owner" ? undefined : toggle}
+                  disabled={role === "franchise_owner"}
+                  className={`shrink-0 inline-flex items-center gap-1 rounded-full text-[10px] font-extrabold uppercase tracking-[0.12em] px-2.5 h-7 transition-colors ${branchPill.color === "fuchsia" ? "bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300" : "bg-primary/15 text-primary"} ${role !== "franchise_owner" ? "hover:bg-fuchsia-500/25 cursor-pointer" : "cursor-default"} ${open ? "ring-2 ring-primary/30" : ""}`}
                   data-testid="branch-pill"
                   aria-haspopup={role !== "franchise_owner" ? "menu" : undefined}
-                  aria-expanded={open}
+                  aria-expanded={role !== "franchise_owner" ? open : undefined}
                   title={`Branch context — ${branchPill.label} · ${branchPill.sub}`}
                 >
                   <MapPin className="h-3 w-3" />
@@ -330,11 +331,12 @@ export default function AdminLayout() {
               trigger={({ open, toggle }) => (
                 <button
                   type="button"
-                  onClick={role === "franchise_owner" ? () => navigate("/admin/messes") : toggle}
-                  className={`mb-3 inline-flex items-center gap-1.5 rounded-full text-[11px] font-extrabold uppercase tracking-[0.14em] px-3 h-8 transition-colors ${branchPill.color === "fuchsia" ? "bg-fuchsia-500/15 text-fuchsia-700 hover:bg-fuchsia-500/25 dark:text-fuchsia-300" : "bg-primary/15 text-primary hover:bg-primary/25"} ${open ? "ring-2 ring-primary/30" : ""}`}
+                  onClick={role === "franchise_owner" ? undefined : toggle}
+                  disabled={role === "franchise_owner"}
+                  className={`mb-3 inline-flex items-center gap-1.5 rounded-full text-[11px] font-extrabold uppercase tracking-[0.14em] px-3 h-8 transition-colors ${branchPill.color === "fuchsia" ? "bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300" : "bg-primary/15 text-primary"} ${role !== "franchise_owner" ? "hover:bg-fuchsia-500/25 cursor-pointer" : "cursor-default"} ${open ? "ring-2 ring-primary/30" : ""}`}
                   data-testid="branch-pill-desktop"
                   aria-haspopup={role !== "franchise_owner" ? "menu" : undefined}
-                  aria-expanded={open}
+                  aria-expanded={role !== "franchise_owner" ? open : undefined}
                   title={`Branch context — ${branchPill.label} · ${branchPill.sub}`}
                 >
                   <MapPin className="h-3.5 w-3.5" />
