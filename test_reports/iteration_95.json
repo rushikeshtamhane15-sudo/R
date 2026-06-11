@@ -1,0 +1,39 @@
+{
+  "summary": "Iter-95 branch-scope franchise WRITES + HQ BranchSwitcher: 17/17 new pytest cases PASS, iter-94 regression 28/28 PASS, Playwright UI flow PASS (popover + axios interceptor + localStorage + badge + HQ revert). FR-without-popover behaviour verified (FR was redirected to /profile completion as expected since seed FR has no name/phone/address).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/admin/attendance/today", "issue": "Does not echo scope+mess_id in response body even when ?as_mess_id is honored. spec [MUST] said it should include scope+mess_id. /admin/stats and /admin/control-tower both echo scope+mess_id correctly."},
+      {"endpoint": "/api/admin/raw-materials", "issue": "Top-level response shape lacks scope+mess_id fields (only items/breakdown/counts). Per-mess writes are correctly persisted into raw_materials_config{_id:mess_id} and global {_id:'active'} is left untouched, but clients can't tell scope from response alone."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter95_branch_writes.py",
+    "/app/test_reports/pytest/iter95_results.xml"
+  ],
+  "action_items": [
+    "(MINOR) Add scope+mess_id to /api/admin/attendance/today response — spec item [MUST] explicitly required this and currently the body is just {attendance:[...]}.",
+    "(MINOR) Add scope+mess_id at top-level of /api/admin/raw-materials response for symmetry with cash-totals / kitchen-settings."
+  ],
+  "critical_code_review_comments": [
+    "effective_mess_id() correctly ignores any as_mess_id when caller is franchise_owner (security: FR cannot override).",
+    "cash_analytics.mark_deposited uses update_many with user_id $in scope-filter — clean silent-skip pattern, no leakage.",
+    "Raw-materials cache is now keyed by mess_id (_RM_CACHE) — no cross-tenant cache poisoning.",
+    "Kitchen-settings GET fallback reads HQ global doc until branch saves its own — sensible default."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter95_branch_writes.py"
+  ],
+  "success_rate": {"backend": "100% (17/17 iter-95 + 28/28 iter-94 regression)", "frontend": "100% (all BranchSwitcher assertions met)"},
+  "test_credentials": "Seeded TEST_IT95_* admin + franchise_owner sessions inside test fixture; cleaned up in teardown. UI seed sessions TEST_IT95UI_* also cleaned up.",
+  "seed_data_creation": "test_iter95_branch_writes.py fixture seeds: admin user, franchise_owner (rebound as owner of efoodcare-amravati), in-mess + out-of-mess subscribers, 2 cash payment_orders. Mess 'iter95-other' temporarily created + dropped. MESS_A original owner_user_id is restored on teardown so subsequent iterations are not affected. Global delivery_settings{_id:'active'} and raw_materials_config{_id:'active'} are NEVER mutated.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend endpoints under test live at: /api/admin/raw-materials (+/stock-topup), /api/admin/kitchen-settings, /api/admin/payments/{cash-totals,cash-pending-deposit,mark-deposited}. NOTE: spec used path /admin/cash-mark-deposited but actual is /admin/payments/mark-deposited. Likewise spec called fields kitchen_lat/lng/delivery_radius_km but real Pydantic schema uses dispatch_lat/dispatch_lng/dispatch_radius_km. FR mess_id is resolved via db.messes.owner_user_id, NOT user.mess_id, so seed both. BranchSwitcher UI selectors: branch-pill-desktop, branch-switcher-popover, branch-switcher-all, branch-switcher-<mess_id>, overview-branch-scope. axios interceptor adds as_mess_id ONLY to /admin/* requests (verified: 9/9 admin reqs got it, 0 franchise/auth reqs got it).",
+  "rca of the issue": "N/A — all scenarios verified green. Two minor (non-blocking) gaps documented above."
+}

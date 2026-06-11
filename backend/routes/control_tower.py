@@ -22,7 +22,7 @@ def _today_window():
 
 
 @router.get("/admin/control-tower")
-async def control_tower(user: server.User = Depends(server.get_current_user)):
+async def control_tower(user: server.User = Depends(server.get_current_user), as_mess_id: str | None = None):
     if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff/franchise only")
     db = server.db
@@ -31,20 +31,12 @@ async def control_tower(user: server.User = Depends(server.get_current_user)):
     five_min_ago = (now - timedelta(minutes=5)).isoformat()
     three_min_ago = (now - timedelta(minutes=3)).isoformat()
 
-    # iter-94 #3: franchise_owner sees ONLY their branch's data. Build a
-    # user_id filter once and stamp it onto every order/scan/payment count.
-    branch_mess_id: str | None = None
+    # iter-94 #3 / iter-95: franchise_owner sees ONLY their branch's data;
+    # admins can opt into "view-as-branch" via ?as_mess_id=...
+    branch_mess_id: str | None = await server.effective_mess_id(user, as_mess_id)
     branch_user_filter: dict = {}
-    if user.role == "franchise_owner":
-        m = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
-        if not m:
-            raise HTTPException(status_code=403, detail="No mess assigned")
-        branch_mess_id = m["mess_id"]
-        user_ids: list = []
-        async for u in db.users.find({"mess_id": branch_mess_id}, {"_id": 0, "user_id": 1}):
-            uid = u.get("user_id")
-            if uid:
-                user_ids.append(uid)
+    if branch_mess_id:
+        user_ids = await server._users_in_mess(branch_mess_id) or []
         branch_user_filter = {"user_id": {"$in": user_ids}}
 
     def with_branch(q: dict) -> dict:

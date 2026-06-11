@@ -69,6 +69,7 @@ async def admin_stats(
     user: server.User = Depends(server.get_current_user),
     period: str = "cycle",
     date: Optional[str] = None,
+    as_mess_id: Optional[str] = None,
 ):
     """Iter-65 #10: revenue+attendance now respect a billing cycle that
     resets on the 6th of every month (5th = last day of cycle). Admin can
@@ -77,22 +78,15 @@ async def admin_stats(
     `active_subscriptions` now only counts subs whose user still exists
     with role='subscriber' — stops phantom counts from orphaned seeds.
 
-    iter-92 #2: franchise_owner can call this endpoint too — every metric
-    is then auto-scoped to *their* mess_id (subscribers, revenue, attendance).
+    iter-92 #2 / iter-95: branch scope via effective_mess_id —
+    franchise sees only their branch; admin can opt-in with ?as_mess_id=...
     """
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "franchise_owner", "staff"):
         raise HTTPException(status_code=403, detail="Admin only")
 
-    # iter-92: resolve the franchise owner's mess for branch scoping.
-    franchise_mess_id: Optional[str] = None
+    franchise_mess_id: Optional[str] = await server.effective_mess_id(user, as_mess_id)
     franchise_user_ids: Optional[set] = None
-    if user.role == "franchise_owner":
-        m = await server.db.messes.find_one(
-            {"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1, "name": 1},
-        )
-        if not m:
-            raise HTTPException(status_code=403, detail="No mess assigned")
-        franchise_mess_id = m["mess_id"]
+    if franchise_mess_id:
         ids = set()
         cursor = server.db.users.find({"mess_id": franchise_mess_id}, {"_id": 0, "user_id": 1})
         async for u in cursor:
@@ -221,19 +215,18 @@ async def admin_stats(
 
 
 @router.get("/admin/attendance/today")
-async def admin_today_attendance(user: server.User = Depends(server.get_current_user)):
-    # iter-92 #2: franchise_owner sees branch-scoped attendance only.
-    if user.role not in ("admin", "franchise_owner"):
+async def admin_today_attendance(user: server.User = Depends(server.get_current_user), as_mess_id: Optional[str] = None):
+    # iter-92 #2 / iter-95: franchise_owner sees branch-scoped attendance only;
+    # admin can opt-in via ?as_mess_id=...
+    if user.role not in ("admin", "franchise_owner", "staff"):
         raise HTTPException(status_code=403, detail="Admin only")
     d = server.today_str()
     q: dict = {"date_str": d}
-    if user.role == "franchise_owner":
-        m = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
-        if not m:
-            raise HTTPException(status_code=403, detail="No mess assigned")
+    mid = await server.effective_mess_id(user, as_mess_id)
+    if mid:
         user_ids: list = []
         async for u in server.db.users.find(
-            {"mess_id": m["mess_id"]}, {"_id": 0, "user_id": 1},
+            {"mess_id": mid}, {"_id": 0, "user_id": 1},
         ):
             uid = u.get("user_id")
             if uid:

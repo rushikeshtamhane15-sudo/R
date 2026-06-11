@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
 import { api } from "../lib/api";
+import BranchSwitcher, { PillChevron } from "./BranchSwitcher";
 import { LayoutDashboard, Package, Truck, ScanLine, QrCode, Utensils, Users, Palette, Home, Shield, FileText, MapPin, FootprintsIcon, LogIn, Megaphone, Radio, Layout, Wheat, ClipboardList, Menu, MessageSquareQuote, UtensilsCrossed, MessageCircle, ChefHat, Bike, AlertTriangle, X, Clock, Wallet, UserPlus } from "lucide-react";
 
 // `roles`: which roles can see the item. Default: admin only.
@@ -106,7 +107,7 @@ function NavList({ filteredSections, onItemClick }) {
 }
 
 export default function AdminLayout() {
-  const { user } = useAuth();
+  const { user, asMessId } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const role = user?.role || "subscriber";
@@ -194,9 +195,10 @@ export default function AdminLayout() {
 
   // Find current page label for the mobile header
   // iter-94 #1: branch context pill — shows "Amravati · You" for franchise
-  // owners and "HQ · All branches" for admins. Click drops you to the
-  // messes & franchise admin page so a multi-hat user can review/switch.
-  const [branchPill, setBranchPill] = useState(null); // { label, sub, color }
+  // owners and "HQ · All branches" for admins. iter-95: when an admin uses
+  // BranchSwitcher to view-as-branch, the pill switches to the picked branch's
+  // city + sub="view-as" (fuchsia) so HQ never forgets they're scoped.
+  const [branchPill, setBranchPill] = useState(null);
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -204,14 +206,23 @@ export default function AdminLayout() {
         try {
           const r = await api.get("/franchise/me/mess");
           const m = r.data?.mess;
-          if (mounted && m) setBranchPill({ label: m.city || m.name, sub: "you", color: "fuchsia" });
+          if (mounted && m) setBranchPill({ label: (m.city || m.name).toUpperCase(), sub: "you", color: "fuchsia" });
         } catch { /* keep null */ }
-      } else if (role === "admin") {
-        if (mounted) setBranchPill({ label: "HQ", sub: "all branches", color: "primary" });
+      } else if (role === "admin" || role === "staff") {
+        if (!asMessId) {
+          if (mounted) setBranchPill({ label: "HQ", sub: "all branches", color: "primary" });
+          return;
+        }
+        try {
+          // Skip the interceptor's auto-append so we get the FULL mess list.
+          const r = await api.get("/admin/messes", { params: { as_mess_id: null } });
+          const m = (r.data?.messes || []).find((x) => x.mess_id === asMessId);
+          if (mounted) setBranchPill({ label: ((m?.city || m?.name) || asMessId).toUpperCase(), sub: "view-as", color: "fuchsia" });
+        } catch { if (mounted) setBranchPill({ label: asMessId, sub: "view-as", color: "fuchsia" }); }
       }
     })();
     return () => { mounted = false; };
-  }, [role]);
+  }, [role, asMessId]);
 
   const current = filteredSections.flatMap((s) => s.items).find((it) => location.pathname === it.to || (location.pathname.startsWith(it.to) && it.to !== "/admin"));
   // iter-85: helper to label the workspace by role — franchise owners see
@@ -288,18 +299,25 @@ export default function AdminLayout() {
             <p className="font-display font-extrabold text-base leading-tight truncate">{currentLabel}</p>
           </div>
           {branchPill && (
-            <button
-              type="button"
-              onClick={() => navigate("/admin/messes")}
-              className={`shrink-0 inline-flex items-center gap-1 rounded-full text-[10px] font-extrabold uppercase tracking-[0.12em] px-2.5 h-7 transition-colors ${branchPill.color === "fuchsia" ? "bg-fuchsia-500/15 text-fuchsia-700 hover:bg-fuchsia-500/25 dark:text-fuchsia-300" : "bg-primary/15 text-primary hover:bg-primary/25"}`}
-              data-testid="branch-pill"
-              aria-label={`Branch ${branchPill.label} · ${branchPill.sub}`}
-              title={`Branch context — ${branchPill.label} · ${branchPill.sub}`}
-            >
-              <MapPin className="h-3 w-3" />
-              <span className="truncate max-w-[7rem]">{branchPill.label}</span>
-              <span className="opacity-60 normal-case font-bold tracking-normal">· {branchPill.sub}</span>
-            </button>
+            <BranchSwitcher
+              side="bottom"
+              trigger={({ open, toggle }) => (
+                <button
+                  type="button"
+                  onClick={role === "franchise_owner" ? () => navigate("/admin/messes") : toggle}
+                  className={`shrink-0 inline-flex items-center gap-1 rounded-full text-[10px] font-extrabold uppercase tracking-[0.12em] px-2.5 h-7 transition-colors ${branchPill.color === "fuchsia" ? "bg-fuchsia-500/15 text-fuchsia-700 hover:bg-fuchsia-500/25 dark:text-fuchsia-300" : "bg-primary/15 text-primary hover:bg-primary/25"} ${open ? "ring-2 ring-primary/30" : ""}`}
+                  data-testid="branch-pill"
+                  aria-haspopup={role !== "franchise_owner" ? "menu" : undefined}
+                  aria-expanded={open}
+                  title={`Branch context — ${branchPill.label} · ${branchPill.sub}`}
+                >
+                  <MapPin className="h-3 w-3" />
+                  <span className="truncate max-w-[7rem]">{branchPill.label}</span>
+                  <span className="opacity-60 normal-case font-bold tracking-normal">· {branchPill.sub}</span>
+                  {role !== "franchise_owner" && <PillChevron />}
+                </button>
+              )}
+            />
           )}
         </div>
       </div>
@@ -307,17 +325,25 @@ export default function AdminLayout() {
       <div className="grid lg:grid-cols-[260px_1fr] gap-6 lg:gap-10">
         <aside className="hidden lg:block lg:sticky lg:top-24 lg:self-start" data-testid="admin-sidebar">
           {branchPill && (
-            <button
-              type="button"
-              onClick={() => navigate("/admin/messes")}
-              className={`mb-3 inline-flex items-center gap-1.5 rounded-full text-[11px] font-extrabold uppercase tracking-[0.14em] px-3 h-8 transition-colors ${branchPill.color === "fuchsia" ? "bg-fuchsia-500/15 text-fuchsia-700 hover:bg-fuchsia-500/25 dark:text-fuchsia-300" : "bg-primary/15 text-primary hover:bg-primary/25"}`}
-              data-testid="branch-pill-desktop"
-              title={`Branch context — ${branchPill.label} · ${branchPill.sub}`}
-            >
-              <MapPin className="h-3.5 w-3.5" />
-              <span className="truncate max-w-[9rem]">{branchPill.label}</span>
-              <span className="opacity-60 normal-case font-bold tracking-normal">· {branchPill.sub}</span>
-            </button>
+            <BranchSwitcher
+              side="bottom"
+              trigger={({ open, toggle }) => (
+                <button
+                  type="button"
+                  onClick={role === "franchise_owner" ? () => navigate("/admin/messes") : toggle}
+                  className={`mb-3 inline-flex items-center gap-1.5 rounded-full text-[11px] font-extrabold uppercase tracking-[0.14em] px-3 h-8 transition-colors ${branchPill.color === "fuchsia" ? "bg-fuchsia-500/15 text-fuchsia-700 hover:bg-fuchsia-500/25 dark:text-fuchsia-300" : "bg-primary/15 text-primary hover:bg-primary/25"} ${open ? "ring-2 ring-primary/30" : ""}`}
+                  data-testid="branch-pill-desktop"
+                  aria-haspopup={role !== "franchise_owner" ? "menu" : undefined}
+                  aria-expanded={open}
+                  title={`Branch context — ${branchPill.label} · ${branchPill.sub}`}
+                >
+                  <MapPin className="h-3.5 w-3.5" />
+                  <span className="truncate max-w-[9rem]">{branchPill.label}</span>
+                  <span className="opacity-60 normal-case font-bold tracking-normal">· {branchPill.sub}</span>
+                  {role !== "franchise_owner" && <PillChevron />}
+                </button>
+              )}
+            />
           )}
           <NavList filteredSections={filteredSections} />
         </aside>

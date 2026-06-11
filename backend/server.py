@@ -2622,12 +2622,22 @@ RAW_MATERIAL_DEFAULTS = [
 ]
 
 
-async def _load_raw_materials() -> list[dict]:
-    doc = await db.raw_materials_config.find_one({"_id": "active"}, {"_id": 0})
-    if not doc:
+async def _load_raw_materials(mess_id: Optional[str] = None) -> list[dict]:
+    """iter-95: per-mess raw materials. mess_id=None → HQ-global doc {_id:"active"}.
+    Per-mess docs are keyed by mess_id; missing mess docs fall back to the global
+    defaults so first-time franchise owners see something useful immediately."""
+    doc_id = mess_id or "active"
+    doc = await db.raw_materials_config.find_one({"_id": doc_id}, {"_id": 0})
+    if doc:
+        items = doc.get("items") or RAW_MATERIAL_DEFAULTS
+    elif mess_id:
+        # First read for this branch — clone the global defaults so future edits don't
+        # collide with HQ. We also seed the doc so caching works.
+        items = list(RAW_MATERIAL_DEFAULTS)
+        await db.raw_materials_config.insert_one({"_id": mess_id, "items": items})
+    else:
         await db.raw_materials_config.insert_one({"_id": "active", "items": RAW_MATERIAL_DEFAULTS})
         return list(RAW_MATERIAL_DEFAULTS)
-    items = doc.get("items") or RAW_MATERIAL_DEFAULTS
     # Merge in any newly-added defaults
     have = {i["key"] for i in items}
     for d in RAW_MATERIAL_DEFAULTS:
@@ -2650,10 +2660,14 @@ def _per_meal_factor(item: dict) -> dict:
     return out
 
 
-async def _count_active_persons() -> dict:
+async def _count_active_persons(mess_id: Optional[str] = None) -> dict:
     """Persons-per-meal weighting: full tiffin / dining = 1.0; half tiffin = 0.5.
-    Inactive (auto-paused or user-paused tiffin) subs don't count for today's cooking."""
-    subs = await db.subscriptions.find({"status": "active"}, {"_id": 0}).to_list(20000)
+    Inactive (auto-paused or user-paused tiffin) subs don't count for today's cooking.
+    iter-95: when mess_id is supplied, only count subs in that branch."""
+    q: dict = {"status": "active"}
+    if mess_id:
+        q["mess_id"] = mess_id
+    subs = await db.subscriptions.find(q, {"_id": 0}).to_list(20000)
     full = 0
     half = 0
     today = date.today()
@@ -2679,39 +2693,79 @@ def _admin_or_staff(user: User):
         raise HTTPException(status_code=403, detail="Admin or staff only")
 
 
+# iter-95: unified branch scoping for ALL operational endpoints.
+# Returns the mess_id whose data should be served for the current request:
+#   • franchise_owner → their assigned mess (cannot be overridden)
+#   • admin / staff   → `as_mess_id` query param (None = HQ-global)
+#   • other           → 403
+async def effective_mess_id(user: User, as_mess_id: Optional[str] = None) -> Optional[str]:
+    if user.role == "franchise_owner":
+        m = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+        if not m:
+            raise HTTPException(status_code=403, detail="No mess assigned")
+        return m["mess_id"]
+    if user.role in ("admin", "staff"):
+        if as_mess_id:
+            # Verify the mess exists so admins don't accidentally filter into nothing.
+            exists = await db.messes.find_one({"mess_id": as_mess_id}, {"_id": 0, "mess_id": 1})
+            if not exists:
+                raise HTTPException(status_code=404, detail=f"Unknown mess: {as_mess_id}")
+            return as_mess_id
+        return None  # HQ-global view
+    raise HTTPException(status_code=403, detail="Not allowed")
+
+
+async def _users_in_mess(mess_id: Optional[str]) -> Optional[list]:
+    """Returns the list of user_ids belonging to a mess, or None for global scope.
+    Used as a filter on payments / scans / orders that link to a user."""
+    if not mess_id:
+        return None
+    ids: list = []
+    async for u in db.users.find({"mess_id": mess_id}, {"_id": 0, "user_id": 1}):
+        uid = u.get("user_id")
+        if uid:
+            ids.append(uid)
+    return ids
+
+
 @api_router.get("/admin/raw-materials")
-async def get_raw_materials(user: User = Depends(get_current_user), fresh: bool = False):
+async def get_raw_materials(user: User = Depends(get_current_user), fresh: bool = False, as_mess_id: Optional[str] = None):
     _admin_or_staff(user)
+    mid = await effective_mess_id(user, as_mess_id)
     if fresh:
-        _invalidate_raw_materials_cache()
-    return await _compute_raw_materials_cached()
+        _invalidate_raw_materials_cache(mid)
+    return await _compute_raw_materials_cached(mid)
 
 
 # Lightweight in-process memo — invalidated when admin edits items or resets defaults,
 # or when the cached entry exceeds 60s. Cuts repeated mongo scans on the dashboard view.
-_RM_CACHE: dict = {"value": None, "ts": 0.0}
+# iter-95: cache is now keyed by mess_id ("__global__" for HQ) so franchises see independent values.
+_RM_CACHE: dict = {}
 _RM_TTL_SECONDS = 60
 
 
-def _invalidate_raw_materials_cache():
-    _RM_CACHE["value"] = None
-    _RM_CACHE["ts"] = 0.0
+def _invalidate_raw_materials_cache(mess_id: Optional[str] = None):
+    if mess_id is None:
+        _RM_CACHE.clear()
+    else:
+        _RM_CACHE.pop(mess_id or "__global__", None)
 
 
-async def _compute_raw_materials_cached() -> dict:
+async def _compute_raw_materials_cached(mess_id: Optional[str] = None) -> dict:
     import time as _t
     now_s = _t.monotonic()
-    if _RM_CACHE["value"] is not None and (now_s - _RM_CACHE["ts"]) < _RM_TTL_SECONDS:
-        return _RM_CACHE["value"]
-    val = await _compute_raw_materials_fresh()
-    _RM_CACHE["value"] = val
-    _RM_CACHE["ts"] = now_s
+    key = mess_id or "__global__"
+    entry = _RM_CACHE.get(key)
+    if entry is not None and (now_s - entry["ts"]) < _RM_TTL_SECONDS:
+        return entry["value"]
+    val = await _compute_raw_materials_fresh(mess_id)
+    _RM_CACHE[key] = {"value": val, "ts": now_s}
     return val
 
 
-async def _compute_raw_materials_fresh() -> dict:
-    items = await _load_raw_materials()
-    counts = await _count_active_persons()
+async def _compute_raw_materials_fresh(mess_id: Optional[str] = None) -> dict:
+    items = await _load_raw_materials(mess_id)
+    counts = await _count_active_persons(mess_id)
     persons = float(counts["persons"])
 
     breakdown = []
@@ -2847,10 +2901,12 @@ class RawMaterialStockTopup(BaseModel):
 
 
 @api_router.put("/admin/raw-materials")
-async def update_raw_materials(payload: RawMaterialPatch, user: User = Depends(get_current_user)):
+async def update_raw_materials(payload: RawMaterialPatch, user: User = Depends(get_current_user), as_mess_id: Optional[str] = None):
     # Admin + staff can both edit/add rows. Staff frequently knows current market rates.
     if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin or staff only")
+    mid = await effective_mess_id(user, as_mess_id)
+    doc_id = mid or "active"
     items = [i.dict(exclude_none=True) for i in payload.items]
     if not items:
         raise HTTPException(status_code=400, detail="At least one item required")
@@ -2859,18 +2915,20 @@ async def update_raw_materials(payload: RawMaterialPatch, user: User = Depends(g
         for k in ("qty_per_person_month", "price_per_unit", "amount_per_person_month", "current_stock"):
             if k in it and it[k] is not None and float(it[k]) < 0:
                 raise HTTPException(status_code=400, detail=f"{k} cannot be negative")
-    await db.raw_materials_config.update_one({"_id": "active"}, {"$set": {"items": items, "updated_at": iso(now_utc())}}, upsert=True)
-    _invalidate_raw_materials_cache()
-    return await get_raw_materials(user)
+    await db.raw_materials_config.update_one({"_id": doc_id}, {"$set": {"items": items, "updated_at": iso(now_utc())}}, upsert=True)
+    _invalidate_raw_materials_cache(mid)
+    return await get_raw_materials(user, as_mess_id=as_mess_id)
 
 
 @api_router.post("/admin/raw-materials/stock-topup")
-async def topup_raw_materials_stock(payload: RawMaterialStockTopup, user: User = Depends(get_current_user)):
+async def topup_raw_materials_stock(payload: RawMaterialStockTopup, user: User = Depends(get_current_user), as_mess_id: Optional[str] = None):
     """Admin/staff add a partial or full month's stock for a single item.
     Resets the consumption clock to now."""
     if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin or staff only")
-    items = await _load_raw_materials()
+    mid = await effective_mess_id(user, as_mess_id)
+    doc_id = mid or "active"
+    items = await _load_raw_materials(mid)
     found = False
     for it in items:
         if it["key"] == payload.key:
@@ -2882,18 +2940,20 @@ async def topup_raw_materials_stock(payload: RawMaterialStockTopup, user: User =
             break
     if not found:
         raise HTTPException(404, f"Item not found: {payload.key}")
-    await db.raw_materials_config.update_one({"_id": "active"}, {"$set": {"items": items, "updated_at": iso(now_utc())}}, upsert=True)
-    _invalidate_raw_materials_cache()
-    return await get_raw_materials(user)
+    await db.raw_materials_config.update_one({"_id": doc_id}, {"$set": {"items": items, "updated_at": iso(now_utc())}}, upsert=True)
+    _invalidate_raw_materials_cache(mid)
+    return await get_raw_materials(user, as_mess_id=as_mess_id)
 
 
 @api_router.post("/admin/raw-materials/reset")
-async def reset_raw_materials(user: User = Depends(get_current_user)):
-    if user.role != "admin":
+async def reset_raw_materials(user: User = Depends(get_current_user), as_mess_id: Optional[str] = None):
+    if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
-    await db.raw_materials_config.update_one({"_id": "active"}, {"$set": {"items": RAW_MATERIAL_DEFAULTS, "updated_at": iso(now_utc())}}, upsert=True)
-    _invalidate_raw_materials_cache()
-    return await get_raw_materials(user)
+    mid = await effective_mess_id(user, as_mess_id)
+    doc_id = mid or "active"
+    await db.raw_materials_config.update_one({"_id": doc_id}, {"$set": {"items": RAW_MATERIAL_DEFAULTS, "updated_at": iso(now_utc())}}, upsert=True)
+    _invalidate_raw_materials_cache(mid)
+    return await get_raw_materials(user, as_mess_id=as_mess_id)
 
 
 # ---------------------------
