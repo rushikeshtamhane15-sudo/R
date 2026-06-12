@@ -18,6 +18,16 @@ Build a tiffin / dining subscription app with:
 
 ## Implemented (Feb 2026)
 
+### Iteration 96 (Feb 12, 2026) — User-Reported Branch Leakage Bugs Fixed
+- **🚨 #2 Takeaway-pendency leak across branches** — `GET /api/admin/restaurant/takeaway-pendency` now filters by `user_id ∈ users-in-mess`. Yavatmal franchise sees 0 rows, Amravati sees its 2. Cross-branch `/collect` blocked with explicit 403 "Pendency not in your branch".
+- **🚨 #3 Restaurant orders leak across branches** — same fix on `GET /api/admin/restaurant/orders` (uses `effective_mess_id` + `_users_in_mess`). Admin `?as_mess_id=` correctly scopes; HQ unfiltered. Response includes `scope/mess_id`.
+- **🚨 #1 Franchise owners locked out of HQ-only pages**:
+  - `/admin/messes` → `<Navigate to="/admin/kitchen-radius" replace />` for franchise_owner
+  - `/admin/franchise-onboarding` → same redirect
+  - `load()` early-returns for franchise role so no "Failed to load messes" toast fires
+  - Branch pill is now `disabled` + `cursor-default` + no chevron + click is a no-op for franchise
+- Tests: **14/14 iter-96 pytest pass + 17/17 iter-95 regression** + Playwright UI **7/7 FR + 5/5 admin-regression**. Production-reported triple bug fully resolved.
+
 ### Iteration 95 (Feb 12, 2026) — Branch-Scoped Franchise Writes + HQ Branch-Switcher
 - **🔐 Branch-scoped writes**: introduced unified `effective_mess_id(user, as_mess_id)` helper. Raw materials now persist to `db.raw_materials_config{_id:<mess_id>}` (per-mess) with auto-seeding from the global defaults on first read; the HQ-global `{_id:"active"}` doc stays immutable while franchises mutate. Same per-mess pattern for `db.delivery_settings` (kitchen-settings). Cash totals / pending-deposit / mark-deposited filter by `user_id ∈ branch users`, including silent-skip of cross-branch order_ids on `mark-deposited`. Two-franchise data isolation is now hard-guaranteed.
 - **🔁 HQ Admin Branch-Switcher popover** anchored to the AdminLayout pill (mobile + desktop). HQ admin clicks the pill → popover with `HQ · all branches` + a row per mess (testids `branch-switcher-popover`, `branch-switcher-all`, `branch-switcher-<mess_id>`). Choice persists in `localStorage.efc_as_mess_id`. An axios interceptor auto-stamps `?as_mess_id=<id>` onto every `/admin/*` call (skips `/franchise/*` and `/auth/*`). Backend `/admin/stats`, `/admin/attendance/today`, `/admin/control-tower`, raw-materials, cash, kitchen-settings all honour the param for admins. Franchise owners cannot override scope.
