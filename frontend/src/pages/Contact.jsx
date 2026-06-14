@@ -56,11 +56,33 @@ export default function Contact() {
     return () => { cancel = true; };
   }, []);
 
-  // Resolve nearest branch
+  // Resolve nearest branch — iter-97 #4: SPEED.
+  // Step 1: use cached lat/lng (localStorage) to resolve INSTANTLY.
+  // Step 2: kick off a fresh low-accuracy fix in parallel; if it returns a
+  //         different branch, swap silently.
+  // Step 3: only fall back to default branch if both fail.
   useEffect(() => {
     let cancel = false;
+    const LOC_KEY = "efc_user_geo_v1";
+
+    const resolveNearby = async (lat, lng) => {
+      try {
+        const r = await api.get(`/messes/nearby?lat=${lat}&lng=${lng}`);
+        if (cancel) return false;
+        const items = r.data?.messes || [];
+        if (items.length) {
+          setMe({ lat, lng });
+          setAllBranches(items);
+          setBranch(items[0]);
+          try { localStorage.setItem(LOC_KEY, JSON.stringify({ lat, lng, ts: Date.now() })); } catch { /* no-op */ }
+          setLoading(false);
+          return true;
+        }
+      } catch { /* fallthrough */ }
+      return false;
+    };
+
     const fallbackToFirst = async () => {
-      // No GPS / denied — show the default (corporate) branch.
       try {
         const r = await api.get("/messes");
         if (cancel) return;
@@ -70,27 +92,29 @@ export default function Contact() {
         setBranch(def);
       } finally { if (!cancel) setLoading(false); }
     };
-    if (!("geolocation" in navigator)) { fallbackToFirst(); return; }
+
+    // Step 1 — instant cached resolve
+    try {
+      const cached = JSON.parse(localStorage.getItem(LOC_KEY) || "null");
+      if (cached?.lat != null && cached?.lng != null && (Date.now() - (cached.ts || 0) < 24 * 60 * 60 * 1000)) {
+        resolveNearby(cached.lat, cached.lng);
+      }
+    } catch { /* ignore */ }
+
+    // Step 2 — fresh GPS in background (low accuracy = sub-second response)
+    if (!("geolocation" in navigator)) { fallbackToFirst(); return () => { cancel = true; }; }
     navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        if (cancel) return;
-        const lat = pos.coords.latitude, lng = pos.coords.longitude;
-        setMe({ lat, lng });
-        try {
-          const r = await api.get(`/messes/nearby?lat=${lat}&lng=${lng}`);
-          if (cancel) return;
-          const items = r.data?.messes || [];
-          setAllBranches(items);
-          setBranch(items[0] || null);
-        } catch {
-          await fallbackToFirst();
-          return;
-        } finally { if (!cancel) setLoading(false); }
+      (pos) => { resolveNearby(pos.coords.latitude, pos.coords.longitude); },
+      () => {
+        setPermissionDenied(true);
+        // Only show fallback if step 1 didn't already populate.
+        if (!branch) fallbackToFirst();
+        if (!cancel) setLoading(false);
       },
-      () => { setPermissionDenied(true); fallbackToFirst(); },
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 5 * 60 * 1000 },
+      { enableHighAccuracy: false, timeout: 1500, maximumAge: 10 * 60 * 1000 },
     );
     return () => { cancel = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const askDirections = () => {
@@ -154,23 +178,8 @@ export default function Contact() {
         </p>
       )}
 
-      {/* Branch picker (only when 2+ branches) */}
-      {allBranches.length > 1 && (
-        <div className="mt-4 flex flex-wrap gap-2" data-testid="contact-branch-picker">
-          {allBranches.map((m) => (
-            <button
-              key={m.mess_id}
-              type="button"
-              onClick={() => setBranch(m)}
-              className={`text-xs font-bold px-3 h-8 rounded-full border-2 transition-colors ${branch.mess_id === m.mess_id ? "border-primary bg-primary text-primary-foreground" : "border-border hover:border-primary"}`}
-              data-testid={`contact-branch-${m.slug}`}
-            >
-              {m.city || m.name}
-              {m.distance_km != null && <span className="ml-1.5 opacity-70 font-semibold">({m.distance_km} km)</span>}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* iter-97 #4: branch picker chips removed — we always show the
+          auto-detected nearest branch. No manual override on the consumer side. */}
 
       <div className="mt-10 grid md:grid-cols-5 gap-6">
         <div className="md:col-span-2 space-y-3">

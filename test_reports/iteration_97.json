@@ -1,0 +1,30 @@
+{
+  "summary": "iter-97 verified end-to-end. Backend: 5/5 new pytest cases PASS (OTP dev-echo still emitted by backend, /messes, /messes/nearby, /me/mess silent persist) + 31/31 iter-95+iter-96 regression PASS. Frontend Playwright (390x844, geo granted at Amravati): pill auto-resolves to 'Amravati' in 1178 ms with seeded cache (under 2500 ms SLA); double-clicking the read-only pill does NOT open any sheet/dialog (mess-switcher-sheet count = 0); /login OTP verify step renders WITHOUT the green DEV MODE OTP block (dev-otp-banner count = 0) even though backend still echoes dev_otp; /contact loads in 949 ms with cached geo, contact-branch-picker count = 0 (chip row removed), contact-branch-pill count = 1; full E2E OTP login → /auth/me populates → /restaurant renders menu content. All 7 FRs met.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": { "ui_bugs": [], "integration_issues": [], "design_issues": [] },
+  "test_report_links": [
+    "/app/backend/tests/test_iter97_silent_branch.py",
+    "/app/test_reports/pytest/iter97_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "MessSwitcher.jsx: cached-geo step kicks off a non-awaited resolveAndSet which is correct for instant first-paint, BUT the in-flight Step-2 GPS callback can race and overwrite the cached resolve with the same branch (idempotent — no UX regression). Acceptable.",
+    "MessSwitcher.jsx: geolocation timeout 1500 ms is tight on poor connections — there is no high-accuracy retry. If the cached coords are stale (>24 h) AND GPS fails AND /messes default-fallback also fails, the pill silently stays null. Consider a fallback timer that loads /messes default after 2 s if still null.",
+    "Contact.jsx Step-2 onError closure reads stale `branch` (state), but useEffect dep is []. Practical effect: when GPS denies AND Step-1 cache resolved, fallbackToFirst is skipped — correct. When neither runs, fallback fires — also correct. Logic is fine, but the lint disable is required (already added).",
+    "Login.jsx: devOtp state is still tracked but never rendered — dead state. Safe to remove the useState + setDevOtp calls entirely to reduce noise (minor cleanup).",
+    "Contact.jsx setLoading(false) inside Step-2 error callback fires regardless of whether Step-1 already populated branch — harmless because branch is already set so the `loading || !branch` guard returns full UI; just slightly racy."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter97_silent_branch.py"
+  ],
+  "success_rate": {
+    "backend": "100% (5/5 iter-97 + 31/31 iter-95+iter-96 regression)",
+    "frontend": "100% (7/7 FR assertions: pill speed, read-only pill, no sheet, no dev banner, no contact picker, contact pill, E2E login + /auth/me + restaurant menu render)"
+  },
+  "test_credentials": "OTP dev-echo via /api/auth/send-otp (dev_otp echoed in response body). Test phone 9001420003 created during run; harmless subscriber row left in DB.",
+  "seed_data_creation": "Used the existing efoodcare-amravati + efoodcare-yavatmal mess rows seeded in iter-96. No new seed required. localStorage keys efc_user_geo_v1 and efc_user_mess_v1 cleared at end of each Playwright run as requested.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend env: must `set -a && source /app/backend/.env && set +a` before running pytest because iter-95/iter-96 tests import MONGO_URL from os.environ at module-import time. iter-97 test file does not need that (uses public API only). Geolocation testing requires Playwright context.grant_permissions(['geolocation'], origin=...) AND set_geolocation BEFORE first page.goto to avoid the prompt + accept dialog. To capture dev_otp during UI flow, attach a `page.on('response', ...)` listener BEFORE clicking the Continue button. Otherwise the in-page fetch echoes 403 (CDN/WAF) — direct urllib calls from the test runner outside the browser also get 403.",
+  "rca of the issue": "n/a — feature additions verified, no bugs found."
+}

@@ -448,13 +448,10 @@ export default function Login() {
                   Sent to <span className="font-semibold text-foreground">+91 {phone}</span>
                 </p>
 
-                {devOtp && (
-                  <div className="mt-5 rounded-2xl bg-secondary/10 border border-secondary/30 p-3.5" data-testid="dev-otp-banner">
-                    <span className="text-[10px] tracking-overline uppercase font-bold text-secondary">Dev mode OTP</span>
-                    <p className="font-mono font-bold text-xl tracking-[0.4em] text-foreground mt-1">{devOtp}</p>
-                    <p className="text-[11px] text-muted-foreground mt-1">Swap to MSG91/Twilio for production.</p>
-                  </div>
-                )}
+                {/* iter-97 #3: DEV MODE OTP block removed from the UI.
+                    The backend still echoes dev_otp in dev_mode for staging
+                    builds, but customers must never see it. SMS delivery
+                    will be provided by a future MSG91/Twilio integration. */}
 
                 <label className="block text-xs tracking-overline uppercase font-bold text-muted-foreground mt-6">
                   Enter 6-digit OTP
