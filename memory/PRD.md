@@ -18,6 +18,15 @@ Build a tiffin / dining subscription app with:
 
 ## Implemented (Feb 2026)
 
+### Iteration 97 (Feb 14, 2026) — Silent Branch Detect + Dev OTP Removed From UI
+- **🎯 Consumer branch detection is now silent + instant** (`MessSwitcher.jsx`): the "Pick your branch" bottom sheet is removed; the header pill is read-only (display-only badge). Two-step resolve:
+  1. Cached `efc_user_geo_v1` lat/lng (localStorage, 24 h TTL) → resolves nearest in <300ms with zero geo prompt
+  2. Fresh low-accuracy GPS fix (`enableHighAccuracy:false`, `timeout:1500ms`) in parallel, overlays silently
+  Measured: pill paints in **~895 ms** with cache, **1178 ms** verified by testing-agent at Amravati.
+- **🗺️ Contact page** (`Contact.jsx`): branch chip row removed; same two-step instant geo resolve.
+- **🚫 Login DEV MODE OTP block removed** from the UI (`Login.jsx`). Backend still echoes `dev_otp` in `dev_mode` but the green banner is gone; dev_otp is logged to `console.info` in non-production builds only. SMS provider integration (MSG91/Twilio/OTPless) is deferred — user picked option d.
+- Tests: **5/5 iter-97 pytest + 31/31 iter-95+96 regression + 7/7 Playwright UI** assertions — pill speed, read-only pill, no sheet, no dev banner, no contact picker, E2E OTP login.
+
 ### Iteration 96 (Feb 12, 2026) — User-Reported Branch Leakage Bugs Fixed
 - **🚨 #2 Takeaway-pendency leak across branches** — `GET /api/admin/restaurant/takeaway-pendency` now filters by `user_id ∈ users-in-mess`. Yavatmal franchise sees 0 rows, Amravati sees its 2. Cross-branch `/collect` blocked with explicit 403 "Pendency not in your branch".
 - **🚨 #3 Restaurant orders leak across branches** — same fix on `GET /api/admin/restaurant/orders` (uses `effective_mess_id` + `_users_in_mess`). Admin `?as_mess_id=` correctly scopes; HQ unfiltered. Response includes `scope/mess_id`.

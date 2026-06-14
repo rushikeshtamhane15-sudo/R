@@ -149,7 +149,6 @@ export default function Login() {
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [otp, setOtp] = useState("");
-  const [devOtp, setDevOtp] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -172,7 +171,10 @@ export default function Login() {
     setSubmitting(true);
     try {
       const r = await api.post("/auth/send-otp", { phone: p });
-      if (r.data.dev_otp) setDevOtp(r.data.dev_otp);
+      if (r.data.dev_otp && process.env.NODE_ENV !== "production") {
+        // iter-97: dev_otp is still echoed by the backend but never rendered.
+        console.info("[dev] OTP:", r.data.dev_otp);
+      }
       toast.success("OTP sent");
       setMode("verify");
     } catch (e) {
@@ -432,7 +434,6 @@ export default function Login() {
                   onClick={() => {
                     setMode("phone");
                     setOtp("");
-                    setDevOtp(null);
                   }}
                   className="text-xs text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors"
                   data-testid="back-to-phone"
