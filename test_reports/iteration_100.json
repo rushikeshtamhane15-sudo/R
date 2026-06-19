@@ -1,0 +1,38 @@
+{
+  "summary": "iter-99 RETEST (backend only). Devanagari matra fix + extend_days cap verified. Backend pytest 40/40 PASS on the iter-99 suite (extended from 27 → 40 by adding 7 cross-script names + 4 cap boundary tests + retaining original 29). _NAME_RE in /app/backend/routes/auth.py was expanded with explicit Indic block ranges (\\u0900-\\u097F Devanagari + Bengali \\u0980-\\u09FF + Gurmukhi \\u0A00-\\u0A7F + Gujarati \\u0A80-\\u0AFF + Odia \\u0B00-\\u0B7F + Tamil \\u0B80-\\u0BFF + Telugu \\u0C00-\\u0C7F + Kannada \\u0C80-\\u0CFF + Malayalam \\u0D00-\\u0D7F + Latin combining diacritics \\u0300-\\u036F) — every cross-script smoke name now returns 200 from POST /api/auth/profile: 'राहुल', 'अमित', 'नमस्ते', 'অমিত', 'அமித்', 'અમિત', 'ਅਮਿਤ', 'అమిత్', 'ಅಮಿತ್', 'അമിത്'. Server-side extend_days cap |x| ≤ 3650 verified at /api/admin/users/{id}/wallet-adjust: +5000 → 400 with detail 'extend_days must be between −3650 and +3650'; -5000 → 400 same detail; +3650 → 200 (boundary OK); -3650 → 200 (boundary OK). All other iter-99 MUST FRs still green: Rushikesh original payload 200, name accepts digits/hyphen/apostrophe/dots/2-80 chars, name rejects empty/1-char/>80 chars, address <10 → 400, address ≥10 → 200, phone validation unchanged (rejects leading 1-5/non-10-digit/non-numeric; accepts leading 6-9), signed extend_days -5 pulls back 5d, -3000 floors at start_date (note: floor test value lowered from -9999 to -3000 since new cap rejects ≤-3650 — sub spans only 30d so -3000 still floors), audit persists signed -7, positive +5 still works. Regression suites also green: iter-98 meals_delta ± (2/2), iter-97 silent branch (5/5), iter-92 franchise scoping (17/17). TEST_IT99 seed docs all purged in teardown.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter99_profile_and_negative_extend.py",
+    "/app/test_reports/pytest/iter99_retest_results.xml",
+    "/app/test_reports/pytest/iter99_retest_regression.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routes/auth.py:148-164 — Indic block expansion is correct and minimal; \\u0900-\\u097F covers Devanagari letters AND matras AND virama in one range so no need for separate \\p{M} support. Comment is now accurate.",
+    "routes/auth.py:165 — _PHONE_RE strips '+91'/space/hyphen before match — good; but does not strip leading '0' (some users type 0XXXXXXXXX). Low-priority enhancement, not a regression.",
+    "server.py:2293-2294 — Cap check `abs(int(payload.extend_days or 0)) > 3650` is correctly placed BEFORE the no-op-payload check, so 5000 is caught even when delta=0 + meals_delta=None. Good ordering.",
+    "server.py:2293 — Error message uses Unicode minus sign U+2212 (−) not ASCII hyphen. Both render identically in JSON; tests assert on the digit '3650' so this works. If a frontend ever does substring match for '-3650' (ASCII) it would miss the lower-bound text. Minor.",
+    "Floor logic at server.py:2353 still floors via `new_end < start` — unchanged from iter-99 and verified by test_huge_negative_clamps_to_start_date with extend_days=-3000 (within cap, exceeds 30-day sub span, end_date snapped to start_date within 2s tolerance)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter99_profile_and_negative_extend.py"
+  ],
+  "success_rate": {
+    "backend": "100% (40/40 iter-99 suite + 38/38 regression iter-92/97/98)",
+    "frontend": "not tested this iteration (review_request: backend only; UI was 9/9 in iter-99)"
+  },
+  "test_credentials": "Ephemeral TEST_IT99_sess_* admin/subscriber sessions seeded in db.user_sessions inside module fixture; no human credentials required.",
+  "seed_data_creation": "TEST_IT99_admin + TEST_IT99_subscriber + active subscription (sub_id TEST_IT99_sub_*, start 10d ago, end 20d future, meals_total=60). All TEST_IT99 docs purged in fixture teardown — verified via Mongo count == 0 for users/sessions/subscriptions. user_7db238e7de98 was NOT touched this iteration (only TEST_* fixture users used); its current end_date in DB is 2026-07-17 (likely state from iter-99 UI run, +/-3d from the snapshot reported there — does not affect backend tests).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter-99 test file now has 40 tests across 8 classes: TestProfileOriginalFailingPayload, TestNameRegexAccepts (15 cross-script + Latin names), TestNameRegexRejects, TestAddressMinLength, TestPhoneValidationUnchanged, TestNegativeExtendDays, TestExtendDaysCap (4 cap-boundary tests +5000/-5000 reject, +3650/-3650 accept), TestIter98Regression. Floor test now uses extend_days=-3000 (within new cap). The cap check `abs(extend_days) > 3650` lives at server.py:2293 before the no-op check. Cross-script support comes from explicit Indic block ranges in routes/auth.py:148-164 (NOT from \\p{M} since stdlib re has no Unicode property support). For any new Indic script addition, just add the block range. Run command: `cd /app && python -m pytest backend/tests/test_iter99_profile_and_negative_extend.py -v` — should be 40/40 in <1s.",
+  "rca of the issue": "Not applicable — no failures this iteration. Previous iter-99 RCA (Devanagari matras failing because Python \\w excludes Mark categories Mn/Mc) has been resolved by main agent via explicit Indic Unicode block ranges in _NAME_RE. The fix is confirmed by all 10 cross-script smoke names returning 200, and no regression in Latin-script name acceptance (Mary-Anne O'Brien, Dr. A.P.J. Kalam, 'Rohan 23' all still pass)."
+}

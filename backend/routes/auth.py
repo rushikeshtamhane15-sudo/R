@@ -145,8 +145,24 @@ async def auth_logout(response: Response, request: Request, session_token: Optio
 import re
 
 # Iter-54 #3: profile-validation regexes
-_NAME_RE = re.compile(r"^[\w\s\.\'\-]{2,80}$", re.UNICODE)   # iter-99: Unicode-aware (Devanagari, accents, digits ok)
-_PHONE_RE = re.compile(r"^[6-9]\d{9}$")                       # 10-digit India mobile, starts 6-9
+_NAME_RE = re.compile(
+    # iter-99: Unicode letters + digits + spaces + . ' -
+    # Explicit Indic block ranges so vowel-signs (matras) and viramas are
+    # accepted — Python's \w does NOT include the Mark categories (Mn / Mc).
+    r"^[\w\s\.\'\-"
+    r"\u0900-\u097F"   # Devanagari (Hindi, Marathi, Sanskrit) — incl. matras
+    r"\u0980-\u09FF"   # Bengali / Assamese
+    r"\u0A00-\u0A7F"   # Gurmukhi (Punjabi)
+    r"\u0A80-\u0AFF"   # Gujarati
+    r"\u0B00-\u0B7F"   # Odia
+    r"\u0B80-\u0BFF"   # Tamil
+    r"\u0C00-\u0C7F"   # Telugu
+    r"\u0C80-\u0CFF"   # Kannada
+    r"\u0D00-\u0D7F"   # Malayalam
+    r"\u0300-\u036F"   # Combining diacriticals (for Latin-script names)
+    r"]{2,80}$"
+)
+_PHONE_RE = re.compile(r"^[6-9]\d{9}$")   # 10-digit India mobile, starts 6-9
 
 
 def _validate_profile_fields(name: str, phone: str, address: str):

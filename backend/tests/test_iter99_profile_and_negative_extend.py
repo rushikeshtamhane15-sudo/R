@@ -149,7 +149,16 @@ class TestProfileOriginalFailingPayload:
 class TestNameRegexAccepts:
     @pytest.mark.parametrize("name", [
         "Rohan 23",          # digits + space
-        "राहुल",              # Devanagari
+        "राहुल",              # Devanagari with matras
+        "अमित",               # Devanagari
+        "नमस्ते",              # Devanagari with virama
+        "অমিত",              # Bengali
+        "அமித்",              # Tamil
+        "અમિત",              # Gujarati
+        "ਅਮਿਤ",              # Punjabi (Gurmukhi)
+        "అమిత్",              # Telugu
+        "ಅಮಿತ್",             # Kannada
+        "അമിത്",             # Malayalam
         "Mary-Anne O'Brien", # hyphen + apostrophe
         "Dr. A.P.J. Kalam",  # dots + spaces
         "AB",                # min len 2
@@ -257,10 +266,11 @@ class TestNegativeExtendDays:
     def test_huge_negative_clamps_to_start_date(self, world, mongo):
         _reset_end(mongo, world["sub_id"], world["end_iso"])
         start = _parse(world["start_iso"])
+        # Use -3000 (within cap |x|<=3650) — sub only spans 30d so this floors at start_date
         r = requests.post(
             f"{API}/admin/users/{world['sub_user_uid']}/wallet-adjust",
             headers=_hdr(world["admin_tok"]),
-            json={"delta": 0, "reason": "iter-99 floor test", "extend_days": -9999},
+            json={"delta": 0, "reason": "iter-99 floor test", "extend_days": -3000},
             timeout=20,
         )
         assert r.status_code == 200, r.text
@@ -297,6 +307,55 @@ class TestNegativeExtendDays:
         sub_after = _get_sub(mongo, world["sub_id"])
         after_end = _parse(sub_after["end_date"])
         assert (after_end - before_end).days == 5
+
+
+# ─── iter-99-retest: extend_days cap |x| ≤ 3650 ────────────────────────
+
+class TestExtendDaysCap:
+    def test_extend_days_5000_rejected(self, world):
+        r = requests.post(
+            f"{API}/admin/users/{world['sub_user_uid']}/wallet-adjust",
+            headers=_hdr(world["admin_tok"]),
+            json={"delta": 0, "reason": "cap test +5000", "extend_days": 5000},
+            timeout=20,
+        )
+        assert r.status_code == 400, r.text
+        detail = (r.json().get("detail") or "").lower()
+        assert "3650" in detail and "extend_days" in detail
+
+    def test_extend_days_neg_5000_rejected(self, world):
+        r = requests.post(
+            f"{API}/admin/users/{world['sub_user_uid']}/wallet-adjust",
+            headers=_hdr(world["admin_tok"]),
+            json={"delta": 0, "reason": "cap test -5000", "extend_days": -5000},
+            timeout=20,
+        )
+        assert r.status_code == 400, r.text
+        detail = (r.json().get("detail") or "").lower()
+        assert "3650" in detail
+
+    def test_extend_days_3650_boundary_ok(self, world, mongo):
+        _reset_end(mongo, world["sub_id"], world["end_iso"])
+        r = requests.post(
+            f"{API}/admin/users/{world['sub_user_uid']}/wallet-adjust",
+            headers=_hdr(world["admin_tok"]),
+            json={"delta": 0, "reason": "cap boundary +3650", "extend_days": 3650},
+            timeout=20,
+        )
+        assert r.status_code == 200, r.text
+        # restore for safety
+        _reset_end(mongo, world["sub_id"], world["end_iso"])
+
+    def test_extend_days_neg_3650_boundary_ok(self, world, mongo):
+        _reset_end(mongo, world["sub_id"], world["end_iso"])
+        r = requests.post(
+            f"{API}/admin/users/{world['sub_user_uid']}/wallet-adjust",
+            headers=_hdr(world["admin_tok"]),
+            json={"delta": 0, "reason": "cap boundary -3650", "extend_days": -3650},
+            timeout=20,
+        )
+        assert r.status_code == 200, r.text
+        _reset_end(mongo, world["sub_id"], world["end_iso"])
 
 
 # ─── Regression: meals_delta still works (iter-98) ─────────────────────

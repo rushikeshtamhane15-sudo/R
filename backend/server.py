@@ -2290,6 +2290,8 @@ async def admin_wallet_adjust(target_user_id: str, payload: WalletAdjustRequest,
     if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     # iter-98: unify meals_delta and the legacy restore_meals field.
+    if abs(int(payload.extend_days or 0)) > 3650:
+        raise HTTPException(status_code=400, detail="extend_days must be between −3650 and +3650")
     meals_change = int(payload.meals_delta or 0) + int(payload.restore_meals or 0)
     if abs(float(payload.delta)) < 0.005 and not payload.extend_days and not meals_change:
         raise HTTPException(status_code=400, detail="Provide a non-zero delta, extend_days, or meals_delta")
