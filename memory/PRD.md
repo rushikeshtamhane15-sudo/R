@@ -18,6 +18,16 @@ Build a tiffin / dining subscription app with:
 
 ## Implemented (Feb 2026)
 
+### Iteration 98 (Feb 19, 2026) — Bidirectional Meal Adjustment (Deduct + Restore)
+- **🍽️ Admin can DEDUCT meals**, not just restore. `POST /admin/users/{id}/wallet-adjust` now accepts a signed `meals_delta`:
+  - `meals_delta > 0` → restore (lowers `meals_used` — was the only direction supported before)
+  - `meals_delta < 0` → deduct (raises `meals_used` — e.g. user ate extra for a friend, admin clears the books)
+  - `meals_used` is **hard-clamped to `[0, meals_total]`** so admins can't accidentally break the meter
+  - Legacy `restore_meals` field still accepted; both fields merge additively
+- **Audit log** persists both `meals_delta` (signed) + legacy `restore_meals` (`max(0, .)`) so older history rows + dashboards keep working
+- **UI**: `/admin/wallet-topup` advanced section now has a "Meals" stepper: `−` / signed-number input / `+` (testids `wallet-meals-dec`, `wallet-meals-delta`, `wallet-meals-inc`). History rows render signed text (`+3 meals` / `-3 meals`).
+- Tests: **14/14 iter-98 pytest + 9/9 Playwright UI + 55/55 iter-92/95/96/97 regression** — 100% pass.
+
 ### Iteration 97 (Feb 14, 2026) — Silent Branch Detect + Dev OTP Removed From UI
 - **🎯 Consumer branch detection is now silent + instant** (`MessSwitcher.jsx`): the "Pick your branch" bottom sheet is removed; the header pill is read-only (display-only badge). Two-step resolve:
   1. Cached `efc_user_geo_v1` lat/lng (localStorage, 24 h TTL) → resolves nearest in <300ms with zero geo prompt
