@@ -18,6 +18,18 @@ Build a tiffin / dining subscription app with:
 
 ## Implemented (Feb 2026)
 
+### Iteration 99 (Feb 24, 2026) — Profile Save + Signed Sub-Days Adjustment
+- **🚨 Production bug — "Save failed" on /profile fixed.** Root cause: `_NAME_RE` only accepted Latin alphabet, rejecting digits / non-Latin-script names; `address` minimum was 12 chars and failed common Indian formats.
+  - `_NAME_RE` rewritten with explicit Indic block ranges (Devanagari `\u0900-\u097F`, Bengali, Gurmukhi, Gujarati, Odia, Tamil, Telugu, Kannada, Malayalam) + Latin diacritic combining marks. Latin `\w` + space + `. ' -` still accepted.
+  - Address minimum dropped 12 → 10 chars (frontend hint updated).
+  - 10 cross-script smoke names verified (राहुल, অমিত, અમિત, ਅਮਿਤ, அமித், అమిత్, ಅಮಿತ್, അമിത്, …) — all 200.
+- **📅 Admin can DEDUCT subscription days too** (mirrors iter-98 meals stepper).
+  - `POST /admin/users/{id}/wallet-adjust` accepts signed `extend_days` (positive extends, negative pulls end_date back).
+  - Hard-floored at `sub.start_date` (a sub can't end before it begins).
+  - Server-side cap `|extend_days| ≤ 3650` per code review (prevents API-direct abuse).
+  - UI: stepper trio (`wallet-days-dec` / `wallet-extend-days` signed input / `wallet-days-inc`).
+- Tests: **40/40 iter-99 pytest + 9/9 Playwright UI + 24/24 iter-92→98 regression** — 100% pass.
+
 ### Iteration 98 (Feb 19, 2026) — Bidirectional Meal Adjustment (Deduct + Restore)
 - **🍽️ Admin can DEDUCT meals**, not just restore. `POST /admin/users/{id}/wallet-adjust` now accepts a signed `meals_delta`:
   - `meals_delta > 0` → restore (lowers `meals_used` — was the only direction supported before)
