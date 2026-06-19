@@ -2269,7 +2269,12 @@ class WalletAdjustRequest(BaseModel):
     delta: float                     # positive = credit, negative = debit
     reason: str
     extend_days: Optional[int] = 0   # also extend end_date by this many days
-    restore_meals: Optional[int] = 0 # also bump meals_total by this many (or unbump meals_used)
+    # iter-98: meals can be adjusted BOTH ways now.
+    #   meals_delta > 0  → add meals back (lowers meals_used; never below 0)
+    #   meals_delta < 0  → deduct meals (raises meals_used; capped at meals_total)
+    # restore_meals is kept as a backward-compat alias for meals_delta > 0.
+    meals_delta: Optional[int] = 0
+    restore_meals: Optional[int] = 0
 
 
 @api_router.post("/admin/users/{target_user_id}/wallet-adjust")
@@ -2278,12 +2283,16 @@ async def admin_wallet_adjust(target_user_id: str, payload: WalletAdjustRequest,
     - delta > 0  → credit (refund / goodwill / promo).
     - delta < 0  → debit  (correction / chargeback).
     - extend_days  → optionally pushes the active subscription end_date forward.
-    - restore_meals→ optionally adds meals back (lowers meals_used; never below 0).
-    iter-92 #3: franchise_owner can adjust wallets of users in *their* branch only."""
+    - meals_delta  → positive adds meals back, negative deducts meals (e.g. user
+      ate an extra meal for a friend and admin needs to count it).
+    iter-92 #3: franchise_owner can adjust wallets of users in *their* branch only.
+    iter-98:   meals_delta now supports BOTH directions; restore_meals kept as alias."""
     if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
-    if abs(float(payload.delta)) < 0.005 and not payload.extend_days and not payload.restore_meals:
-        raise HTTPException(status_code=400, detail="Provide a non-zero delta, extend_days, or restore_meals")
+    # iter-98: unify meals_delta and the legacy restore_meals field.
+    meals_change = int(payload.meals_delta or 0) + int(payload.restore_meals or 0)
+    if abs(float(payload.delta)) < 0.005 and not payload.extend_days and not meals_change:
+        raise HTTPException(status_code=400, detail="Provide a non-zero delta, extend_days, or meals_delta")
     if not (payload.reason or "").strip():
         raise HTTPException(status_code=400, detail="reason is required for audit log")
     target = await db.users.find_one({"user_id": target_user_id}, {"_id": 0})
@@ -2297,7 +2306,7 @@ async def admin_wallet_adjust(target_user_id: str, payload: WalletAdjustRequest,
             raise HTTPException(status_code=403, detail="User not in your branch")
 
     sub = await db.subscriptions.find_one({"user_id": target_user_id, "status": "active"}, {"_id": 0})
-    if not sub and (payload.delta or payload.extend_days or payload.restore_meals):
+    if not sub and (payload.delta or payload.extend_days or meals_change):
         # Wallet without an active sub — still allow user-level wallet adjust for goodwill credits
         pass
 
@@ -2311,7 +2320,9 @@ async def admin_wallet_adjust(target_user_id: str, payload: WalletAdjustRequest,
         "target_email": target.get("email"),
         "delta": delta,
         "extend_days": int(payload.extend_days or 0),
-        "restore_meals": int(payload.restore_meals or 0),
+        "meals_delta": meals_change,
+        # Keep the old key in audit so existing UIs that read `restore_meals` still work.
+        "restore_meals": max(0, meals_change),
         "reason": payload.reason.strip()[:500],
         "before": {
             "user_wallet": float(target.get("wallet_balance") or 0),
@@ -2335,8 +2346,14 @@ async def admin_wallet_adjust(target_user_id: str, payload: WalletAdjustRequest,
         if payload.extend_days:
             new_end = parse_dt(sub["end_date"]) + timedelta(days=int(payload.extend_days))
             sub_updates["end_date"] = iso(new_end)
-        if payload.restore_meals:
-            new_used = max(0, int(sub.get("meals_used", 0)) - int(payload.restore_meals))
+        if meals_change:
+            # Positive meals_delta = restore (lower meals_used); negative = deduct (raise meals_used).
+            current_used = int(sub.get("meals_used", 0))
+            current_total = int(sub.get("meals_total", 0))
+            # New meals_used after applying the change. meals_used drops on restore,
+            # rises on deduction, and is hard-clamped to [0, meals_total].
+            proposed = current_used - meals_change
+            new_used = max(0, min(current_total, proposed))
             sub_updates["meals_used"] = new_used
         if sub_updates:
             unset_ops = {}

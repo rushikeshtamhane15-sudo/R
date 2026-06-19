@@ -10,7 +10,7 @@
  * Backend (already exists):
  *   GET  /api/admin/users                          → user directory
  *   GET  /api/admin/users/{id}/wallet-history      → past txns + admin overrides
- *   POST /api/admin/users/{id}/wallet-adjust       → {delta, reason, extend_days, restore_meals}
+ *   POST /api/admin/users/{id}/wallet-adjust       → {delta, reason, extend_days, meals_delta}
  */
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
@@ -35,7 +35,9 @@ export default function AdminWalletTopup() {
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
   const [extendDays, setExtendDays] = useState(0);
-  const [restoreMeals, setRestoreMeals] = useState(0);
+  // iter-98: rename + add direction for meals (positive = restore, negative = deduct).
+  const [mealsDelta, setMealsDelta] = useState(0);
+  // Removed: const [restoreMeals, setRestoreMeals]
   const [saving, setSaving] = useState(false);
 
   // History panel
@@ -79,14 +81,14 @@ export default function AdminWalletTopup() {
     setAmount("");
     setReason("");
     setExtendDays(0);
-    setRestoreMeals(0);
+    setMealsDelta(0);
     loadHistory(u.user_id);
   };
 
   const apply = async () => {
     if (!selected) return;
     const amt = Number(amount || 0);
-    if (!amt && !extendDays && !restoreMeals) {
+    if (!amt && !extendDays && !mealsDelta) {
       toast.error("Enter an amount or a sub adjustment"); return;
     }
     if (!reason.trim()) {
@@ -99,14 +101,13 @@ export default function AdminWalletTopup() {
         delta,
         reason: reason.trim(),
         extend_days: Number(extendDays) || 0,
-        restore_meals: Number(restoreMeals) || 0,
+        meals_delta: Number(mealsDelta) || 0,
       });
       const newBal = r.data?.after?.user_wallet ?? null;
       toast.success(`Wallet adjusted${newBal != null ? ` — new balance ₹${newBal}` : ""}`);
-      // Refresh local list + history
       setUsers((prev) => prev.map((u) => u.user_id === selected.user_id ? { ...u, wallet_balance: newBal ?? u.wallet_balance } : u));
       setSelected((s) => s ? { ...s, wallet_balance: newBal ?? s.wallet_balance } : s);
-      setAmount(""); setReason(""); setExtendDays(0); setRestoreMeals(0);
+      setAmount(""); setReason(""); setExtendDays(0); setMealsDelta(0);
       loadHistory(selected.user_id);
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Adjust failed");
@@ -279,17 +280,44 @@ export default function AdminWalletTopup() {
                       <Input type="number" min={0} max={365} value={extendDays} onChange={(e) => setExtendDays(e.target.value)} className="mt-1 rounded-xl" data-testid="wallet-extend-days" />
                     </div>
                     <div>
-                      <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Restore meals</p>
-                      <Input type="number" min={0} max={300} value={restoreMeals} onChange={(e) => setRestoreMeals(e.target.value)} className="mt-1 rounded-xl" data-testid="wallet-restore-meals" />
+                      <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Meals (+ restore / − deduct)</p>
+                      <div className="mt-1 flex items-stretch rounded-xl border border-input bg-background overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => setMealsDelta(Math.max(-300, Number(mealsDelta || 0) - 1))}
+                          className="px-3 hover:bg-red-500/10 text-red-600 font-extrabold"
+                          aria-label="Deduct one meal"
+                          data-testid="wallet-meals-dec"
+                        >−</button>
+                        <Input
+                          type="number"
+                          min={-300}
+                          max={300}
+                          value={mealsDelta}
+                          onChange={(e) => setMealsDelta(e.target.value)}
+                          className="rounded-none border-0 text-center font-bold"
+                          data-testid="wallet-meals-delta"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setMealsDelta(Math.min(300, Number(mealsDelta || 0) + 1))}
+                          className="px-3 hover:bg-emerald-500/10 text-emerald-600 font-extrabold"
+                          aria-label="Restore one meal"
+                          data-testid="wallet-meals-inc"
+                        >+</button>
+                      </div>
                     </div>
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-2">Applies to the user&apos;s active subscription (if any). Restoring meals lowers `meals_used` so they can attend again.</p>
+                  <p className="text-[10px] text-muted-foreground mt-2">
+                    Applies to the user&apos;s active subscription (if any). Positive = restore meals (lowers <code>meals_used</code>),
+                    negative = deduct meals (raises <code>meals_used</code>, e.g. user ate extra for a friend).
+                  </p>
                 </details>
 
                 <div className="mt-5 flex gap-2">
                   <Button
                     onClick={apply}
-                    disabled={saving || (!amount && !extendDays && !restoreMeals) || !reason.trim()}
+                    disabled={saving || (!amount && !extendDays && !mealsDelta) || !reason.trim()}
                     className="rounded-full bg-primary hover:bg-primary/90 flex-1 h-11"
                     data-testid="wallet-apply-button"
                   >
@@ -320,7 +348,12 @@ export default function AdminWalletTopup() {
                           <p className="text-xs font-bold">
                             {o.delta >= 0 ? "+" : "−"}₹{Math.abs(o.delta).toLocaleString("en-IN")}
                             {o.extend_days ? ` · +${o.extend_days}d` : ""}
-                            {o.restore_meals ? ` · +${o.restore_meals} meals` : ""}
+                            {(() => {
+                              // iter-98: history shows signed meals delta (positive=restored, negative=deducted)
+                              const md = o.meals_delta ?? (o.restore_meals || 0);
+                              if (!md) return null;
+                              return md > 0 ? ` · +${md} meals` : ` · ${md} meals`;
+                            })()}
                           </p>
                           <p className="text-[11px] text-muted-foreground line-clamp-2">{o.reason}</p>
                           <p className="text-[10px] text-muted-foreground mt-0.5">{new Date(o.ts).toLocaleString("en-IN")} · by {o.admin_email}</p>

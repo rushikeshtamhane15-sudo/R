@@ -1,0 +1,30 @@
+{
+  "summary": "iter-98 verified end-to-end. Backend: 14/14 new pytest cases PASS — deduct (meals_delta<0 raises meals_used 0→3), restore (meals_delta>0 lowers 3→0), legacy restore_meals still works, signed-merge of (meals_delta + restore_meals), hard clamp to [0, meals_total] (sending ±9999 caps/floors at 60/0), validation 400 when all fields zero, 400 when reason blank, audit doc in db.wallet_overrides persists signed meals_delta + max(0,.) restore_meals + before/after snapshot + admin email & reason. Regression: iter-92 wallet credit/debit/extend_days and franchise_owner cross-branch 403 still green (55/55 across iter-92+95+96+97). Frontend Playwright (1920x1080, /admin/wallet-topup): new bidirectional controls present (wallet-meals-dec / -delta / -inc), default 0, Apply button correctly disabled when (delta=0 OR reason missing), 3× '−' produces -3 + signed input typing works, end-to-end POST sends `meals_delta` in body (NOT legacy restore_meals) → backend returns 200 with meals_delta=-3 + after.meals_used=13, history list renders '-3 meals' for deduct and '+5 meals' for restore. All 9 MUST FRs verified.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": { "ui_bugs": [], "integration_issues": [], "design_issues": [] },
+  "test_report_links": [
+    "/app/backend/tests/test_iter98_wallet_meals_bidirectional.py",
+    "/app/test_reports/pytest/iter98_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py:2293 — meals_change = meals_delta + restore_meals (additive merge). This is documented but slightly counter-intuitive: a caller sending both `meals_delta:-1` AND `restore_meals:4` will see a NET +3 restore, not two separate ops. The audit doc therefore loses the original split. Acceptable since the frontend now never sends both, but if a 3rd-party API client mixes them by accident the behaviour may surprise them. Consider documenting this in the OpenAPI schema or rejecting requests with both fields non-zero.",
+    "server.py:2356 — `proposed = current_used - meals_change` then clamp. Sign convention is correct (positive meals_delta restores, i.e. lowers meals_used). But the convention is subtle: an admin reading the code at a glance may expect `current_used + meals_change`. A brief inline comment explaining the inversion would help future maintainers.",
+    "AdminWalletTopup.jsx:283 — label text reads 'Meals (+ restore / − deduct)'. Clear, but the helper paragraph under the input is the only place that explicitly says the field is signed. A small visual hint like '−' / '+' badges on the buttons (already there) plus tooltip on the input would prevent admins from typing positive numbers when they meant deduct.",
+    "AdminWalletTopup.jsx:341 — history rows render in a <ul data-testid=\"wallet-history-list\"> but individual <li> rows do NOT carry data-testid=\"wallet-history-row\" as the review request mentioned. Tests pass by scraping inner_text on the list, but per-row testids would be more robust. Minor nit, not blocking.",
+    "AdminWalletTopup.jsx:91 — guard `if (!amt && !extendDays && !mealsDelta)` treats mealsDelta as truthy. JavaScript treats 0 as falsy and -0/+0 both falsy. Negative numbers (e.g. -3) are truthy → works correctly. Confirmed via Playwright."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter98_wallet_meals_bidirectional.py"
+  ],
+  "success_rate": {
+    "backend": "100% (14/14 iter-98 + 55/55 iter-92/95/96/97 regression)",
+    "frontend": "100% (9/9 UI FR assertions: controls present, default 0, apply gating, ±buttons + signed typed input, POST body uses meals_delta only, deduct+restore E2E, history shows signed text)"
+  },
+  "test_credentials": "Ephemeral admin session token seeded directly into db.user_sessions for both pytest module fixture and Playwright UI run. No real human credentials needed.",
+  "seed_data_creation": "Pytest module fixture seeds TEST_IT98_* admin + franchise_owner_a + franchise_owner_b + subscriber_a + subscriber_b + active subscription (meals_total=60, meals_used=0) + new MESS_B mess. All cleaned up in teardown. UI run separately seeded TEST_IT98UI_* admin + subscriber + active sub (meals_used=10) and cleaned up post-run. Mess A (efoodcare-amravati) owner_user_id snapshotted and restored. user_7db238e7de98 active sub left untouched (meals_used=0 verified before and after).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend pytest works without sourcing .env because the test only uses public API + MONGO_URL/DB_NAME with defaults. For UI testing of admin pages, set cookie `session_token` at the preview domain (httpOnly, secure, sameSite=None) before page.goto — no need to inject into localStorage. The frontend axios client (lib/api.js) uses withCredentials:true so the cookie auto-attaches. Frontend POST body for /admin/users/{id}/wallet-adjust uses keys: delta, reason, extend_days, meals_delta (legacy restore_meals never sent from UI but still accepted by backend for backwards-compat). To verify history row text, scrape inner_text on `[data-testid=\"wallet-history-list\"]` (per-row testids not present — see code review).",
+  "rca of the issue": "n/a — feature verification, no defects found."
+}
