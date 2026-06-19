@@ -1,0 +1,46 @@
+{
+  "summary": "iter-99 verified end-to-end. Backend pytest 26/27 PASS (1 FAIL → Devanagari name with combining marks rejected by current regex). Profile MUST FRs verified: original failing Rushikesh payload now 200, name accepts digits/hyphen/apostrophe/dots, name rejects empty/1-char/>80 chars, address <10 chars → 400, address ≥10 → 200, phone validation unchanged (rejects 1-5 leading + non-10-digit + non-numeric, accepts 6-9 leading). Negative extend_days MUST FRs: extend_days:-5 pulls end_date back 5 days, extend_days:-9999 clamps to sub.start_date FLOOR (exact match within 2s), audit doc persists SIGNED -7 (not abs). Positive extend_days regression + iter-98 meals_delta ± regression all green. Frontend Playwright (1920x1080, /admin/wallet-topup): wallet-days-dec/-extend-days/-inc trio present, default 0, apply correctly disabled w/o values, disabled w/o reason, enabled with (extendDays=-3 + reason), stepper math correct (3× dec = -3, then 5× inc = +2), signed input accepts typed -10, POST body sends `extend_days: -10` signed. Cleanup: user_7db238e7de98 end_date restored to original via +10 day compensate. user_session and TEST_IT99* admin docs purged.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "/api/auth/profile",
+        "issue": "NAME_RE `^[\\w\\s\\.\\'\\-]{2,80}$` (re.UNICODE) does NOT match Devanagari names that contain combining marks (matras). Python's \\w matches Lo (Other_Letter) but NOT Mn (Mark_Nonspacing) or Mc (Mark_Spacing_Combining). Confirmed in REPL: 'राहुल' → False, 'अमित' → False, 'नमस्ते' → False; only mark-less names like 'अजय' pass. Review request explicitly listed Devanagari support as a MUST FR. Fix: switch to the `regex` third-party module (supports \\p{M}) OR expand char class to include Unicode mark categories explicitly, e.g. `^[\\w\\s\\.\\'\\-\\u0300-\\u036F\\u0900-\\u097F\\u0980-\\u09FF\\u0A80-\\u0AFF\\u0B80-\\u0BFF\\u0C00-\\u0C7F\\u0C80-\\u0CFF\\u0D00-\\u0D7F]{2,80}$` or simply add `\\u0900-\\u097F` (and other Indic blocks) which include both letters AND their matras.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter99_profile_and_negative_extend.py",
+    "/app/test_reports/pytest/iter99_results.xml"
+  ],
+  "action_items": [
+    "Expand _NAME_RE in /app/backend/routes/auth.py to include Indic combining marks. Recommended: `^[\\w\\s\\.\\'\\-\\u0900-\\u097F\\u0980-\\u09FF\\u0A80-\\u0AFF\\u0B80-\\u0BFF\\u0C00-\\u0C7F\\u0C80-\\u0CFF\\u0D00-\\u0D7F\\u0300-\\u036F]{2,80}$` (covers Devanagari + Bengali + Gujarati + Tamil + Telugu + Kannada + Malayalam + general combining diacritics). Re-run iter-99 pytest to confirm 27/27 green."
+  ],
+  "critical_code_review_comments": [
+    "routes/auth.py:148 — `re.UNICODE` flag is redundant on Python 3 (default). The real gap is that \\w doesn't pick up combining marks. A comment claiming 'Unicode-aware (Devanagari …)' is technically misleading since matras still fail. Either fix the regex or update the comment to clarify 'plain letter + digit Unicode'.",
+    "routes/auth.py:158 — Error message says 'letters / digits / spaces / . - ' allowed' but doesn't mention which scripts are allowed, leading to silent rejection of non-Latin users. Consider returning a 'name_invalid' error code plus localised hint.",
+    "server.py:2352 — `new_end = old_end + timedelta(days=int(payload.extend_days))` uses int cast. WalletAdjustRequest.extend_days is Optional[int] so Pydantic already coerces; the int() is belt-and-suspenders, fine.",
+    "server.py:2353 — Floor compares datetimes via `new_end < start`. Works because both come from parse_dt → naive datetimes, but if start_date and end_date ever have different tz info this becomes a TypeError. Consider normalising both to UTC-naive at parse time.",
+    "AdminWalletTopup.jsx:91 — guard `!amt && !extendDays && !mealsDelta` correctly treats 0 as falsy and any non-zero (including negative) as truthy. Good.",
+    "AdminWalletTopup.jsx:284 — min/max -365..365 on extendDays input matches inc/dec clamp. Good parity with backend (no server-side cap exists for extend_days though, so a power admin could POST extend_days:5000 directly — consider a server-side `abs(extend_days) <= 3650` sanity check)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter99_profile_and_negative_extend.py"
+  ],
+  "success_rate": {
+    "backend": "96% (26/27 — 1 Devanagari-matra fail, all other MUST FRs green)",
+    "frontend": "100% (9/9 UI FR assertions for the wallet-days stepper trio)"
+  },
+  "test_credentials": "Ephemeral admin session token (TEST_IT99UI_sess_*) seeded into db.user_sessions for both pytest module fixture and Playwright UI run. No human credentials required.",
+  "seed_data_creation": "Pytest seeds TEST_IT99_admin + TEST_IT99_subscriber + active subscription (start_date 10d ago, end_date 20d future, meals_total=60). UI run separately seeded TEST_IT99UI_admin + session. All TEST_IT99* docs cleaned in teardown. user_7db238e7de98 end_date was shifted -10 by Playwright Apply click; restored via compensating +10 admin call. Pre/post end_date both = 2026-07-14T00:26:51.565173+00:00.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter-99 backend pytest covers: profile (original payload, name accept/reject, address min 10, phone unchanged) + negative extend_days (–5 / –9999 floor / signed audit / positive regression) + iter-98 meals_delta regression. Re-run after fixing _NAME_RE to confirm 27/27. UI test cookie injection at preview domain still works (sameSite=None, secure, httpOnly). admin/users listing is keyed by `wallet-user-{user_id}` testid; the user labelled 'Rohan 23 / 8421372391' IS user_7db238e7de98 (confirmed via Mongo lookup).",
+  "rca of the issue": "Backend `_NAME_RE = re.compile(r\"^[\\w\\s\\.\\'\\-]{2,80}$\", re.UNICODE)` only matches what Python's \\w considers alphanumeric. In Unicode terms \\w = L*+Nd+Pc, but does NOT include Mark categories (Mn = non-spacing marks, Mc = spacing combining). Devanagari vowel signs ('matras') like ा ि ु े ो and the virama ् are all classified as Mn or Mc, so any Devanagari name with a non-inherent vowel (i.e. almost every real name) fails validation. Repro: `python3 -c \"import re; print(bool(re.compile(r'^[\\w\\s\\.\\\\\\'\\-]{2,80}$', re.UNICODE).match('राहुल')))\"` → False. Mitigation: expand the char class with Indic block ranges (\\u0900-\\u097F covers Devanagari letters + matras + virama). Or switch to the third-party `regex` module which supports `\\p{L}\\p{M}`."
+}

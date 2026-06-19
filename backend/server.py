@@ -2268,7 +2268,7 @@ async def set_menu(payload: MenuUpdateRequest, user: User = Depends(get_current_
 class WalletAdjustRequest(BaseModel):
     delta: float                     # positive = credit, negative = debit
     reason: str
-    extend_days: Optional[int] = 0   # also extend end_date by this many days
+    extend_days: Optional[int] = 0   # iter-99: signed — positive extends end_date, negative pulls it back (floors at start_date)
     # iter-98: meals can be adjusted BOTH ways now.
     #   meals_delta > 0  → add meals back (lowers meals_used; never below 0)
     #   meals_delta < 0  → deduct meals (raises meals_used; capped at meals_total)
@@ -2344,7 +2344,14 @@ async def admin_wallet_adjust(target_user_id: str, payload: WalletAdjustRequest,
             if sub_updates["wallet_balance"] > 0 and sub.get("zero_wallet_grace_until"):
                 sub_updates["zero_wallet_grace_until"] = None
         if payload.extend_days:
-            new_end = parse_dt(sub["end_date"]) + timedelta(days=int(payload.extend_days))
+            # iter-99: signed extend_days — positive pushes the end_date
+            # forward, negative pulls it back. We floor at sub.start_date so
+            # admins can't accidentally close a sub before it began.
+            old_end = parse_dt(sub["end_date"])
+            start = parse_dt(sub["start_date"]) if sub.get("start_date") else old_end - timedelta(days=30)
+            new_end = old_end + timedelta(days=int(payload.extend_days))
+            if new_end < start:
+                new_end = start
             sub_updates["end_date"] = iso(new_end)
         if meals_change:
             # Positive meals_delta = restore (lower meals_used); negative = deduct (raise meals_used).

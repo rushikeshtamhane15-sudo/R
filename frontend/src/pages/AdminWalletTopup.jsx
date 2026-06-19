@@ -276,8 +276,33 @@ export default function AdminWalletTopup() {
                   </summary>
                   <div className="mt-3 grid sm:grid-cols-2 gap-3">
                     <div>
-                      <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground inline-flex items-center gap-1"><CalendarDays className="h-3 w-3" /> Extend end-date (days)</p>
-                      <Input type="number" min={0} max={365} value={extendDays} onChange={(e) => setExtendDays(e.target.value)} className="mt-1 rounded-xl" data-testid="wallet-extend-days" />
+                      <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground inline-flex items-center gap-1"><CalendarDays className="h-3 w-3" /> Days (+ extend / − deduct)</p>
+                      <div className="mt-1 flex items-stretch rounded-xl border border-input bg-background overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => setExtendDays(Math.max(-365, Number(extendDays || 0) - 1))}
+                          className="px-3 hover:bg-red-500/10 text-red-600 font-extrabold"
+                          aria-label="Deduct one day"
+                          data-testid="wallet-days-dec"
+                        >−</button>
+                        <Input
+                          type="number"
+                          min={-365}
+                          max={365}
+                          value={extendDays}
+                          onChange={(e) => setExtendDays(e.target.value)}
+                          className="rounded-none border-0 text-center font-bold"
+                          data-testid="wallet-extend-days"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setExtendDays(Math.min(365, Number(extendDays || 0) + 1))}
+                          className="px-3 hover:bg-emerald-500/10 text-emerald-600 font-extrabold"
+                          aria-label="Extend one day"
+                          data-testid="wallet-days-inc"
+                        >+</button>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-1">Pushes the sub end-date forward (+) or pulls it back (−).</p>
                     </div>
                     <div>
                       <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Meals (+ restore / − deduct)</p>

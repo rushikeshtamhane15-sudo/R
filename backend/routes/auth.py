@@ -145,8 +145,8 @@ async def auth_logout(response: Response, request: Request, session_token: Optio
 import re
 
 # Iter-54 #3: profile-validation regexes
-_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z\.\'\- ]{1,49}$")  # letters + space + . - ' (Indian names)
-_PHONE_RE = re.compile(r"^[6-9]\d{9}$")                    # 10-digit India mobile, starts 6-9
+_NAME_RE = re.compile(r"^[\w\s\.\'\-]{2,80}$", re.UNICODE)   # iter-99: Unicode-aware (Devanagari, accents, digits ok)
+_PHONE_RE = re.compile(r"^[6-9]\d{9}$")                       # 10-digit India mobile, starts 6-9
 
 
 def _validate_profile_fields(name: str, phone: str, address: str):
@@ -155,11 +155,11 @@ def _validate_profile_fields(name: str, phone: str, address: str):
     phone = (phone or "").strip().replace("+91", "").replace(" ", "").replace("-", "")
     addr = (address or "").strip()
     if not _NAME_RE.match(name):
-        raise HTTPException(status_code=400, detail="Name must be 2–50 letters (alphabets, spaces, apostrophes only)")
+        raise HTTPException(status_code=400, detail="Name looks invalid — 2 to 80 characters, letters / digits / spaces / . - ' allowed")
     if not _PHONE_RE.match(phone):
         raise HTTPException(status_code=400, detail="Phone must be exactly 10 digits starting 6–9 (we add +91 automatically)")
-    if len(addr) < 12:
-        raise HTTPException(status_code=400, detail="Address must be at least 12 characters (include house no., area, city)")
+    if len(addr) < 10:
+        raise HTTPException(status_code=400, detail="Address must be at least 10 characters (include area + city)")
     return name, phone, addr
 
 

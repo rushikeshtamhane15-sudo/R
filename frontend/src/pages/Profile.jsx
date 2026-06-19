@@ -215,7 +215,7 @@ export default function Profile() {
             rows={3}
             maxLength={300}
           />
-          <p className="text-[11px] text-muted-foreground mt-1">Min 12 chars — include house no., area & city.</p>
+          <p className="text-[11px] text-muted-foreground mt-1">Min 10 chars — area + city is enough; full address is better for delivery.</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <Button onClick={save} disabled={submitting} className="rounded-full bg-primary hover:bg-primary/90 flex-1 min-w-[200px]" data-testid="save-profile-button">
