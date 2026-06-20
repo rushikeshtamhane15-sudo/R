@@ -1,0 +1,45 @@
+{
+  "summary": "iter-101 end-to-end verification (backend + frontend) for admin assign-subscription, user notices, hardened DELETE /auth/me, /auth/me.mess_id, and wallet-adjust→notice fan-out. 7/7 backend pytest PASS (3 supplied + 4 new extras: plan_id mode, only_unread filter + specific notice_ids ack, mess_id in /auth/me, wallet-adjust pushes wallet_adjust notice with extend_days/meals_delta context). End-to-end UI run PASS: admin OTP-logged-in (9970705391) → /admin/wallet-topup → selected target subscriber → opened assign-sub-card → 'From existing plan' mode autopopulated days=30 meals=60 amount=2800 from first active plan → switched to 'Custom plan', set days=7 meals=14 amount=700 reason='ui playwright assign' → POST /api/admin/users/{id}/assign-subscription → 200, success toast 'Subscription assigned · UI Walk-in 7d' shown. Target subscriber, signed in on a second browser context, then loaded /dashboard, saw admin-notices-banner (title 'Your UI Walk-in 7d plan is active', body '14 meals over 7 days · ₹700 credited. Reason: ui playwright assign'), clicked 'Got it · dismiss all' → banner disappeared (count==0).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admin shell (any admin page)", "issues": ["Hydration warning in console: 'In HTML, <span> cannot be a child of <option>' — sourced from AdminLayout.jsx line ~353. Cosmetic only, does NOT break the assign-sub-select or any other functionality. Safe to defer, but should be fixed by wrapping the plan label text without a span inside <option>."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter101_assign_sub.py",
+    "/app/backend/tests/test_iter101_extra.py",
+    "/app/test_reports/pytest/iter101_full.xml",
+    "/app/test_reports/pytest/iter101_extra.xml",
+    "/app/test_reports/pytest/iter101_results.xml"
+  ],
+  "action_items": [
+    "Optional: clean up the AdminLayout hydration warning (span inside <option>) — cosmetic only."
+  ],
+  "critical_code_review_comments": [
+    "server.py assign-subscription endpoint correctly validates duration_days (1–365), meals (1–2000), amount (0–1,000,000) — verified 9999 days → 400 in test_assign_subscription_validates_inputs.",
+    "replace_active default=true; explicitly setting false with an active sub returns 409 as required — verified.",
+    "_push_user_notice is invoked for both kind='subscription_assigned' (assign) and kind='wallet_adjust' (wallet-adjust) — both appear in /auth/notices in chronological order; unread count is accurate.",
+    "GET /auth/notices uses 'notice_id' as the identity field (not 'id'). The POST /auth/notices/ack endpoint accepts both notice_ids: [...] (specific) and all:true (mark all unread). Both paths verified.",
+    "doc_to_user now copies mess_id — confirmed via /auth/me containing the 'mess_id' key for a fresh subscriber (value None when unassigned).",
+    "DELETE /api/auth/me purges across users, subscriptions, wallet_overrides, restaurant_orders, scan_logs, admin_user_notices, user_sessions. Counts ≥ expected verified (users:1, subscriptions:≥1, admin_user_notices:≥2).",
+    "AdminWalletTopup.jsx: applyAssign disables Apply button until reason is non-empty AND (custom mode OR plan picked). Good UX guard.",
+    "AdminNoticesBanner.jsx mounts at top of SubscriberDashboard return; only renders when unread>0; calls /auth/notices/ack {all:true} on dismiss; calls onAcknowledged to refresh parent. Clean.",
+    "Hydration warning in AdminLayout.jsx ~line 353 — '<span> cannot be a child of <option>'. Cosmetic but should be addressed in a follow-up."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter101_extra.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (7/7 pytest — 3 supplied iter101 + 4 new extras)",
+    "frontend": "100% (admin assign-sub flow end-to-end + user banner show/dismiss flow)"
+  },
+  "test_credentials": "Admin phone 9970705391 (ADMIN_PHONES). Subscriber created on-the-fly with random 9-prefixed 10-digit phone; dev_otp returned in send-otp response (OTP_DEV_MODE=true).",
+  "seed_data_creation": "Each test creates an ephemeral subscriber via send-otp/verify-otp and purges itself via DELETE /api/auth/me at the end. No leftover TEST_* docs. Cleared rate_limit_hits collection before runs to avoid 429s.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter-101 surface is split across 2 pytest files: /app/backend/tests/test_iter101_assign_sub.py (supplied — 3 tests) and /app/backend/tests/test_iter101_extra.py (new — 4 tests). Run both as: `API_URL='https://dining-pass-scan.preview.emergentagent.com/api' python -m pytest backend/tests/test_iter101_*.py -v`. If you hit 429s, clear rate_limit_hits: `mongosh --quiet --eval 'db.getSiblingDB(process.env.DB_NAME).rate_limit_hits.deleteMany({})'`. Notice docs use field 'notice_id', /admin/plans returns {plans:[...]} (NOT a bare array) — both gotchas baked into the extras test. UI flow: open /admin/wallet-topup, type phone into wallet-topup-search (debounced ~2.5s), click [data-testid=wallet-user-<uid>], assign-sub-card appears below the wallet-adjust block; assign-sub-toggle to open, assign-mode-plan/custom radios, assign-plan-select for plan-id mode (autofills name/days/meals/amount via onPickPlan), assign-apply-button to submit. Subscriber dashboard banner is [data-testid=admin-notices-banner] with [data-testid=admin-notices-dismiss-all] for batch ack.",
+  "rca of the issue": "N/A — no failures this iteration. All 7 backend tests + all UI assertions PASS."
+}

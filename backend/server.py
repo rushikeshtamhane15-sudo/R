@@ -250,6 +250,7 @@ def doc_to_user(doc) -> User:
         lat=doc.get("lat"),
         lng=doc.get("lng"),
         wallet_balance=float(doc.get("wallet_balance") or 0),
+        mess_id=doc.get("mess_id"),
     )
 
 
@@ -2389,6 +2390,40 @@ async def admin_wallet_adjust(target_user_id: str, payload: WalletAdjustRequest,
     }
     await db.wallet_overrides.insert_one(audit.copy())
     audit.pop("_id", None)
+
+    # iter-101: surface the adjustment to the user via an in-app notice they
+    # see the next time they open the app. Pieced together from whatever the
+    # admin actually changed.
+    try:
+        bits = []
+        if delta > 0:
+            bits.append(f"+₹{abs(delta):.0f} credited")
+        elif delta < 0:
+            bits.append(f"−₹{abs(delta):.0f} debited")
+        if int(payload.extend_days or 0) > 0:
+            bits.append(f"+{int(payload.extend_days)} day{'s' if abs(int(payload.extend_days))!=1 else ''}")
+        elif int(payload.extend_days or 0) < 0:
+            bits.append(f"{int(payload.extend_days)} day{'s' if abs(int(payload.extend_days))!=1 else ''}")
+        if meals_change > 0:
+            bits.append(f"+{meals_change} meal{'s' if meals_change!=1 else ''} restored")
+        elif meals_change < 0:
+            bits.append(f"{meals_change} meal{'s' if abs(meals_change)!=1 else ''} deducted")
+        if bits:
+            await _push_user_notice(
+                target_user_id,
+                kind="wallet_adjust",
+                title="Account updated by admin",
+                body=" · ".join(bits) + f" — Reason: {payload.reason.strip()[:200]}",
+                meta={
+                    "delta": delta,
+                    "extend_days": int(payload.extend_days or 0),
+                    "meals_delta": meals_change,
+                    "new_wallet": new_user_wallet,
+                },
+            )
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[NOTICE] push failed for user={target_user_id}: {e}")
+
     return {"ok": True, **audit}
 
 
@@ -2409,24 +2444,315 @@ async def admin_wallet_history(target_user_id: str, user: User = Depends(get_cur
     return {"transactions": txns, "overrides": overrides}
 
 
+# ---------------------------------------------------------------------------
+# iter-101: In-app notices written by admin actions (wallet-adjust, manual
+# subscription assignment). Surfaced to the user the next time they open the
+# dashboard so they know exactly what changed.
+# ---------------------------------------------------------------------------
+async def _push_user_notice(user_id: str, *, kind: str, title: str, body: str, meta: Optional[dict] = None) -> dict:
+    notice = {
+        "notice_id": f"ntc_{uuid.uuid4().hex[:14]}",
+        "user_id": user_id,
+        "kind": kind,
+        "title": title,
+        "body": body,
+        "meta": meta or {},
+        "ts": iso(now_utc()),
+        "read_at": None,
+    }
+    await db.admin_user_notices.insert_one(notice.copy())
+    notice.pop("_id", None)
+    return notice
+
+
+@api_router.get("/auth/notices")
+async def list_my_notices(only_unread: bool = False, user: User = Depends(get_current_user)):
+    """Return latest 20 admin notices for the current user, newest first."""
+    q: dict = {"user_id": user.user_id}
+    if only_unread:
+        q["read_at"] = None
+    rows = await db.admin_user_notices.find(q, {"_id": 0}).sort("ts", -1).to_list(20)
+    unread = await db.admin_user_notices.count_documents({"user_id": user.user_id, "read_at": None})
+    return {"notices": rows, "unread": unread}
+
+
+@api_router.post("/auth/notices/ack")
+async def ack_my_notices(payload: dict = Body(...), user: User = Depends(get_current_user)):
+    """Mark notices as read. Pass `{notice_ids: ["ntc_..", ..]}` or `{all: true}`."""
+    if payload.get("all"):
+        res = await db.admin_user_notices.update_many(
+            {"user_id": user.user_id, "read_at": None},
+            {"$set": {"read_at": iso(now_utc())}},
+        )
+        return {"ok": True, "marked": res.modified_count}
+    ids = payload.get("notice_ids") or []
+    if not isinstance(ids, list) or not ids:
+        raise HTTPException(status_code=400, detail="notice_ids or all=true required")
+    res = await db.admin_user_notices.update_many(
+        {"user_id": user.user_id, "notice_id": {"$in": ids}, "read_at": None},
+        {"$set": {"read_at": iso(now_utc())}},
+    )
+    return {"ok": True, "marked": res.modified_count}
+
+
+# ---------------------------------------------------------------------------
+# iter-101: Admin manually assigns a subscription to a user (cash / offline
+# customer who can't navigate the web app).
+# ---------------------------------------------------------------------------
+class AssignSubscriptionRequest(BaseModel):
+    # Either pick an existing plan_id OR provide custom values. If plan_id is
+    # provided we still let the admin override duration_days / meals / amount
+    # so a non-standard ad-hoc plan can be created from a template.
+    plan_id: Optional[str] = None
+    name: Optional[str] = None              # required if no plan_id
+    duration_days: Optional[int] = None     # required if no plan_id
+    meals: Optional[int] = None             # required if no plan_id
+    amount: Optional[float] = None          # required if no plan_id
+    service_type: Optional[Literal["dining", "tiffin"]] = "dining"
+    tiffin_size: Optional[Literal["full", "half"]] = "full"
+    meal_window: Optional[Literal["both", "lunch", "dinner"]] = "both"
+    start_date: Optional[str] = None        # ISO date (YYYY-MM-DD); defaults to today
+    reason: str
+    replace_active: bool = True             # cancel any existing active sub first
+
+
+@api_router.post("/admin/users/{target_user_id}/assign-subscription")
+async def admin_assign_subscription(
+    target_user_id: str,
+    payload: AssignSubscriptionRequest,
+    user: User = Depends(get_current_user),
+):
+    """Admin (or franchise owner for their branch) manually onboards a user
+    onto a subscription without going through Razorpay. Used for customers
+    who pay cash to the manager and don't navigate the web app themselves.
+    """
+    if user.role not in ("admin", "franchise_owner"):
+        raise HTTPException(status_code=403, detail="Admin only")
+    if not (payload.reason or "").strip():
+        raise HTTPException(status_code=400, detail="reason is required for audit log")
+    target = await db.users.find_one({"user_id": target_user_id}, {"_id": 0})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.role == "franchise_owner":
+        m = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+        if not m:
+            raise HTTPException(status_code=403, detail="No mess assigned")
+        if target.get("mess_id") != m["mess_id"]:
+            raise HTTPException(status_code=403, detail="User not in your branch")
+
+    # Resolve plan source
+    plan: dict
+    if payload.plan_id:
+        plan_doc = await db.plans.find_one({"plan_id": payload.plan_id}, {"_id": 0})
+        if not plan_doc:
+            raise HTTPException(status_code=404, detail="Plan not found")
+        plan = {
+            "plan_id": plan_doc["plan_id"],
+            "name": payload.name or plan_doc["name"],
+            "amount": float(payload.amount) if payload.amount is not None else float(plan_doc["amount"]),
+            "currency": plan_doc.get("currency", "INR"),
+            "duration_days": int(payload.duration_days) if payload.duration_days is not None else int(plan_doc["duration_days"]),
+            "meals": int(payload.meals) if payload.meals is not None else int(plan_doc["meals"]),
+            "service_type": payload.service_type or plan_doc.get("service_type") or "dining",
+            "tiffin_size": payload.tiffin_size or plan_doc.get("tiffin_size") or "full",
+            "meal_window": (payload.meal_window or plan_doc.get("meal_window") or "both").lower(),
+            "category": plan_doc.get("category") or (payload.service_type or "dining"),
+            "plan_type": plan_doc.get("plan_type") or "kiosk",
+        }
+    else:
+        # Validate custom inputs
+        if not payload.name or not payload.name.strip():
+            raise HTTPException(status_code=400, detail="name is required for a custom plan")
+        if not payload.duration_days or payload.duration_days < 1 or payload.duration_days > 365:
+            raise HTTPException(status_code=400, detail="duration_days must be between 1 and 365")
+        if payload.meals is None or payload.meals < 1 or payload.meals > 2000:
+            raise HTTPException(status_code=400, detail="meals must be between 1 and 2000")
+        if payload.amount is None or payload.amount < 0 or payload.amount > 1_000_000:
+            raise HTTPException(status_code=400, detail="amount must be between 0 and 10,00,000")
+        plan = {
+            "plan_id": f"manual_{uuid.uuid4().hex[:8]}",
+            "name": payload.name.strip(),
+            "amount": float(payload.amount),
+            "currency": "INR",
+            "duration_days": int(payload.duration_days),
+            "meals": int(payload.meals),
+            "service_type": payload.service_type or "dining",
+            "tiffin_size": payload.tiffin_size or "full",
+            "meal_window": (payload.meal_window or "both").lower(),
+            "category": payload.service_type or "dining",
+            "plan_type": "manual",
+        }
+
+    # Cancel/expire existing active sub if requested
+    existing = await db.subscriptions.find_one({"user_id": target_user_id, "status": "active"}, {"_id": 0})
+    if existing:
+        if not payload.replace_active:
+            raise HTTPException(status_code=409, detail="User already has an active subscription. Set replace_active=true to override.")
+        await db.subscriptions.update_one(
+            {"sub_id": existing["sub_id"]},
+            {"$set": {
+                "status": "expired",
+                "expired_reason": "admin_replaced",
+                "expired_at": iso(now_utc()),
+            }},
+        )
+
+    # Build the new subscription doc
+    if payload.start_date:
+        try:
+            start = datetime.fromisoformat(payload.start_date).replace(tzinfo=timezone.utc)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="start_date must be ISO format (YYYY-MM-DD)")
+    else:
+        start = now_utc()
+    end = start + timedelta(days=plan["duration_days"])
+    per_day = round(float(plan["amount"]) / max(1, plan["duration_days"]), 2)
+    wallet_load = round(float(plan["amount"]), 2)
+
+    sub = {
+        "sub_id": f"sub_{uuid.uuid4().hex[:12]}",
+        "user_id": target_user_id,
+        "plan_id": plan["plan_id"],
+        "plan_name": plan["name"],
+        "amount_paid": wallet_load,
+        "plan_amount": wallet_load,
+        "pending_amount": 0.0,
+        "partial_surcharge": 0.0,
+        "is_partial": False,
+        "payment_mode": "admin_manual",
+        "currency": plan["currency"],
+        "meals_total": plan["meals"],
+        "meals_used": 0,
+        "wallet_balance": wallet_load,
+        "per_day_amount": per_day,
+        "start_date": iso(start),
+        "end_date": iso(end),
+        "last_tick_date": start.strftime("%Y-%m-%d"),
+        "paused_days": 0,
+        "status": "active",
+        "order_id": f"manual_{uuid.uuid4().hex[:10]}",
+        "is_custom": payload.plan_id is None,
+        "service_type": plan["service_type"],
+        "plan_type": plan.get("plan_type") or "manual",
+        "tiffin_size": plan.get("tiffin_size"),
+        "user_paused": False,
+        "user_pause_started_at": None,
+        "meal_window": plan["meal_window"],
+        "category": plan["category"],
+        "assigned_by_admin": user.email or user.user_id,
+        "admin_assign_reason": payload.reason.strip()[:500],
+        "created_at": iso(start),
+    }
+    await db.subscriptions.insert_one(sub.copy())
+    # Credit the user's wallet for the plan amount (mirrors the paid-flow)
+    new_user_wallet = round(float(target.get("wallet_balance") or 0) + wallet_load, 2)
+    await db.users.update_one({"user_id": target_user_id}, {"$set": {"wallet_balance": new_user_wallet}})
+    await _log_wallet_txn(
+        target_user_id, sub["sub_id"], "credit", wallet_load, new_user_wallet,
+        f"Manual subscription assigned by admin ({plan['name']}) · {payload.reason.strip()[:200]} · by {user.email}",
+    )
+
+    # Audit log
+    audit = {
+        "audit_id": f"asg_{uuid.uuid4().hex[:14]}",
+        "ts": iso(now_utc()),
+        "admin_user_id": user.user_id,
+        "admin_email": user.email,
+        "target_user_id": target_user_id,
+        "target_email": target.get("email"),
+        "sub_id": sub["sub_id"],
+        "plan_name": plan["name"],
+        "amount": wallet_load,
+        "duration_days": plan["duration_days"],
+        "meals": plan["meals"],
+        "service_type": plan["service_type"],
+        "reason": payload.reason.strip()[:500],
+        "replaced_sub_id": existing["sub_id"] if existing else None,
+    }
+    await db.wallet_overrides.insert_one({
+        **audit,
+        "delta": wallet_load,
+        "extend_days": 0,
+        "meals_delta": 0,
+        "restore_meals": 0,
+        "kind": "assign_subscription",
+        "before": {"sub_id": existing["sub_id"] if existing else None},
+        "after": {"sub_id": sub["sub_id"], "end_date": sub["end_date"], "meals_total": sub["meals_total"]},
+    })
+
+    # Notify the user in-app
+    try:
+        await _push_user_notice(
+            target_user_id,
+            kind="subscription_assigned",
+            title=f"Your {plan['name']} plan is active",
+            body=(
+                f"Admin onboarded you onto {plan['name']} — {plan['meals']} meals over "
+                f"{plan['duration_days']} days · ₹{wallet_load:.0f} credited. Reason: {payload.reason.strip()[:200]}"
+            ),
+            meta={
+                "sub_id": sub["sub_id"],
+                "plan_name": plan["name"],
+                "amount": wallet_load,
+                "meals": plan["meals"],
+                "duration_days": plan["duration_days"],
+                "end_date": sub["end_date"],
+            },
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[NOTICE] subscription_assigned notice push failed for user={target_user_id}: {e}")
+
+    return {"ok": True, "subscription": sub, "audit": audit, "user_wallet": new_user_wallet}
+
+
 async def _purge_user(user_id: str) -> dict:
-    """Delete a user and every record that points to them (sessions, subs, txns, attendance, deliveries)."""
+    """Delete a user and every record that points to them (sessions, subs, txns, attendance, deliveries).
+
+    iter-101: hardened to swallow per-collection errors so a single failing
+    cascade can never block the user's right-to-delete. Uses the actual
+    collection names from this codebase (user_sessions / otp_codes), and
+    cascades the additional collections written since the original purge
+    (restaurant_orders, wallet_overrides, scan_logs, user notices, etc.).
+    """
     user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
     if not user:
         return {"deleted": False}
-    counts = {
-        "sessions": (await db.sessions.delete_many({"user_id": user_id})).deleted_count,
-        "subscriptions": (await db.subscriptions.delete_many({"user_id": user_id})).deleted_count,
-        "wallet_transactions": (await db.wallet_transactions.delete_many({"user_id": user_id})).deleted_count,
-        "attendance": (await db.attendance.delete_many({"user_id": user_id})).deleted_count,
-        "payment_orders": (await db.payment_orders.delete_many({"user_id": user_id})).deleted_count,
-        "daily_rosters": (await db.daily_rosters.delete_many({"user_id": user_id})).deleted_count,
-        "delivery_attempts": (await db.delivery_attempts.delete_many({"user_id": user_id})).deleted_count,
-        "otps": (await db.otps.delete_many({"phone": user.get("phone") or "__none__"})).deleted_count,
-        "users": (await db.users.delete_one({"user_id": user_id})).deleted_count,
-    }
+    phone = user.get("phone") or "__none__"
+
+    targets = [
+        ("user_sessions",        {"user_id": user_id}),
+        ("subscriptions",        {"user_id": user_id}),
+        ("wallet_transactions",  {"user_id": user_id}),
+        ("wallet_overrides",     {"target_user_id": user_id}),
+        ("attendance",           {"user_id": user_id}),
+        ("payment_orders",       {"user_id": user_id}),
+        ("daily_rosters",        {"user_id": user_id}),
+        ("delivery_attempts",    {"user_id": user_id}),
+        ("restaurant_orders",    {"user_id": user_id}),
+        ("guest_carts",          {"user_id": user_id}),
+        ("scan_logs",            {"user_id": user_id}),
+        ("tiffin_reminders_sent",{"user_id": user_id}),
+        ("expiry_reminders_sent",{"user_id": user_id}),
+        ("rider_applications",   {"user_id": user_id}),
+        ("rider_payouts",        {"user_id": user_id}),
+        ("admin_user_notices",   {"user_id": user_id}),
+        ("otp_codes",            {"phone": phone}),
+    ]
+    counts: dict = {}
+    for coll_name, query in targets:
+        try:
+            res = await db[coll_name].delete_many(query)
+            counts[coll_name] = res.deleted_count
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"[USER PURGE] cascade {coll_name} failed for user={user_id}: {e}")
+            counts[coll_name] = -1
+    try:
+        counts["users"] = (await db.users.delete_one({"user_id": user_id})).deleted_count
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"[USER PURGE] users.delete_one failed for user={user_id}: {e}")
+        counts["users"] = 0
     logger.info(f"[USER PURGE] user={user_id} email={user.get('email')} phone={user.get('phone')} → {counts}")
-    return {"deleted": True, "counts": counts}
+    return {"deleted": counts.get("users", 0) > 0, "counts": counts}
 
 
 @api_router.delete("/admin/users/{user_id}")

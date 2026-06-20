@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import {
   Wallet, Search, IndianRupee, ChevronRight, Loader2, History, Plus, Minus,
   Phone, Mail, User as UserIcon, CalendarDays, Sparkles, ShieldCheck,
+  ClipboardList, Package,
 } from "lucide-react";
 
 const QUICK_AMOUNTS = [100, 500, 1000, 2500];
@@ -42,6 +43,29 @@ export default function AdminWalletTopup() {
 
   // History panel
   const [history, setHistory] = useState(null);
+
+  // iter-101: Assign subscription state
+  const [plans, setPlans] = useState([]);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignMode, setAssignMode] = useState("plan"); // "plan" | "custom"
+  const [assignPlanId, setAssignPlanId] = useState("");
+  const [assignName, setAssignName] = useState("");
+  const [assignDays, setAssignDays] = useState(30);
+  const [assignMeals, setAssignMeals] = useState(60);
+  const [assignAmount, setAssignAmount] = useState(2600);
+  const [assignService, setAssignService] = useState("dining");
+  const [assignStartDate, setAssignStartDate] = useState("");
+  const [assignReason, setAssignReason] = useState("");
+  const [assigning, setAssigning] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await api.get("/admin/plans");
+        setPlans(r.data?.plans || []);
+      } catch { /* non-critical for the rest of the page */ }
+    })();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -112,6 +136,64 @@ export default function AdminWalletTopup() {
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Adjust failed");
     } finally { setSaving(false); }
+  };
+
+  const onPickPlan = (planId) => {
+    setAssignPlanId(planId);
+    const p = plans.find((x) => x.plan_id === planId);
+    if (p) {
+      setAssignName(p.name || "");
+      setAssignDays(Number(p.duration_days || 30));
+      setAssignMeals(Number(p.meals || 60));
+      setAssignAmount(Number(p.amount || 0));
+      setAssignService((p.service_type || p.category || "dining").toLowerCase().includes("tiffin") ? "tiffin" : "dining");
+    }
+  };
+
+  const applyAssign = async () => {
+    if (!selected) return;
+    if (!assignReason.trim()) { toast.error("Reason is required for the audit log"); return; }
+    if (assignMode === "plan" && !assignPlanId) { toast.error("Pick a plan"); return; }
+    if (assignMode === "custom") {
+      if (!assignName.trim()) { toast.error("Plan name is required"); return; }
+      if (!assignDays || assignDays < 1) { toast.error("Days must be ≥ 1"); return; }
+      if (!assignMeals || assignMeals < 1) { toast.error("Meals must be ≥ 1"); return; }
+      if (assignAmount === "" || Number(assignAmount) < 0) { toast.error("Amount must be ≥ 0"); return; }
+    }
+    setAssigning(true);
+    try {
+      const body = {
+        reason: assignReason.trim(),
+        service_type: assignService,
+        replace_active: true,
+      };
+      if (assignMode === "plan") {
+        body.plan_id = assignPlanId;
+        // allow inline override of the chosen plan template
+        if (assignName.trim()) body.name = assignName.trim();
+        if (assignDays) body.duration_days = Number(assignDays);
+        if (assignMeals) body.meals = Number(assignMeals);
+        if (assignAmount !== "") body.amount = Number(assignAmount);
+      } else {
+        body.name = assignName.trim();
+        body.duration_days = Number(assignDays);
+        body.meals = Number(assignMeals);
+        body.amount = Number(assignAmount);
+      }
+      if (assignStartDate) body.start_date = assignStartDate;
+      const r = await api.post(`/admin/users/${selected.user_id}/assign-subscription`, body);
+      const newWallet = r.data?.user_wallet;
+      toast.success(`Subscription assigned · ${r.data?.subscription?.plan_name || ""}`);
+      if (newWallet != null) {
+        setUsers((prev) => prev.map((u) => u.user_id === selected.user_id ? { ...u, wallet_balance: newWallet } : u));
+        setSelected((s) => s ? { ...s, wallet_balance: newWallet } : s);
+      }
+      setAssignReason("");
+      setAssignOpen(false);
+      loadHistory(selected.user_id);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Assign failed");
+    } finally { setAssigning(false); }
   };
 
   return (
@@ -350,6 +432,131 @@ export default function AdminWalletTopup() {
                     {saving ? "Applying…" : `Apply ${direction === "credit" ? "+" : "−"}₹${Number(amount || 0).toLocaleString("en-IN")}`}
                   </Button>
                 </div>
+              </div>
+
+              {/* iter-101: Manual subscription assignment */}
+              <div className="rounded-2xl border border-border bg-card p-4 sm:p-5" data-testid="assign-sub-card">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex h-9 w-9 rounded-xl bg-indigo-500/10 text-indigo-600 items-center justify-center"><ClipboardList className="h-4 w-4" /></span>
+                    <div>
+                      <h3 className="text-sm font-extrabold">Assign subscription manually</h3>
+                      <p className="text-[11px] text-muted-foreground">For walk-in / cash customers who can&apos;t use the app themselves.</p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant={assignOpen ? "outline" : "default"}
+                    size="sm"
+                    className="rounded-full"
+                    onClick={() => setAssignOpen((v) => !v)}
+                    data-testid="assign-sub-toggle"
+                  >
+                    {assignOpen ? "Close" : "Open"}
+                  </Button>
+                </div>
+
+                {assignOpen && (
+                  <div className="mt-4 space-y-3" data-testid="assign-sub-form">
+                    {/* Mode toggle */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setAssignMode("plan")}
+                        className={`rounded-xl border-2 px-3 py-2 text-xs font-extrabold transition-colors ${assignMode === "plan" ? "border-indigo-500 bg-indigo-50 text-indigo-800" : "border-border hover:border-indigo-400"}`}
+                        data-testid="assign-mode-plan"
+                      >From existing plan</button>
+                      <button
+                        type="button"
+                        onClick={() => setAssignMode("custom")}
+                        className={`rounded-xl border-2 px-3 py-2 text-xs font-extrabold transition-colors ${assignMode === "custom" ? "border-indigo-500 bg-indigo-50 text-indigo-800" : "border-border hover:border-indigo-400"}`}
+                        data-testid="assign-mode-custom"
+                      >Custom plan</button>
+                    </div>
+
+                    {assignMode === "plan" && (
+                      <div>
+                        <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground inline-flex items-center gap-1"><Package className="h-3 w-3" /> Pick a plan</p>
+                        <select
+                          value={assignPlanId}
+                          onChange={(e) => onPickPlan(e.target.value)}
+                          className="mt-1 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm"
+                          data-testid="assign-plan-select"
+                        >
+                          <option value="">— Select an active plan —</option>
+                          {plans.filter((p) => p.active !== false).map((p) => (
+                            <option key={p.plan_id} value={p.plan_id}>
+                              {p.name} · {p.duration_days}d · {p.meals} meals · ₹{p.amount}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-muted-foreground mt-1">You can still tweak days / meals / amount below if this customer&apos;s deal is non-standard.</p>
+                      </div>
+                    )}
+
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Plan name</p>
+                        <Input value={assignName} onChange={(e) => setAssignName(e.target.value.slice(0, 80))} className="mt-1 rounded-xl" placeholder="e.g. Walk-in 30 day" data-testid="assign-name-input" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Service type</p>
+                        <select
+                          value={assignService}
+                          onChange={(e) => setAssignService(e.target.value)}
+                          className="mt-1 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm"
+                          data-testid="assign-service-select"
+                        >
+                          <option value="dining">Dining (eat-in)</option>
+                          <option value="tiffin">Tiffin (home delivery)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Duration (days)</p>
+                        <Input type="number" min={1} max={365} value={assignDays} onChange={(e) => setAssignDays(e.target.value)} className="mt-1 rounded-xl" data-testid="assign-days-input" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Total meals</p>
+                        <Input type="number" min={1} max={2000} value={assignMeals} onChange={(e) => setAssignMeals(e.target.value)} className="mt-1 rounded-xl" data-testid="assign-meals-input" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Amount (₹)</p>
+                        <Input type="number" min={0} step="1" value={assignAmount} onChange={(e) => setAssignAmount(e.target.value)} className="mt-1 rounded-xl" data-testid="assign-amount-input" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Start date (optional)</p>
+                        <Input type="date" value={assignStartDate} onChange={(e) => setAssignStartDate(e.target.value)} className="mt-1 rounded-xl" data-testid="assign-startdate-input" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Reason (audit log)</p>
+                      <Input
+                        value={assignReason}
+                        onChange={(e) => setAssignReason(e.target.value.slice(0, 500))}
+                        placeholder="e.g. cash paid to manager · walk-in onboarded"
+                        className="mt-1 rounded-xl"
+                        maxLength={500}
+                        data-testid="assign-reason-input"
+                      />
+                    </div>
+
+                    <p className="text-[10px] text-muted-foreground">
+                      Any existing active subscription on this user will be marked expired and replaced.
+                      ₹{Number(assignAmount || 0).toLocaleString("en-IN")} will be credited to their wallet, and they&apos;ll see an in-app notice on next login.
+                    </p>
+
+                    <Button
+                      onClick={applyAssign}
+                      disabled={assigning || !assignReason.trim() || (assignMode === "plan" && !assignPlanId)}
+                      className="rounded-full bg-indigo-600 hover:bg-indigo-700 text-white w-full h-10"
+                      data-testid="assign-apply-button"
+                    >
+                      {assigning ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
+                      {assigning ? "Assigning…" : `Assign · ₹${Number(assignAmount || 0).toLocaleString("en-IN")} / ${assignDays || 0}d / ${assignMeals || 0} meals`}
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {/* History */}

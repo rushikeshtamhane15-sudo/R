@@ -211,7 +211,15 @@ async def update_profile(payload: server.ProfileUpdate, user: server.User = Depe
         update["lat"] = float(payload.lat)
         update["lng"] = float(payload.lng)
     await server.db.users.update_one({"user_id": user.user_id}, {"$set": update})
-    updated = await server.db.users.find_one({"user_id": user.user_id}, {"_id": 0})
+    # iter-100: only return the fields the client needs — DON'T echo back the
+    # giant base64 photo_url (it was crashing Cloudflare with 'origin returned
+    # malformed HTTP / empty response' because the response body exceeded the
+    # proxy buffer). Photo URL is already saved server-side and the next
+    # /auth/me call will hydrate it normally.
+    updated = await server.db.users.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "photo_url": 0},
+    )
 
     # Kick off the face-check in the background — fire and forget.
     if photo_to_validate:

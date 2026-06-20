@@ -8,6 +8,7 @@ import TiffinPreferencesCard from "../components/TiffinPreferencesCard";
 import PendingDuesCard from "../components/PendingDuesCard";
 import PendingCashOtpFlash from "../components/PendingCashOtpFlash";
 import TodayMessMenuFlash from "../components/TodayMessMenuFlash";
+import AdminNoticesBanner from "../components/AdminNoticesBanner";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
 import {
@@ -243,6 +244,7 @@ export default function SubscriberDashboard() {
 
   return (
     <div className="max-w-6xl mx-auto px-6 md:px-8 lg:px-12 py-10" data-testid="subscriber-dashboard">
+      <AdminNoticesBanner onAcknowledged={load} />
       {orderedTop.map((s) => <React.Fragment key={s.id}>{renderSection(s.id)}</React.Fragment>)}
 
       <div className="grid lg:grid-cols-5 gap-8">
