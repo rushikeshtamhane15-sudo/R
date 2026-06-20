@@ -183,7 +183,7 @@ export default function Login() {
       if (r.data?.dev_otp) {
         setEchoOtp(r.data.dev_otp);
         setOtp(r.data.dev_otp);
-        toast.success("Your code is shown below — tap Verify to continue.");
+        toast.success("Verification code ready");
       } else {
         setEchoOtp("");
         toast.success("OTP sent to your phone");
@@ -461,14 +461,12 @@ export default function Login() {
                   Sent to <span className="font-semibold text-foreground">+91 {phone}</span>
                 </p>
 
-                {/* iter-103: SMS gateway not configured — show the user
-                    their own OTP right here so they don't need to wait
-                    for an SMS. Disappears the moment the backend stops
-                    echoing dev_otp (i.e. once MSG91 is wired up). */}
+                {/* iter-103.1: Minimal OTP-echo card — just the code, no
+                    "SMS not configured" disclosure or follow-up copy. */}
                 {echoOtp && (
                   <div className="mt-5 rounded-2xl border-2 border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 p-4" data-testid="otp-echo-card">
-                    <p className="text-[10px] tracking-overline uppercase font-bold text-amber-700 dark:text-amber-300">
-                      SMS not configured · use this code
+                    <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                      Your six digit verification code is
                     </p>
                     <div className="mt-2 flex items-center justify-between gap-3">
                       <p
@@ -490,9 +488,6 @@ export default function Login() {
                         Copy
                       </button>
                     </div>
-                    <p className="text-[11px] text-amber-800/80 dark:text-amber-200/80 mt-2 leading-relaxed">
-                      We&apos;ll text you the code automatically once SMS is enabled. For now, the code is shown here so you can log in instantly.
-                    </p>
                   </div>
                 )}
 
