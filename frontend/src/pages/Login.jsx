@@ -150,6 +150,12 @@ export default function Login() {
   const [name, setName] = useState("");
   const [otp, setOtp] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // iter-103: when MSG91 is not configured the backend echoes `dev_otp` in
+  // the send-otp response. We surface it directly to the user so they can
+  // log in without waiting on an SMS. The moment MSG91 is wired up and
+  // OTP_DEV_MODE=false on the backend, this field becomes undefined and
+  // the UI silently falls back to "wait for the SMS".
+  const [echoOtp, setEchoOtp] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -171,11 +177,17 @@ export default function Login() {
     setSubmitting(true);
     try {
       const r = await api.post("/auth/send-otp", { phone: p });
-      if (r.data.dev_otp && process.env.NODE_ENV !== "production") {
-        // iter-97: dev_otp is still echoed by the backend but never rendered.
-        console.info("[dev] OTP:", r.data.dev_otp);
+      // iter-103: pre-fill the OTP field if the backend echoed it (MSG91
+      // not configured yet). The user sees the code right in the modal —
+      // no SMS gateway needed for now.
+      if (r.data?.dev_otp) {
+        setEchoOtp(r.data.dev_otp);
+        setOtp(r.data.dev_otp);
+        toast.success("Your code is shown below — tap Verify to continue.");
+      } else {
+        setEchoOtp("");
+        toast.success("OTP sent to your phone");
       }
-      toast.success("OTP sent");
       setMode("verify");
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Could not send OTP");
@@ -449,10 +461,40 @@ export default function Login() {
                   Sent to <span className="font-semibold text-foreground">+91 {phone}</span>
                 </p>
 
-                {/* iter-97 #3: DEV MODE OTP block removed from the UI.
-                    The backend still echoes dev_otp in dev_mode for staging
-                    builds, but customers must never see it. SMS delivery
-                    will be provided by a future MSG91/Twilio integration. */}
+                {/* iter-103: SMS gateway not configured — show the user
+                    their own OTP right here so they don't need to wait
+                    for an SMS. Disappears the moment the backend stops
+                    echoing dev_otp (i.e. once MSG91 is wired up). */}
+                {echoOtp && (
+                  <div className="mt-5 rounded-2xl border-2 border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 p-4" data-testid="otp-echo-card">
+                    <p className="text-[10px] tracking-overline uppercase font-bold text-amber-700 dark:text-amber-300">
+                      SMS not configured · use this code
+                    </p>
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                      <p
+                        className="font-mono font-extrabold text-3xl tabular-nums tracking-[0.3em] text-amber-900 dark:text-amber-100 select-all"
+                        data-testid="otp-echo-code"
+                      >
+                        {echoOtp}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(echoOtp).catch(() => {});
+                          setOtp(echoOtp);
+                          toast.success("Code copied — tap Verify");
+                        }}
+                        className="text-xs font-bold rounded-full px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white"
+                        data-testid="otp-echo-copy"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-amber-800/80 dark:text-amber-200/80 mt-2 leading-relaxed">
+                      We&apos;ll text you the code automatically once SMS is enabled. For now, the code is shown here so you can log in instantly.
+                    </p>
+                  </div>
+                )}
 
                 <label className="block text-xs tracking-overline uppercase font-bold text-muted-foreground mt-6">
                   Enter 6-digit OTP

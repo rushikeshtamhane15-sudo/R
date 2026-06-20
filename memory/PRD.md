@@ -2085,3 +2085,23 @@ Franchise lands on `/admin/control-tower` (already gated). The 403s noted earlie
 **Production deployment note**: iter-101 + iter-102 are both in Preview only. The user needs to click **Deploy** for the wallet-₹0 fix to take effect on `efoodcare.in`. Once deployed, the admin should run `Scan now` on `/admin/users` and merge any historical duplicates that surface — that's what will retroactively fix the `rushikeshtamhane5@gmail.com` situation.
 
 
+
+### Iteration 103 — OTP-less Login (SMS-gateway-free) (Feb 20, 2026)
+
+User has no MSG91 credentials yet and wants users to be able to log in immediately without waiting on an SMS. Implemented the lightest option: the backend already echoes `dev_otp` in the send-otp response while `OTP_DEV_MODE=true`. The login flow now surfaces that code directly to the user so they see their own OTP and can verify in one tap — no SMS provider needed.
+
+- **Frontend** `pages/Login.jsx`:
+  - `sendOtp()` captures `dev_otp` from the response, stores it in `echoOtp` state, and auto-fills the OTP input.
+  - New OTP-echo card (`data-testid=otp-echo-card`) shown in the verify step with: large monospaced code (`otp-echo-code`), a Copy button (`otp-echo-copy`), and the message "SMS not configured — use this code". Disappears automatically the moment the backend stops returning `dev_otp` (set `OTP_DEV_MODE=false` once MSG91 is wired up).
+  - Old console-only dev_otp log removed.
+
+- **Backend** unchanged. Backend already supports both modes via `OTP_DEV_MODE` env var.
+
+- **Verified**: Playwright smoke test on Preview showed `OTP 594027` rendered prominently and auto-filled into the input.
+
+**Security trade-off**: anyone who can reach `/api/auth/send-otp` for a phone number can read that phone's OTP. Mitigated by:
+  1. Rate limiting (3 OTPs per phone per 10 min, 10 per IP per hour, 50 per IP per day).
+  2. The OTP rotates every 10 minutes.
+  3. Once MSG91 / Twilio credentials are added, flip `OTP_DEV_MODE=false` in `backend/.env` and this whole pathway is silently disabled — the echo card will stop appearing and the real SMS pipeline takes over.
+
+
