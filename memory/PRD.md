@@ -2053,3 +2053,35 @@ Franchise lands on `/admin/control-tower` (already gated). The 403s noted earlie
 - One cosmetic follow-up noted: hydration warning in `AdminLayout.jsx` (`<span>` inside `<option>`). Not in this iteration's scope.
 
 **Production deployment note**: Preview only. Click **Deploy** in Emergent dashboard to push to `efoodcare.in`.
+
+### Iteration 102 — Duplicate Account Detection + Merge Tool (Feb 20, 2026)
+
+**Root cause of production wallet-₹0 bug**: `create_or_get_user` looked up by email OR phone but not both. A human who signed in via Google (email-only) and later via OTP (phone-only) ended up with TWO separate `users` rows. Admin wallet overrides landed on one row while the user's session resolved to the other → user saw ₹0 while admin saw the topped-up balance.
+
+#### #1 Unified email-OR-phone lookup (`create_or_get_user` in `server.py` ~L301)
+- Single `$or` query when both identifiers are present.
+- When an existing row is found and is missing the other identifier, backfill it automatically (silent self-heal on every login).
+- Net effect: a Google→OTP login or OTP→Google login now resolves to the SAME row instead of forking.
+
+#### #2 Admin duplicate-detection endpoint
+- `GET /api/admin/users/duplicates` — aggregates `users` grouped by `email` and by `phone`, returns clusters where ≥2 rows share a value. Each user enriched with subs/txns/overrides/attendance counts; sorted to surface the "richest" row first as the recommended primary. Admin-only (403 otherwise).
+
+#### #3 Admin merge endpoint
+- `POST /api/admin/users/{primary_user_id}/merge` with body `{duplicate_user_id, reason}`.
+- Rewrites `user_id` (or `target_user_id` for `wallet_overrides`) across **16 collections** (`USER_ID_REFS` constant in server.py) from duplicate → primary, all per-collection ops wrapped in try/except so a single failing rewrite cannot block the merge.
+- Sums wallet balances. Backfills primary's missing email/phone/address/photo/lat/lng/mess_id from the duplicate. Deletes the duplicate row.
+- Writes a `wallet_overrides` audit row with `kind=merge_users` and pushes an `admin_user_notices` entry of `kind=account_merged` to the primary user.
+- Validates: 400 if self-merge / empty reason / non-subscriber merging into admin; 404 if either user missing.
+
+#### #4 Admin UI on `/admin/users`
+- New **Duplicate accounts** panel below the user list with a `Scan now` button.
+- Green empty-state if none. Otherwise renders cluster cards (orange) with each duplicate's wallet + activity counts.
+- **MergeUsersModal** lets the admin pick which row to keep (radio-style cards highlighted with "Keep this"), enter a mandatory reason, and submit. Each duplicate is merged one-by-one into the picked primary. Scan + user list refresh on success.
+
+#### Testing
+- New pytest `test_iter102_merge.py` (3 tests) + testing-agent extras `test_iter102_extra.py` (7 tests) = **10/10 PASS**.
+- Testing-agent full UI run **100% PASS**: scan → cluster → modal → pick primary → submit → DB-level post-conditions verified.
+
+**Production deployment note**: iter-101 + iter-102 are both in Preview only. The user needs to click **Deploy** for the wallet-₹0 fix to take effect on `efoodcare.in`. Once deployed, the admin should run `Scan now` on `/admin/users` and merge any historical duplicates that surface — that's what will retroactively fix the `rushikeshtamhane5@gmail.com` situation.
+
+
