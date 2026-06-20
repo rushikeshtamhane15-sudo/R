@@ -2020,3 +2020,36 @@ Franchise lands on `/admin/control-tower` (already gated). The 403s noted earlie
 - Profile guard checks 3 fields (name/phone/address); user's earlier intent was "compulsory profile" — selfie photo is NOT yet required for franchise. Add to guard if needed.
 - The profile guard's `useEffect` triggers a lint warning (`react-hooks/set-state-in-effect`) — false positive, the effect calls `navigate()` (a side effect, not setState). Not blocking.
 
+
+### Iteration 101 — Admin Manual Subscription Assignment + In-App Notices + Hardened Account Delete (Feb 20, 2026)
+
+#### #1 Admin can manually assign a subscription to a user (cash / offline customers)
+- **Backend** `POST /api/admin/users/{id}/assign-subscription` (in `server.py`). Admin OR franchise_owner (scoped to their branch) can submit either:
+  - `plan_id` from `/admin/plans` (inline override of name/days/meals/amount still allowed), or
+  - Fully custom plan (`name`, `duration_days` 1–365, `meals` 1–2000, `amount` 0–10L).
+  - Validates: `reason` mandatory (audit log), defaults `service_type=dining`, `meal_window=both`, `start_date=today`. `replace_active=true` (default) expires any existing active sub; `false` returns 409 conflict.
+- Side-effects: creates `subscriptions` doc (status=active), credits user wallet for the plan amount, writes `wallet_overrides` audit row (kind=`assign_subscription`), pushes an in-app notice (`kind=subscription_assigned`).
+- **Frontend** `/admin/wallet-topup` (`pages/AdminWalletTopup.jsx`) — new "Assign subscription manually" card (`data-testid=assign-sub-card`) below the wallet-adjust block. Toggle to open form. Mode pills: *From existing plan* (auto-populates from `/admin/plans`) and *Custom plan* (free-form). All fields can be tweaked even in plan mode. Apply (`data-testid=assign-apply-button`) hits the new endpoint and refreshes the history panel.
+
+#### #2 Admin actions are now visible to users via in-app notices
+- **Backend** `_push_user_notice(user_id, kind, title, body, meta)` writes to a new `admin_user_notices` collection. New endpoints:
+  - `GET /api/auth/notices?only_unread=` → `{notices:[...], unread:N}` newest-first.
+  - `POST /api/auth/notices/ack` with `{all:true}` or `{notice_ids:[...]}` → marks read.
+- Wallet-adjust (`POST /admin/users/{id}/wallet-adjust`) now also pushes a `kind=wallet_adjust` notice summarising delta / extend_days / meals_delta with the admin reason.
+- **Frontend** new `components/AdminNoticesBanner.jsx` — banner shown at the top of `SubscriberDashboard.jsx`. Renders only when `unread>0`. Dismiss-all marks all read and disappears. Also exports `AdminNoticesPill` for future header-pill use.
+
+#### #3 Hardened `DELETE /api/auth/me` — was failing for some users
+- `_purge_user` rewritten:
+  - Fixed wrong collection names (`sessions` → `user_sessions`, `otps` → `otp_codes`).
+  - Cascades into `restaurant_orders`, `wallet_overrides` (`target_user_id`), `scan_logs`, `tiffin_reminders_sent`, `expiry_reminders_sent`, `rider_applications`, `rider_payouts`, `guest_carts`, `admin_user_notices`.
+  - Each cascade wrapped in try/except — a single failing collection can no longer block the user's right to delete.
+
+#### #4 `mess_id` now leaks into `/api/auth/me`
+- `doc_to_user` was dropping `mess_id` even though the User model declared it. Fixed so the field returns the live value from the user doc.
+
+#### Testing
+- New pytest at `/app/backend/tests/test_iter101_assign_sub.py` (3 tests) + testing-agent's extras at `/app/backend/tests/test_iter101_extra.py` (4 tests) = **7/7 PASS**.
+- Testing-agent UI run **100% PASS**: admin login → assign sub (plan + custom modes) → user banner appears → dismiss works.
+- One cosmetic follow-up noted: hydration warning in `AdminLayout.jsx` (`<span>` inside `<option>`). Not in this iteration's scope.
+
+**Production deployment note**: Preview only. Click **Deploy** in Emergent dashboard to push to `efoodcare.in`.
