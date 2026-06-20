@@ -461,33 +461,30 @@ export default function Login() {
                   Sent to <span className="font-semibold text-foreground">+91 {phone}</span>
                 </p>
 
-                {/* iter-103.1: Minimal OTP-echo card — just the code, no
-                    "SMS not configured" disclosure or follow-up copy. */}
+                {/* iter-103.2: Compact OTP-echo pill — minimal real estate. */}
                 {echoOtp && (
-                  <div className="mt-5 rounded-2xl border-2 border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 p-4" data-testid="otp-echo-card">
-                    <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
-                      Your six digit verification code is
+                  <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 pl-3 pr-1.5 py-1" data-testid="otp-echo-card">
+                    <p className="text-[11px] font-semibold text-amber-900 dark:text-amber-100 whitespace-nowrap">
+                      Your code:
                     </p>
-                    <div className="mt-2 flex items-center justify-between gap-3">
-                      <p
-                        className="font-mono font-extrabold text-3xl tabular-nums tracking-[0.3em] text-amber-900 dark:text-amber-100 select-all"
-                        data-testid="otp-echo-code"
-                      >
-                        {echoOtp}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          navigator.clipboard?.writeText(echoOtp).catch(() => {});
-                          setOtp(echoOtp);
-                          toast.success("Code copied — tap Verify");
-                        }}
-                        className="text-xs font-bold rounded-full px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white"
-                        data-testid="otp-echo-copy"
-                      >
-                        Copy
-                      </button>
-                    </div>
+                    <p
+                      className="font-mono font-extrabold text-sm tabular-nums tracking-[0.2em] text-amber-900 dark:text-amber-100 select-all"
+                      data-testid="otp-echo-code"
+                    >
+                      {echoOtp}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(echoOtp).catch(() => {});
+                        setOtp(echoOtp);
+                        toast.success("Code copied");
+                      }}
+                      className="text-[10px] font-bold rounded-full px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white"
+                      data-testid="otp-echo-copy"
+                    >
+                      Copy
+                    </button>
                   </div>
                 )}
 
