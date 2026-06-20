@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
-import { Trash2, Search, Wallet, Bike, CheckSquare, Square } from "lucide-react";
+import { Trash2, Search, Wallet, Bike, CheckSquare, Square, GitMerge, AlertTriangle } from "lucide-react";
 
 export default function AdminUsers() {
   const { user: me } = useAuth();
@@ -20,12 +20,31 @@ export default function AdminUsers() {
   const [selected, setSelected] = useState(new Set());
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  // iter-102: duplicate-account detection + merge
+  const [duplicates, setDuplicates] = useState(null); // null = not yet scanned, [] = none, [...] = clusters
+  const [scanning, setScanning] = useState(false);
+  const [mergeCluster, setMergeCluster] = useState(null); // {shared_by, shared_value, users:[...]}
 
   const load = async () => {
     try { const r = await api.get("/admin/users"); setUsers(r.data.users || []); }
     catch { toast.error("Failed to load users"); }
   };
   useEffect(() => { load(); }, []);
+
+  // iter-102: scan for accounts that share email or phone with another account
+  const scanDuplicates = async () => {
+    setScanning(true);
+    try {
+      const r = await api.get("/admin/users/duplicates");
+      setDuplicates(r.data?.clusters || []);
+      const n = r.data?.clusters?.length || 0;
+      toast[n ? "warning" : "success"](
+        n ? `Found ${n} duplicate cluster${n === 1 ? "" : "s"} — review and merge below.` : "No duplicates — every account has a unique email + phone.",
+      );
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Scan failed");
+    } finally { setScanning(false); }
+  };
 
   const setUserRole = async () => {
     if (!email.trim() && !phone.trim()) { toast.error("Enter email or phone"); return; }
@@ -273,6 +292,83 @@ export default function AdminUsers() {
         </div>
       )}
 
+      {/* iter-102: Duplicate-accounts panel */}
+      <div className="mt-6 bg-card rounded-2xl border border-border p-6" data-testid="duplicates-panel">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            <p className="text-xs tracking-overline uppercase font-bold text-amber-700 dark:text-amber-300 inline-flex items-center gap-1.5">
+              <GitMerge className="h-3.5 w-3.5" /> Duplicate accounts
+            </p>
+            <h2 className="font-display font-extrabold text-lg mt-1">Find &amp; merge users with the same email or phone</h2>
+            <p className="text-xs text-muted-foreground mt-1 max-w-prose leading-relaxed">
+              Historical bug: a user who signed in via Google OAuth and later via OTP could end up with two separate rows.
+              Admin wallet adjustments may have landed on one row while the user&apos;s session resolved to the other.
+              This scan finds and lets you merge them — wallet balances sum, all subscriptions / transactions / overrides
+              are rewritten to point at the surviving account.
+            </p>
+          </div>
+          <Button
+            onClick={scanDuplicates}
+            disabled={scanning}
+            className="rounded-full bg-amber-600 hover:bg-amber-700 text-white"
+            data-testid="scan-duplicates-button"
+          >
+            {scanning ? "Scanning…" : "Scan now"}
+          </Button>
+        </div>
+
+        {duplicates !== null && duplicates.length === 0 && (
+          <p className="mt-4 text-sm text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-3 py-2" data-testid="duplicates-empty">
+            No duplicates found. Every account has a unique email and phone.
+          </p>
+        )}
+
+        {duplicates && duplicates.length > 0 && (
+          <div className="mt-4 space-y-3" data-testid="duplicates-list">
+            {duplicates.map((cluster, idx) => (
+              <div key={`${cluster.shared_by}-${cluster.shared_value}-${idx}`} className="rounded-xl border-2 border-amber-500/30 bg-amber-500/5 p-3" data-testid={`dup-cluster-${idx}`}>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="min-w-0">
+                    <p className="text-[10px] tracking-overline uppercase font-bold text-amber-700">
+                      Shared {cluster.shared_by}
+                    </p>
+                    <p className="font-mono text-sm font-extrabold truncate">{cluster.shared_value}</p>
+                    <p className="text-[11px] text-muted-foreground">{cluster.users.length} accounts</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="rounded-full bg-amber-600 hover:bg-amber-700 text-white"
+                    onClick={() => setMergeCluster(cluster)}
+                    data-testid={`open-merge-${idx}`}
+                  >
+                    <GitMerge className="h-3.5 w-3.5 mr-1.5" /> Review &amp; merge
+                  </Button>
+                </div>
+                <div className="mt-2 grid sm:grid-cols-2 gap-2">
+                  {cluster.users.map((u) => (
+                    <div key={u.user_id} className="rounded-lg bg-card border border-border px-3 py-2 text-xs">
+                      <p className="font-semibold truncate">{u.name || "—"}</p>
+                      <p className="text-muted-foreground truncate">{u.email || u.phone || "—"} · ₹{Math.round(u.wallet_balance || 0)}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {u.subs} subs · {u.txns} txns · {u.overrides} overrides · {u.attendance} scans
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {mergeCluster && (
+        <MergeUsersModal
+          cluster={mergeCluster}
+          onClose={() => setMergeCluster(null)}
+          onMerged={() => { setMergeCluster(null); scanDuplicates(); load(); }}
+        />
+      )}
+
       {walletTarget && (
         <WalletAdjustModal
           target={walletTarget}
@@ -389,6 +485,115 @@ function WalletAdjustModal({ target, onClose, onSaved }) {
               </li>
             ))}
           </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// iter-102: pick which row survives, then merge the other(s) into it.
+function MergeUsersModal({ cluster, onClose, onMerged }) {
+  const [primaryId, setPrimaryId] = useState(cluster.users[0]?.user_id || "");
+  const [reason, setReason] = useState("");
+  const [merging, setMerging] = useState(false);
+
+  const submit = async () => {
+    if (!reason.trim()) { toast.error("Reason is required for the audit log"); return; }
+    if (!primaryId) { toast.error("Pick a primary account to keep"); return; }
+    const dupes = cluster.users.filter((u) => u.user_id !== primaryId);
+    if (dupes.length === 0) { toast.error("Pick a different primary"); return; }
+    setMerging(true);
+    try {
+      // Merge each duplicate into the primary one-by-one — keeps the
+      // backend logic simple and gives us a per-merge audit row.
+      for (const d of dupes) {
+        await api.post(`/admin/users/${primaryId}/merge`, {
+          duplicate_user_id: d.user_id,
+          reason: reason.trim(),
+        });
+      }
+      toast.success(`Merged ${dupes.length} account${dupes.length === 1 ? "" : "s"} into ${cluster.users.find((u) => u.user_id === primaryId)?.name || primaryId}.`);
+      onMerged?.();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Merge failed");
+    } finally { setMerging(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !merging && onClose()} data-testid="merge-users-modal">
+      <div className="bg-card rounded-3xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start gap-3">
+          <div className="inline-flex h-11 w-11 rounded-xl bg-amber-500/10 text-amber-600 items-center justify-center"><GitMerge className="h-5 w-5" /></div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] tracking-overline uppercase font-bold text-amber-700">Merge duplicates</p>
+            <h3 className="font-display font-extrabold text-2xl mt-0.5">Shared {cluster.shared_by}: {cluster.shared_value}</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              Pick which row to keep. All other rows are absorbed into it — wallet balances sum, every subscription /
+              transaction / override is rewritten, then the duplicate rows are deleted.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 space-y-2">
+          {cluster.users.map((u) => {
+            const isPrimary = primaryId === u.user_id;
+            return (
+              <button
+                key={u.user_id}
+                type="button"
+                onClick={() => setPrimaryId(u.user_id)}
+                className={`w-full text-left rounded-xl border-2 p-3 transition-colors ${isPrimary ? "border-emerald-500 bg-emerald-500/5" : "border-border hover:border-emerald-400"}`}
+                data-testid={`merge-primary-${u.user_id}`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm truncate">{u.name || "—"}</p>
+                    <p className="text-xs text-muted-foreground truncate">{u.email || "—"} · {u.phone || "—"}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      ₹{Math.round(u.wallet_balance || 0)} wallet · {u.subs} subs · {u.txns} txns · {u.overrides} overrides
+                    </p>
+                  </div>
+                  {isPrimary && (
+                    <span className="text-[10px] tracking-overline uppercase font-bold px-2 py-1 rounded-full bg-emerald-600 text-white shrink-0">
+                      Keep this
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-5 rounded-xl bg-amber-500/10 border border-amber-500/30 px-3 py-2 flex gap-2 items-start">
+          <AlertTriangle className="h-4 w-4 text-amber-700 mt-0.5 shrink-0" />
+          <p className="text-xs text-amber-800 dark:text-amber-200 leading-relaxed">
+            This cannot be undone. Make sure you&apos;ve picked the row the user should keep using — usually the one
+            with the most recent activity (subscriptions / overrides).
+          </p>
+        </div>
+
+        <div className="mt-4">
+          <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Reason · audit-logged</label>
+          <Input
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="e.g. user reported wallet not visible — merged Google + OTP rows"
+            className="mt-1.5"
+            data-testid="merge-reason-input"
+          />
+        </div>
+
+        <div className="mt-6 flex gap-3 justify-end">
+          <Button variant="outline" className="rounded-full" onClick={onClose} disabled={merging} data-testid="merge-cancel">Cancel</Button>
+          <Button
+            onClick={submit}
+            disabled={merging || !reason.trim()}
+            className="rounded-full bg-amber-600 hover:bg-amber-700 text-white"
+            data-testid="merge-confirm"
+          >
+            {merging ? "Merging…" : `Merge ${cluster.users.length - 1} into selected`}
+          </Button>
         </div>
       </div>
     </div>

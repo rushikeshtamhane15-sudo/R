@@ -1,0 +1,37 @@
+{
+  "summary": "iter-102 end-to-end verification (backend + frontend) for duplicate-account detection + admin merge tool. Backend: 3/3 supplied pytest PASS (detect+merge, phone-collision, validation) AND 7/7 extras PASS (OTP-twice-same-phone = same user_id, create_or_get_user backfills email when only phone existed, /admin/users/duplicates requires admin (403), /admin/users/{id}/merge requires admin (403), refuses rider-into-admin (400), pushes account_merged notice to primary, iter-101 regression smoke for assign-subscription + wallet-adjust + notices + DELETE /auth/me). UI: full Admin merge flow PASS — admin OTP-login (9970705391, dev_otp captured via network listener since UI hides it), navigated to /admin/users, duplicates-panel visible, Scan now found 6 clusters (including seeded ui-dup-* @example.com), clicked Review & merge → MergeUsersModal opened with 2 candidate cards, picked 'UI Legacy A' (highlighted with KEEP THIS badge), filled merge-reason-input, merge-confirm submitted → POST /admin/users/{primary}/merge returned 200, modal closed, scan re-ran, cluster count dropped 6→5, seed email no longer in clusters. DB post-condition verified: 1 surviving row (UI Legacy A), wallet 1500+800=2300, address 'B address' backfilled from duplicate, wallet_overrides row with kind=merge_users present.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter102_merge.py",
+    "/app/backend/tests/test_iter102_extra.py",
+    "/app/test_reports/pytest/iter102_results.xml",
+    "/app/test_reports/pytest/iter102_extra.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "create_or_get_user (server.py ~L301) correctly uses single $or query for email+phone lookup. Backfills missing identifier (email or phone) on existing row when login provides the other side — verified via direct invocation test (phone-only seeded row + email login → same user_id, email backfilled in DB).",
+    "POST /admin/users/{primary_user_id}/merge (server.py ~L2868) iterates USER_ID_REFS (16 collections) and rewrites field=dup_id → primary_user_id, sums wallet, backfills email/phone/address/photo_url/picture/lat/lng/mess_id on primary if blank, deletes duplicate, writes wallet_overrides audit (kind=merge_users) and pushes admin_user_notices (kind=account_merged). All verified end-to-end.",
+    "Validation: self-merge → 400, empty reason → 400, unknown user → 404, rider→admin merge → 400 with 'rider'/'refus' text. All exit paths covered.",
+    "GET /admin/users/duplicates clusters by shared email or phone, enriched with subs/txns/overrides/attendance counts and sorted by activity. Admin-only enforced (403 for subscriber).",
+    "Frontend AdminUsers.jsx — duplicates-panel, scan-duplicates-button, dup-cluster-{idx}, open-merge-{idx}, merge-users-modal, merge-primary-{user_id}, merge-reason-input, merge-confirm — all data-testids present and functional. MergeUsersModal correctly disables Confirm until a primary is picked AND reason is non-empty; on submit calls POST /admin/users/{primary}/merge for each duplicate in the cluster, then closes + refreshes scan + user list.",
+    "Iter-101 endpoints untouched: DELETE /auth/me, POST /admin/users/{id}/assign-subscription, POST /admin/users/{id}/wallet-adjust, GET /auth/notices, POST /auth/notices/ack all still return 200 with expected payloads (regression smoke PASS)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter102_extra.py (new, 7 tests)"
+  ],
+  "success_rate": {
+    "backend": "100% (10/10 pytest — 3 supplied iter102 + 7 new extras)",
+    "frontend": "100% (full admin scan → cluster → merge modal → submit → DB verify flow)"
+  },
+  "test_credentials": "Admin phone 9970705391 (ADMIN_PHONES). Subscriber created on-the-fly with random 9-prefixed 10-digit phone; dev_otp returned in /auth/send-otp response (OTP_DEV_MODE=true).",
+  "seed_data_creation": "Each pytest seeds two duplicate users in DB and cleans up itself. UI test seeded users via mongosh (user_ui_<ts>_a & _b sharing ui-dup-<ts>@example.com); cleaned up post-merge via mongosh.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter-102 split across 2 pytest files: /app/backend/tests/test_iter102_merge.py (supplied — 3 tests) and /app/backend/tests/test_iter102_extra.py (new — 7 tests including unified-lookup direct invocation, admin-guard 403s, rider-into-admin refuse, account_merged notice push, iter-101 regression smoke). Run as: `API_URL='https://dining-pass-scan.preview.emergentagent.com/api' python -m pytest backend/tests/test_iter102_*.py -v`. If 429s, clear rate_limit_hits. UI flow gotcha: send-otp is rate-limited per phone, so manually calling /auth/send-otp from the test AND letting the UI also call it returns 403 on the second call. Solution used here: attach a page.on('response') listener and extract dev_otp from the UI's own /auth/send-otp response — works reliably. UI test seed_data in /tmp/ui_seed.txt (SEED_EMAIL UID_A UID_B PA PB).",
+  "rca of the issue": "N/A — no failures. iter-102 fix (unified email-OR-phone lookup + admin merge tool) is solid: 10/10 backend tests + full UI E2E + DB-level post-conditions all green."
+}

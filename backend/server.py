@@ -299,8 +299,19 @@ async def issue_session(user_id: str, response: Response) -> str:
 
 
 async def create_or_get_user(email: Optional[str], phone: Optional[str], name: str, picture: Optional[str] = None) -> dict:
-    query = {"email": email.lower()} if email else {"phone": phone}
-    existing = await db.users.find_one(query, {"_id": 0})
+    # iter-102: lookup by email OR phone in a single $or query so a user who
+    # first signed in via Google (email-only) and later via OTP (phone-only)
+    # — or vice versa — resolves to the SAME `users` row instead of forking
+    # into duplicates with split wallet / subscription / history.
+    email_norm = email.lower() if email else None
+    or_clauses = []
+    if email_norm:
+        or_clauses.append({"email": email_norm})
+    if phone:
+        or_clauses.append({"phone": phone})
+    if not or_clauses:
+        raise ValueError("create_or_get_user requires email or phone")
+    existing = await db.users.find_one({"$or": or_clauses}, {"_id": 0}) if len(or_clauses) > 1 else await db.users.find_one(or_clauses[0], {"_id": 0})
     is_admin = (email and email.lower() in ADMIN_EMAILS) or (phone and phone in ADMIN_PHONES)
     if existing:
         updates = {}
@@ -308,6 +319,13 @@ async def create_or_get_user(email: Optional[str], phone: Optional[str], name: s
             updates["name"] = name
         if picture and existing.get("picture") != picture:
             updates["picture"] = picture
+        # Heal missing identifiers — if the row was created phone-only and the
+        # user is now logging in with an email (or vice versa), backfill the
+        # missing identifier so future lookups for either find the same row.
+        if email_norm and not existing.get("email"):
+            updates["email"] = email_norm
+        if phone and not existing.get("phone"):
+            updates["phone"] = phone
         # Auto-promote on every login if email/phone is in admin list
         if is_admin and existing.get("role") != "admin":
             updates["role"] = "admin"
@@ -326,7 +344,9 @@ async def create_or_get_user(email: Optional[str], phone: Optional[str], name: s
             updates["wallet_balance"] = 0.0
         if updates:
             await db.users.update_one(
-                {"_id": existing.get("_id")} if existing.get("_id") else {"phone": existing.get("phone"), "email": existing.get("email")},
+                {"user_id": existing_uid} if existing_uid else (
+                    {"_id": existing.get("_id")} if existing.get("_id") else {"phone": existing.get("phone"), "email": existing.get("email")}
+                ),
                 {"$set": updates},
             )
             existing.update(updates)
@@ -335,7 +355,7 @@ async def create_or_get_user(email: Optional[str], phone: Optional[str], name: s
     role = "admin" if is_admin else "subscriber"
     user_doc = {
         "user_id": f"user_{uuid.uuid4().hex[:12]}",
-        "email": email.lower() if email else None,
+        "email": email_norm,
         "phone": phone,
         "name": name,
         "address": None,
@@ -2753,6 +2773,184 @@ async def _purge_user(user_id: str) -> dict:
         counts["users"] = 0
     logger.info(f"[USER PURGE] user={user_id} email={user.get('email')} phone={user.get('phone')} → {counts}")
     return {"deleted": counts.get("users", 0) > 0, "counts": counts}
+
+
+# ---------------------------------------------------------------------------
+# iter-102: Detect and merge duplicate user accounts.
+#
+# Before iter-102, `create_or_get_user` looked up by email OR phone but not
+# both — so a single human who signed in once with Google (email-only) and
+# again with phone OTP (phone-only) ended up with two `users` rows. Admin
+# wallet adjustments would land on one row while the user's session resolved
+# to the other → the user saw ₹0 while admin saw the topped-up balance.
+#
+# These endpoints let an admin clean up the historical mess by detecting
+# duplicates and merging one row into another (moving every referencing
+# document via `user_id` and summing wallet balances).
+# ---------------------------------------------------------------------------
+
+# Every collection that stores a `user_id` reference and must be rewritten
+# during a merge. `field` is the column we update. Add new collections here
+# the moment they start writing user_id refs.
+USER_ID_REFS: list[tuple[str, str]] = [
+    ("user_sessions", "user_id"),
+    ("subscriptions", "user_id"),
+    ("wallet_transactions", "user_id"),
+    ("wallet_overrides", "target_user_id"),
+    ("attendance", "user_id"),
+    ("payment_orders", "user_id"),
+    ("daily_rosters", "user_id"),
+    ("delivery_attempts", "user_id"),
+    ("restaurant_orders", "user_id"),
+    ("guest_carts", "user_id"),
+    ("scan_logs", "user_id"),
+    ("tiffin_reminders_sent", "user_id"),
+    ("expiry_reminders_sent", "user_id"),
+    ("rider_applications", "user_id"),
+    ("rider_payouts", "user_id"),
+    ("admin_user_notices", "user_id"),
+]
+
+
+@api_router.get("/admin/users/duplicates")
+async def admin_list_duplicate_users(user: User = Depends(get_current_user)):
+    """Find user docs that share an email or phone with another doc.
+
+    Returns clusters grouped by the shared identifier. Each cluster includes
+    every duplicate user along with their wallet/sub counts so the admin can
+    decide which to keep as the primary.
+    """
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    pipeline_email = [
+        {"$match": {"email": {"$nin": [None, ""]}}},
+        {"$group": {"_id": "$email", "ids": {"$addToSet": "$user_id"}, "count": {"$sum": 1}}},
+        {"$match": {"count": {"$gt": 1}}},
+    ]
+    pipeline_phone = [
+        {"$match": {"phone": {"$nin": [None, ""]}}},
+        {"$group": {"_id": "$phone", "ids": {"$addToSet": "$user_id"}, "count": {"$sum": 1}}},
+        {"$match": {"count": {"$gt": 1}}},
+    ]
+    by_email = await db.users.aggregate(pipeline_email).to_list(500)
+    by_phone = await db.users.aggregate(pipeline_phone).to_list(500)
+
+    clusters: list[dict] = []
+    seen_uid_pairs: set[frozenset] = set()
+    for kind, rows in [("email", by_email), ("phone", by_phone)]:
+        for row in rows:
+            key = frozenset(row["ids"])
+            if key in seen_uid_pairs:
+                continue
+            seen_uid_pairs.add(key)
+            users = await db.users.find(
+                {"user_id": {"$in": list(row["ids"])}},
+                {"_id": 0, "user_id": 1, "email": 1, "phone": 1, "name": 1,
+                 "role": 1, "wallet_balance": 1, "created_at": 1},
+            ).to_list(50)
+            # Enrich with counts so the admin can choose the "richest" as primary
+            for u in users:
+                u["subs"] = await db.subscriptions.count_documents({"user_id": u["user_id"]})
+                u["txns"] = await db.wallet_transactions.count_documents({"user_id": u["user_id"]})
+                u["overrides"] = await db.wallet_overrides.count_documents({"target_user_id": u["user_id"]})
+                u["attendance"] = await db.attendance.count_documents({"user_id": u["user_id"]})
+            users.sort(key=lambda x: (-(x.get("overrides") or 0), -(x.get("subs") or 0), -(x.get("wallet_balance") or 0)))
+            clusters.append({"shared_by": kind, "shared_value": row["_id"], "users": users})
+    return {"clusters": clusters, "count": len(clusters)}
+
+
+class MergeUsersRequest(BaseModel):
+    duplicate_user_id: str
+    reason: str
+
+
+@api_router.post("/admin/users/{primary_user_id}/merge")
+async def admin_merge_users(
+    primary_user_id: str,
+    payload: MergeUsersRequest,
+    user: User = Depends(get_current_user),
+):
+    """Merge `duplicate_user_id` INTO `primary_user_id`.
+
+    Every collection that references the duplicate's user_id is rewritten to
+    point at the primary. Wallet balance is summed. Missing identifiers
+    (email/phone/address/photo) on the primary are backfilled from the
+    duplicate. The duplicate row itself is then deleted.
+    """
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    dup_id = payload.duplicate_user_id
+    if dup_id == primary_user_id:
+        raise HTTPException(status_code=400, detail="Cannot merge a user into itself")
+    if not (payload.reason or "").strip():
+        raise HTTPException(status_code=400, detail="Reason is required for audit log")
+
+    primary = await db.users.find_one({"user_id": primary_user_id}, {"_id": 0})
+    duplicate = await db.users.find_one({"user_id": dup_id}, {"_id": 0})
+    if not primary or not duplicate:
+        raise HTTPException(status_code=404, detail="One or both users not found")
+    if primary.get("role") in ("admin",) and duplicate.get("role") not in ("admin", "subscriber"):
+        # Keep this guard conservative — we don't want a non-admin role
+        # (rider, staff, franchise_owner) silently absorbed into an admin row.
+        raise HTTPException(status_code=400, detail=f"Refusing to merge a `{duplicate.get('role')}` into an admin")
+
+    # Move every reference
+    rewrites: dict = {}
+    for coll_name, field in USER_ID_REFS:
+        try:
+            res = await db[coll_name].update_many({field: dup_id}, {"$set": {field: primary_user_id}})
+            rewrites[coll_name] = res.modified_count
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"[USER MERGE] rewrite {coll_name}.{field} failed dup={dup_id} primary={primary_user_id}: {e}")
+            rewrites[coll_name] = -1
+
+    # Sum wallets + backfill missing identifiers on primary
+    new_wallet = round(float(primary.get("wallet_balance") or 0) + float(duplicate.get("wallet_balance") or 0), 2)
+    user_updates: dict = {"wallet_balance": new_wallet}
+    for field in ("email", "phone", "address", "photo_url", "picture", "lat", "lng", "mess_id"):
+        if not primary.get(field) and duplicate.get(field):
+            user_updates[field] = duplicate.get(field)
+    await db.users.update_one({"user_id": primary_user_id}, {"$set": user_updates})
+
+    # Delete the duplicate row (don't touch its data — every reference now
+    # points at primary, so deleting the row is safe).
+    await db.users.delete_one({"user_id": dup_id})
+
+    # Audit + notice
+    audit = {
+        "audit_id": f"mrg_{uuid.uuid4().hex[:14]}",
+        "ts": iso(now_utc()),
+        "admin_user_id": user.user_id,
+        "admin_email": user.email,
+        "primary_user_id": primary_user_id,
+        "duplicate_user_id": dup_id,
+        "duplicate_email": duplicate.get("email"),
+        "duplicate_phone": duplicate.get("phone"),
+        "new_wallet": new_wallet,
+        "backfilled_fields": [k for k in user_updates if k != "wallet_balance"],
+        "rewrites": rewrites,
+        "reason": payload.reason.strip()[:500],
+        "kind": "merge_users",
+    }
+    await db.wallet_overrides.insert_one(audit.copy())
+    audit.pop("_id", None)
+    try:
+        await _push_user_notice(
+            primary_user_id,
+            kind="account_merged",
+            title="Duplicate account merged",
+            body=(
+                f"An admin merged a duplicate {('email' if duplicate.get('email') else 'phone')} record "
+                f"into your account. Your wallet now shows ₹{new_wallet:.0f} (sum of both balances), and "
+                f"all past subscriptions / transactions are now on this account."
+            ),
+            meta={"primary": primary_user_id, "merged_from": dup_id, "new_wallet": new_wallet},
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[NOTICE] merge notice push failed for primary={primary_user_id}: {e}")
+    logger.info(f"[USER MERGE] dup={dup_id} → primary={primary_user_id} wallet=₹{new_wallet} by={user.email} rewrites={rewrites}")
+    return {"ok": True, "audit": audit}
 
 
 @api_router.delete("/admin/users/{user_id}")
