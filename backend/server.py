@@ -236,17 +236,34 @@ async def seed_plans():
 # Auth helpers
 # ---------------------------
 def doc_to_user(doc) -> User:
+    # iter-110: Google-OAuth users start with name=None (we deliberately don't
+    # auto-fill from Google's payload to keep tiffin-slip names accurate). The
+    # Pydantic model requires `name: str`, so unconditionally accessing
+    # `doc["name"]` 500s for those users — and that 500 used to mask
+    # `DELETE /auth/me` because get_current_user blew up first.
+    # Falling back to email-local-part / phone / a placeholder keeps the auth
+    # path alive; the user can still type a real name in /profile later.
+    fallback_name = (
+        (doc.get("email") or "").split("@")[0]
+        or doc.get("phone")
+        or "Member"
+    )
+    created_at_raw = doc.get("created_at")
+    try:
+        created_at = parse_dt(created_at_raw) if created_at_raw else now_utc()
+    except Exception:  # noqa: BLE001
+        created_at = now_utc()
     return User(
         user_id=doc["user_id"],
         email=doc.get("email"),
         phone=doc.get("phone"),
-        name=doc["name"],
+        name=doc.get("name") or fallback_name,
         address=doc.get("address"),
         photo_url=doc.get("photo_url"),
         picture=doc.get("picture"),
         role=doc.get("role", "subscriber"),
         qr_token=doc.get("qr_token", ""),
-        created_at=parse_dt(doc["created_at"]),
+        created_at=created_at,
         lat=doc.get("lat"),
         lng=doc.get("lng"),
         wallet_balance=float(doc.get("wallet_balance") or 0),

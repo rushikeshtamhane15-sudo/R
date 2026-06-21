@@ -2251,3 +2251,24 @@ User asked to wire the two enhancements proposed at the end of iter-107: a templ
 **Production deployment**: After deploy, admins on `/admin` will see the new emerald WhatsApp button next to Call on every expiring-sub row. One tap → WhatsApp opens with a pre-filled message containing the customer's name, expiry timeline, and the 1-click renew URL.
 
 
+
+### Iteration 110 — Email-registered users can delete their account (Feb 21, 2026)
+
+User reported: *"User with email registered account is unable to delete there account."*
+
+**Root cause (reproduced as HTTP 500 in preview)**:
+- `doc_to_user()` did `name=doc["name"]`, but Google-OAuth users created via `/auth/google/verify` deliberately have `name=None` (`auth_google.py` skips Google's `name` field to keep tiffin-slip names accurate).
+- The `User` Pydantic model declares `name: str` (no default), so unconditional access blew up Pydantic validation → 500 inside `get_current_user`.
+- Every protected endpoint, including `DELETE /auth/me`, 500'd before its own code even ran. Frontend toast fell through to the generic *"Could not delete account"* message.
+
+**Fix**: `doc_to_user` now tolerates `name=None` (falls back to email-local-part → phone → `"Member"`) and a missing/invalid `created_at` (falls back to `now_utc()`). Auth path stays alive; the user can still type a real name in `/profile` later.
+
+**Testing**: New pytest `test_iter110_email_user_delete.py` (3 tests):
+- `/auth/me` returns 200 (not 500) for an email user with `name=None`.
+- `DELETE /auth/me` succeeds (200, `deleted=true`) for the same user; subsequent `/auth/me` 401s.
+- `/auth/me` also tolerates rows with missing `created_at`.
+- **3/3 PASS**. Verified end-to-end via `curl` against the preview backend.
+
+**Production deployment**: Click **Deploy** in Emergent dashboard. Email/Google-registered users on `efoodcare.in` will be able to delete their account immediately. No data migration needed.
+
+
