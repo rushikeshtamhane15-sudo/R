@@ -3249,14 +3249,79 @@ async def admin_bulk_delete_users(payload: dict = Body(...), user: User = Depend
 
 @api_router.delete("/auth/me")
 async def delete_my_account(user: User = Depends(get_current_user)):
-    """User-initiated account deletion."""
+    """User-initiated account deletion.
+
+    iter-107: split into a fast foreground step (kill sessions + delete the
+    users row so the user is *logically* gone immediately, and Cloudflare
+    can't time out on a slow 16-collection cascade) and a background purge
+    that mops up the references. Returns 200 in well under a second even
+    for users with years of attendance / transaction history.
+    """
     if user.role == "admin":
         # Prevent the only admin from accidentally locking themselves out
         admin_count = await db.users.count_documents({"role": "admin"})
         if admin_count <= 1:
             raise HTTPException(status_code=400, detail="You're the only admin. Promote another user before deleting your account.")
-    res = await _purge_user(user.user_id)
-    return {"ok": True, **res}
+
+    user_id = user.user_id
+    phone = user.phone or "__none__"
+    foreground_counts = {}
+    try:
+        # 1) Drop ALL sessions for this user so the auth token used by THIS
+        # request is invalidated immediately. Any in-flight calls 401 from here on.
+        foreground_counts["user_sessions"] = (await db.user_sessions.delete_many({"user_id": user_id})).deleted_count
+        # 2) Delete the user row itself. This is the only step that affects
+        # whether the user can still log in / be looked up.
+        foreground_counts["users"] = (await db.users.delete_one({"user_id": user_id})).deleted_count
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"[USER DELETE] foreground step failed for user={user_id}: {e}")
+        # If we couldn't drop the user row, fall back to the full synchronous
+        # purge so the response is at least diagnosable.
+        res = await _purge_user(user_id)
+        return {"ok": True, "mode": "sync_fallback", **res}
+
+    # 3) Cascade the rest in the background — by the time this finishes, the
+    # user is already gone from the auth path so even a slow cascade is fine.
+    asyncio.create_task(_purge_user_references_bg(user_id, phone))
+
+    logger.info(f"[USER DELETE] foreground done for user={user_id} email={user.email} (cascade scheduled)")
+    return {"ok": True, "mode": "async_cascade", "deleted": foreground_counts.get("users", 0) > 0, "counts": foreground_counts}
+
+
+async def _purge_user_references_bg(user_id: str, phone: str) -> None:
+    """iter-107: background cleanup of every collection that may reference
+    the user. Runs after `delete_my_account` has already returned 200 to the
+    client — its only job is to keep the DB tidy."""
+    try:
+        targets = [
+            ("subscriptions",        {"user_id": user_id}),
+            ("wallet_transactions",  {"user_id": user_id}),
+            ("wallet_overrides",     {"target_user_id": user_id}),
+            ("attendance",           {"user_id": user_id}),
+            ("payment_orders",       {"user_id": user_id}),
+            ("daily_rosters",        {"user_id": user_id}),
+            ("delivery_attempts",    {"user_id": user_id}),
+            ("restaurant_orders",    {"user_id": user_id}),
+            ("guest_carts",          {"user_id": user_id}),
+            ("scan_logs",            {"user_id": user_id}),
+            ("tiffin_reminders_sent",{"user_id": user_id}),
+            ("expiry_reminders_sent",{"user_id": user_id}),
+            ("rider_applications",   {"user_id": user_id}),
+            ("rider_payouts",        {"user_id": user_id}),
+            ("admin_user_notices",   {"user_id": user_id}),
+            ("otp_codes",            {"phone": phone}),
+        ]
+        counts = {}
+        for coll_name, query in targets:
+            try:
+                res = await db[coll_name].delete_many(query)
+                counts[coll_name] = res.deleted_count
+            except Exception as e:  # noqa: BLE001
+                logger.warning(f"[USER DELETE BG] cascade {coll_name} failed for user={user_id}: {e}")
+                counts[coll_name] = -1
+        logger.info(f"[USER DELETE BG] user={user_id} cascade done → {counts}")
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"[USER DELETE BG] unhandled error for user={user_id}: {e}")
 
 
 @api_router.post("/admin/cron/run-tick")
@@ -3266,6 +3331,76 @@ async def admin_run_tick(user: User = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Admin only")
     result = await run_subscription_tick()
     return {"ok": True, **result}
+
+
+# ---------------------------------------------------------------------------
+# iter-107 #2: Surface subscriptions that are about to expire so admin can
+# call those users and nudge them to renew. Lives on the Admin Dashboard.
+# ---------------------------------------------------------------------------
+@api_router.get("/admin/expiring-subscriptions")
+async def admin_expiring_subscriptions(
+    within_days: int = 3,
+    user: User = Depends(get_current_user),
+):
+    """Return active subs whose `end_date` is within the next `within_days`
+    days (default 3). Includes the user's name + phone so admin can dial
+    them directly. Franchise owners are scoped to their branch.
+    """
+    if user.role not in ("admin", "franchise_owner"):
+        raise HTTPException(status_code=403, detail="Admin only")
+    within_days = max(0, min(int(within_days or 3), 30))
+    cutoff = iso(now_utc() + timedelta(days=within_days))
+
+    sub_query: dict = {
+        "status": "active",
+        "end_date": {"$lte": cutoff},
+    }
+    # Branch-scope for franchise owners
+    user_ids_in_branch = None
+    if user.role == "franchise_owner":
+        m = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+        if not m:
+            return {"subscriptions": [], "count": 0, "within_days": within_days}
+        users_in_branch = await db.users.find(
+            {"mess_id": m["mess_id"]}, {"_id": 0, "user_id": 1},
+        ).to_list(10000)
+        user_ids_in_branch = [u["user_id"] for u in users_in_branch]
+        sub_query["user_id"] = {"$in": user_ids_in_branch}
+
+    subs = await db.subscriptions.find(sub_query, {"_id": 0}).sort("end_date", 1).to_list(500)
+    if not subs:
+        return {"subscriptions": [], "count": 0, "within_days": within_days}
+
+    # Hydrate with user contact info in one round-trip
+    sub_user_ids = list({s["user_id"] for s in subs})
+    users = await db.users.find(
+        {"user_id": {"$in": sub_user_ids}},
+        {"_id": 0, "user_id": 1, "name": 1, "phone": 1, "email": 1, "address": 1, "mess_id": 1},
+    ).to_list(1000)
+    by_uid = {u["user_id"]: u for u in users}
+
+    now = now_utc()
+    out = []
+    for s in subs:
+        u = by_uid.get(s["user_id"]) or {}
+        end = parse_dt(s["end_date"])
+        days_left = max(0, (end.date() - now.date()).days)
+        out.append({
+            "sub_id": s["sub_id"],
+            "user_id": s["user_id"],
+            "name": u.get("name") or "—",
+            "phone": u.get("phone"),
+            "email": u.get("email"),
+            "address": u.get("address"),
+            "mess_id": u.get("mess_id"),
+            "plan_name": s.get("plan_name") or s.get("plan_id"),
+            "end_date": s["end_date"],
+            "days_left": days_left,
+            "wallet_balance": float(s.get("wallet_balance") or 0),
+            "meals_left": max(0, int(s.get("meals_total") or 0) - int(s.get("meals_used") or 0)),
+            "service_type": s.get("service_type") or "dining",
+        })
+    return {"subscriptions": out, "count": len(out), "within_days": within_days}
 
 
 @api_router.post("/admin/cron/run-reminders")

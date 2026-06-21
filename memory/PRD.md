@@ -2192,3 +2192,35 @@ User reported `93 × 18 = 1674` and `46.5 × 36 = 1674` but wallet showed `₹1,
 **Production deployment**: After deploy, any existing production user who lacks an address will block any admin wallet/sub action until they finish their profile. This is intentional per user's request — pushes data collection up front.
 
 
+
+### Iteration 107 — Async account-delete + Expiring-subs renewal alert (Feb 21, 2026)
+
+User reported on production:
+1. `DELETE /auth/me` failing with "Could not delete account" toast.
+2. Wanted a daily alert on the Admin Dashboard listing users whose subscription expires within the next 3 days, with phone numbers so admin can call them to renew.
+
+#### #1 Bullet-proof account deletion (`DELETE /auth/me` in `server.py`)
+- **Root cause hypothesis (production-only)**: with years of attendance/transaction data, the 16-collection cascade was likely exceeding Cloudflare's request budget → 524/timeout → frontend got a non-JSON response → fell back to the generic "Could not delete account" toast.
+- **Fix**: Split delete into a fast foreground step + an async background cascade:
+  - Foreground (sub-second): drop the user's `user_sessions` rows + delete the `users` doc. The user is *logically* deleted before the response returns.
+  - Background `_purge_user_references_bg()`: cascades all 16 reference collections via `asyncio.create_task()`. Each collection wrapped in try/except so one slow query can't block the others.
+- Returns `{ok, mode: "async_cascade"|"sync_fallback", deleted, counts}`. SLA: <2s including foreground delete + response round-trip.
+- Falls back to the original synchronous purge if the foreground step itself errors — so the diagnostic detail still surfaces.
+
+#### #2 Expiring-subscriptions renewal alert
+- **Backend** `GET /api/admin/expiring-subscriptions?within_days=3` (admin + franchise_owner only, franchise scoped to branch).
+  - Queries `subscriptions` where `status=active` AND `end_date <= now + within_days days`.
+  - Hydrates with user name/phone/email/address in one extra round-trip (single $in query, not N+1).
+  - Returns `{subscriptions: [{sub_id, user_id, name, phone, plan_name, end_date, days_left, wallet_balance, meals_left, service_type, ...}], count, within_days}`.
+- **Frontend** `AdminDashboard.jsx` renders an amber card (`data-testid=expiring-subs-card`) the moment any subs match, with each user showing name + plan + days_left + a **Call** button (`tel:+91…`) for one-tap dialling. Hidden silently if none match.
+- The widget is **non-blocking** — if the API call fails the dashboard still renders the rest.
+
+#### Testing
+- New pytest `test_iter107_delete_and_expiring.py` (4 tests): delete-returns-fast, expiring-lists-with-phone, far-future-excluded, admin-only. **4/4 PASS**.
+- Full regression: iter-101 (3) + iter-104 (4) + iter-105 (4) + iter-106 (4) + iter-107 (4) = **19 PASS** individually.
+
+**Production note**: Both fixes are in Preview. After deploy:
+- The "Could not delete account" issue should disappear immediately even for users with massive history.
+- The expiring-subs alert will start showing on Admin Dashboard the moment any active subs cross the 3-day window. The user list refreshes every time the admin loads the dashboard (no daily cron — it's live).
+
+

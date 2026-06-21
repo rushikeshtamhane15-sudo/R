@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
-import { Users, Calendar, IndianRupee, Check, RefreshCw } from "lucide-react";
+import { Users, Calendar, IndianRupee, Check, RefreshCw, AlertTriangle, Phone } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
 
 const PERIODS = [
@@ -13,6 +13,7 @@ const PERIODS = [
 export default function AdminOverview() {
   const [stats, setStats] = useState(null);
   const [attendance, setAttendance] = useState([]);
+  const [expiring, setExpiring] = useState([]);
   const [period, setPeriod] = useState("cycle");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [loading, setLoading] = useState(true);
@@ -23,9 +24,10 @@ export default function AdminOverview() {
     try {
       const params = new URLSearchParams({ period: p });
       if (d) params.set("date", d);
-      const [s, a] = await Promise.allSettled([
+      const [s, a, e] = await Promise.allSettled([
         api.get(`/admin/stats?${params.toString()}`),
         api.get("/admin/attendance/today"),
+        api.get("/admin/expiring-subscriptions?within_days=3"),
       ]);
       // iter-93: don't blow up the page when one of the two calls fails.
       // We surface the error inline (see "could not load" branch below).
@@ -33,6 +35,10 @@ export default function AdminOverview() {
       else { setStats(null); setLoadError(s.reason?.response?.data?.detail || s.reason?.message || "Failed to load stats"); }
       if (a.status === "fulfilled") setAttendance(a.value.data.attendance || []);
       else setAttendance([]);
+      // iter-107: expiring-subs widget is non-blocking — if it fails we
+      // just hide it instead of erroring out the whole dashboard.
+      if (e.status === "fulfilled") setExpiring(e.value.data.subscriptions || []);
+      else setExpiring([]);
       if (s.status === "fulfilled") setLoadError(null);
     } finally {
       setLoading(false);
@@ -144,6 +150,65 @@ export default function AdminOverview() {
           </ResponsiveContainer>
         </div>
       </div>
+
+      {/* iter-107 #2: Expiring subscriptions — call-to-action for renewals */}
+      {expiring.length > 0 && (
+        <div
+          className="mt-6 surface-3d bg-amber-50 dark:bg-amber-500/10 rounded-2xl border-2 border-amber-500/40 p-6"
+          data-testid="expiring-subs-card"
+        >
+          <div className="flex items-start gap-3">
+            <span className="inline-flex h-10 w-10 rounded-xl bg-amber-500/20 text-amber-700 items-center justify-center shrink-0">
+              <AlertTriangle className="h-5 w-5" />
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] tracking-overline uppercase font-bold text-amber-700 dark:text-amber-300">
+                Renewal alert · next 3 days
+              </p>
+              <h2 className="font-display font-extrabold text-lg mt-0.5">
+                {expiring.length} subscription{expiring.length === 1 ? "" : "s"} expiring soon
+              </h2>
+              <p className="text-xs text-amber-800/90 dark:text-amber-200/90 mt-1">
+                Tap a phone number to call them and pitch a renewal before their plan runs out.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 divide-y divide-amber-500/20" data-testid="expiring-subs-list">
+            {expiring.map((s) => (
+              <div
+                key={s.sub_id}
+                className="flex items-center gap-3 py-3"
+                data-testid={`expiring-sub-${s.sub_id}`}
+              >
+                <span className="h-9 w-9 rounded-full bg-amber-500/15 text-amber-700 flex items-center justify-center font-extrabold text-xs shrink-0">
+                  {(s.name || "?").slice(0, 1).toUpperCase()}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm truncate" data-testid={`expiring-name-${s.sub_id}`}>{s.name}</p>
+                  <p className="text-[11px] text-amber-800/80 dark:text-amber-200/80 truncate">
+                    {s.plan_name} · {s.meals_left} meals · ₹{Math.round(s.wallet_balance)} wallet
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-[11px] tracking-overline uppercase font-bold text-amber-700">
+                    {s.days_left === 0 ? "Expires today" : s.days_left === 1 ? "1 day left" : `${s.days_left} days left`}
+                  </p>
+                  {s.phone && (
+                    <a
+                      href={`tel:+91${s.phone}`}
+                      className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold px-3 py-1"
+                      data-testid={`expiring-call-${s.sub_id}`}
+                    >
+                      <Phone className="h-3 w-3" /> Call {s.phone}
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mt-6 surface-3d bg-card rounded-2xl border border-border p-6" data-testid="today-attendance-list">
         <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Today's check-ins</p>
