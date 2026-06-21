@@ -182,7 +182,7 @@ export default function SubscriberDashboard() {
       <p className="text-xs opacity-70 mt-4">
         {isTiffin
           ? "Pause anytime · 7+ continuous days = end-date extended."
-          : "Skip 3+ days in a row → wallet pauses & your plan auto-extends."}
+          : "Skip 3+ days in a row → wallet pauses & your plan auto-extends. Days 1–3 still deduct normally."}
       </p>
     </div>
   );

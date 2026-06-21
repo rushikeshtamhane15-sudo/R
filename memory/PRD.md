@@ -2105,3 +2105,63 @@ User has no MSG91 credentials yet and wants users to be able to log in immediate
   3. Once MSG91 / Twilio credentials are added, flip `OTP_DEV_MODE=false` in `backend/.env` and this whole pathway is silently disabled — the echo card will stop appearing and the real SMS pipeline takes over.
 
 
+
+### Iteration 104 — Wallet/Days/Meals Auto-Balance + 4-Day Pause Threshold (Feb 21, 2026)
+
+User reported on production:
+1. Admin debited ₹300 from a user's wallet (₹2800 → ₹2500) but `meals_left`, `meals_total` and `days_left` stayed at 60/60/30. Expected: derive days/meals from `delta / per_day_amount` and apply them automatically.
+2. A brand-new subscriber with no scans was auto-paused starting day 1 of "skip". Expected: first 3 skipped days should deduct normally (food was cooked for them), only day 4+ of consecutive no-show should auto-pause.
+
+#### #1 Auto-balance from a wallet-only delta (`admin_wallet_adjust` in `server.py`)
+- When admin specifies `delta` but leaves `extend_days = 0` AND `meals_delta = 0` AND the user has an active sub with `per_day_amount > 0`:
+  - `derived_days = int(round(delta / per_day_amount))` — sign-preserving.
+  - `derived_meals = derived_days * MEALS_PER_DAY` (2).
+- Routed through the existing extend-days / meals-change logic so admins still get the same audit row + user notice — now annotated with `auto_derived: {days, meals}`.
+- Explicit `extend_days` or `meals_delta` still **override** the auto-derive (admin can still do a wallet-only adjustment by setting either field).
+
+#### #2 New pause criterion: "consecutive days since last scan ≥ 4"
+- `_advance_sub` no longer asks "any scan in the last 3 days". Instead it looks up the user's most recent scan (or the sub's `start_date` if none) and computes `days_since_anchor`.
+  - `days_since_anchor ≤ 3` → normal deduction (₹93/day, 2 meals, no end-date extension) — the food was cooked even if the user didn't show.
+  - `days_since_anchor ≥ 4` → auto-pause (no debit, no meal consumption, end-date +1 day).
+- Wallet-txn label now includes the streak ("Daily deduction · 2 meals · no-scan day" vs "Auto-pause · 5 days since last activity").
+- Tiffin subs unaffected (tiffin always deducts; pause is user-initiated).
+
+#### #3 Copy update
+- `SubscriberDashboard.jsx` wallet card footer: "Skip 4+ days in a row → wallet pauses & your plan auto-extends. Days 1–3 still deduct."
+
+#### Testing
+- New pytest `test_iter104_autoderive.py` (4 tests): debit auto-deducts days+meals, credit auto-restores, explicit fields skip auto-derive, pause kicks in at day 4. **4/4 PASS** locally.
+- Regression: iter-101 + iter-102 tests still **6/6 PASS**.
+
+**Production deployment note**: Both fixes are in Preview only. Click **Deploy** in Emergent dashboard to apply on `efoodcare.in`. Historical auto-pauses logged on the production user are not retroactively reversed — the new behaviour applies forward from the next tick.
+
+
+
+### Iteration 105 — Wallet/Meals Invariant via Snap + Reconcile (Feb 21, 2026)
+
+User noticed `wallet ₹1,500 ≠ 38 meals × ₹46.5 = ₹1,767` and asked for an explanation or fix. The drift came from pre-iter-104 admin debits that touched the wallet but not the meal counter. Iter-105 hardens the invariant going forward AND lets admins fix existing drift.
+
+#### #1 Admin delta snaps to per-day bucket (`admin_wallet_adjust`)
+- In auto-derive mode (no explicit `extend_days` / `meals_delta`): wallet delta is snapped to `derived_days × per_day`. Example: admin types `−₹300` at ₹93/day → derived_days=−3, snapped_delta=−₹279, residue=−₹21. Wallet, meals_used and end_date all move by exactly 3 days' worth.
+- `auto_derived` now includes `{days, meals, snapped_delta, residue}` so the audit/UI can show what got applied vs. what was typed.
+
+#### #2 Reconcile endpoint — fix historical drift
+- `POST /api/admin/users/{id}/reconcile-subscription` with `{source_of_truth: "wallet"|"meals", reason}`.
+  - `"meals"` (default): trust the meal counter, recompute `wallet = meals_left × per_meal`. Use when admin trusts the meal counter and wants to restore the wallet — fixes the exact scenario from the user's screenshot.
+  - `"wallet"`: trust the wallet, recompute `meals_left = round(wallet / per_meal)`. Use when admin trusts the cash side.
+- Mirrors wallet delta to `users.wallet_balance`, logs a `wallet_transactions` row, writes a `wallet_overrides` audit row with `kind=reconcile_subscription`, pushes an `admin_user_notices` to the user.
+
+#### #3 Admin UI on `/admin/wallet-topup`
+- New **Reconcile** card right above the History card with two pills: `Trust meals · fix wallet` (data-testid=`reconcile-meals-truth`) and `Trust wallet · fix meals` (`reconcile-wallet-truth`). Prompts for an audit-log reason via `window.prompt`, calls the endpoint, shows a success toast with the before/after summary.
+
+#### #4 Copy update
+- `SubscriberDashboard.jsx` wallet card footer changed to **"Skip 3+ days in a row → wallet pauses & your plan auto-extends. Days 1–3 still deduct normally."** as requested by user.
+
+#### Testing
+- New pytest `test_iter105_snap_reconcile.py` (4 tests): snap to per-day, reconcile from meals, reconcile from wallet, validation. **4/4 PASS**.
+- iter-104 tests updated for the new `auto_derived` shape — still **4/4 PASS**.
+- Full regression set (iter-101 + iter-102 + iter-104 + iter-105 = 15 tests) all pass individually.
+
+**Production note**: Fixes are in Preview only. After deploy, the existing user from the screenshot can be fixed in one click — admin opens `/admin/wallet-topup`, picks the user, clicks **Trust meals · fix wallet**. Wallet will snap from ₹1,500 → ₹1,767 instantly (with audit log + user notice).
+
+

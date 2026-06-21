@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import {
   Wallet, Search, IndianRupee, ChevronRight, Loader2, History, Plus, Minus,
   Phone, Mail, User as UserIcon, CalendarDays, Sparkles, ShieldCheck,
-  ClipboardList, Package,
+  ClipboardList, Package, GitMerge,
 } from "lucide-react";
 
 const QUICK_AMOUNTS = [100, 500, 1000, 2500];
@@ -194,6 +194,32 @@ export default function AdminWalletTopup() {
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Assign failed");
     } finally { setAssigning(false); }
+  };
+
+  // iter-105: one-button reconcile if wallet ↔ meals_left drifted
+  const reconcile = async (source_of_truth) => {
+    if (!selected) return;
+    const reason = window.prompt(
+      `Reconcile from ${source_of_truth === "meals" ? "MEALS counter (recompute wallet)" : "WALLET balance (recompute meals)"} — enter a reason for the audit log:`,
+      "Re-sync wallet ↔ meals after historical drift",
+    );
+    if (!reason || !reason.trim()) return;
+    try {
+      const r = await api.post(`/admin/users/${selected.user_id}/reconcile-subscription`, {
+        source_of_truth, reason: reason.trim(),
+      });
+      const a = r.data?.audit;
+      toast.success(
+        `Reconciled · wallet ₹${a.before.wallet_balance} → ₹${a.after.wallet_balance} · meals left ${a.before.meals_left} → ${a.after.meals_left}`,
+      );
+      if (r.data?.user_wallet != null) {
+        setUsers((prev) => prev.map((u) => u.user_id === selected.user_id ? { ...u, wallet_balance: r.data.user_wallet } : u));
+        setSelected((s) => s ? { ...s, wallet_balance: r.data.user_wallet } : s);
+      }
+      loadHistory(selected.user_id);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Reconcile failed");
+    }
   };
 
   return (
@@ -557,6 +583,40 @@ export default function AdminWalletTopup() {
                     </Button>
                   </div>
                 )}
+              </div>
+
+              {/* iter-105: Reconcile drift */}
+              <div className="rounded-2xl border border-border bg-card p-4 sm:p-5" data-testid="reconcile-card">
+                <div className="flex items-start gap-2">
+                  <span className="inline-flex h-9 w-9 rounded-xl bg-amber-500/10 text-amber-600 items-center justify-center"><GitMerge className="h-4 w-4" /></span>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-extrabold">Reconcile wallet ↔ meals</h3>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                      Use when the wallet balance and meals-left have drifted apart (usually from a pre-iter-104 admin override).
+                      The system will re-sync them so <span className="font-mono">wallet ≈ meals_left × ₹/meal</span> again.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 grid sm:grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => reconcile("meals")}
+                    className="rounded-full"
+                    data-testid="reconcile-meals-truth"
+                  >
+                    Trust meals · fix wallet
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => reconcile("wallet")}
+                    className="rounded-full"
+                    data-testid="reconcile-wallet-truth"
+                  >
+                    Trust wallet · fix meals
+                  </Button>
+                </div>
               </div>
 
               {/* History */}

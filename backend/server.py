@@ -759,15 +759,27 @@ async def catch_up_subscription(sub: dict) -> dict:
             continue
 
         # ---- AUTO-PAUSE branch (kiosk) ----
-        # Determine inactivity: look at attendance in window [current - INACTIVITY_THRESHOLD, current)
-        window_start = (current - timedelta(days=INACTIVITY_THRESHOLD_DAYS)).isoformat()
-        window_end = current.isoformat()
-        recent_scan = await db.attendance.find_one({
-            "user_id": user_id,
-            "date_str": {"$gte": window_start, "$lt": window_end},
-        }, {"_id": 0})
+        # iter-104 #2: The criterion is "consecutive no-scan days, counting
+        # from the user's last scan (or the sub start_date if they've never
+        # scanned)". Days 1–3 of any skip streak still deduct normally
+        # (treated as paid-for-but-not-eaten — the food was cooked for
+        # them). From day 4 of consecutive no-show, we auto-pause: no
+        # debit, no meal consumption, end-date extends by 1.
+        last_scan_doc = await db.attendance.find_one(
+            {"user_id": user_id, "date_str": {"$lt": current.isoformat()}},
+            {"_id": 0, "date_str": 1},
+            sort=[("date_str", -1)],
+        )
+        if last_scan_doc and last_scan_doc.get("date_str"):
+            anchor = date.fromisoformat(last_scan_doc["date_str"][:10])
+        else:
+            # No scans ever — count from the sub's start_date so a brand-new
+            # subscriber gets a 3-day no-show grace before pause kicks in.
+            anchor = date.fromisoformat(sub.get("start_date", current.isoformat())[:10])
+        days_since_anchor = (current - anchor).days
+        is_inactive = (sub.get("service_type") != "tiffin") and (days_since_anchor >= INACTIVITY_THRESHOLD_DAYS + 1)
 
-        if recent_scan or sub.get("service_type") == "tiffin":
+        if not is_inactive:
             # Active day — deduct money + consume the day's 2 meals from balance.
             new_balance = round(float(sub["wallet_balance"]) - per_day, 2)
             if new_balance < 0:
@@ -777,13 +789,14 @@ async def catch_up_subscription(sub: dict) -> dict:
             # Bump meals_used by 2 (lunch + dinner) — capped at meals_total
             new_used = min(int(sub.get("meals_total", 0)), int(sub.get("meals_used", 0)) + MEALS_PER_DAY)
             sub["meals_used"] = new_used
-            await _log_wallet_txn(user_id, sub["sub_id"], "debit", per_day, new_balance, f"Daily deduction · {current.isoformat()} · 2 meals consumed")
+            label = "no-scan day" if (sub.get("service_type") != "tiffin" and days_since_anchor > 0 and last_scan_doc) else "active"
+            await _log_wallet_txn(user_id, sub["sub_id"], "debit", per_day, new_balance, f"Daily deduction · {current.isoformat()} · 2 meals · {label}")
         else:
-            # Inactive day (3+ consecutive no-scan) — no debit, no meal consumption, end-date extends.
+            # Inactive day (4+ consecutive no-scan) — no debit, no meal consumption, end-date extends.
             sub["paused_days"] = int(sub.get("paused_days", 0)) + 1
             sub["end_date"] = iso(parse_dt(sub["end_date"]) + timedelta(days=1))
             paused_added += 1
-            await _log_wallet_txn(user_id, sub["sub_id"], "pause", 0.0, float(sub["wallet_balance"]), f"Auto-pause · {current.isoformat()} (no scan in last 3 days · meals + day credited back)")
+            await _log_wallet_txn(user_id, sub["sub_id"], "pause", 0.0, float(sub["wallet_balance"]), f"Auto-pause · {current.isoformat()} ({days_since_anchor} days since last activity · day credited back)")
 
         days_processed += 1
 
@@ -2333,6 +2346,42 @@ async def admin_wallet_adjust(target_user_id: str, payload: WalletAdjustRequest,
         # Wallet without an active sub — still allow user-level wallet adjust for goodwill credits
         pass
 
+    # iter-104 #1: When the admin only specifies a wallet delta (no explicit
+    # extend_days or meals_delta), derive the day/meal change automatically
+    # from the active sub's per_day_amount. The intent is: if the admin
+    # debits ₹93 at ₹93/day → 1 day + 2 meals leave too; if they credit ₹186
+    # → 2 days + 4 meals come back. Admins still have the explicit fields if
+    # they want a wallet-only adjustment.
+    #
+    # iter-105 #1: in auto-derive mode the wallet delta is also SNAPPED to
+    # `derived_days * per_day` so the invariant `wallet ≈ meals_left * per_meal`
+    # stays true after the operation. Any remainder (e.g. admin typed −₹300 at
+    # ₹93/day → 3 days = ₹279) is logged in the audit but not applied to the
+    # wallet. Eliminates the historical drift that left wallet ahead of meals.
+    auto_derived = {"days": 0, "meals": 0, "snapped_delta": 0.0, "residue": 0.0}
+    explicit_extend = int(payload.extend_days or 0)
+    if (
+        sub
+        and abs(float(payload.delta)) >= 0.005
+        and explicit_extend == 0
+        and meals_change == 0
+        and float(sub.get("per_day_amount") or 0) > 0
+    ):
+        per_day = float(sub["per_day_amount"])
+        derived_days = int(round(float(payload.delta) / per_day))
+        if derived_days != 0:
+            snapped = round(derived_days * per_day, 2)
+            residue = round(float(payload.delta) - snapped, 2)
+            payload.delta = snapped  # mutate so all downstream code uses the snapped value
+            explicit_extend = derived_days
+            meals_change = derived_days * MEALS_PER_DAY
+            auto_derived = {
+                "days": derived_days,
+                "meals": meals_change,
+                "snapped_delta": snapped,
+                "residue": residue,
+            }
+
     delta = round(float(payload.delta), 2)
     audit = {
         "audit_id": f"adj_{uuid.uuid4().hex[:14]}",
@@ -2342,10 +2391,13 @@ async def admin_wallet_adjust(target_user_id: str, payload: WalletAdjustRequest,
         "target_user_id": target_user_id,
         "target_email": target.get("email"),
         "delta": delta,
-        "extend_days": int(payload.extend_days or 0),
+        "extend_days": int(explicit_extend or 0),
         "meals_delta": meals_change,
         # Keep the old key in audit so existing UIs that read `restore_meals` still work.
         "restore_meals": max(0, meals_change),
+        # iter-104 #1: surface whether the day/meal change came from the
+        # admin directly or was derived from the wallet delta.
+        "auto_derived": auto_derived,
         "reason": payload.reason.strip()[:500],
         "before": {
             "user_wallet": float(target.get("wallet_balance") or 0),
@@ -2366,13 +2418,15 @@ async def admin_wallet_adjust(target_user_id: str, payload: WalletAdjustRequest,
             # Adjusting wallet may revive the sub from the wallet=0 grace window
             if sub_updates["wallet_balance"] > 0 and sub.get("zero_wallet_grace_until"):
                 sub_updates["zero_wallet_grace_until"] = None
-        if payload.extend_days:
+        if explicit_extend:
             # iter-99: signed extend_days — positive pushes the end_date
             # forward, negative pulls it back. We floor at sub.start_date so
             # admins can't accidentally close a sub before it began.
+            # iter-104 #1: `explicit_extend` already incorporates any value
+            # derived from a wallet-only adjustment.
             old_end = parse_dt(sub["end_date"])
             start = parse_dt(sub["start_date"]) if sub.get("start_date") else old_end - timedelta(days=30)
-            new_end = old_end + timedelta(days=int(payload.extend_days))
+            new_end = old_end + timedelta(days=int(explicit_extend))
             if new_end < start:
                 new_end = start
             sub_updates["end_date"] = iso(new_end)
@@ -2420,14 +2474,16 @@ async def admin_wallet_adjust(target_user_id: str, payload: WalletAdjustRequest,
             bits.append(f"+₹{abs(delta):.0f} credited")
         elif delta < 0:
             bits.append(f"−₹{abs(delta):.0f} debited")
-        if int(payload.extend_days or 0) > 0:
-            bits.append(f"+{int(payload.extend_days)} day{'s' if abs(int(payload.extend_days))!=1 else ''}")
-        elif int(payload.extend_days or 0) < 0:
-            bits.append(f"{int(payload.extend_days)} day{'s' if abs(int(payload.extend_days))!=1 else ''}")
+        if int(explicit_extend or 0) > 0:
+            bits.append(f"+{int(explicit_extend)} day{'s' if abs(int(explicit_extend))!=1 else ''}")
+        elif int(explicit_extend or 0) < 0:
+            bits.append(f"{int(explicit_extend)} day{'s' if abs(int(explicit_extend))!=1 else ''}")
         if meals_change > 0:
             bits.append(f"+{meals_change} meal{'s' if meals_change!=1 else ''} restored")
         elif meals_change < 0:
             bits.append(f"{meals_change} meal{'s' if abs(meals_change)!=1 else ''} deducted")
+        if auto_derived.get("days"):
+            bits.append("auto-balanced")
         if bits:
             await _push_user_notice(
                 target_user_id,
@@ -2436,9 +2492,10 @@ async def admin_wallet_adjust(target_user_id: str, payload: WalletAdjustRequest,
                 body=" · ".join(bits) + f" — Reason: {payload.reason.strip()[:200]}",
                 meta={
                     "delta": delta,
-                    "extend_days": int(payload.extend_days or 0),
+                    "extend_days": int(explicit_extend or 0),
                     "meals_delta": meals_change,
                     "new_wallet": new_user_wallet,
+                    "auto_derived": auto_derived,
                 },
             )
     except Exception as e:  # noqa: BLE001
@@ -2462,6 +2519,133 @@ async def admin_wallet_history(target_user_id: str, user: User = Depends(get_cur
     txns = await db.wallet_transactions.find({"user_id": target_user_id}, {"_id": 0}).sort("ts", -1).to_list(200)
     overrides = await db.wallet_overrides.find({"target_user_id": target_user_id}, {"_id": 0}).sort("ts", -1).to_list(200)
     return {"transactions": txns, "overrides": overrides}
+
+
+# ---------------------------------------------------------------------------
+# iter-105: Reconcile a sub's wallet/meals/days so the invariant
+#     wallet_balance ≈ meals_left × per_meal_price
+# holds again. Surfaces historical drift caused by pre-iter-104 admin
+# overrides (when wallet could be debited without touching meals).
+# ---------------------------------------------------------------------------
+class ReconcileSubRequest(BaseModel):
+    # Which side is the truth? "wallet" means we recompute meals_left from
+    # wallet/per_meal (used when admin charged cash and trusts the wallet).
+    # "meals" means we recompute wallet from meals_left × per_meal (used
+    # when admin trusts the meal counter and wants to restore the wallet).
+    source_of_truth: Literal["wallet", "meals"] = "meals"
+    reason: str
+
+
+@api_router.post("/admin/users/{target_user_id}/reconcile-subscription")
+async def admin_reconcile_subscription(
+    target_user_id: str,
+    payload: ReconcileSubRequest,
+    user: User = Depends(get_current_user),
+):
+    if user.role not in ("admin", "franchise_owner"):
+        raise HTTPException(status_code=403, detail="Admin only")
+    if not (payload.reason or "").strip():
+        raise HTTPException(status_code=400, detail="Reason is required for audit log")
+    target = await db.users.find_one({"user_id": target_user_id}, {"_id": 0})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.role == "franchise_owner":
+        m = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+        if not m:
+            raise HTTPException(status_code=403, detail="No mess assigned")
+        if target.get("mess_id") != m["mess_id"]:
+            raise HTTPException(status_code=403, detail="User not in your branch")
+
+    sub = await db.subscriptions.find_one({"user_id": target_user_id, "status": "active"}, {"_id": 0})
+    if not sub:
+        raise HTTPException(status_code=404, detail="No active subscription to reconcile")
+
+    per_day = float(sub.get("per_day_amount") or 0)
+    if per_day <= 0:
+        raise HTTPException(status_code=400, detail="Subscription has no per_day_amount — cannot reconcile")
+    per_meal = round(per_day / MEALS_PER_DAY, 2)
+
+    meals_total = int(sub.get("meals_total") or 0)
+    meals_used_before = int(sub.get("meals_used") or 0)
+    meals_left_before = max(0, meals_total - meals_used_before)
+    wallet_before = round(float(sub.get("wallet_balance") or 0), 2)
+    user_wallet_before = round(float(target.get("wallet_balance") or 0), 2)
+
+    if payload.source_of_truth == "meals":
+        # Trust meal counter; recompute wallet = meals_left × per_meal.
+        new_wallet = round(meals_left_before * per_meal, 2)
+        wallet_delta = round(new_wallet - wallet_before, 2)
+        meals_used_after = meals_used_before
+        meals_left_after = meals_left_before
+    else:
+        # Trust wallet; recompute meals_left = wallet // per_meal.
+        meals_left_after = int(round(wallet_before / per_meal)) if per_meal > 0 else meals_left_before
+        meals_left_after = max(0, min(meals_total, meals_left_after))
+        meals_used_after = max(0, meals_total - meals_left_after)
+        new_wallet = wallet_before
+        wallet_delta = 0.0
+
+    # Apply on the sub
+    sub_updates = {"wallet_balance": new_wallet, "meals_used": meals_used_after}
+    await db.subscriptions.update_one({"sub_id": sub["sub_id"]}, {"$set": sub_updates})
+
+    # Mirror the wallet shift onto the user-level wallet so the dashboard
+    # numbers (which read from users.wallet_balance) stay in sync.
+    new_user_wallet = round(user_wallet_before + wallet_delta, 2)
+    await db.users.update_one({"user_id": target_user_id}, {"$set": {"wallet_balance": new_user_wallet}})
+
+    if wallet_delta != 0:
+        await _log_wallet_txn(
+            target_user_id, sub["sub_id"],
+            "credit" if wallet_delta > 0 else "debit",
+            abs(wallet_delta), new_user_wallet,
+            f"Reconcile ({payload.source_of_truth}-truth) · {payload.reason.strip()[:200]} · by {user.email}",
+        )
+
+    audit = {
+        "audit_id": f"rec_{uuid.uuid4().hex[:14]}",
+        "ts": iso(now_utc()),
+        "admin_user_id": user.user_id,
+        "admin_email": user.email,
+        "target_user_id": target_user_id,
+        "target_email": target.get("email"),
+        "kind": "reconcile_subscription",
+        "source_of_truth": payload.source_of_truth,
+        "reason": payload.reason.strip()[:500],
+        "before": {
+            "wallet_balance": wallet_before,
+            "meals_used": meals_used_before,
+            "meals_left": meals_left_before,
+            "user_wallet": user_wallet_before,
+        },
+        "after": {
+            "wallet_balance": new_wallet,
+            "meals_used": meals_used_after,
+            "meals_left": max(0, meals_total - meals_used_after),
+            "user_wallet": new_user_wallet,
+        },
+        "delta": wallet_delta,
+    }
+    await db.wallet_overrides.insert_one(audit.copy())
+    audit.pop("_id", None)
+
+    try:
+        await _push_user_notice(
+            target_user_id,
+            kind="wallet_adjust",
+            title="Your subscription was reconciled",
+            body=(
+                f"Admin re-synced your wallet and meal counter. "
+                f"Wallet ₹{wallet_before:.0f} → ₹{new_wallet:.0f}, "
+                f"meals left {meals_left_before} → {max(0, meals_total - meals_used_after)}. "
+                f"Reason: {payload.reason.strip()[:200]}"
+            ),
+            meta={"audit_id": audit["audit_id"], "source_of_truth": payload.source_of_truth},
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[NOTICE] reconcile notice push failed for user={target_user_id}: {e}")
+
+    return {"ok": True, "audit": audit, "user_wallet": new_user_wallet}
 
 
 # ---------------------------------------------------------------------------
