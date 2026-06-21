@@ -3393,6 +3393,7 @@ async def admin_expiring_subscriptions(
             "email": u.get("email"),
             "address": u.get("address"),
             "mess_id": u.get("mess_id"),
+            "plan_id": s.get("plan_id"),
             "plan_name": s.get("plan_name") or s.get("plan_id"),
             "end_date": s["end_date"],
             "days_left": days_left,

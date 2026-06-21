@@ -117,6 +117,8 @@ def test_expiring_subscriptions_lists_users_with_phone(admin_token):
     assert m["name"] == "Iter107 Expiring"
     assert m["phone"] == sub_phone
     assert m["plan_name"] == "Expiring Plan"
+    # iter-108: plan_id now in the payload so the UI can build a 1-click renew link
+    assert m["plan_id"], "plan_id must be present for the renew deep-link"
     assert 0 <= m["days_left"] <= 3
     assert m["meals_left"] == 60
 

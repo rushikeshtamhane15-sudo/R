@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
-import { Users, Calendar, IndianRupee, Check, RefreshCw, AlertTriangle, Phone } from "lucide-react";
+import { Users, Calendar, IndianRupee, Check, RefreshCw, AlertTriangle, Phone, MessageCircle } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
 
 const PERIODS = [
@@ -27,7 +27,7 @@ export default function AdminOverview() {
       const [s, a, e] = await Promise.allSettled([
         api.get(`/admin/stats?${params.toString()}`),
         api.get("/admin/attendance/today"),
-        api.get("/admin/expiring-subscriptions?within_days=3"),
+        api.get("/admin/expiring-subscriptions?within_days=7"),
       ]);
       // iter-93: don't blow up the page when one of the two calls fails.
       // We surface the error inline (see "could not load" branch below).
@@ -35,8 +35,6 @@ export default function AdminOverview() {
       else { setStats(null); setLoadError(s.reason?.response?.data?.detail || s.reason?.message || "Failed to load stats"); }
       if (a.status === "fulfilled") setAttendance(a.value.data.attendance || []);
       else setAttendance([]);
-      // iter-107: expiring-subs widget is non-blocking — if it fails we
-      // just hide it instead of erroring out the whole dashboard.
       if (e.status === "fulfilled") setExpiring(e.value.data.subscriptions || []);
       else setExpiring([]);
       if (s.status === "fulfilled") setLoadError(null);
@@ -151,64 +149,105 @@ export default function AdminOverview() {
         </div>
       </div>
 
-      {/* iter-107 #2: Expiring subscriptions — call-to-action for renewals */}
-      {expiring.length > 0 && (
-        <div
-          className="mt-6 surface-3d bg-amber-50 dark:bg-amber-500/10 rounded-2xl border-2 border-amber-500/40 p-6"
-          data-testid="expiring-subs-card"
-        >
-          <div className="flex items-start gap-3">
-            <span className="inline-flex h-10 w-10 rounded-xl bg-amber-500/20 text-amber-700 items-center justify-center shrink-0">
-              <AlertTriangle className="h-5 w-5" />
-            </span>
-            <div className="flex-1 min-w-0">
-              <p className="text-[10px] tracking-overline uppercase font-bold text-amber-700 dark:text-amber-300">
-                Renewal alert · next 3 days
-              </p>
-              <h2 className="font-display font-extrabold text-lg mt-0.5">
-                {expiring.length} subscription{expiring.length === 1 ? "" : "s"} expiring soon
-              </h2>
-              <p className="text-xs text-amber-800/90 dark:text-amber-200/90 mt-1">
-                Tap a phone number to call them and pitch a renewal before their plan runs out.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4 divide-y divide-amber-500/20" data-testid="expiring-subs-list">
-            {expiring.map((s) => (
-              <div
-                key={s.sub_id}
-                className="flex items-center gap-3 py-3"
-                data-testid={`expiring-sub-${s.sub_id}`}
-              >
-                <span className="h-9 w-9 rounded-full bg-amber-500/15 text-amber-700 flex items-center justify-center font-extrabold text-xs shrink-0">
-                  {(s.name || "?").slice(0, 1).toUpperCase()}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm truncate" data-testid={`expiring-name-${s.sub_id}`}>{s.name}</p>
-                  <p className="text-[11px] text-amber-800/80 dark:text-amber-200/80 truncate">
-                    {s.plan_name} · {s.meals_left} meals · ₹{Math.round(s.wallet_balance)} wallet
-                  </p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-[11px] tracking-overline uppercase font-bold text-amber-700">
-                    {s.days_left === 0 ? "Expires today" : s.days_left === 1 ? "1 day left" : `${s.days_left} days left`}
-                  </p>
-                  {s.phone && (
-                    <a
-                      href={`tel:+91${s.phone}`}
-                      className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold px-3 py-1"
-                      data-testid={`expiring-call-${s.sub_id}`}
-                    >
-                      <Phone className="h-3 w-3" /> Call {s.phone}
-                    </a>
-                  )}
-                </div>
-              </div>
-            ))}
+      {/* iter-107 #2 / iter-108: Expiring subscriptions — call-to-action for renewals.
+          iter-109: always visible with an empty state so admin knows the feature exists. */}
+      <div
+        className={`mt-6 surface-3d rounded-2xl border-2 p-6 ${expiring.length > 0 ? "bg-amber-50 dark:bg-amber-500/10 border-amber-500/40" : "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-500/30"}`}
+        data-testid="expiring-subs-card"
+      >
+        <div className="flex items-start gap-3">
+          <span className={`inline-flex h-10 w-10 rounded-xl items-center justify-center shrink-0 ${expiring.length > 0 ? "bg-amber-500/20 text-amber-700" : "bg-emerald-500/20 text-emerald-700"}`}>
+            <AlertTriangle className="h-5 w-5" />
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className={`text-[10px] tracking-overline uppercase font-bold ${expiring.length > 0 ? "text-amber-700 dark:text-amber-300" : "text-emerald-700 dark:text-emerald-300"}`}>
+              Renewal alert · next 7 days
+            </p>
+            <h2 className="font-display font-extrabold text-lg mt-0.5">
+              {expiring.length > 0
+                ? `${expiring.length} subscription${expiring.length === 1 ? "" : "s"} expiring soon`
+                : "All clear — nobody is expiring in the next 7 days"}
+            </h2>
+            <p className={`text-xs mt-1 ${expiring.length > 0 ? "text-amber-800/90 dark:text-amber-200/90" : "text-emerald-800/90 dark:text-emerald-200/90"}`}>
+              {expiring.length > 0
+                ? "Tap Call to dial them, or WhatsApp to send a templated nudge with a 1-click renew link."
+                : "The moment any active subscription crosses the 7-day window, it'll show up here with Call + WhatsApp + 1-click renew."}
+            </p>
           </div>
         </div>
-      )}
+
+        {expiring.length > 0 && (
+        <div className="mt-4 divide-y divide-amber-500/20" data-testid="expiring-subs-list">
+            {expiring.map((s) => {
+              // iter-108: build a one-click renewal link and a templated
+              // WhatsApp nudge. Manual / admin-assigned plans (plan_id
+              // starts with "manual_") fall back to /plans because there's
+              // no template to repurchase against.
+              const origin = typeof window !== "undefined" ? window.location.origin : "";
+              const renewPath = s.plan_id && !s.plan_id.startsWith("manual_")
+                ? `/checkout/${s.plan_id}`
+                : "/plans";
+              const renewUrl = `${origin}${renewPath}`;
+              const daysLabel = s.days_left === 0
+                ? "today"
+                : s.days_left === 1 ? "in 1 day" : `in ${s.days_left} days`;
+              const waText = encodeURIComponent(
+                `Hi ${s.name || "there"}, your efoodcare plan (${s.plan_name}) expires ${daysLabel}. ` +
+                `Tap to renew in 1 click: ${renewUrl}`,
+              );
+              const waHref = s.phone ? `https://wa.me/91${s.phone}?text=${waText}` : null;
+              return (
+                <div
+                  key={s.sub_id}
+                  className="flex items-center gap-3 py-3"
+                  data-testid={`expiring-sub-${s.sub_id}`}
+                >
+                  <span className="h-9 w-9 rounded-full bg-amber-500/15 text-amber-700 flex items-center justify-center font-extrabold text-xs shrink-0">
+                    {(s.name || "?").slice(0, 1).toUpperCase()}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm truncate" data-testid={`expiring-name-${s.sub_id}`}>{s.name}</p>
+                    <p className="text-[11px] text-amber-800/80 dark:text-amber-200/80 truncate">
+                      {s.plan_name} · {s.meals_left} meals · ₹{Math.round(s.wallet_balance)} wallet
+                    </p>
+                    <p className="text-[10px] text-amber-700/70 dark:text-amber-300/70 mt-0.5 truncate font-mono">
+                      Renew → {renewPath}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-[11px] tracking-overline uppercase font-bold text-amber-700">
+                      {s.days_left === 0 ? "Expires today" : s.days_left === 1 ? "1 day left" : `${s.days_left} days left`}
+                    </p>
+                    <div className="mt-1 flex gap-1.5 justify-end">
+                      {s.phone && (
+                        <a
+                          href={`tel:+91${s.phone}`}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold px-2.5 py-1"
+                          data-testid={`expiring-call-${s.sub_id}`}
+                        >
+                          <Phone className="h-3 w-3" /> Call
+                        </a>
+                      )}
+                      {waHref && (
+                        <a
+                          href={waHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold px-2.5 py-1"
+                          data-testid={`expiring-whatsapp-${s.sub_id}`}
+                          title={`WhatsApp ${s.name} with the 1-click renew link`}
+                        >
+                          <MessageCircle className="h-3 w-3" /> WhatsApp
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       <div className="mt-6 surface-3d bg-card rounded-2xl border border-border p-6" data-testid="today-attendance-list">
         <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Today's check-ins</p>

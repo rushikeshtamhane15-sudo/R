@@ -2224,3 +2224,30 @@ User reported on production:
 - The expiring-subs alert will start showing on Admin Dashboard the moment any active subs cross the 3-day window. The user list refreshes every time the admin loads the dashboard (no daily cron — it's live).
 
 
+
+### Iteration 108 — WhatsApp nudge + 1-click renew deep link (Feb 21, 2026)
+
+User asked to wire the two enhancements proposed at the end of iter-107: a templated WhatsApp reminder and a 1-click renew link into the existing Razorpay flow.
+
+#### #1 1-click renew deep link
+- For each expiring sub, the UI now computes a renew path:
+  - Real plan_id (not admin-assigned): `/{origin}/checkout/{plan_id}` — drops the user straight into the existing Razorpay checkout for their current plan.
+  - Manual / admin-assigned plan (plan_id starts with `manual_`): falls back to `/{origin}/plans` so the user picks a real plan.
+- Backend now returns `plan_id` in the expiring-subs payload so the frontend can build the link.
+- The deep link is shown verbatim under each user's row (monospaced) so admins know exactly what they're sending.
+
+#### #2 WhatsApp templated nudge
+- New emerald **WhatsApp** button (`data-testid=expiring-whatsapp-{sub_id}`) next to the existing **Call** button on every expiring-subs card row.
+- Tapping opens `https://wa.me/91{phone}?text=...` with a fully URL-encoded templated message:
+  *"Hi {name}, your efoodcare plan ({plan_name}) expires {today|in 1 day|in N days}. Tap to renew in 1 click: {renew_url}"*
+- The renew_url is the 1-click deep link from #1, so when the customer taps it inside WhatsApp they land directly in Razorpay checkout for the right plan.
+- Opens in a new tab (`target=_blank rel=noopener`).
+
+#### Testing
+- iter-107 pytest extended to assert `plan_id` is in the API response. **4/4 PASS**.
+
+**Files changed**: `frontend/src/pages/AdminDashboard.jsx` (renew/wa link computation + WhatsApp button), `backend/server.py` (added `plan_id` to expiring-subs payload). PRD updated.
+
+**Production deployment**: After deploy, admins on `/admin` will see the new emerald WhatsApp button next to Call on every expiring-sub row. One tap → WhatsApp opens with a pre-filled message containing the customer's name, expiry timeline, and the 1-click renew URL.
+
+
