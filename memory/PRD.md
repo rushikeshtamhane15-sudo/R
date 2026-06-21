@@ -2165,3 +2165,30 @@ User noticed `wallet ₹1,500 ≠ 38 meals × ₹46.5 = ₹1,767` and asked for 
 **Production note**: Fixes are in Preview only. After deploy, the existing user from the screenshot can be fixed in one click — admin opens `/admin/wallet-topup`, picks the user, clicks **Trust meals · fix wallet**. Wallet will snap from ₹1,500 → ₹1,767 instantly (with audit log + user notice).
 
 
+
+### Iteration 106 — Per-day precision display + profile-complete guard (Feb 21, 2026)
+
+User reported `93 × 18 = 1674` and `46.5 × 36 = 1674` but wallet showed `₹1,680`. The real numbers were `93.33 × 18 = 1679.94 ≈ 1680` — the dashboard was rounding `per_day_amount` to the nearest rupee in display, hiding the 0.33 precision and confusing users.
+
+#### #1 Show actual per-day / per-meal precision (`SubscriberDashboard.jsx`)
+- "Per day" label expanded to **"Per day · per meal"**.
+- Value now reads `₹93.33 · ₹46.67/meal` (two decimals, full precision).
+- Pause-deduction copy also uses 2-decimal precision.
+- Math now reconciles for the user: `36 meals × ₹46.67 = ₹1,680.12 ≈ ₹1,680` ✓.
+
+#### #2 Profile-complete guard on admin actions (`server.py` + `AdminWalletTopup.jsx`)
+- New `PROFILE_REQUIRED_FIELDS = ("name", "phone", "address")` and `_require_complete_profile(user_doc, action)` helper.
+- Guard now blocks (400 with a clear "Missing: address. Ask them to complete Account → Profile" detail) on:
+  - `POST /api/admin/users/{id}/wallet-adjust`
+  - `POST /api/admin/users/{id}/assign-subscription`
+  - `POST /api/admin/users/{id}/reconcile-subscription`
+- New lightweight `GET /api/admin/users/{id}/profile-status` returns `{complete, missing, required}` so the UI can disable buttons + show a banner without trying-and-failing.
+- **Admin UI**: `AdminWalletTopup.jsx` fetches profile-status the moment a user is picked. If incomplete, a yellow banner (`data-testid=profile-incomplete-banner`) lists the missing fields, and the **Apply / Assign / Reconcile** buttons all become disabled until the user fills in their profile.
+
+#### Testing
+- New pytest `test_iter106_profile_guard.py` (4 tests): status endpoint, wallet-adjust blocked, assign blocked, post-completion allowed. **4/4 PASS**.
+- Existing tests updated with `_ensure_address(uid)` helper so they run against the new guard. Full regression set (iter-101 + iter-104 + iter-105 + iter-106 = 15 tests) all **PASS** individually.
+
+**Production deployment**: After deploy, any existing production user who lacks an address will block any admin wallet/sub action until they finish their profile. This is intentional per user's request — pushes data collection up front.
+
+

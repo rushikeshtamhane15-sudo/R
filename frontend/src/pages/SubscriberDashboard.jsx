@@ -171,8 +171,11 @@ export default function SubscriberDashboard() {
       <p className="text-xs opacity-80 mt-3">of ₹{Math.round(sub.amount_paid).toLocaleString("en-IN")} loaded</p>
       <div className="mt-5 pt-5 border-t border-white/15 grid grid-cols-2 gap-4 text-sm">
         <div>
-          <p className="text-[10px] tracking-overline uppercase font-bold opacity-70">Per day</p>
-          <p className="font-display font-bold text-lg mt-1">₹{Math.round(sub.per_day_amount)}</p>
+          <p className="text-[10px] tracking-overline uppercase font-bold opacity-70">Per day · per meal</p>
+          <p className="font-display font-bold text-lg mt-1" data-testid="per-day-amount">
+            ₹{Number(sub.per_day_amount || 0).toFixed(2)}
+            <span className="opacity-70 font-normal text-sm"> · ₹{(Number(sub.per_day_amount || 0) / 2).toFixed(2)}/meal</span>
+          </p>
         </div>
         <div>
           <p className="text-[10px] tracking-overline uppercase font-bold opacity-70 flex items-center gap-1"><Pause className="h-3 w-3" /> Extended</p>
@@ -320,7 +323,7 @@ function TiffinHeroCard({ sub, isPaused, pausing, togglePause, daysLeft, accent 
         <div className="flex items-start gap-3 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-900" data-testid="pause-info">
           <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
           <p>
-            While paused, your daily wallet deduction (₹{Math.round(sub.per_day_amount)}/day) continues —
+            While paused, your daily wallet deduction (₹{Number(sub.per_day_amount || 0).toFixed(2)}/day) continues —
             but once you've been paused for <b>more than 7 days continuously</b>, every additional paused day
             extends your subscription end-date by 1 day. <span className="font-semibold">Resume any time.</span>
           </p>

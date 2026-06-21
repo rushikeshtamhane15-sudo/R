@@ -2334,6 +2334,8 @@ async def admin_wallet_adjust(target_user_id: str, payload: WalletAdjustRequest,
     target = await db.users.find_one({"user_id": target_user_id}, {"_id": 0})
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
+    # iter-106: Block wallet adjustment if the user's profile is incomplete.
+    _require_complete_profile(target, "adjusting their wallet")
     if user.role == "franchise_owner":
         m = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
         if not m:
@@ -2522,7 +2524,52 @@ async def admin_wallet_history(target_user_id: str, user: User = Depends(get_cur
 
 
 # ---------------------------------------------------------------------------
-# iter-105: Reconcile a sub's wallet/meals/days so the invariant
+# iter-106: Require a complete profile before admin can manually adjust a
+# user's wallet or assign a subscription on their behalf. Forces walk-in
+# customers (or anyone an admin onboards) to give us the basics first.
+# ---------------------------------------------------------------------------
+PROFILE_REQUIRED_FIELDS = ("name", "phone", "address")
+
+
+def _missing_profile_fields(user_doc: dict) -> list:
+    out = []
+    for f in PROFILE_REQUIRED_FIELDS:
+        v = user_doc.get(f)
+        if v is None or (isinstance(v, str) and not v.strip()):
+            out.append(f)
+    return out
+
+
+def _require_complete_profile(user_doc: dict, action: str) -> None:
+    missing = _missing_profile_fields(user_doc)
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"User's profile is missing: {', '.join(missing)}. "
+                f"Ask them to complete their profile (Account → Profile) before {action}. "
+                f"Required: {', '.join(PROFILE_REQUIRED_FIELDS)}."
+            ),
+        )
+
+
+@api_router.get("/admin/users/{target_user_id}/profile-status")
+async def admin_user_profile_status(target_user_id: str, user: User = Depends(get_current_user)):
+    """Lightweight check the admin UI can call to disable buttons / show a hint."""
+    if user.role not in ("admin", "franchise_owner"):
+        raise HTTPException(status_code=403, detail="Admin only")
+    target = await db.users.find_one({"user_id": target_user_id}, {"_id": 0})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    missing = _missing_profile_fields(target)
+    return {
+        "complete": not missing,
+        "missing": missing,
+        "required": list(PROFILE_REQUIRED_FIELDS),
+    }
+
+
+
 #     wallet_balance ≈ meals_left × per_meal_price
 # holds again. Surfaces historical drift caused by pre-iter-104 admin
 # overrides (when wallet could be debited without touching meals).
@@ -2549,6 +2596,9 @@ async def admin_reconcile_subscription(
     target = await db.users.find_one({"user_id": target_user_id}, {"_id": 0})
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
+    # iter-106: Block reconcile if the user's profile is incomplete — admin
+    # shouldn't be touching their numbers until we have basic contact info.
+    _require_complete_profile(target, "reconciling their subscription")
     if user.role == "franchise_owner":
         m = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
         if not m:
@@ -2737,6 +2787,9 @@ async def admin_assign_subscription(
     target = await db.users.find_one({"user_id": target_user_id}, {"_id": 0})
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
+    # iter-106: Block manual subscription assignment if the user's profile
+    # is incomplete — get their basics on file before we onboard them.
+    _require_complete_profile(target, "assigning a subscription")
     if user.role == "franchise_owner":
         m = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
         if not m:

@@ -21,6 +21,23 @@ def _h(token):
     return {"Authorization": f"Bearer {token}"}
 
 
+def _ensure_address(uid):
+    """iter-106: admin endpoints require a complete profile (name/phone/address)."""
+    import asyncio
+    from motor.motor_asyncio import AsyncIOMotorClient
+    from dotenv import load_dotenv
+    load_dotenv("/app/backend/.env")
+    async def run():
+        cli = AsyncIOMotorClient(os.environ["MONGO_URL"])
+        try:
+            await cli[os.environ["DB_NAME"]].users.update_one(
+                {"user_id": uid}, {"$set": {"address": "Test St, Amravati"}}
+            )
+        finally:
+            cli.close()
+    asyncio.run(run())
+
+
 @pytest.fixture(scope="module")
 def admin_token():
     return _login(ADMIN_PHONE, "Admin")
@@ -32,6 +49,7 @@ def test_assign_subscription_custom_and_notice_flow(admin_token):
     sub_token = _login(sub_phone, "Iter101 Target")
     me = requests.get(f"{API}/auth/me", headers=_h(sub_token), timeout=10).json()
     sub_uid = me["user_id"]
+    _ensure_address(sub_uid)
 
     # 1) Notices empty initially
     r = requests.get(f"{API}/auth/notices", headers=_h(sub_token), timeout=10).json()
@@ -101,6 +119,7 @@ def test_assign_subscription_replace_requires_explicit_flag(admin_token):
     sub_phone = f"9{uuid.uuid4().int % 10**9:09d}"
     sub_token = _login(sub_phone, "Iter101 Replace")
     sub_uid = requests.get(f"{API}/auth/me", headers=_h(sub_token), timeout=10).json()["user_id"]
+    _ensure_address(sub_uid)
 
     # First assignment
     body = {"name": "First", "duration_days": 10, "meals": 20, "amount": 1000,
@@ -126,6 +145,7 @@ def test_assign_subscription_validates_inputs(admin_token):
     sub_phone = f"9{uuid.uuid4().int % 10**9:09d}"
     sub_token = _login(sub_phone, "Iter101 Validate")
     sub_uid = requests.get(f"{API}/auth/me", headers=_h(sub_token), timeout=10).json()["user_id"]
+    _ensure_address(sub_uid)
 
     # Missing reason → 400
     r = requests.post(f"{API}/admin/users/{sub_uid}/assign-subscription",

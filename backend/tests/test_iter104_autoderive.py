@@ -23,6 +23,23 @@ def _h(token):
     return {"Authorization": f"Bearer {token}"}
 
 
+def _ensure_address(uid):
+    """iter-106: admin endpoints require a complete profile (name/phone/address)."""
+    import asyncio
+    from motor.motor_asyncio import AsyncIOMotorClient
+    from dotenv import load_dotenv
+    load_dotenv("/app/backend/.env")
+    async def run():
+        cli = AsyncIOMotorClient(os.environ["MONGO_URL"])
+        try:
+            await cli[os.environ["DB_NAME"]].users.update_one(
+                {"user_id": uid}, {"$set": {"address": "Test St, Amravati"}}
+            )
+        finally:
+            cli.close()
+    asyncio.run(run())
+
+
 @pytest.fixture(scope="module")
 def admin_token():
     return _login_otp(ADMIN_PHONE, "Admin")
@@ -47,6 +64,7 @@ def test_wallet_debit_auto_deducts_days_and_meals(admin_token):
     sub_phone = f"9{uuid.uuid4().int % 10**9:09d}"
     sub_token = _login_otp(sub_phone, "Iter104 Deduct")
     sub_uid = requests.get(f"{API}/auth/me", headers=_h(sub_token), timeout=10).json()["user_id"]
+    _ensure_address(sub_uid)
 
     # Admin assigns a 30-day / 60-meal / ₹2790 plan (per_day = 93)
     body = {"name": "Iter104 plan", "duration_days": 30, "meals": 60, "amount": 2790,
@@ -90,6 +108,7 @@ def test_wallet_credit_auto_restores_days_and_meals(admin_token):
     sub_phone = f"9{uuid.uuid4().int % 10**9:09d}"
     sub_token = _login_otp(sub_phone, "Iter104 Credit")
     sub_uid = requests.get(f"{API}/auth/me", headers=_h(sub_token), timeout=10).json()["user_id"]
+    _ensure_address(sub_uid)
 
     body = {"name": "Iter104 plan", "duration_days": 30, "meals": 60, "amount": 2790,
             "service_type": "dining", "reason": "base"}
@@ -124,6 +143,7 @@ def test_explicit_extend_or_meals_skips_auto_derive(admin_token):
     sub_phone = f"9{uuid.uuid4().int % 10**9:09d}"
     sub_token = _login_otp(sub_phone, "Iter104 Explicit")
     sub_uid = requests.get(f"{API}/auth/me", headers=_h(sub_token), timeout=10).json()["user_id"]
+    _ensure_address(sub_uid)
     requests.post(f"{API}/admin/users/{sub_uid}/assign-subscription",
                   json={"name": "p", "duration_days": 30, "meals": 60, "amount": 2790,
                         "service_type": "dining", "reason": "base"},
@@ -149,6 +169,7 @@ def test_pause_threshold_starts_at_day_4(admin_token):
     sub_phone = f"9{uuid.uuid4().int % 10**9:09d}"
     sub_token = _login_otp(sub_phone, "Iter104 Pause")
     sub_uid = requests.get(f"{API}/auth/me", headers=_h(sub_token), timeout=10).json()["user_id"]
+    _ensure_address(sub_uid)
     requests.post(f"{API}/admin/users/{sub_uid}/assign-subscription",
                   json={"name": "p", "duration_days": 30, "meals": 60, "amount": 2790,
                         "service_type": "dining", "reason": "base"},

@@ -58,6 +58,10 @@ export default function AdminWalletTopup() {
   const [assignReason, setAssignReason] = useState("");
   const [assigning, setAssigning] = useState(false);
 
+  // iter-106: profile-status guard — admin can't adjust wallet / assign sub
+  // until the selected user has filled in name + phone + address.
+  const [profileStatus, setProfileStatus] = useState(null);
+
   useEffect(() => {
     (async () => {
       try {
@@ -107,6 +111,12 @@ export default function AdminWalletTopup() {
     setExtendDays(0);
     setMealsDelta(0);
     loadHistory(u.user_id);
+    // iter-106: fetch profile-status so the UI can show a warning + block
+    // wallet/assign/reconcile buttons until the user completes their profile.
+    setProfileStatus(null);
+    api.get(`/admin/users/${u.user_id}/profile-status`)
+      .then((r) => setProfileStatus(r.data))
+      .catch(() => setProfileStatus({ complete: true, missing: [], required: [] }));
   };
 
   const apply = async () => {
@@ -292,6 +302,26 @@ export default function AdminWalletTopup() {
             </div>
           ) : (
             <div className="space-y-4" data-testid="wallet-topup-form">
+              {/* iter-106: Profile-incomplete guard banner */}
+              {profileStatus && !profileStatus.complete && (
+                <div className="rounded-2xl border-2 border-amber-500/50 bg-amber-50 dark:bg-amber-500/10 p-4" data-testid="profile-incomplete-banner">
+                  <div className="flex items-start gap-3">
+                    <span className="inline-flex h-9 w-9 rounded-xl bg-amber-500/20 text-amber-700 items-center justify-center shrink-0">
+                      <UserIcon className="h-4 w-4" />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-extrabold text-amber-900 dark:text-amber-100">
+                        Profile incomplete — finish it before adjusting this user
+                      </p>
+                      <p className="text-xs text-amber-800/90 dark:text-amber-200/90 mt-1 leading-relaxed">
+                        Missing: <span className="font-mono font-bold">{profileStatus.missing.join(", ")}</span>.
+                        Ask the user to fill these in (Account → Profile) before you topup their wallet, assign a subscription, or reconcile.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* User snapshot */}
               <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
                 <div className="flex items-start gap-3">
@@ -450,7 +480,7 @@ export default function AdminWalletTopup() {
                 <div className="mt-5 flex gap-2">
                   <Button
                     onClick={apply}
-                    disabled={saving || (!amount && !extendDays && !mealsDelta) || !reason.trim()}
+                    disabled={saving || (!amount && !extendDays && !mealsDelta) || !reason.trim() || (profileStatus && !profileStatus.complete)}
                     className="rounded-full bg-primary hover:bg-primary/90 flex-1 h-11"
                     data-testid="wallet-apply-button"
                   >
@@ -574,7 +604,7 @@ export default function AdminWalletTopup() {
 
                     <Button
                       onClick={applyAssign}
-                      disabled={assigning || !assignReason.trim() || (assignMode === "plan" && !assignPlanId)}
+                      disabled={assigning || !assignReason.trim() || (assignMode === "plan" && !assignPlanId) || (profileStatus && !profileStatus.complete)}
                       className="rounded-full bg-indigo-600 hover:bg-indigo-700 text-white w-full h-10"
                       data-testid="assign-apply-button"
                     >
@@ -602,6 +632,7 @@ export default function AdminWalletTopup() {
                     type="button"
                     variant="outline"
                     onClick={() => reconcile("meals")}
+                    disabled={profileStatus && !profileStatus.complete}
                     className="rounded-full"
                     data-testid="reconcile-meals-truth"
                   >
@@ -611,6 +642,7 @@ export default function AdminWalletTopup() {
                     type="button"
                     variant="outline"
                     onClick={() => reconcile("wallet")}
+                    disabled={profileStatus && !profileStatus.complete}
                     className="rounded-full"
                     data-testid="reconcile-wallet-truth"
                   >

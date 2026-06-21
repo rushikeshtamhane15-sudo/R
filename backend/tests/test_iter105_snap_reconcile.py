@@ -22,6 +22,24 @@ def _h(token):
     return {"Authorization": f"Bearer {token}"}
 
 
+def _ensure_address(uid):
+    """iter-106: admin endpoints now require a complete profile (name/phone/address).
+    Tests create users via OTP which leaves address blank — fill it here."""
+    import asyncio
+    from motor.motor_asyncio import AsyncIOMotorClient
+    from dotenv import load_dotenv
+    load_dotenv("/app/backend/.env")
+    async def run():
+        cli = AsyncIOMotorClient(os.environ["MONGO_URL"])
+        try:
+            await cli[os.environ["DB_NAME"]].users.update_one(
+                {"user_id": uid}, {"$set": {"address": "Test St, Amravati"}}
+            )
+        finally:
+            cli.close()
+    asyncio.run(run())
+
+
 @pytest.fixture(scope="module")
 def admin_token():
     return _login_otp(ADMIN_PHONE, "Admin")
@@ -43,6 +61,7 @@ def _db_run(fn):
 
 def _assign(admin_token, sub_token, amount=2790, duration=30, meals=60):
     sub_uid = requests.get(f"{API}/auth/me", headers=_h(sub_token), timeout=10).json()["user_id"]
+    _ensure_address(sub_uid)  # iter-106 guard
     requests.post(f"{API}/admin/users/{sub_uid}/assign-subscription",
                   json={"name": "p", "duration_days": duration, "meals": meals, "amount": amount,
                         "service_type": "dining", "reason": "base"},
@@ -147,6 +166,7 @@ def test_reconcile_validates(admin_token):
     sub_phone = f"9{uuid.uuid4().int % 10**9:09d}"
     sub_token = _login_otp(sub_phone, "Iter105 Recon val")
     sub_uid = requests.get(f"{API}/auth/me", headers=_h(sub_token), timeout=10).json()["user_id"]
+    _ensure_address(sub_uid)
 
     # No active sub → 404
     r = requests.post(f"{API}/admin/users/{sub_uid}/reconcile-subscription",
