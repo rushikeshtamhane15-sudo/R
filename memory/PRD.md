@@ -18,6 +18,12 @@ Build a tiffin / dining subscription app with:
 
 ## Implemented (Feb 2026)
 
+### Iteration 119 (Feb 2026, fork) — Pass-Scan Mobile Sync Handshake
+- **Audit found that pass-scan-mobile sync is already 100% wired** — the backend already accepts `Authorization: Bearer <session_token>` on every protected route (`get_current_user` falls back to the header when the cookie is absent), CORS is `*`, and every endpoint the mobile app needs (`/auth/*`, `/my/subscription`, `/my/wallet`, `/my/qr`, `/my/attendance`, `/counter/qr`, `/attendance/self-scan`, `/attendance/scan`, `/my/deliveries/pending`, `/my/deliveries/track`, `/my/deliveries/{id}/confirm`, `/menu/today`) is registered.
+- **Fixed a latent bug in `delivery/customer.py`** — `my_confirm` referenced an undefined `roster` variable on line 87 (should have been `item`). Would have 500'd on the first customer-confirm-delivery POST. Now uses `item.get("mess_id")`.
+- **Wrote `/app/MOBILE_API_CONTRACT.md`** — single source of truth the mobile team can hand off to their devs: base URLs, auth modes (Bearer vs Cookie), every endpoint with method + path + response shape, rate-limit table, error contract, and a mobile-side checklist (secure-storage of token, 401-handling, offline scan queue, polling cadence).
+- **New pytest `test_iter119_mobile_sync.py` — 11/11 pass.** Walks send-otp → verify-otp → 8 Bearer-authed reads + 2 negative-auth checks + CORS preflight assert.
+
 ### Iteration 118 (Feb 2026, fork) — Dashboard Skeleton-Shimmer
 - **`SubscriberDashboard.jsx` now renders `<DashboardSkeleton/>` while `loading=true`** (initial 6-call `Promise.allSettled` fan-out from `load()`).
 - New `/app/frontend/src/components/DashboardSkeleton.jsx` mirrors the dashboard layout exactly: wallet card → today menu (2-col grid) → QR/scan row → weekly history (7-col grid). All blocks pulse via Tailwind `animate-pulse`. testid `dashboard-skeleton`.
