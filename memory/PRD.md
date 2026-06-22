@@ -18,6 +18,22 @@ Build a tiffin / dining subscription app with:
 
 ## Implemented (Feb 2026)
 
+### Iteration 120 (Feb 2026, fork) — Mobile Design Hand-off Package
+- Created `/app/mobile-design/` — complete native-app design system hand-off for the **pass-scan-mobile** team.
+- **Design tokens** extracted live from `/api/theme` + `tailwind.config.js` + `index.css`:
+  - `common/design_tokens.json` (universal source of truth)
+  - `android/res/values/{colors,dimens,type,themes}.xml` (Material 3 ready: brand colours, spacing, radius, elevation, button/card/chip styles)
+  - `ios/{EFColors,EFTypography,EFSpacing,EFMotion}.swift` (SwiftUI-first with UIKit bridge, view modifiers like `efOverline()`, `efAmountXL()`, `EFPressableStyle`)
+- **Per-page spec sheets** (`specs/*.md`) for all 7 subscriber pages: Home, Dashboard, Plans, Restaurant, Contact, Track, Profile — each containing:
+  - Layout anatomy diagrams, token reference tables, layout grids
+  - Shadcn → native component mappings (Material / SwiftUI)
+  - Animation timings (`tapPress`, `cardHover`, `skeletonPulse`, etc.)
+  - Android XML + Kotlin sample stubs, iOS SwiftUI sample stubs
+  - Acceptance checklists with literal pass/fail items
+- **Reference screenshots** for all 7 pages saved in `screenshots/`.
+- **README.md** ties everything together: install path, day-by-day mobile dev workflow, master cheat-sheets (colour / type / spacing / motion), `NEVER do` list, runtime theme-override pattern.
+- **Total**: 25 files, ~3 000 lines of authoritative spec/code/JSON. Mobile dev can ship a 1-to-1-parity native client without ever guessing a hex code or padding value.
+
 ### Iteration 119 (Feb 2026, fork) — Pass-Scan Mobile Sync Handshake
 - **Audit found that pass-scan-mobile sync is already 100% wired** — the backend already accepts `Authorization: Bearer <session_token>` on every protected route (`get_current_user` falls back to the header when the cookie is absent), CORS is `*`, and every endpoint the mobile app needs (`/auth/*`, `/my/subscription`, `/my/wallet`, `/my/qr`, `/my/attendance`, `/counter/qr`, `/attendance/self-scan`, `/attendance/scan`, `/my/deliveries/pending`, `/my/deliveries/track`, `/my/deliveries/{id}/confirm`, `/menu/today`) is registered.
 - **Fixed a latent bug in `delivery/customer.py`** — `my_confirm` referenced an undefined `roster` variable on line 87 (should have been `item`). Would have 500'd on the first customer-confirm-delivery POST. Now uses `item.get("mess_id")`.

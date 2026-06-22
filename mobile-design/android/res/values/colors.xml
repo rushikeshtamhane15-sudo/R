@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  efoodcare design tokens · Android · iter-120
+  Source of truth: /app/mobile-design/common/design_tokens.json
+  Web reference  : /app/frontend/src/index.css  +  GET /api/theme
+-->
+<resources>
+
+    <!-- ============= BRAND ============= -->
+    <color name="ef_primary">#D02424</color>           <!-- hsl(0 70% 48%) — brand red -->
+    <color name="ef_primary_pressed">#A01717</color>   <!-- 90% darken for pressed state -->
+    <color name="ef_on_primary">#FFFFFF</color>
+
+    <color name="ef_secondary">#2C854D</color>         <!-- hsl(142 50% 35%) — confirmation green -->
+    <color name="ef_on_secondary">#FFFFFF</color>
+
+    <color name="ef_accent">#F9EFEF</color>            <!-- light pink wash -->
+    <color name="ef_on_accent">#D02424</color>
+
+    <!-- ============= NEUTRAL ============= -->
+    <color name="ef_background">#FFFFFF</color>
+    <color name="ef_on_background">#1F2937</color>     <!-- body text -->
+
+    <color name="ef_card">#FFFFFF</color>
+    <color name="ef_on_card">#192D56</color>           <!-- navy-tinted card text -->
+
+    <color name="ef_muted">#F6F2F2</color>
+    <color name="ef_on_muted">#64748B</color>          <!-- helper text -->
+
+    <color name="ef_border">#EDDDDD</color>
+    <color name="ef_input_border">#E0E3EA</color>
+    <color name="ef_ring">#D02424</color>              <!-- focus ring -->
+
+    <!-- ============= SEMANTIC ============= -->
+    <color name="ef_destructive">#B71414</color>       <!-- delete / cancel-subscription -->
+    <color name="ef_danger">#DF1F1F</color>            <!-- error banner -->
+    <color name="ef_warning">#DF7A05</color>           <!-- expiring soon -->
+    <color name="ef_success">#2C854D</color>           <!-- topped up -->
+
+    <!-- ============= AMBER CARD (carry-forward / monetary tip card) ============= -->
+    <color name="ef_amber_card_bg">#FFF7E0</color>
+    <color name="ef_amber_card_border">#FBC94B</color>
+    <color name="ef_amber_card_fg">#9C5A00</color>
+
+    <!-- ============= DIVIDERS ============= -->
+    <color name="ef_dash_divider_start">#FFFFFF00</color>   <!-- transparent -->
+    <color name="ef_dash_divider_mid">#D02424CC</color>     <!-- primary @80% alpha -->
+    <color name="ef_dash_divider_end">#FFFFFF00</color>
+
+    <!-- ============= OVERLAYS (modals, sheets) ============= -->
+    <color name="ef_scrim_60">#99000000</color>
+    <color name="ef_scrim_40">#66000000</color>
+
+</resources>

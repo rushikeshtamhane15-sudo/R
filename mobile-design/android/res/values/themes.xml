@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  efoodcare Material 3 theme · Android · iter-120
+  Apply to <application android:theme="@style/Theme.EFoodcare">
+  Status-bar tint should follow the brand red on hero pages
+  (Home, Dashboard top); revert to white on form pages.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- ===== BASE APP THEME ===== -->
+    <style name="Theme.EFoodcare" parent="Theme.Material3.Light.NoActionBar">
+        <!-- Color roles -->
+        <item name="colorPrimary">@color/ef_primary</item>
+        <item name="colorOnPrimary">@color/ef_on_primary</item>
+        <item name="colorPrimaryContainer">@color/ef_accent</item>
+        <item name="colorOnPrimaryContainer">@color/ef_primary</item>
+
+        <item name="colorSecondary">@color/ef_secondary</item>
+        <item name="colorOnSecondary">@color/ef_on_secondary</item>
+
+        <item name="colorSurface">@color/ef_card</item>
+        <item name="colorOnSurface">@color/ef_on_card</item>
+        <item name="colorSurfaceVariant">@color/ef_muted</item>
+        <item name="colorOnSurfaceVariant">@color/ef_on_muted</item>
+
+        <item name="colorOutline">@color/ef_border</item>
+        <item name="colorError">@color/ef_destructive</item>
+
+        <!-- Status / nav bars -->
+        <item name="android:windowBackground">@color/ef_background</item>
+        <item name="android:statusBarColor">@color/ef_primary</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:navigationBarColor">@color/ef_background</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">true</item>
+
+        <!-- Shapes -->
+        <item name="shapeAppearanceSmallComponent">@style/EFShape.Small</item>
+        <item name="shapeAppearanceMediumComponent">@style/EFShape.Medium</item>
+        <item name="shapeAppearanceLargeComponent">@style/EFShape.Large</item>
+
+        <!-- Default text appearance -->
+        <item name="android:textAppearance">@style/EFType.BodyMD</item>
+        <item name="textAppearanceBodyLarge">@style/EFType.BodyLG</item>
+        <item name="textAppearanceBodyMedium">@style/EFType.BodyMD</item>
+        <item name="textAppearanceTitleLarge">@style/EFType.H3</item>
+        <item name="textAppearanceHeadlineLarge">@style/EFType.Display.H1</item>
+    </style>
+
+    <!-- Variant: pages where status-bar should be white (forms, profile) -->
+    <style name="Theme.EFoodcare.LightStatus" parent="Theme.EFoodcare">
+        <item name="android:statusBarColor">@color/ef_background</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
+    </style>
+
+    <!-- ===== SHAPE APPEARANCES ===== -->
+    <style name="EFShape.Small" parent="ShapeAppearance.Material3.SmallComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">@dimen/ef_radius_sm</item>
+    </style>
+
+    <style name="EFShape.Medium" parent="ShapeAppearance.Material3.MediumComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">@dimen/ef_radius_md</item>
+    </style>
+
+    <style name="EFShape.Large" parent="ShapeAppearance.Material3.LargeComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">@dimen/ef_radius_card</item>
+    </style>
+
+    <style name="EFShape.Pill">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">@dimen/ef_radius_pill</item>
+    </style>
+
+    <!-- ===== BUTTON STYLES ===== -->
+    <!-- Primary CTA — filled red, pill-shaped (Subscribe, Buy, Send OTP) -->
+    <style name="EFButton.Primary" parent="Widget.Material3.Button">
+        <item name="shapeAppearanceOverlay">@style/EFShape.Pill</item>
+        <item name="android:minHeight">@dimen/ef_button_height</item>
+        <item name="android:paddingStart">@dimen/ef_space_6</item>
+        <item name="android:paddingEnd">@dimen/ef_space_6</item>
+        <item name="backgroundTint">@color/ef_primary</item>
+        <item name="android:textColor">@color/ef_on_primary</item>
+        <item name="android:textAppearance">@style/EFType.BodyMD</item>
+        <item name="android:textFontWeight" tools:targetApi="p">700</item>
+        <item name="rippleColor">@color/ef_primary_pressed</item>
+    </style>
+
+    <!-- Secondary CTA — outline -->
+    <style name="EFButton.Outline" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="shapeAppearanceOverlay">@style/EFShape.Pill</item>
+        <item name="android:minHeight">@dimen/ef_button_height</item>
+        <item name="strokeColor">@color/ef_border</item>
+        <item name="strokeWidth">@dimen/ef_border_hairline</item>
+        <item name="android:textColor">@color/ef_on_background</item>
+    </style>
+
+    <!-- Tertiary — text only -->
+    <style name="EFButton.Text" parent="Widget.Material3.Button.TextButton">
+        <item name="android:textColor">@color/ef_primary</item>
+        <item name="android:textAppearance">@style/EFType.BodyMD</item>
+    </style>
+
+    <!-- ===== CARDS ===== -->
+    <style name="EFCard" parent="Widget.Material3.CardView.Filled">
+        <item name="cardBackgroundColor">@color/ef_card</item>
+        <item name="cardCornerRadius">@dimen/ef_radius_card</item>
+        <item name="cardElevation">@dimen/ef_elev_card_3d</item>
+        <item name="contentPadding">@dimen/ef_card_inner</item>
+        <item name="strokeWidth">0dp</item>
+    </style>
+
+    <style name="EFCard.Flat" parent="EFCard">
+        <item name="cardElevation">@dimen/ef_elev_card_flat</item>
+        <item name="strokeColor">@color/ef_border</item>
+        <item name="strokeWidth">@dimen/ef_border_hairline</item>
+    </style>
+
+    <style name="EFCard.Amber" parent="EFCard">
+        <item name="cardBackgroundColor">@color/ef_amber_card_bg</item>
+        <item name="strokeColor">@color/ef_amber_card_border</item>
+        <item name="strokeWidth">@dimen/ef_border_hairline</item>
+    </style>
+
+    <!-- ===== INPUT FIELDS (text fields) ===== -->
+    <style name="EFTextField" parent="Widget.Material3.TextInputLayout.OutlinedBox">
+        <item name="boxStrokeColor">@color/ef_input_border</item>
+        <item name="boxStrokeWidthFocused">@dimen/ef_border_focus</item>
+        <item name="boxCornerRadiusTopStart">@dimen/ef_radius_md</item>
+        <item name="boxCornerRadiusTopEnd">@dimen/ef_radius_md</item>
+        <item name="boxCornerRadiusBottomStart">@dimen/ef_radius_md</item>
+        <item name="boxCornerRadiusBottomEnd">@dimen/ef_radius_md</item>
+        <item name="hintTextColor">@color/ef_on_muted</item>
+    </style>
+
+    <!-- ===== CHIPS (category rails, plan tags) ===== -->
+    <style name="EFChip.Filled" parent="Widget.Material3.Chip.Assist">
+        <item name="chipBackgroundColor">@color/ef_muted</item>
+        <item name="chipStrokeWidth">0dp</item>
+        <item name="android:textColor">@color/ef_on_background</item>
+        <item name="chipMinHeight">@dimen/ef_chip_height</item>
+    </style>
+
+    <style name="EFChip.Active" parent="EFChip.Filled">
+        <item name="chipBackgroundColor">@color/ef_primary</item>
+        <item name="android:textColor">@color/ef_on_primary</item>
+    </style>
+
+</resources>

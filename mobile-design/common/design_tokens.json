@@ -1,0 +1,133 @@
+{
+  "_meta": {
+    "brand": "efoodcare",
+    "tagline": "Ghar se achha khana",
+    "source": "Live /api/theme + /app/frontend/src/index.css + /app/frontend/tailwind.config.js",
+    "exported_at": "2026-02-22",
+    "iter": 120,
+    "platforms_targeted": ["Android (Kotlin / XML)", "iOS (SwiftUI / UIKit)"]
+  },
+  "color": {
+    "brand": {
+      "primary":   { "hex": "#D02424", "hsl": "0 70% 48%",  "use": "Brand red. Hero header bg, primary CTA buttons (Subscribe, Buy, Send OTP), active tab indicator, dashboard QR-ring." },
+      "primary_pressed": { "hex": "#A01717", "hsl": "0 75% 36%", "use": "Pressed/active state of primary button (Tailwind: hover:bg-primary/90)." },
+      "secondary": { "hex": "#2C854D", "hsl": "142 50% 35%", "use": "Green confirmation, success badges, FSSAI 'pure veg' chip, growth deltas." },
+      "accent":    { "hex": "#F9EFEF", "hsl": "0 50% 96%",  "use": "Light pink wash used as section background behind primary CTAs and for chip pills (Subscription Plans badge)." }
+    },
+    "neutral": {
+      "background":     { "hex": "#FFFFFF", "use": "Page background." },
+      "card":           { "hex": "#FFFFFF", "use": "Card surface." },
+      "foreground":     { "hex": "#1F2937", "use": "Default body text on white." },
+      "card_foreground":{ "hex": "#192D56", "use": "Dense card text — navy-tinted." },
+      "muted":          { "hex": "#F6F2F2", "use": "Disabled/secondary surface (input bg when disabled, skeleton shimmer)." },
+      "muted_foreground":{ "hex": "#64748B", "use": "Helper text, subtitles, breadcrumbs." },
+      "border":         { "hex": "#EDDDDD", "use": "Card edges, divider lines." },
+      "input":          { "hex": "#E0E3EA", "use": "Form-input borders only." },
+      "ring":           { "hex": "#D02424", "use": "Focus ring (matches primary)." }
+    },
+    "semantic": {
+      "destructive": { "hex": "#B71414", "use": "Delete, cancel-subscription, irreversible actions." },
+      "danger":      { "hex": "#DF1F1F", "use": "Error banners, low-balance warning." },
+      "warning":     { "hex": "#DF7A05", "use": "Expiring soon, partial-balance card." },
+      "success":     { "hex": "#2C854D", "use": "Wallet topped-up, attendance confirmed." }
+    },
+    "amber_card": {
+      "bg":     "#FFF7E0",
+      "border": "#FBC94B",
+      "fg":     "#9C5A00",
+      "use": "Dashboard 'Partial month carry-forward' card and any monetary-tip card."
+    }
+  },
+  "radius": {
+    "sm":   "8dp",
+    "md":   "12dp",
+    "lg":   "16dp",
+    "card": "20dp",
+    "pill": "999dp",
+    "_note": "Tailwind default `--radius: 0.75rem (12dp)`. Cards use `rounded-2xl` = 16dp. Buttons use `rounded-full` = pill."
+  },
+  "spacing": {
+    "_scale_dp": [0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80],
+    "_note": "Tailwind 4px-base. Use 16dp as default page horizontal padding on mobile, 20dp between sections, 12dp inside cards.",
+    "page_horizontal": "16dp",
+    "section_gap":     "24dp",
+    "card_inner":      "16dp",
+    "row_gap":         "12dp",
+    "icon_text_gap":   "8dp"
+  },
+  "elevation": {
+    "card_3d": {
+      "_css": "0 1px 0 rgba(255,255,255,0.65) inset, 0 6px 0 -2px rgba(0,0,0,0.04), 0 14px 30px -10px rgba(0,0,0,0.18), 0 2px 4px rgba(0,0,0,0.04)",
+      "android_dp": 4,
+      "ios_shadow_radius": 14,
+      "ios_shadow_offset_y": 8,
+      "ios_shadow_opacity": 0.18,
+      "use": "Primary card on dashboard, plan card, contact info row."
+    },
+    "card_flat": {
+      "android_dp": 1,
+      "ios_shadow_radius": 4,
+      "ios_shadow_offset_y": 1,
+      "ios_shadow_opacity": 0.06,
+      "use": "Secondary tiles (history grid, attendance day)."
+    },
+    "fab": {
+      "android_dp": 8,
+      "ios_shadow_radius": 18,
+      "ios_shadow_offset_y": 6,
+      "ios_shadow_opacity": 0.22,
+      "use": "Floating QR button on dashboard, Track / Self-Scan FAB."
+    }
+  },
+  "typography": {
+    "display": {
+      "family": "Cabinet Grotesk",
+      "fallback": "Manrope, system-ui, sans-serif",
+      "letter_spacing": -0.02,
+      "weights_used": [500, 700, 800, 900],
+      "use": "Page titles ('Pick a plan', 'Contact Us', 'Your e-Meal Pass'), wallet ₹ amount, hero headlines."
+    },
+    "body": {
+      "family": "Manrope",
+      "fallback": "system-ui, sans-serif",
+      "weights_used": [400, 500, 600, 700, 800],
+      "use": "Everything that isn't a display heading."
+    },
+    "mono": {
+      "family": "JetBrains Mono",
+      "fallback": "monospace",
+      "use": "Wallet transaction IDs, QR token preview."
+    },
+    "_scale_sp_dp": {
+      "h1_display": { "size_sp": 32, "line": 38, "weight": 800, "family": "display" },
+      "h2_display": { "size_sp": 24, "line": 30, "weight": 800, "family": "display" },
+      "h3":          { "size_sp": 20, "line": 26, "weight": 700, "family": "body" },
+      "h4":          { "size_sp": 18, "line": 24, "weight": 700, "family": "body" },
+      "body_lg":     { "size_sp": 16, "line": 24, "weight": 500, "family": "body" },
+      "body_md":     { "size_sp": 14, "line": 20, "weight": 500, "family": "body" },
+      "body_sm":     { "size_sp": 13, "line": 18, "weight": 500, "family": "body" },
+      "caption":     { "size_sp": 12, "line": 16, "weight": 500, "family": "body" },
+      "overline":    { "size_sp": 11, "line": 14, "weight": 700, "family": "body", "letter_spacing_em": 0.2, "transform": "uppercase" },
+      "amount_xl":   { "size_sp": 36, "line": 40, "weight": 800, "family": "display", "use": "Wallet balance ₹ on dashboard" }
+    }
+  },
+  "motion": {
+    "tap_press":    { "duration_ms": 120, "easing": "ease-out", "scale": 0.98 },
+    "card_hover":   { "duration_ms": 220, "easing": "ease",     "translate_y_dp": -1 },
+    "page_fade_in": { "duration_ms": 180, "easing": "ease-in" },
+    "skeleton_pulse":{ "duration_ms": 1500,"easing": "ease-in-out", "iteration": "infinite" },
+    "accordion":    { "duration_ms": 200, "easing": "ease-out" }
+  },
+  "touch_targets": {
+    "min_size_dp": 44,
+    "button_height_dp": 48,
+    "icon_button_dp": 40,
+    "_note": "Apple HIG 44dp minimum; Material 48dp recommended. Use 48dp for safety."
+  },
+  "icon_set": {
+    "library": "lucide (lucide-react in web)",
+    "size_dp_default": 20,
+    "size_dp_lg": 24,
+    "stroke_width": 1.75
+  }
+}

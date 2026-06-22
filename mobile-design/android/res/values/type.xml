@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  efoodcare type styles · Android · iter-120
+  Family imports (add these in `app/src/main/res/font/`):
+    cabinet_grotesk.xml  → Cabinet Grotesk (display)         — fontshare.com
+    manrope.xml          → Manrope (body)                    — Google Fonts
+    jetbrains_mono.xml   → JetBrains Mono (mono)             — Google Fonts
+  Letter-spacing values are in em (Android uses fractional sp/em on Material).
+-->
+<resources>
+
+    <!-- ============= DISPLAY (Cabinet Grotesk) ============= -->
+    <style name="EFType.Display.H1" parent="TextAppearance.Material3.HeadlineLarge">
+        <item name="android:fontFamily">@font/cabinet_grotesk</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">@dimen/ef_type_h1</item>
+        <item name="android:letterSpacing">-0.02</item>
+        <item name="android:textColor">@color/ef_on_background</item>
+        <item name="android:lineHeight" tools:targetApi="p">38sp</item>
+    </style>
+
+    <style name="EFType.Display.H2" parent="TextAppearance.Material3.HeadlineMedium">
+        <item name="android:fontFamily">@font/cabinet_grotesk</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">@dimen/ef_type_h2</item>
+        <item name="android:letterSpacing">-0.02</item>
+        <item name="android:textColor">@color/ef_on_background</item>
+        <item name="android:lineHeight" tools:targetApi="p">30sp</item>
+    </style>
+
+    <style name="EFType.Display.AmountXL" parent="TextAppearance.Material3.DisplaySmall">
+        <item name="android:fontFamily">@font/cabinet_grotesk</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">@dimen/ef_type_amount_xl</item>
+        <item name="android:letterSpacing">-0.02</item>
+        <item name="android:textColor">@color/ef_on_card</item>
+    </style>
+
+    <!-- ============= BODY (Manrope) ============= -->
+    <style name="EFType.H3" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:fontFamily">@font/manrope</item>
+        <item name="android:textFontWeight" tools:targetApi="p">700</item>
+        <item name="android:textSize">@dimen/ef_type_h3</item>
+        <item name="android:textColor">@color/ef_on_background</item>
+    </style>
+
+    <style name="EFType.H4" parent="TextAppearance.Material3.TitleMedium">
+        <item name="android:fontFamily">@font/manrope</item>
+        <item name="android:textFontWeight" tools:targetApi="p">700</item>
+        <item name="android:textSize">@dimen/ef_type_h4</item>
+        <item name="android:textColor">@color/ef_on_background</item>
+    </style>
+
+    <style name="EFType.BodyLG" parent="TextAppearance.Material3.BodyLarge">
+        <item name="android:fontFamily">@font/manrope</item>
+        <item name="android:textFontWeight" tools:targetApi="p">500</item>
+        <item name="android:textSize">@dimen/ef_type_body_lg</item>
+        <item name="android:textColor">@color/ef_on_background</item>
+    </style>
+
+    <style name="EFType.BodyMD" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:fontFamily">@font/manrope</item>
+        <item name="android:textFontWeight" tools:targetApi="p">500</item>
+        <item name="android:textSize">@dimen/ef_type_body_md</item>
+        <item name="android:textColor">@color/ef_on_background</item>
+    </style>
+
+    <style name="EFType.BodySM" parent="TextAppearance.Material3.BodySmall">
+        <item name="android:fontFamily">@font/manrope</item>
+        <item name="android:textFontWeight" tools:targetApi="p">500</item>
+        <item name="android:textSize">@dimen/ef_type_body_sm</item>
+        <item name="android:textColor">@color/ef_on_muted</item>
+    </style>
+
+    <style name="EFType.Caption" parent="TextAppearance.Material3.LabelSmall">
+        <item name="android:fontFamily">@font/manrope</item>
+        <item name="android:textFontWeight" tools:targetApi="p">500</item>
+        <item name="android:textSize">@dimen/ef_type_caption</item>
+        <item name="android:textColor">@color/ef_on_muted</item>
+    </style>
+
+    <style name="EFType.Overline" parent="TextAppearance.Material3.LabelSmall">
+        <item name="android:fontFamily">@font/manrope</item>
+        <item name="android:textFontWeight" tools:targetApi="p">700</item>
+        <item name="android:textSize">@dimen/ef_type_overline</item>
+        <item name="android:letterSpacing">0.2</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:textColor">@color/ef_secondary</item>
+    </style>
+
+    <!-- ============= MONO (JetBrains Mono) ============= -->
+    <style name="EFType.Mono" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:fontFamily">@font/jetbrains_mono</item>
+        <item name="android:textSize">@dimen/ef_type_body_sm</item>
+        <item name="android:textColor">@color/ef_on_muted</item>
+    </style>
+
+</resources>

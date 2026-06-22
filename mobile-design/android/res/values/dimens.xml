@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  efoodcare spacing / radius / elevation · Android · iter-120
+  All values in dp / sp. 4dp-base scale (matches Tailwind's 4px).
+-->
+<resources>
+
+    <!-- ============= SPACING SCALE ============= -->
+    <dimen name="ef_space_0">0dp</dimen>
+    <dimen name="ef_space_1">4dp</dimen>
+    <dimen name="ef_space_2">8dp</dimen>
+    <dimen name="ef_space_3">12dp</dimen>
+    <dimen name="ef_space_4">16dp</dimen>
+    <dimen name="ef_space_5">20dp</dimen>
+    <dimen name="ef_space_6">24dp</dimen>
+    <dimen name="ef_space_8">32dp</dimen>
+    <dimen name="ef_space_10">40dp</dimen>
+    <dimen name="ef_space_12">48dp</dimen>
+    <dimen name="ef_space_16">64dp</dimen>
+    <dimen name="ef_space_20">80dp</dimen>
+
+    <!-- ============= SEMANTIC SPACING ============= -->
+    <dimen name="ef_page_horizontal">16dp</dimen>
+    <dimen name="ef_section_gap">24dp</dimen>
+    <dimen name="ef_card_inner">16dp</dimen>
+    <dimen name="ef_row_gap">12dp</dimen>
+    <dimen name="ef_icon_text_gap">8dp</dimen>
+    <dimen name="ef_appbar_height">56dp</dimen>
+    <dimen name="ef_bottom_bar_height">64dp</dimen>
+
+    <!-- ============= RADIUS ============= -->
+    <dimen name="ef_radius_sm">8dp</dimen>
+    <dimen name="ef_radius_md">12dp</dimen>     <!-- default per tailwind --radius -->
+    <dimen name="ef_radius_lg">16dp</dimen>
+    <dimen name="ef_radius_card">20dp</dimen>   <!-- rounded-2xl -->
+    <dimen name="ef_radius_pill">999dp</dimen>  <!-- rounded-full -->
+
+    <!-- ============= TOUCH TARGETS ============= -->
+    <dimen name="ef_touch_min">44dp</dimen>     <!-- Apple HIG floor -->
+    <dimen name="ef_button_height">48dp</dimen>
+    <dimen name="ef_icon_button">40dp</dimen>
+    <dimen name="ef_chip_height">36dp</dimen>
+
+    <!-- ============= ELEVATION (Material) ============= -->
+    <dimen name="ef_elev_card_flat">1dp</dimen>
+    <dimen name="ef_elev_card_3d">4dp</dimen>
+    <dimen name="ef_elev_fab">8dp</dimen>
+    <dimen name="ef_elev_modal">16dp</dimen>
+
+    <!-- ============= STROKE / BORDER ============= -->
+    <dimen name="ef_border_hairline">1dp</dimen>
+    <dimen name="ef_border_focus">2dp</dimen>
+    <dimen name="ef_divider_dash">2dp</dimen>
+
+    <!-- ============= ICON SIZES ============= -->
+    <dimen name="ef_icon_sm">16dp</dimen>
+    <dimen name="ef_icon_md">20dp</dimen>       <!-- lucide default -->
+    <dimen name="ef_icon_lg">24dp</dimen>
+    <dimen name="ef_icon_xl">32dp</dimen>
+
+    <!-- ============= TYPE SIZES (sp) ============= -->
+    <dimen name="ef_type_caption">12sp</dimen>
+    <dimen name="ef_type_overline">11sp</dimen>
+    <dimen name="ef_type_body_sm">13sp</dimen>
+    <dimen name="ef_type_body_md">14sp</dimen>
+    <dimen name="ef_type_body_lg">16sp</dimen>
+    <dimen name="ef_type_h4">18sp</dimen>
+    <dimen name="ef_type_h3">20sp</dimen>
+    <dimen name="ef_type_h2">24sp</dimen>
+    <dimen name="ef_type_h1">32sp</dimen>
+    <dimen name="ef_type_amount_xl">36sp</dimen>   <!-- wallet ₹ amount -->
+
+</resources>
