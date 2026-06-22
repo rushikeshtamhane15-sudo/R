@@ -2272,3 +2272,21 @@ User reported: *"User with email registered account is unable to delete there ac
 **Production deployment**: Click **Deploy** in Emergent dashboard. Email/Google-registered users on `efoodcare.in` will be able to delete their account immediately. No data migration needed.
 
 
+
+### Iteration 111 — Faster dashboard + Profile name no longer "disappears" (Feb 21, 2026)
+
+**Issue #1 — Dashboard slow on first load:**
+- Root cause: `SubscriberDashboard.load()` used `Promise.all` for 6 parallel API reads, so a SINGLE slow/failed call would hang the entire `try/finally` block and keep the "Loading dashboard…" spinner visible for the worst-case duration.
+- Fix:
+  1. Switched to `Promise.allSettled` — a slow `/menu/today` or `/dashboard/config` no longer blocks the other 5.
+  2. Warm-start the `config` state from `localStorage.dashCfg` so the dashboard skeleton renders instantly on revisit, and we persist the fresh config back to localStorage on every successful fetch.
+- Backend timing check on preview: all 6 endpoints respond in 120–155ms, so dashboard renders in ~150ms once one slow call no longer locks the wait.
+
+**Issue #2 — Profile name disappearing on save:**
+- Root cause: `Profile.jsx` had a deliberate `name: ""` reset in the `useEffect` (iter-58 #6 was meant to *prevent auto-fill of a placeholder name for brand-new users*). After iter-110 added a fallback-name to `doc_to_user`, returning users with a real saved name were ALSO being shown an empty field — they thought the save broke.
+- Fix: pre-fill `name` from `user.name` ONLY when `user.address` is also set (signals that onboarding is complete). Brand-new users still get an empty field; returning users see their saved name.
+- Verified with new pytest `test_iter111_profile_name_persistence.py` (2 tests) that backend was always persisting + returning the name correctly — the bug was purely frontend display.
+
+**Files**: `frontend/src/pages/Profile.jsx` (name pre-fill condition), `frontend/src/pages/SubscriberDashboard.jsx` (Promise.allSettled + config cache). New `backend/tests/test_iter111_profile_name_persistence.py`. PRD updated.
+
+

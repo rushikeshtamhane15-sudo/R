@@ -61,10 +61,13 @@ export default function Profile() {
 
   useEffect(() => {
     if (user) setForm({
-      // Iter-58 #6: don't auto-fill the user's name — leave the field as a
-      // placeholder so the user types it intentionally. Phone / address /
-      // photo are still pre-filled because those are utility data.
-      name: "",
+      // iter-111: pre-fill the name ONLY for users who've already completed
+      // onboarding (signalled by a non-empty address). For brand-new users
+      // the field stays empty so they type a real name intentionally — the
+      // iter-110 fallback (email-local-part / phone / "Member") in
+      // doc_to_user keeps the auth path alive but is NEVER used as the
+      // pre-fill source.
+      name: (user.address && user.name) ? user.name : "",
       phone: user.phone || "",
       address: user.address || "",
       photo_url: user.photo_url || "",
