@@ -130,6 +130,40 @@ export default function Contact() {
     openMaps();
   };
 
+  // iter-114: real road distance via OSRM (public, no key needed). The
+  // haversine value is the immediate fallback so the pill still renders
+  // while OSRM is in-flight (or if it 5xxs). Cached per (branch+rounded
+  // user lat/lng) for 5 min so revisits don't re-hit the API.
+  // NB: hooks must run on every render — declared BEFORE the early-return
+  // below to satisfy React's Rules of Hooks.
+  const [roadKm, setRoadKm] = useState(null);
+  useEffect(() => {
+    if (!me || !branch?.lat || !branch?.lng) { setRoadKm(null); return; }
+    const k = `road:${branch.mess_id || `${branch.lat},${branch.lng}`}:${me.lat.toFixed(3)},${me.lng.toFixed(3)}`;
+    try {
+      const raw = localStorage.getItem(k);
+      if (raw) {
+        const v = JSON.parse(raw);
+        if (v?.ts && Date.now() - v.ts < 5 * 60 * 1000 && typeof v.km === "number") {
+          setRoadKm(v.km);
+          return;
+        }
+      }
+    } catch { /* ignore */ }
+    let cancelled = false;
+    const url = `https://router.project-osrm.org/route/v1/driving/${me.lng},${me.lat};${branch.lng},${branch.lat}?overview=false`;
+    fetch(url, { mode: "cors" })
+      .then((r) => r.ok ? r.json() : null)
+      .then((j) => {
+        if (cancelled || !j?.routes?.[0]?.distance) return;
+        const km = j.routes[0].distance / 1000;
+        setRoadKm(km);
+        try { localStorage.setItem(k, JSON.stringify({ km, ts: Date.now() })); } catch { /* quota */ }
+      })
+      .catch(() => { /* OSRM offline → keep haversine fallback */ });
+    return () => { cancelled = true; };
+  }, [me, branch?.lat, branch?.lng, branch?.mess_id]);
+
   if (loading || !branch) return <div className="p-12 text-center text-muted-foreground" data-testid="contact-loading">Loading…</div>;
 
   const title = cms?.title || "We're a phone call away";
@@ -150,14 +184,12 @@ export default function Contact() {
   const labelFssai = cms?.label_fssai || "FSSAI";
   const labelHours = cms?.label_hours || "Hours";
   const distanceKm = (me && branch.lat && branch.lng) ? haversineKm(me.lat, me.lng, branch.lat, branch.lng) : null;
-  // iter-113: We compute straight-line distance only. Real road distance is
-  // typically 1.2–1.4× that, but in dense urban Indian streets the GPS-vs-
-  // road delta can swing either way (user reported 5.2 km haversine → 3.2 km
-  // Google road). So we surface it as an *approximate* distance and add a
-  // realistic bike ETA (25 km/h average for Indian city traffic), letting
-  // the user click "Get directions" for the exact figure from Google Maps.
-  const distanceKmStr = distanceKm != null ? distanceKm.toFixed(1) : null;
-  const bikeEtaMin = distanceKm != null ? Math.max(1, Math.round((distanceKm / 25) * 60)) : null;
+  const effectiveKm = roadKm != null ? roadKm : distanceKm;
+  const distanceKmStr = effectiveKm != null ? effectiveKm.toFixed(1) : null;
+  // Bike ETA assumes 25 km/h average for Indian city traffic.
+  const bikeEtaMin = effectiveKm != null ? Math.max(1, Math.round((effectiveKm / 25) * 60)) : null;
+  // Drop the leading "~" once we have a real-road value; keep it for haversine.
+  const distancePrefix = roadKm != null ? "" : "~";
   const mapSrc = (branch.lat && branch.lng) ? buildOsmEmbed(branch.lat, branch.lng) : "";
 
   const phoneDigits = digitsOnly(branch.manager_phone);
@@ -177,7 +209,7 @@ export default function Contact() {
           {me ? nearestLabel : defaultLabel} <span className="text-foreground">{branch.name}</span>
           {distanceKmStr && (
             <span className="text-muted-foreground font-semibold ml-2">
-              · ~{distanceKmStr} km · ~{bikeEtaMin} min by bike
+              · {distancePrefix}{distanceKmStr} km · ~{bikeEtaMin} min by bike
             </span>
           )}
         </span>
@@ -243,7 +275,7 @@ export default function Contact() {
                   {distanceKmStr && (
                     <span className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-white/95 backdrop-blur text-foreground text-[11px] sm:text-xs font-semibold px-2.5 py-1 shadow" data-testid="distance-pill">
                       <MapPin className="h-3 w-3 text-primary" />
-                      <span className="tabular-nums">~{distanceKmStr} km · ~{bikeEtaMin} min by bike</span>
+                      <span className="tabular-nums">{distancePrefix}{distanceKmStr} km · ~{bikeEtaMin} min by bike</span>
                     </span>
                   )}
                 </div>
