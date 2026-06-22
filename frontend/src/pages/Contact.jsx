@@ -140,7 +140,6 @@ export default function Contact() {
   const defaultLabel = cms?.default_label || "Showing default branch:";
   const permHint = cms?.perm_hint || "Enable location to auto-pick your nearest branch.";
   const ctaDirections = cms?.cta_directions || "Get directions";
-  const distanceSuffix = cms?.distance_suffix || "km away";
   const labelBranch = cms?.label_branch || "Branch";
   const labelAddress = cms?.label_address || "Address";
   const labelPhone = cms?.label_phone || "Phone";
@@ -150,7 +149,15 @@ export default function Contact() {
   const labelManager = cms?.label_manager || "Branch manager";
   const labelFssai = cms?.label_fssai || "FSSAI";
   const labelHours = cms?.label_hours || "Hours";
-  const distanceKm = (me && branch.lat && branch.lng) ? haversineKm(me.lat, me.lng, branch.lat, branch.lng).toFixed(1) : null;
+  const distanceKm = (me && branch.lat && branch.lng) ? haversineKm(me.lat, me.lng, branch.lat, branch.lng) : null;
+  // iter-113: We compute straight-line distance only. Real road distance is
+  // typically 1.2–1.4× that, but in dense urban Indian streets the GPS-vs-
+  // road delta can swing either way (user reported 5.2 km haversine → 3.2 km
+  // Google road). So we surface it as an *approximate* distance and add a
+  // realistic bike ETA (25 km/h average for Indian city traffic), letting
+  // the user click "Get directions" for the exact figure from Google Maps.
+  const distanceKmStr = distanceKm != null ? distanceKm.toFixed(1) : null;
+  const bikeEtaMin = distanceKm != null ? Math.max(1, Math.round((distanceKm / 25) * 60)) : null;
   const mapSrc = (branch.lat && branch.lng) ? buildOsmEmbed(branch.lat, branch.lng) : "";
 
   const phoneDigits = digitsOnly(branch.manager_phone);
@@ -168,7 +175,11 @@ export default function Contact() {
         <MapPin className="h-3.5 w-3.5 text-primary" />
         <span className="text-xs font-extrabold text-primary tracking-wide">
           {me ? nearestLabel : defaultLabel} <span className="text-foreground">{branch.name}</span>
-          {distanceKm && <span className="text-muted-foreground font-semibold ml-2">· {distanceKm} {distanceSuffix}</span>}
+          {distanceKmStr && (
+            <span className="text-muted-foreground font-semibold ml-2">
+              · ~{distanceKmStr} km · ~{bikeEtaMin} min by bike
+            </span>
+          )}
         </span>
       </div>
 
@@ -229,10 +240,10 @@ export default function Contact() {
                     </span>
                     {ctaDirections}
                   </button>
-                  {distanceKm && (
+                  {distanceKmStr && (
                     <span className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-white/95 backdrop-blur text-foreground text-[11px] sm:text-xs font-semibold px-2.5 py-1 shadow" data-testid="distance-pill">
                       <MapPin className="h-3 w-3 text-primary" />
-                      <span className="tabular-nums">{distanceKm} {distanceSuffix}</span>
+                      <span className="tabular-nums">~{distanceKmStr} km · ~{bikeEtaMin} min by bike</span>
                     </span>
                   )}
                 </div>
