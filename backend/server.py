@@ -332,7 +332,13 @@ async def create_or_get_user(email: Optional[str], phone: Optional[str], name: s
     is_admin = (email and email.lower() in ADMIN_EMAILS) or (phone and phone in ADMIN_PHONES)
     if existing:
         updates = {}
-        if name and existing.get("name") != name:
+        # iter-112: NEVER overwrite a user's real saved name. The login flows
+        # (OTP / Google) pass a default placeholder name ("User 4744" /
+        # email-local-part) which used to clobber the name the user typed
+        # in /profile. From now on, we ONLY set `name` when the existing
+        # field is empty. Real updates happen via POST /auth/profile, which
+        # writes the DB row directly and bypasses this helper.
+        if name and not (existing.get("name") or "").strip():
             updates["name"] = name
         if picture and existing.get("picture") != picture:
             updates["picture"] = picture

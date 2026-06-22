@@ -2290,3 +2290,37 @@ User reported: *"User with email registered account is unable to delete there ac
 **Files**: `frontend/src/pages/Profile.jsx` (name pre-fill condition), `frontend/src/pages/SubscriberDashboard.jsx` (Promise.allSettled + config cache). New `backend/tests/test_iter111_profile_name_persistence.py`. PRD updated.
 
 
+
+### Iteration 112 — OTP re-login no longer clobbers saved name + letters-only validation (Feb 22, 2026)
+
+**Bug**: User saved name as `"sunny jawal"`. Logged out + logged back in via OTP. Name silently changed to `"User 4744"` (last-4 of phone).
+
+**Root cause** (chained):
+1. `routes/auth.py: verify_otp` builds a default name `f"User {phone[-4:]}"` when the request doesn't supply one — needed for very first registration.
+2. It then calls `server.create_or_get_user(email=None, phone=phone, name=name)`.
+3. `create_or_get_user` (since iter-102) had: `if name and existing.get("name") != name: updates["name"] = name` — which dutifully overwrites the saved name with the placeholder on every login.
+
+**Fix (`server.py`)**: Only update `name` when the existing field is empty / null:
+```python
+if name and not (existing.get("name") or "").strip():
+    updates["name"] = name
+```
+Real name updates flow through `POST /auth/profile`, which writes the row directly. The login default placeholder can never overwrite a real name again.
+
+**Bonus fix per user's request: letters-only validation (`routes/auth.py: _NAME_RE`)**:
+- Old regex allowed `\w` (digits + underscore included).
+- New regex: must start with a letter (Latin OR Indic), followed by letters / spaces / hyphens / apostrophes / dots. Length 2–80.
+- Side-effect: even if someone bypasses the login path, `"User 4744"` and similar can never be persisted via the profile endpoint.
+- Frontend hint updated: *"2–80 letters · Latin or Indian scripts · spaces, hyphens, apostrophes & dots allowed. No digits."*
+
+**Testing**: New pytest `test_iter112_name_no_clobber.py` (2 tests):
+- Save `"sunny jawal"` → logout → log back in with no name → log back in with the `"User 4744"` placeholder → name remains `"sunny jawal"` in all three checks.
+- Rejects `User 4744`, `John123`, `John@`, `_underscore`, `a` (too short); accepts `Sunny Jawal`, `Mary-Jane`, `D'Souza`, `Dr. Smith`, `रुषीकेश तामहाने`.
+- 16-case unit test of the regex isolated also passes.
+- **2/2 PASS**.
+
+**Production deployment**: Click **Deploy** in Emergent dashboard. After deploy:
+- Existing rows whose name was already overwritten by `"User N"` are NOT auto-fixed — user must update their profile once with their real name. From that point onward it'll persist permanently across login cycles.
+- New name input is restricted to letters + spaces/hyphens/apostrophes/dots.
+
+

@@ -146,21 +146,47 @@ import re
 
 # Iter-54 #3: profile-validation regexes
 _NAME_RE = re.compile(
-    # iter-99: Unicode letters + digits + spaces + . ' -
-    # Explicit Indic block ranges so vowel-signs (matras) and viramas are
-    # accepted — Python's \w does NOT include the Mark categories (Mn / Mc).
-    r"^[\w\s\.\'\-"
-    r"\u0900-\u097F"   # Devanagari (Hindi, Marathi, Sanskrit) — incl. matras
-    r"\u0980-\u09FF"   # Bengali / Assamese
-    r"\u0A00-\u0A7F"   # Gurmukhi (Punjabi)
-    r"\u0A80-\u0AFF"   # Gujarati
-    r"\u0B00-\u0B7F"   # Odia
-    r"\u0B80-\u0BFF"   # Tamil
-    r"\u0C00-\u0C7F"   # Telugu
-    r"\u0C80-\u0CFF"   # Kannada
-    r"\u0D00-\u0D7F"   # Malayalam
-    r"\u0300-\u036F"   # Combining diacriticals (for Latin-script names)
-    r"]{2,80}$"
+    # iter-112: tightened per user request — names must be letters only
+    # (Latin + Indian scripts), with spaces / hyphens / apostrophes / dots
+    # for compound names. Digits and underscores are no longer allowed,
+    # which incidentally also rejects the "User 4744" default placeholder
+    # so it can never be persisted via /auth/profile.
+    r"^[^\W\d_\s\.\'\-"      # \w minus digits/underscore = all Unicode letters
+    r"\u0300-\u036F\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0A80-\u0AFF"
+    r"\u0B00-\u0B7F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F]"  # negated char class — just to anchor scope
+    r"|"
+    # The actual allowed set: Unicode letters + spaces + . ' - + Indic marks
+    r"^[^\W\d_]"                                # MUST start with a letter
+    r"[\w\s\.\'\-"                              # subsequent chars
+    r"\u0300-\u036F\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0A80-\u0AFF"
+    r"\u0B00-\u0B7F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F]{1,79}$"
+)
+# Re-define cleanly — the regex above had a "scoping" first alternative that
+# is misleading. The real, simple rule we want is below:
+_NAME_RE = re.compile(
+    r"^[^\W\d_]"                                                 # first char: a letter
+    r"[^\W\d_\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0A80-\u0AFF"
+    r"\u0B00-\u0B7F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F"
+    r"\u0300-\u036F\s\.\'\-]*"  # avoid duplicating ranges
+    r"|"
+    r"^[^\W\d_\u0300-\u036F]"
+    r"[\w\s\.\'\-\u0300-\u036F"
+    r"\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0A80-\u0AFF"
+    r"\u0B00-\u0B7F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F]{1,79}$"
+)
+# Final clean spec — supersedes the two confusing attempts above:
+#   * first char MUST be a letter (Latin or Indic) — not a digit, not a separator
+#   * subsequent chars: letters (any script) + spaces + dots + hyphens + apostrophes
+#   * no digits, no underscores, no other punctuation
+#   * total length 2–80
+_NAME_RE = re.compile(
+    r"^(?=.{2,80}$)"                                                    # length 2-80
+    r"[^\W\d_\u0300-\u036F]"                                            # first char must be a letter
+    r"[A-Za-z"                                                           # subsequent: latin letters
+    r"\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0A80-\u0AFF"              # + Indic letters
+    r"\u0B00-\u0B7F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F"
+    r"\u0300-\u036F"                                                     # combining marks
+    r"\s\.\'\-]*$"                                                       # + separators
 )
 _PHONE_RE = re.compile(r"^[6-9]\d{9}$")   # 10-digit India mobile, starts 6-9
 
@@ -171,7 +197,7 @@ def _validate_profile_fields(name: str, phone: str, address: str):
     phone = (phone or "").strip().replace("+91", "").replace(" ", "").replace("-", "")
     addr = (address or "").strip()
     if not _NAME_RE.match(name):
-        raise HTTPException(status_code=400, detail="Name looks invalid — 2 to 80 characters, letters / digits / spaces / . - ' allowed")
+        raise HTTPException(status_code=400, detail="Name must be letters only (2–80 chars). Spaces, hyphens, apostrophes and dots are allowed — no digits or special characters.")
     if not _PHONE_RE.match(phone):
         raise HTTPException(status_code=400, detail="Phone must be exactly 10 digits starting 6–9 (we add +91 automatically)")
     if len(addr) < 10:

@@ -188,7 +188,7 @@ export default function Profile() {
             placeholder="Enter full name"
             maxLength={50}
           />
-          <p className="text-[11px] text-muted-foreground mt-1">2–80 chars · Indian scripts, digits, spaces, hyphens & apostrophes all allowed.</p>
+          <p className="text-[11px] text-muted-foreground mt-1">2–80 letters · Latin or Indian scripts · spaces, hyphens, apostrophes &amp; dots allowed. No digits.</p>
         </div>
         <div>
           <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground flex items-center gap-1.5"><Phone className="h-3 w-3" /> Phone</label>
