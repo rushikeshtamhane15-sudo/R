@@ -3,6 +3,7 @@ import { api } from "../lib/api";
 import { MapPin, Phone, Mail, Clock, Building2, Navigation, ChefHat, MessageCircle } from "lucide-react";
 import SEO from "../components/SEO";
 import MapBrandCaption from "../components/MapBrandCaption";
+import ContactMap from "../components/ContactMap";
 
 /**
  * Contact — iter-79 Batch B #5.
@@ -26,12 +27,6 @@ function haversineKm(lat1, lng1, lat2, lng2) {
   const dLng = toRad(lng2 - lng1);
   const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(a));
-}
-
-function buildOsmEmbed(lat, lng) {
-  const dLat = 0.012, dLng = 0.012;
-  const bbox = `${(lng - dLng).toFixed(5)},${(lat - dLat).toFixed(5)},${(lng + dLng).toFixed(5)},${(lat + dLat).toFixed(5)}`;
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lng}`;
 }
 
 function digitsOnly(p) { return String(p || "").replace(/\D/g, ""); }
@@ -134,11 +129,14 @@ export default function Contact() {
   // haversine value is the immediate fallback so the pill still renders
   // while OSRM is in-flight (or if it 5xxs). Cached per (branch+rounded
   // user lat/lng) for 5 min so revisits don't re-hit the API.
+  // iter-115: we also pull back the route geometry (overview=full + GeoJSON)
+  // and render it as a dotted blue polyline on the new Leaflet map.
   // NB: hooks must run on every render — declared BEFORE the early-return
   // below to satisfy React's Rules of Hooks.
   const [roadKm, setRoadKm] = useState(null);
+  const [routeCoords, setRouteCoords] = useState(null);
   useEffect(() => {
-    if (!me || !branch?.lat || !branch?.lng) { setRoadKm(null); return; }
+    if (!me || !branch?.lat || !branch?.lng) { setRoadKm(null); setRouteCoords(null); return; }
     const k = `road:${branch.mess_id || `${branch.lat},${branch.lng}`}:${me.lat.toFixed(3)},${me.lng.toFixed(3)}`;
     try {
       const raw = localStorage.getItem(k);
@@ -146,19 +144,24 @@ export default function Contact() {
         const v = JSON.parse(raw);
         if (v?.ts && Date.now() - v.ts < 5 * 60 * 1000 && typeof v.km === "number") {
           setRoadKm(v.km);
+          if (Array.isArray(v.route)) setRouteCoords(v.route);
           return;
         }
       }
     } catch { /* ignore */ }
     let cancelled = false;
-    const url = `https://router.project-osrm.org/route/v1/driving/${me.lng},${me.lat};${branch.lng},${branch.lat}?overview=false`;
+    const url = `https://router.project-osrm.org/route/v1/driving/${me.lng},${me.lat};${branch.lng},${branch.lat}?overview=full&geometries=geojson`;
     fetch(url, { mode: "cors" })
       .then((r) => r.ok ? r.json() : null)
       .then((j) => {
         if (cancelled || !j?.routes?.[0]?.distance) return;
         const km = j.routes[0].distance / 1000;
+        // GeoJSON coords come back as [lng, lat] — swap for Leaflet's [lat, lng]
+        const geom = j.routes[0]?.geometry?.coordinates || [];
+        const route = geom.map(([lng, lat]) => [lat, lng]);
         setRoadKm(km);
-        try { localStorage.setItem(k, JSON.stringify({ km, ts: Date.now() })); } catch { /* quota */ }
+        setRouteCoords(route);
+        try { localStorage.setItem(k, JSON.stringify({ km, route, ts: Date.now() })); } catch { /* quota */ }
       })
       .catch(() => { /* OSRM offline → keep haversine fallback */ });
     return () => { cancelled = true; };
@@ -190,7 +193,7 @@ export default function Contact() {
   const bikeEtaMin = effectiveKm != null ? Math.max(1, Math.round((effectiveKm / 25) * 60)) : null;
   // Drop the leading "~" once we have a real-road value; keep it for haversine.
   const distancePrefix = roadKm != null ? "" : "~";
-  const mapSrc = (branch.lat && branch.lng) ? buildOsmEmbed(branch.lat, branch.lng) : "";
+  // Map renders inline below via <ContactMap />.
 
   const phoneDigits = digitsOnly(branch.manager_phone);
   const waLink = phoneDigits ? `https://wa.me/${phoneDigits.startsWith("91") ? phoneDigits : "91" + phoneDigits}` : null;
@@ -242,16 +245,14 @@ export default function Contact() {
           <ContactRow icon={Clock} label={labelHours} value={hours} />
         </div>
         <div className="md:col-span-3 surface-3d rounded-2xl overflow-hidden border border-border bg-card" data-testid="contact-map">
-          {mapSrc ? (
+          {(branch.lat && branch.lng) ? (
             <div className="relative h-[420px]">
-              <iframe
-                title={`${branch.name} location`}
-                src={mapSrc}
-                className="absolute inset-x-0 top-0 w-full h-[448px] border-0"
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                allowFullScreen
-                data-testid="contact-map-iframe"
+              <ContactMap
+                branchLat={branch.lat}
+                branchLng={branch.lng}
+                meLat={me?.lat}
+                meLng={me?.lng}
+                routeCoords={routeCoords}
               />
               <button
                 type="button"
