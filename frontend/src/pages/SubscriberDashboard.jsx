@@ -9,6 +9,7 @@ import PendingDuesCard from "../components/PendingDuesCard";
 import PendingCashOtpFlash from "../components/PendingCashOtpFlash";
 import TodayMessMenuFlash from "../components/TodayMessMenuFlash";
 import AdminNoticesBanner from "../components/AdminNoticesBanner";
+import DashboardSkeleton from "../components/DashboardSkeleton";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
 import {
@@ -106,7 +107,7 @@ export default function SubscriberDashboard() {
     return !s || s.visible !== false;
   };
 
-  if (loading) return <div className="p-12 text-center text-muted-foreground flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading dashboard…</div>;
+  if (loading) return <DashboardSkeleton />;
 
   // Section renderers — keyed for ordering
   const renderSection = (id) => {
