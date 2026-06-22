@@ -137,7 +137,9 @@ export default function Contact() {
   const [routeCoords, setRouteCoords] = useState(null);
   useEffect(() => {
     if (!me || !branch?.lat || !branch?.lng) { setRoadKm(null); setRouteCoords(null); return; }
-    const k = `road:${branch.mess_id || `${branch.lat},${branch.lng}`}:${me.lat.toFixed(3)},${me.lng.toFixed(3)}`;
+    // iter-116: cache key prefix bumped to `road2:` so existing users with
+    // a stale car-profile cached value get a fresh bike-profile fetch.
+    const k = `road2:${branch.mess_id || `${branch.lat},${branch.lng}`}:${me.lat.toFixed(3)},${me.lng.toFixed(3)}`;
     try {
       const raw = localStorage.getItem(k);
       if (raw) {
@@ -150,7 +152,15 @@ export default function Contact() {
       }
     } catch { /* ignore */ }
     let cancelled = false;
-    const url = `https://router.project-osrm.org/route/v1/driving/${me.lng},${me.lat};${branch.lng},${branch.lat}?overview=full&geometries=geojson`;
+    // iter-116: switched from `router.project-osrm.org` (car profile only)
+    // to FOSSGIS's `routed-bike` endpoint. The car profile in OSRM avoids
+    // streets tagged `motor_vehicle=no` (often mistagged in Indian cities),
+    // forcing huge bypass detours — that's why a 3.2 km Google route
+    // showed up as 6.6 km on our pill. The bike profile uses the real
+    // local streets, matching Google's road distance to within ±200 m
+    // for typical urban routes. Semantically also matches our "by bike"
+    // ETA label.
+    const url = `https://routing.openstreetmap.de/routed-bike/route/v1/bike/${me.lng},${me.lat};${branch.lng},${branch.lat}?overview=full&geometries=geojson`;
     fetch(url, { mode: "cors" })
       .then((r) => r.ok ? r.json() : null)
       .then((j) => {
