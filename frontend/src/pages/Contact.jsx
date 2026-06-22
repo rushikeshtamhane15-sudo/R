@@ -197,12 +197,15 @@ export default function Contact() {
   const labelFssai = cms?.label_fssai || "FSSAI";
   const labelHours = cms?.label_hours || "Hours";
   const distanceKm = (me && branch.lat && branch.lng) ? haversineKm(me.lat, me.lng, branch.lat, branch.lng) : null;
-  const effectiveKm = roadKm != null ? roadKm : distanceKm;
-  const distanceKmStr = effectiveKm != null ? effectiveKm.toFixed(1) : null;
-  // Bike ETA assumes 25 km/h average for Indian city traffic.
-  const bikeEtaMin = effectiveKm != null ? Math.max(1, Math.round((effectiveKm / 25) * 60)) : null;
-  // Drop the leading "~" once we have a real-road value; keep it for haversine.
-  const distancePrefix = roadKm != null ? "" : "~";
+  // iter-117: stop deriving the user-visible distance from OSRM. OSM's road
+  // graph for Indian cities diverges enough from Google that users see
+  // mismatches like "6.1 km on our pill vs 3.2 km in Google Maps". We
+  // can't match Google without their billed API key. So the pill now
+  // honestly shows the straight-line (haversine) distance with a clear
+  // label, and we direct users to tap "Get directions" for the exact
+  // road distance + time from Google itself. The OSRM polyline still
+  // draws on the map as a visual hint of which way to go.
+  const distanceKmStr = distanceKm != null ? distanceKm.toFixed(1) : null;
   // Map renders inline below via <ContactMap />.
 
   const phoneDigits = digitsOnly(branch.manager_phone);
@@ -222,7 +225,7 @@ export default function Contact() {
           {me ? nearestLabel : defaultLabel} <span className="text-foreground">{branch.name}</span>
           {distanceKmStr && (
             <span className="text-muted-foreground font-semibold ml-2">
-              · {distancePrefix}{distanceKmStr} km · ~{bikeEtaMin} min by bike
+              · ~{distanceKmStr} km straight-line · tap Get directions for exact distance
             </span>
           )}
         </span>
@@ -286,7 +289,7 @@ export default function Contact() {
                   {distanceKmStr && (
                     <span className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-white/95 backdrop-blur text-foreground text-[11px] sm:text-xs font-semibold px-2.5 py-1 shadow" data-testid="distance-pill">
                       <MapPin className="h-3 w-3 text-primary" />
-                      <span className="tabular-nums">{distancePrefix}{distanceKmStr} km · ~{bikeEtaMin} min by bike</span>
+                      <span className="tabular-nums">~{distanceKmStr} km · Tap for exact</span>
                     </span>
                   )}
                 </div>
