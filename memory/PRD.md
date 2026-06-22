@@ -18,6 +18,11 @@ Build a tiffin / dining subscription app with:
 
 ## Implemented (Feb 2026)
 
+### Iteration 118 (Feb 2026, fork) — Dashboard Skeleton-Shimmer
+- **`SubscriberDashboard.jsx` now renders `<DashboardSkeleton/>` while `loading=true`** (initial 6-call `Promise.allSettled` fan-out from `load()`).
+- New `/app/frontend/src/components/DashboardSkeleton.jsx` mirrors the dashboard layout exactly: wallet card → today menu (2-col grid) → QR/scan row → weekly history (7-col grid). All blocks pulse via Tailwind `animate-pulse`. testid `dashboard-skeleton`.
+- Verified live: with throttled `/api/my/*`, `/api/menu/*`, `/api/dashboard/*` the skeleton paints immediately on `/dashboard` SPA-nav, then swaps to content once the first APIs resolve. Lint clean.
+
 ### Iteration 99 (Feb 24, 2026) — Profile Save + Signed Sub-Days Adjustment
 - **🚨 Production bug — "Save failed" on /profile fixed.** Root cause: `_NAME_RE` only accepted Latin alphabet, rejecting digits / non-Latin-script names; `address` minimum was 12 chars and failed common Indian formats.
   - `_NAME_RE` rewritten with explicit Indic block ranges (Devanagari `\u0900-\u097F`, Bengali, Gurmukhi, Gujarati, Odia, Tamil, Telugu, Kannada, Malayalam) + Latin diacritic combining marks. Latin `\w` + space + `. ' -` still accepted.
