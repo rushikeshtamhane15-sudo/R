@@ -77,7 +77,14 @@ export default function RestaurantCheckout() {
   }, [user, navigate]);
 
   // Persist cart edits — but ONLY when this is the persistent cart, not buy-now.
-  useEffect(() => { if (!isBuyNow) saveCart(cart); else { try { sessionStorage.setItem(BUYNOW_KEY, JSON.stringify(cart)); } catch { /* non-critical: storage/network unavailable */ } } }, [cart, isBuyNow]);
+  useEffect(() => {
+    if (!isBuyNow) {
+      saveCart(cart);
+    } else {
+      try { sessionStorage.setItem(BUYNOW_KEY, JSON.stringify(cart)); }
+      catch (e) { console.warn("[RestaurantCheckout] sessionStorage write failed", e); }
+    }
+  }, [cart, isBuyNow]);
 
   const priced = useMemo(() => priceCart(cart, menu || []), [cart, menu]);
   const subtotal = priced.subtotal;
@@ -183,10 +190,15 @@ export default function RestaurantCheckout() {
 
   const finalize = (order) => {
     setSuccess(order);
-    if (isBuyNow) { try { sessionStorage.removeItem(BUYNOW_KEY); } catch { /* non-critical: storage/network unavailable */ } }
-    else clearCart();
+    if (isBuyNow) {
+      try { sessionStorage.removeItem(BUYNOW_KEY); }
+      catch (e) { console.warn("[RestaurantCheckout] sessionStorage cleanup failed", e); }
+    } else {
+      clearCart();
+    }
     setSubmitting(false);
-    try { checkAuth?.(); } catch { /* non-critical: storage/network unavailable */ }
+    try { checkAuth?.(); }
+    catch (e) { console.warn("[RestaurantCheckout] checkAuth refresh failed", e); }
     toast.success("Order placed · enjoy your meal!");
   };
 

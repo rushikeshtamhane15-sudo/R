@@ -143,9 +143,10 @@ export default function Restaurant() {
         "efc_buynow_v1",
         JSON.stringify({ [`${it.id}::${v}`]: { id: it.id, variant: v, qty: 1 } })
       );
-    } catch { /* sessionStorage unavailable — non-critical */ }
+    } catch (e) { console.warn("[Restaurant] buynow sessionStorage write failed", e); }
     if (!user) {
-      try { sessionStorage.setItem("efc_pending_action_v1", "/restaurant/checkout?buynow=1"); } catch { /* sessionStorage unavailable — non-critical */ }
+      try { sessionStorage.setItem("efc_pending_action_v1", "/restaurant/checkout?buynow=1"); }
+      catch (e) { console.warn("[Restaurant] pending-action sessionStorage write failed", e); }
       navigate(`/login?next=${encodeURIComponent("/restaurant/checkout?buynow=1")}`);
       return;
     }
@@ -156,7 +157,8 @@ export default function Restaurant() {
     if (totalCount === 0) { toast.error("Your cart is empty"); return; }
     if (!(await requireServiceable())) return;
     if (!user) {
-      try { sessionStorage.setItem("efc_pending_action_v1", "/restaurant/checkout"); } catch { /* sessionStorage unavailable — non-critical */ }
+      try { sessionStorage.setItem("efc_pending_action_v1", "/restaurant/checkout"); }
+      catch (e) { console.warn("[Restaurant] pending-action sessionStorage write failed", e); }
       navigate(`/login?next=${encodeURIComponent("/restaurant/checkout")}`);
       return;
     }
@@ -186,7 +188,8 @@ export default function Restaurant() {
 
   const dismissReorder = () => {
     setReorderDismissed(true);
-    try { sessionStorage.setItem("efc_reorder_dismissed_v1", "1"); } catch { /* sessionStorage unavailable — non-critical */ }
+    try { sessionStorage.setItem("efc_reorder_dismissed_v1", "1"); }
+    catch (e) { console.warn("[Restaurant] reorder-dismissed sessionStorage write failed", e); }
   };
 
   return (

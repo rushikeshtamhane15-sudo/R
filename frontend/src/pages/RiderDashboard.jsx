@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
@@ -47,7 +47,7 @@ export default function RiderDashboard() {
 
   useEffect(() => { if (user && user.role !== "rider") navigate("/"); }, [user, navigate]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const [m, o, e] = await Promise.all([
         api.get("/rider/me"),
@@ -68,22 +68,28 @@ export default function RiderDashboard() {
       const msg = err?.response?.data?.detail || err?.message || "Could not load rider dashboard";
       setLoadErr(msg);
     }
-  };
+  }, [soundOn]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
   // Load admin-uploaded custom sound (if any) so rider's pickup pings use it.
   useEffect(() => {
-    api.get("/notify-sound").then((r) => setCustomSoundUrl(r.data?.sound_url || null)).catch(() => {});
+    api.get("/notify-sound")
+      .then((r) => setCustomSoundUrl(r.data?.sound_url || null))
+      .catch((e) => console.warn("[RiderDashboard] notify-sound load failed", e));
   }, []);
-  useEffect(() => { const t = setInterval(load, POLL_INTERVAL_MS); return () => clearInterval(t); }, [soundOn]);
+  useEffect(() => { const t = setInterval(load, POLL_INTERVAL_MS); return () => clearInterval(t); }, [load]);
 
   // Geolocation pings while there's an active out_for_delivery order
   useEffect(() => {
     const hasActive = orders.some((o) => o.status === "out_for_delivery");
     if (!hasActive || !navigator.geolocation) return;
     const tick = () => navigator.geolocation.getCurrentPosition(
-      (pos) => { api.post("/rider/location", { lat: pos.coords.latitude, lng: pos.coords.longitude }).catch(() => {}); },
-      () => {}, { enableHighAccuracy: true, timeout: 8000, maximumAge: 5000 },
+      (pos) => {
+        api.post("/rider/location", { lat: pos.coords.latitude, lng: pos.coords.longitude })
+          .catch((e) => console.warn("[RiderDashboard] rider/location ping failed", e));
+      },
+      (e) => console.warn("[RiderDashboard] geolocation error", e),
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 5000 },
     );
     tick();
     const t = setInterval(tick, PING_INTERVAL_MS);

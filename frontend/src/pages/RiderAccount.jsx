@@ -46,7 +46,8 @@ export default function RiderAccount() {
   };
 
   const handleLogout = async () => {
-    try { await api.post("/auth/logout"); } catch {}
+    try { await api.post("/auth/logout"); }
+    catch (e) { console.warn("[RiderAccount] logout POST failed (clearing local state anyway)", e); }
     setUser(null);
     toast.success("Logged out");
     navigate("/login", { replace: true });

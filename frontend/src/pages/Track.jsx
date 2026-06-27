@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
@@ -16,7 +16,9 @@ export default function Track() {
   const [confirming, setConfirming] = useState(false);
   const [rosterId, setRosterId] = useState(null);
 
-  const load = async () => {
+  // Stable `load` ref so the polling interval keeps the same reference across
+  // re-renders — prevents the setInterval from being orphaned and re-bound.
+  const load = useCallback(async () => {
     try {
       const [t, p] = await Promise.all([
         api.get("/my/deliveries/track"),
@@ -24,14 +26,19 @@ export default function Track() {
       ]);
       setData(t.data);
       setRosterId(p.data.pending?.[0]?.roster_id || null);
-    } catch { /* non-critical: storage/network unavailable */ } finally { setLoading(false); }
-  };
+    } catch (e) {
+      // Non-critical: tracking poll can fail transiently (network/login expired).
+      // We surface a console warning so the bug is debuggable, but don't toast
+      // the user — they'd see one banner every 10 s while offline.
+      console.warn("[Track] poll failed", e);
+    } finally { setLoading(false); }
+  }, []);
 
   useEffect(() => {
     load();
     const id = setInterval(load, POLL_MS);
     return () => clearInterval(id);
-  }, []);
+  }, [load]);
 
   const confirm = async () => {
     if (!rosterId) return;

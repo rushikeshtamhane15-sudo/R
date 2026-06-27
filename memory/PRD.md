@@ -18,6 +18,17 @@ Build a tiffin / dining subscription app with:
 
 ## Implemented (Feb 2026)
 
+### Iteration 122 (Feb 2026, fork) — Code-Review Cleanup Pass 2 (React Hooks & Empty Catches)
+Continued from iter-121's safe backend fixes. This pass focuses on the **critical user-facing React flows** flagged by the code-review report. Big component-split + `make_router()` refactors still deferred to dedicated sessions (still too risky to bundle).
+- **`useEffect` dependency fixes for the 4 critical flows** (Track, RiderDashboard, RestaurantCheckout, Restaurant) — wrapped polling functions in `useCallback` with proper deps so:
+  - `Track.jsx` — `load()` now stable, polling interval re-binds correctly when component re-mounts.
+  - `RiderDashboard.jsx` — `load()` wrapped in `useCallback([soundOn])`, all 3 effects (initial load, poll, geo-ping) now have correct dep arrays. Fixes stale-closure bug where `soundOn` toggle wouldn't take effect until next poll cycle.
+- **Empty catch blocks** (`catch { /*…*/ }`) in **7 user-facing pages** now log via `console.warn(label, e)`:
+  - `Track.jsx`, `RestaurantCheckout.jsx`, `Restaurant.jsx`, `RiderAccount.jsx`, `RiderDashboard.jsx`, `Landing.jsx`
+  - Behaviour unchanged for end-users — these are still non-fatal sessionStorage / network swallows — but they're now debuggable in browser DevTools.
+- **Array-index-as-key fixed in `Landing.jsx`** (5 sites) — switched to content-derived keys (`${item.title || 'fallback'}-${index}`). Stable enough that React can match items across re-renders when admin edits the CMS, while still falling back gracefully on empty titles. Same pattern can be applied to the other 16 index-as-key sites next pass.
+- **Lint clean** on all 6 modified files. Live smoke test: `/`, `/restaurant`, `/plans` all render with zero console errors.
+
 ### Iteration 121 (Feb 2026, fork) — Code-Review Cleanup (Backend Security & Lint)
 Applied from the static-analysis report focusing on **safe, high-value Python backend fixes**. Big React refactors deferred to a dedicated session (each one carries regression risk).
 - **Circular-import dependency fixed** — `routes/cart_saver.py` previously did module-level `import server`, which would crash on cold boot if route registration order changed. Now uses the same `from shared import server` late-binding shim pattern as the other 18 routes.

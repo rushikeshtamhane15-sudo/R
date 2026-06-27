@@ -43,7 +43,9 @@ export default function Landing() {
         const r = await api.get("/content/landing");
         setContent(r.data);
         writeCmsCache("/content/landing", r.data);
-      } catch {}
+      } catch (e) {
+        console.warn("[Landing] CMS /content/landing fetch failed (using cache)", e);
+      }
     })();
   }, []);
 
@@ -158,7 +160,7 @@ export default function Landing() {
             </p>
             <div className="mt-10 space-y-6">
               {(c.how_features || []).map((f, i) => (
-                <div key={i} className="flex gap-5 items-start" data-testid={`how-feature-${i}`}>
+                <div key={`${f.title || 'feature'}-${i}`} className="flex gap-5 items-start" data-testid={`how-feature-${i}`}>
                   <div className="h-12 w-12 rounded-xl bg-accent flex items-center justify-center shrink-0">
                     <Icon name={f.icon} className="h-5 w-5 text-primary" />
                   </div>
@@ -188,7 +190,7 @@ export default function Landing() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {(c.band_items || []).map((f, i) => (
-              <div key={i} className="surface-3d tile-3d bg-card rounded-2xl border border-border p-8 transition-all hover:-translate-y-1" data-testid={`feature-card-${i}`}>
+              <div key={`${f.title || 'band'}-${i}`} className="surface-3d tile-3d bg-card rounded-2xl border border-border p-8 transition-all hover:-translate-y-1" data-testid={`feature-card-${i}`}>
                 <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center mb-6">
                   <Icon name={f.icon} className="h-5 w-5 text-primary" />
                 </div>
@@ -202,7 +204,7 @@ export default function Landing() {
 
       {/* Admin-editable custom sections */}
       {(c.sections || []).map((s, i) => (
-        <section key={i} className="max-w-7xl mx-auto px-6 md:px-8 lg:px-12 py-14 md:py-20" data-testid={`custom-section-${i}`}>
+        <section key={`${s.heading || 'section'}-${i}`} className="max-w-7xl mx-auto px-6 md:px-8 lg:px-12 py-14 md:py-20" data-testid={`custom-section-${i}`}>
           {s.align === "none" || !s.image_url ? (
             <div className="max-w-3xl">
               <h2 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight leading-[1.1]">{s.heading}</h2>
@@ -285,7 +287,7 @@ function HealthyPromise({ c, alwaysBgClass }) {
             </div>
             <ul className="mt-6 divide-y divide-border">
               {never.map((it, i) => (
-                <li key={i} className="flex items-start gap-4 py-4" data-testid={`never-item-${i}`}>
+                <li key={`${it.label || 'never'}-${i}`} className="flex items-start gap-4 py-4" data-testid={`never-item-${i}`}>
                   <span className="font-display font-extrabold text-xl text-destructive shrink-0 w-12">0%</span>
                   <div className="min-w-0">
                     <p className="font-semibold text-sm">{it.label}</p>
@@ -309,7 +311,7 @@ function HealthyPromise({ c, alwaysBgClass }) {
             </div>
             <ul className="mt-6 divide-y divide-white/15">
               {always.map((it, i) => (
-                <li key={i} className="flex items-start gap-4 py-4" data-testid={`always-item-${i}`}>
+                <li key={`${it.label || 'always'}-${i}`} className="flex items-start gap-4 py-4" data-testid={`always-item-${i}`}>
                   <span className="font-display font-extrabold text-xl shrink-0 w-12">100%</span>
                   <div className="min-w-0 flex items-start gap-3">
                     <span className="inline-flex h-7 w-7 shrink-0 rounded-full bg-white/15 items-center justify-center mt-0.5">
