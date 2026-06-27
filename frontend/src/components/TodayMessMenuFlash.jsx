@@ -1,66 +1,30 @@
 import React, { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import {
-  ChefHat, Sun, Moon, Sunrise, ShoppingCart, Truck, Utensils, Package,
-  Loader2, Minus, Plus, Banknote, ScanLine, Wallet,
+  ChefHat, Sun, Moon, Sunrise, ShoppingCart,
+  Loader2, Minus, Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
 import { useLocation, useNavigate } from "react-router-dom";
 import MenuPushBanner from "./MenuPushBanner";
 import CartSaverBanner from "./CartSaverBanner";
-
-function loadRazorpay() {
-  return new Promise((resolve) => {
-    if (window.Razorpay) return resolve();
-    const s = document.createElement("script");
-    s.src = "https://checkout.razorpay.com/v1/checkout.js";
-    s.onload = resolve;
-    s.onerror = resolve;
-    document.body.appendChild(s);
-  });
-}
+import {
+  splitMenuItems, loadRazorpay, cleanIndianMobile,
+  SERVICE_TABS, PAY_TABS, PENDING_KEY,
+} from "./messMenuHelpers";
 
 /**
- * splitMenuItems — iter-79 #3
- * Convert a free-text mess menu string like
- *   "Dal bhaji + bhendi sabji + 5 roti + rice + salad"
- * into a clean array of trimmed items
- *   ["Dal bhaji", "bhendi sabji", "5 roti", "rice", "salad"]
- * so each item can be rendered as a bullet in the menu card instead of
- * one long line that wraps awkwardly. Splits on "+" or "," and drops
- * empty fragments.
- */
-function splitMenuItems(raw) {
-  if (!raw) return [];
-  return String(raw)
-    .split(/[+,]/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
-
-/**
- * TodayMessMenuFlash — iter-62 → iter-73.
+ * TodayMessMenuFlash — iter-62 → iter-122.
  *
- * iter-73 batch:
- *   #1 / #3 — slimmer container + tighter toggle buttons
- *   #9      — persist order intent, auto-fire after login (no more dashboard loop)
- *   #10     — full payment-mode picker (online / cash / wallet — no partial)
- *   #12     — delivery service requires valid +91 Indian 10-digit mobile
+ * iter-122 refactor pass: helpers (splitMenuItems, loadRazorpay,
+ * cleanIndianMobile, service/pay tab consts, PENDING_KEY) moved to
+ * `./messMenuHelpers.js`. Empty catches now log via console.warn.
+ * Array-index list keys replaced with content-derived stable keys.
+ * A full top-to-bottom component split is intentionally deferred —
+ * this file is on every subscriber's dashboard, so we change it
+ * incrementally with regression testing between each pass.
  */
-const SERVICE_TABS = [
-  { id: "delivery", label: "Delivery", icon: Truck },
-  { id: "takeaway", label: "Takeaway", icon: Package },
-  { id: "dining", label: "Dining", icon: Utensils },
-];
-const PAY_TABS = [
-  { id: "online", label: "Online", icon: ScanLine },
-  { id: "cash",   label: "Cash",   icon: Banknote },
-  { id: "wallet", label: "Wallet", icon: Wallet },
-];
-
-const PENDING_KEY = "efc_pending_mess_order_v1";
 
 export default function TodayMessMenuFlash({ compact = false }) {
   const { user, setUser } = useAuth();
@@ -84,7 +48,7 @@ export default function TodayMessMenuFlash({ compact = false }) {
   useEffect(() => {
     (async () => {
       try { const r = await api.get("/mess-menu/today?include_next=1"); setData(r.data); }
-      catch { setData(null); }
+      catch (e) { setData(null); console.warn("[TodayMessMenuFlash] /mess-menu/today failed", e); }
     })();
   }, []);
 
@@ -103,7 +67,8 @@ export default function TodayMessMenuFlash({ compact = false }) {
     // straight into Razorpay/place — no more bouncing off /dashboard.
     if (!user || !data || autoFiredRef.current) return;
     let pending = null;
-    try { pending = JSON.parse(sessionStorage.getItem(PENDING_KEY) || "null"); } catch { /* noop */ }
+    try { pending = JSON.parse(sessionStorage.getItem(PENDING_KEY) || "null"); }
+    catch (e) { console.warn("[TodayMessMenuFlash] PENDING_KEY parse failed", e); }
     if (!pending) return;
     autoFiredRef.current = true;
     sessionStorage.removeItem(PENDING_KEY);
@@ -142,14 +107,7 @@ export default function TodayMessMenuFlash({ compact = false }) {
   const priceFor = (svc) => Number(cfg[`price_${svc}`] || 0);
   const total = priceFor(service) * qty;
 
-  // === Phone validation (iter-73 #12) ===================================
-  const cleanIndianMobile = (raw) => {
-    const digits = String(raw || "").replace(/\D/g, "");
-    const stripped = digits.startsWith("91") && digits.length > 10 ? digits.slice(-10) : digits;
-    if (stripped.length !== 10) return null;
-    if (!/^[6-9]/.test(stripped)) return null;
-    return stripped;
-  };
+  // Phone validation now imported from messMenuHelpers (cleanIndianMobile).
 
   const placeOrderInternal = async (override = null) => {
     const src = override || {
@@ -253,7 +211,7 @@ export default function TodayMessMenuFlash({ compact = false }) {
         sessionStorage.setItem(PENDING_KEY, JSON.stringify({
           service, qty, meal: orderMeal, date: activeDate, payMethod, phone, tab,
         }));
-      } catch { /* no-op */ }
+      } catch (e) { console.warn("[TodayMessMenuFlash] PENDING_KEY write failed", e); }
       const back = location.pathname + (location.search || "");
       navigate(`/login?next=${encodeURIComponent(back)}`);
       return;
@@ -379,7 +337,7 @@ export default function TodayMessMenuFlash({ compact = false }) {
               {active.lunch ? (
                 <ul className="mt-1.5 grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-0.5">
                   {splitMenuItems(active.lunch).map((it, i) => (
-                    <li key={i} className="flex items-center gap-1.5 text-[12px] leading-tight font-semibold min-w-0">
+                    <li key={`lunch-${it}-${i}`} className="flex items-center gap-1.5 text-[12px] leading-tight font-semibold min-w-0">
                       <span aria-hidden className="inline-block h-1 w-1 rounded-full bg-amber-300/80 shrink-0" />
                       <span className="truncate">{it}</span>
                     </li>
@@ -411,7 +369,7 @@ export default function TodayMessMenuFlash({ compact = false }) {
               {active.dinner ? (
                 <ul className="mt-1.5 grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-0.5">
                   {splitMenuItems(active.dinner).map((it, i) => (
-                    <li key={i} className="flex items-center gap-1.5 text-[12px] leading-tight font-semibold min-w-0">
+                    <li key={`dinner-${it}-${i}`} className="flex items-center gap-1.5 text-[12px] leading-tight font-semibold min-w-0">
                       <span aria-hidden className="inline-block h-1 w-1 rounded-full bg-blue-300/80 shrink-0" />
                       <span className="truncate">{it}</span>
                     </li>

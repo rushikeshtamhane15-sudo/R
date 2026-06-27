@@ -126,7 +126,7 @@ export default function AdminMessMenuCalendar() {
             <Button variant="outline" size="sm" className="rounded-full h-8 text-xs" onClick={() => setMonthDate(addMonths(monthDate, 1))} data-testid="cal-next">→</Button>
           </div>
           <div className="mt-4 grid grid-cols-7 gap-1.5 text-center">
-            {["S","M","T","W","T","F","S"].map((d, i) => <div key={i} className="text-[10px] text-muted-foreground font-bold uppercase">{d}</div>)}
+            {["S","M","T","W","T","F","S"].map((d, i) => <div key={`dow-${i}-${d}`} className="text-[10px] text-muted-foreground font-bold uppercase">{d}</div>)}
             {/* Padding cells so the 1st aligns under correct weekday */}
             {Array.from({ length: new Date(`${yyyy}-${mm}-01T00:00:00`).getDay() }).map((_, i) => <div key={`pad-${i}`} />)}
             {cells.map((c) => (

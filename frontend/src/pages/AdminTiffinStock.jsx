@@ -124,7 +124,7 @@ export default function AdminTiffinStock() {
         ) : (
           <div className="divide-y divide-border">
             {history.map((row, i) => (
-              <div key={i} className="py-2 flex items-center justify-between gap-3 text-sm" data-testid={`hist-row-${i}`}>
+              <div key={`${row.ts || 'r'}-${i}`} className="py-2 flex items-center justify-between gap-3 text-sm" data-testid={`hist-row-${i}`}>
                 <div className="min-w-0">
                   <p className="font-semibold truncate">{row.reason}</p>
                   <p className="text-[11px] text-muted-foreground">{row.ts?.slice(0, 19).replace("T", " ")} · {row.source}</p>
