@@ -189,11 +189,11 @@ async def send_expiry_reminder(db, *, phone: str, name: str, days_left: int, pla
         body = (f"Your <b>{plan_name}</b> ended on {end_date}. Renew today to skip the gap "
                 f"and keep your daily {TAGLINE.lower()} flowing.")
     elif days_left == 2:
-        title = f"Your plan ends in 2 days"
+        title = "Your plan ends in 2 days"
         body = (f"Hi {name}, your <b>{plan_name}</b> ends on {end_date}. "
                 f"Renew now and we'll extend without missing a meal.")
     else:
-        title = f"Your plan ends today"
+        title = "Your plan ends today"
         body = (f"Hi {name}, today is the last day of your <b>{plan_name}</b>. Renew now to continue.")
     preview = _branded_preview(title, body, cta_label="Renew now", cta_url="/plans")
     res = await _send_via_msg91(
@@ -229,7 +229,7 @@ async def send_restaurant_order_confirmation(db, *, phone: str, name: str, order
 async def send_delivery_otp(db, *, phone: str, name: str, otp: str, order_id: str) -> dict:
     """OTP sent to customer when rider hits 'I've arrived'. Customer reads it out → rider enters → order is closed."""
     phone_n = _normalize_phone(phone)
-    title = f"Your delivery OTP"
+    title = "Your delivery OTP"
     body = (f"Hi {name}, your rider has arrived with order <b>{order_id}</b>. "
             f"Share this OTP with the rider to confirm delivery: <b style='font-size:20px;letter-spacing:3px'>{otp}</b>")
     preview = _branded_preview(title, body)

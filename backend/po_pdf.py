@@ -44,7 +44,6 @@ def build_po_pdf(po: dict) -> bytes:
     h1 = ParagraphStyle("H1", parent=styles["Heading1"], textColor=BRAND_DARK, fontSize=22, leading=26, spaceAfter=4)
     overline = ParagraphStyle("Overline", parent=styles["Normal"], textColor=BRAND_RED, fontSize=8, leading=10, fontName="Helvetica-Bold")
     sub = ParagraphStyle("Sub", parent=styles["Normal"], textColor=MUTED, fontSize=10, leading=14)
-    cell = ParagraphStyle("Cell", parent=styles["Normal"], fontSize=9, leading=12)
     foot = ParagraphStyle("Foot", parent=styles["Normal"], fontSize=9, leading=14, textColor=MUTED)
 
     story = []

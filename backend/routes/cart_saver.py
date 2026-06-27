@@ -25,7 +25,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-import server
+from shared import server  # late-binding via shared shim — avoids circular import on cold boot
 
 router = APIRouter()
 

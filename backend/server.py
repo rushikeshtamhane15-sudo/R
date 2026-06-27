@@ -1096,9 +1096,8 @@ async def run_expiry_reminders() -> dict:
                 else:
                     failed += 1
 
-            wa_res = {"status": "skipped"}
             if user.get("phone"):
-                wa_res = await wa_send_expiry(
+                await wa_send_expiry(
                     db, phone=user["phone"], name=user.get("name") or "there",
                     days_left=days_left, plan_name=sub.get("plan_name") or "Your plan",
                     end_date=end_pretty,

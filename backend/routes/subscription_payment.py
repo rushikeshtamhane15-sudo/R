@@ -32,7 +32,7 @@ Admin dashboards
 """
 from __future__ import annotations
 
-import random
+import secrets
 import uuid
 from typing import Optional
 
@@ -50,7 +50,8 @@ MIN_PARTIAL_FRACTION = 0.5  # user must pay >= 50% upfront
 # ---------------------------------------------------------------------------
 
 def _gen_otp() -> str:
-    return f"{random.randint(0, 999999):06d}"
+    # secrets.randbelow ⇒ cryptographically secure (unlike random.randint)
+    return f"{secrets.randbelow(1000000):06d}"
 
 
 def _gen_slip_no() -> str:

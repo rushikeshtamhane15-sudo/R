@@ -9,7 +9,7 @@ decorator runs.
 from __future__ import annotations
 
 import asyncio
-import random
+import secrets
 import uuid
 from datetime import timedelta
 from typing import Optional
@@ -83,7 +83,9 @@ async def send_otp(payload: server.SendOtpRequest, request: Request):
         server.logger.warning(f"[RATE LIMIT] /auth/send-otp blocked phone={phone} ip={ip} → {e}")
         raise HTTPException(status_code=429, detail=str(e), headers={"Retry-After": str(e.retry_after)})
 
-    otp = f"{random.randint(100000, 999999)}"
+    # secrets.randbelow is cryptographically secure (unlike random.randint),
+    # so observers cannot predict the next OTP from prior samples.
+    otp = f"{secrets.randbelow(900000) + 100000}"
     expires_at = server.now_utc() + timedelta(minutes=10)
     await server.db.otp_codes.update_one(
         {"phone": phone},

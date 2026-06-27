@@ -33,7 +33,7 @@ Payment split:
 """
 from __future__ import annotations
 
-import random
+import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -93,7 +93,8 @@ def _now_iso() -> str:
 
 
 async def _gen_otp(length: int = 4) -> str:
-    return "".join(random.choices("0123456789", k=length))
+    # `secrets` is cryptographically secure — `random` was predictable from prior OTPs.
+    return "".join(secrets.choice("0123456789") for _ in range(length))
 
 
 async def _credit_rider_wallet(user_id: str, delta: float, reason: str, order_id: Optional[str] = None) -> None:
@@ -200,11 +201,13 @@ async def rider_arrived(order_id: str, user: server.User = Depends(server.get_cu
     except Exception as e:
         server.logger.warning(f"[RIDER] WA delivery_otp failed: {e}")
     try:
-        from sms import send_otp as send_sms_otp  # legacy SMS OTP function — re-use signature
-        # If sms.py has no generic OTP send, log only
-        await send_sms_otp(phone=order.get("phone", ""), otp=otp) if hasattr(__import__("sms"), "send_otp") else None
-    except Exception:
-        pass
+        # SMS leg is best-effort — WhatsApp above is the primary channel.
+        # We swallow exceptions here so a failing SMS provider never blocks
+        # the rider's "arrived" flow.
+        from sms import send_otp as send_sms_otp  # type: ignore
+        await send_sms_otp(phone=order.get("phone", ""), otp=otp)
+    except Exception:  # noqa: BLE001
+        server.logger.debug(f"[RIDER] SMS OTP best-effort failed for order={order_id} (continuing)")
 
     server.logger.warning(f"[MOCKED DELIVERY OTP] order={order_id} otp={otp}")
     out = {"ok": True, "otp_sent": True}

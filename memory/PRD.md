@@ -18,6 +18,20 @@ Build a tiffin / dining subscription app with:
 
 ## Implemented (Feb 2026)
 
+### Iteration 121 (Feb 2026, fork) — Code-Review Cleanup (Backend Security & Lint)
+Applied from the static-analysis report focusing on **safe, high-value Python backend fixes**. Big React refactors deferred to a dedicated session (each one carries regression risk).
+- **Circular-import dependency fixed** — `routes/cart_saver.py` previously did module-level `import server`, which would crash on cold boot if route registration order changed. Now uses the same `from shared import server` late-binding shim pattern as the other 18 routes.
+- **Cryptographically-secure OTP generation** — replaced `random.randint` / `random.choices` with `secrets.randbelow` / `secrets.choice` in 3 production OTP paths:
+  - `routes/auth.py:86` — login OTP
+  - `routes/rider.py:96` — delivery OTP
+  - `routes/subscription_payment.py:53` — cash-payment OTP
+  Observers can no longer predict the next OTP from prior samples (the `random` module's Mersenne Twister state is recoverable from ~624 samples).
+- **Removed dynamic-import code smell** — `routes/rider.py:205` had `hasattr(__import__("sms"), "send_otp")` which always evaluated to None (dead branch). Replaced with explicit best-effort `try/except` calling `from sms import send_otp` directly, with `logger.debug` on failure instead of silent swallow.
+- **All F841 unused-variable warnings cleaned** in production code (`server.py`, `po_pdf.py`, `routes/mess_menu_poster.py`).
+- **All F541 f-string-without-placeholder warnings cleaned** in `whatsapp.py`.
+- **Test-token false-positives silenced** — renamed test-only token prefixes to `TEST_FAKE_*` (with comments) in `test_iter80_batchc.py`, `test_iter85_franchise.py`, `test_restaurant_variant.py`. The token VALUES were always dynamically generated via `uuid4`/`os.urandom`/`secrets.token_hex` — just the prefix string fooled the secret scanner.
+- **Lint clean** on all touched files. 17/17 backend tests pass on the routes I modified (incl. all 11 mobile-sync tests from iter-119 confirming OTP+auth+Bearer flow intact).
+
 ### Iteration 120 (Feb 2026, fork) — Mobile Design Hand-off Package
 - Created `/app/mobile-design/` — complete native-app design system hand-off for the **pass-scan-mobile** team.
 - **Design tokens** extracted live from `/api/theme` + `tailwind.config.js` + `index.css`:

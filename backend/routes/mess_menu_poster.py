@@ -108,7 +108,7 @@ def _render_poster(items, start_date_iso: str, size_key: str = "a4") -> bytes:
     avail_h = inner_bottom - inner_top - (6 * card_gap)
     card_h = avail_h // 7
 
-    f_day = _font(28 if size_key == "a4" else 22, bold=True)
+    # NB: a `f_day` headline font was here but never used — removed iter-121.
     f_label = _font(16 if size_key == "a4" else 13, bold=True)
     f_body = _font(20 if size_key == "a4" else 16, bold=False)
     f_note = _font(16 if size_key == "a4" else 13, bold=False)
