@@ -18,6 +18,13 @@ Build a tiffin / dining subscription app with:
 
 ## Implemented (Feb 2026)
 
+### Iteration 125 (Feb 2026, fork) — Days-Left Invariant Fix (P0 bug)
+- **Reported bug**: User saw wallet = ₹2,707/₹2,800 (₹93 deducted ✓), meals = 58/60 (2 used ✓), but **DAYS LEFT = 30** (looks like nothing was deducted). Plus a complaint about "no wallet transaction updated".
+- **Root cause**: `SubscriberDashboard.jsx` line 85 used `Math.ceil((end_date - now) / day)` for `daysLeft`. After 1 day's tick the remaining duration is ~29.x days, and `Math.ceil` rounds UP to 30 — masking that 1 day has been consumed. The cron + transaction logging was actually working correctly all along (verified live: ₹93.33/day deduction recorded, `db.wallet_transactions` rows present, `meals_used` bumped by 2). Backend ✓ — only the frontend display was lying.
+- **Fix**: rewrote the formula as `Math.max(0, Math.min(calendar_floor, Math.round(wallet_balance / per_day_amount)))` — locks all three displayed values together so they can never visually drift again. After 1 day's cron: floor(29.x)=29 AND round(2707/93.33)=29 → display = 29. Matches wallet + meals (58/2=29) ✓.
+- **Verified via 8/8 unit tests** in `/frontend/src/__tests__/daysLeftInvariant.test.mjs` covering: fresh sub, 1-day tick, paused 50d (end_date extended), wallet drained, end_date past, zero per_day edge case, no-sub fallback.
+- **Live smoke**: dashboard renders cleanly, no console errors on `/dashboard`.
+
 ### Iteration 124 (Feb 2026, fork) — Login.jsx Conservative Decomposition + Unit Tests
 Tackled the highest-blast-radius file (`Login.jsx`, hit by every user) with a deliberately conservative split: extract pure helpers + content defaults, **no rendering changes**. This keeps the form behaviour byte-identical while making the critical post-login routing logic unit-testable.
 - **`Login.jsx`: 566 → 464 lines** (−18%). Extracted into `/pages/login/`:
