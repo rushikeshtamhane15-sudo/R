@@ -13,120 +13,19 @@ import BadStuffMarquee from "../components/login/BadStuffMarquee";
 import TrustChipsMarquee from "../components/TrustChipsMarquee";
 import SEO from "../components/SEO";
 
-const HERO_FOOD_IMG = "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?crop=entropy&cs=srgb&fm=jpg&q=85&w=1400";
+import { LOGIN_DEFAULTS } from "./login/loginContentDefaults";
+import { resolveLoginNext } from "./login/resolveLoginNext";
 
-const DEFAULTS = {
-  title_line1: "Login or",
-  title_line2: "Sign up",
-  form_overline: "Enter your details",
-  form_heading: "India's smartest tiffin pass.",
-  form_subheading: "Login with your phone number to continue.",
-  phone_label: "Phone number",
-  phone_placeholder: "Enter 10-digit number",
-  name_label: "Your name",
-  name_optional_label: "(optional)",
-  name_placeholder: "e.g. Aman Gupta",
-  cta_label: "Continue",
-  or_divider: "Or",
-  google_label: "Continue with Google",
-  terms_prefix: "By continuing, you agree to our",
-  terms_separator: "and",
-  verify_overline: "Verify OTP",
-  verify_heading: "Enter the 6-digit code",
-  verify_cta_label: "Verify & Continue",
-  resend_prompt: "Didn't get it?",
-  resend_label: "Resend OTP",
-  // === Login icon (admin-editable) ===
-  // The small badge above the form. Defaults to a soft cream/pink gradient
-  // with brand-red foreground so the icon reads warm-and-inviting rather
-  // than the older corporate navy shield. Admin can override these via
-  // /admin/content/login or set icon_show=false to hide the badge entirely.
-  icon_bg_color_start: "#fff4ee",
-  icon_bg_color_end: "#ffd9c8",
-  icon_color: "#a02323",
-  icon_show: true,
-  // === BadStuffMarquee (admin-editable, iter-51) ===
-  // The full-bleed "0% bad stuff" scroller below the red header. Admin
-  // can change pill list, colors, and speed from /admin/content/login.
-  marquee_show: true,
-  marquee_bg_color: "#a02323",         // brand-red default per request
-  marquee_text_color: "#a02323",       // pill text is brand-red on white pill
-  marquee_pill_bg_color: "#ffffff",    // solid white pill stands out on red bar
-  marquee_pill_border_color: "rgba(255,255,255,0.95)",
-  marquee_pill_text_color: "#a02323",
-  marquee_speed_seconds: 12,           // animation duration; lower = faster
-  // Pill labels — pipe-separated for easy admin editing in a single field.
-  marquee_pills: "0% Ajinomoto|0% Maida|0% Artificial Flavours|0% Artificial Colours|0% Polished Grains|0% Refined Oil|0% Palm Oil|0% Pre-made Gravy",
-};
+const HERO_FOOD_IMG = "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?crop=entropy&cs=srgb&fm=jpg&q=85&w=1400";
 
 export default function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, setUser } = useAuth();
 
-  // Decide post-login destination — `?next=/path` wins, else session-stashed
-  // pending action (cart→checkout / buy-now), else cart-aware default
-  // (if cart has items → /restaurant/checkout), else role-based default.
-  const computeNext = (u) => {
-    // Detect "cart has items" once and reuse for the entire decision.
-    let hasCartItems = false;
-    try {
-      const cartRaw = localStorage.getItem("efc_restaurant_cart_v1");
-      if (cartRaw) {
-        const cart = JSON.parse(cartRaw) || {};
-        hasCartItems = Object.values(cart).some((l) => (Number(l?.qty) || 0) > 0);
-      }
-    } catch { /* noop */ }
-
-    const raw = searchParams.get("next");
-    // Skip self-referential nexts ("/" and "/login*") — they would loop.
-    const validNext = raw && raw.startsWith("/") && !raw.startsWith("//") &&
-      raw !== "/" && !raw.startsWith("/login");
-
-    // Role-based overrides — admin/staff/rider should always land on their
-    // role home unless they were specifically deep-linking into a role-scoped
-    // page (e.g. /admin/users → keep, /restaurant → upgrade to /admin).
-    const role = u?.role;
-    const isAdminScoped = (p) => p && (p.startsWith("/admin") || p.startsWith("/boy") || p.startsWith("/rider"));
-    if (validNext && role === "admin" && !isAdminScoped(raw)) return "/admin";
-    if (validNext && role === "franchise_owner" && !isAdminScoped(raw)) return "/admin";
-    if (validNext && role === "staff" && !raw.startsWith("/admin")) return "/admin/deliveries-today";
-    if (validNext && role === "rider" && !raw.startsWith("/rider")) return "/rider";
-
-    if (validNext) {
-      // Upgrade: user was on /restaurant (just menu) but has items in cart —
-      // they almost certainly want to finish ordering, not browse again.
-      if ((raw === "/restaurant" || raw.startsWith("/restaurant?")) && hasCartItems) {
-        return "/restaurant/checkout";
-      }
-      return raw;
-    }
-    // Fallback: session-stashed pending action set by Restaurant.jsx / Header
-    try {
-      const pending = sessionStorage.getItem("efc_pending_action_v1");
-      if (pending && pending.startsWith("/") && !pending.startsWith("//") && pending !== "/" && !pending.startsWith("/login")) {
-        sessionStorage.removeItem("efc_pending_action_v1");
-        // Same role-override rules as the `?next=` branch above
-        if (role === "admin" && !isAdminScoped(pending)) return "/admin";
-        if (role === "franchise_owner" && !isAdminScoped(pending)) return "/admin";
-        if (role === "staff" && !pending.startsWith("/admin")) return "/admin/deliveries-today";
-        if (role === "rider" && !pending.startsWith("/rider")) return "/rider";
-        if ((pending === "/restaurant" || pending.startsWith("/restaurant?")) && hasCartItems) {
-          return "/restaurant/checkout";
-        }
-        return pending;
-      }
-    } catch { /* noop */ }
-    if (!u) return "/dashboard";
-    if (u.role === "admin") return "/admin";
-    if (u.role === "franchise_owner") return "/admin";
-    if (u.role === "staff") return "/admin/deliveries-today";
-    if (u.role === "delivery_boy") return "/boy";
-    if (u.role === "rider") return "/rider";
-    // Cart-aware fallback for regular subscribers — items in cart → checkout
-    if (hasCartItems) return "/restaurant/checkout";
-    return "/restaurant";
-  };
+  // Decide post-login destination — see /pages/login/resolveLoginNext.js for
+  // the full precedence rules (?next param → session pending → role-based).
+  const computeNext = (u) => resolveLoginNext(u, searchParams.get("next"));
 
   // If already logged in, bounce — honour ?next= when present.
   // Ref guard — set to true when verifyOtp / handleGoogle navigates here.
@@ -143,8 +42,8 @@ export default function Login() {
   }, [user]);
 
   // iter-59 #5: read cached CMS payload synchronously on first paint so the
-  // hardcoded DEFAULTS don't flash before the network response.
-  const [content, setContent] = useState(() => ({ ...DEFAULTS, ...(readCmsCache("/content/login") || {}) }));
+  // hardcoded LOGIN_DEFAULTS don't flash before the network response.
+  const [content, setContent] = useState(() => ({ ...LOGIN_DEFAULTS, ...(readCmsCache("/content/login") || {}) }));
   const [mode, setMode] = useState("phone"); // phone | verify
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
@@ -161,9 +60,9 @@ export default function Login() {
     (async () => {
       try {
         const r = await api.get("/content/login");
-        setContent({ ...DEFAULTS, ...r.data });
+        setContent({ ...LOGIN_DEFAULTS, ...r.data });
         writeCmsCache("/content/login", r.data);
-      } catch { /* noop */ }
+      } catch (e) { console.warn("[Login] /content/login fetch failed (using cache)", e); }
     })();
   }, []);
   const c = content;

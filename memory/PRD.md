@@ -18,6 +18,15 @@ Build a tiffin / dining subscription app with:
 
 ## Implemented (Feb 2026)
 
+### Iteration 124 (Feb 2026, fork) — Login.jsx Conservative Decomposition + Unit Tests
+Tackled the highest-blast-radius file (`Login.jsx`, hit by every user) with a deliberately conservative split: extract pure helpers + content defaults, **no rendering changes**. This keeps the form behaviour byte-identical while making the critical post-login routing logic unit-testable.
+- **`Login.jsx`: 566 → 464 lines** (−18%). Extracted into `/pages/login/`:
+  - `loginContentDefaults.js` (48 L) — `LOGIN_DEFAULTS` content map (admin-editable CMS keys for title, marquee, icon, etc.). Pure data, no behaviour.
+  - `resolveLoginNext.js` (84 L) — the 60-line `computeNext()` post-login routing function, now a pure function: takes `(user, nextParam)`, returns destination path. All the role-override rules (admin/staff/rider/franchise), session-pending-action restoration, cart-aware upgrades, and self-referential-path loop blockers are unchanged.
+- **`resolveLoginNext.test.mjs`** (40 L) — co-located Node unit test covering **13 scenarios** including anon/admin/staff/rider/franchise_owner/delivery_boy + cart-aware fallbacks + loop-blocker edge cases. Runs without a browser via stubbed `localStorage`/`sessionStorage`. All **13/13 pass**.
+- **Empty catches in Login.jsx** (2 sites: CMS load + cart parse) now log via `console.warn`.
+- **Live smoke test**: `/login` renders correctly on the preview deployment with phone-input, name-input, Continue CTA, Google sign-in, privacy/refund links, top + bottom trust-chips marquees. Zero console errors.
+
 ### Iteration 123 (Feb 2026, fork) — Component Decomposition + Index-Key Cleanup
 Followed iter-122 with deeper React refactoring. **3 large components decomposed** (parent files shrunk 40-60%) and **all 21 array-index-as-key warnings closed**.
 
