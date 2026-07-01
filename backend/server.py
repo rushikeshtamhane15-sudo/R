@@ -87,8 +87,25 @@ def now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
+# eFoodCare operates in India (IST = UTC + 5:30). Subscription day-rollover,
+# attendance date_str, and cron boundaries must reflect the SUBSCRIBER'S day,
+# not the server's UTC day. Otherwise the daily wallet-tick doesn't fire until
+# 05:30 IST — so a user opening the app at 1 AM IST sees "no deduction yet"
+# even though the calendar day (in their eyes) has clearly rolled over.
+IST_TZ = timezone(timedelta(hours=5, minutes=30))
+
+
+def ist_now() -> datetime:
+    return datetime.now(IST_TZ)
+
+
+def ist_today() -> date:
+    return ist_now().date()
+
+
 def today_str() -> str:
-    return now_utc().strftime("%Y-%m-%d")
+    # iter-126: IST-based day rollover (see IST_TZ note above).
+    return ist_today().isoformat()
 
 
 def iso(d: datetime) -> str:
@@ -744,7 +761,9 @@ async def catch_up_subscription(sub: dict) -> dict:
       * User-pause (tiffin only): subscriber tapped Pause Delivery → wallet still ticks daily;
         after a continuous 7-day streak, every subsequent paused day extends end-date by 1.
     """
-    today = date.today()
+    # iter-126: use IST day boundaries so cron ticks at 00:00 IST (not 05:30 IST
+    # which was the effective time under UTC-based date.today()).
+    today = ist_today()
     last = date.fromisoformat(sub["last_tick_date"])
     if last >= today or sub["status"] != "active":
         return sub
@@ -3615,7 +3634,7 @@ async def _count_active_persons(mess_id: Optional[str] = None) -> dict:
     subs = await db.subscriptions.find(q, {"_id": 0}).to_list(20000)
     full = 0
     half = 0
-    today = date.today()
+    today = ist_today()   # iter-126: IST-aware day boundary
     for s in subs:
         end_dt = parse_dt(s["end_date"])
         if end_dt.date() < today:

@@ -18,6 +18,24 @@ Build a tiffin / dining subscription app with:
 
 ## Implemented (Feb 2026)
 
+### Iteration 126 (Feb 2026, fork) — IST-Aware Cron Day Rollover (P0 bug follow-up)
+- **Reported (with screenshot at 1:13 AM IST)**: "Date changed already, but wallet not deducted for the new day even though user did not exceed 3 skipped days".
+- **Root cause**: `today_str()` (line 90) and `date.today()` (line 764 in `catch_up_subscription`, line 3637 in `count_active_persons`) used the server's **UTC** clock. eFoodCare is India-only (IST = UTC+5:30), so the subscriber's calendar day rolls over at 00:00 IST but the server's `date.today()` only rolls over at 05:30 IST (= 00:00 UTC). Result: for the 5-hour-30-min window each night, a user could see their local date advanced but the cron would skip the tick (`last_tick_date >= today`) and no deduction happened.
+- **Fix**: added an IST-aware trio of helpers to `server.py`:
+  ```python
+  IST_TZ = timezone(timedelta(hours=5, minutes=30))
+  def ist_now() -> datetime: return datetime.now(IST_TZ)
+  def ist_today() -> date:  return ist_now().date()
+  def today_str() -> str:   return ist_today().isoformat()  # now IST
+  ```
+  Swapped the two `date.today()` calls in the cron paths to `ist_today()`. All 8 call-sites of `today_str()` (attendance date_str, dedupe checks, admin reports) automatically benefit from IST consistency now.
+- **Verified**: 3/3 new pytests in `test_iter126_ist_rollover.py`:
+  - `test_ist_helpers_defined` — helpers exist & return IST-aware objects
+  - `test_ist_rollover_at_1am_ist_is_new_day_vs_utc` — locks in that at 19:43 UTC (01:13 IST next day) the new code TICKS, old code SKIPPED
+  - `test_today_str_produces_valid_iso_date` — round-trip parse check
+- **Regression pass**: 14/14 tests pass (11 mobile-sync + 3 IST rollover).
+- **Bonus**: created `/app/backend/tests/conftest.py` so tests can now be run from `/app` root (previously required `cd backend`).
+
 ### Iteration 125 (Feb 2026, fork) — Days-Left Invariant Fix (P0 bug)
 - **Reported bug**: User saw wallet = ₹2,707/₹2,800 (₹93 deducted ✓), meals = 58/60 (2 used ✓), but **DAYS LEFT = 30** (looks like nothing was deducted). Plus a complaint about "no wallet transaction updated".
 - **Root cause**: `SubscriberDashboard.jsx` line 85 used `Math.ceil((end_date - now) / day)` for `daysLeft`. After 1 day's tick the remaining duration is ~29.x days, and `Math.ceil` rounds UP to 30 — masking that 1 day has been consumed. The cron + transaction logging was actually working correctly all along (verified live: ₹93.33/day deduction recorded, `db.wallet_transactions` rows present, `meals_used` bumped by 2). Backend ✓ — only the frontend display was lying.
