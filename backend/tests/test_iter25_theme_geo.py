@@ -80,6 +80,13 @@ class TestRestaurantTheme:
         assert r.status_code == 403, r.text
 
     def test_put_theme_admin_persists(self, admin_token):
+        # iter-126 fix: snapshot the current theme first, so the test cleans up
+        # after itself. Previously it wrote junk (TEST_hero_e96f76, "test tagline")
+        # into the singleton restaurant_theme doc and never restored the
+        # original values — polluting the live preview for weeks.
+        snapshot_r = requests.get(f"{API}/restaurant/theme", timeout=10)
+        snapshot = snapshot_r.json() if snapshot_r.status_code == 200 else {}
+
         unique = f"TEST_hero_{uuid.uuid4().hex[:6]}"
         payload = {
             "hero_title": unique,
@@ -88,21 +95,33 @@ class TestRestaurantTheme:
             "show_zero_bad_stuff_chip": False,
             "show_delivery_promise": True,
         }
-        r = requests.put(f"{API}/admin/restaurant/theme", json=payload,
-                         headers=_hdr(admin_token), timeout=10)
-        assert r.status_code == 200, r.text
-        saved = r.json()
-        assert saved["hero_title"] == unique
-        assert saved["hero_tagline"] == "test tagline"
-        assert saved["accent_color"] == "#aa0000"
-        assert saved["show_zero_bad_stuff_chip"] is False
+        try:
+            r = requests.put(f"{API}/admin/restaurant/theme", json=payload,
+                             headers=_hdr(admin_token), timeout=10)
+            assert r.status_code == 200, r.text
+            saved = r.json()
+            assert saved["hero_title"] == unique
+            assert saved["hero_tagline"] == "test tagline"
+            assert saved["accent_color"] == "#aa0000"
+            assert saved["show_zero_bad_stuff_chip"] is False
 
-        # Verify GET returns persisted state
-        r2 = requests.get(f"{API}/restaurant/theme", timeout=10)
-        assert r2.status_code == 200
-        got = r2.json()
-        assert got["hero_title"] == unique
-        assert got["accent_color"] == "#aa0000"
+            # Verify GET returns persisted state
+            r2 = requests.get(f"{API}/restaurant/theme", timeout=10)
+            assert r2.status_code == 200
+            got = r2.json()
+            assert got["hero_title"] == unique
+            assert got["accent_color"] == "#aa0000"
+        finally:
+            # ALWAYS restore the pre-test snapshot, even if an assertion above
+            # fails. Only send fields that were actually set before, so we
+            # don't accidentally introduce None-valued defaults.
+            restore_fields = {"hero_title", "hero_tagline", "accent_color",
+                              "show_zero_bad_stuff_chip", "show_delivery_promise"}
+            restore_payload = {k: v for k, v in snapshot.items()
+                               if k in restore_fields and v is not None}
+            if restore_payload:
+                requests.put(f"{API}/admin/restaurant/theme", json=restore_payload,
+                             headers=_hdr(admin_token), timeout=10)
 
 
 # ----------------------------- ORDER GEO PERSIST -----------------------------

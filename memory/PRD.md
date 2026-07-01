@@ -18,6 +18,15 @@ Build a tiffin / dining subscription app with:
 
 ## Implemented (Feb 2026)
 
+### Iteration 127 (Feb 2026, fork) — Restaurant CMS Test-Data Cleanup + Leaky Test Fixed
+- **Reported (with screenshot)**: preview `/restaurant` hero shows garbage `test_hero_e96f76` and `test tagline` instead of real brand text.
+- **Root cause**: `test_iter25_theme_geo.py::test_put_theme_admin_persists` PUTs a unique `TEST_hero_<uuid>` value to `/admin/restaurant/theme` to verify persistence, but **never restored the pre-test snapshot**. So every CI run left new junk in `db.restaurant_theme` (singleton doc). The most recent run left `test_hero_e96f76` + `test tagline` sitting in the live DB.
+- **Fix applied**:
+  1. Cleaned the live singleton doc with sensible defaults (`hero_title="eFoodCare Restaurant"`, `hero_tagline="Fresh, home-style meals delivered in 90 minutes"`) — admin can override any time via `/admin/restaurant`.
+  2. Rewrote the leaky test with a `try/finally` snapshot+restore: it captures the current theme state via GET, does its assertions on a temporary write, then PUTs the original values back in `finally` so an assertion failure can't cause a leak.
+- **Verified live**: `GET /api/restaurant/theme` returns the clean values. Full-page screenshot of `/restaurant` shows correct brand text + kitchen-opens overlay + dish cards.
+- **Not a preview-sync issue** — the code was always fine; this was CMS data left behind by an unclean test.
+
 ### Iteration 126 (Feb 2026, fork) — IST-Aware Cron Day Rollover (P0 bug follow-up)
 - **Reported (with screenshot at 1:13 AM IST)**: "Date changed already, but wallet not deducted for the new day even though user did not exceed 3 skipped days".
 - **Root cause**: `today_str()` (line 90) and `date.today()` (line 764 in `catch_up_subscription`, line 3637 in `count_active_persons`) used the server's **UTC** clock. eFoodCare is India-only (IST = UTC+5:30), so the subscriber's calendar day rolls over at 00:00 IST but the server's `date.today()` only rolls over at 05:30 IST (= 00:00 UTC). Result: for the 5-hour-30-min window each night, a user could see their local date advanced but the cron would skip the tick (`last_tick_date >= today`) and no deduction happened.
