@@ -74,9 +74,13 @@ CUSTOM_MAX_DAYS = 90
 PARTIAL_PAYMENT_SURCHARGE_INR = 200.0
 
 DEFAULT_PLANS = [
-    {"plan_id": "premium_60", "name": "Premium Dining", "description": "Eat at our hall · 60 home-style meals across 30 days · scan QR at counter", "amount": 2800.0, "currency": "INR", "duration_days": 30, "meals": 60, "active": True, "sort_order": 1, "plan_type": "kiosk", "service_type": "dining", "tiffin_size": None, "tiffins_per_day": 0},
-    {"plan_id": "classic_60", "name": "Classic Full Tiffin", "description": "Full home-style tiffin — 5 chapati + sabzi/dal/rice, delivered twice daily", "amount": 2600.0, "currency": "INR", "duration_days": 30, "meals": 60, "active": True, "sort_order": 2, "plan_type": "delivery", "service_type": "tiffin", "tiffin_size": "full", "tiffins_per_day": 2},
-    {"plan_id": "saver_60", "name": "Classic Half Tiffin", "description": "Lighter portion tiffin — 3 chapati + sabzi/dal, delivered twice daily", "amount": 1800.0, "currency": "INR", "duration_days": 30, "meals": 60, "active": True, "sort_order": 3, "plan_type": "delivery", "service_type": "tiffin", "tiffin_size": "half", "tiffins_per_day": 2},
+    # iter-129: monthly plans re-scoped 30d → 28d.
+    # Rule (approved by product): keep amount the same, drop days to 28, drop
+    # meals to 56 (exactly 2/day). Result: daily ₹100, per-meal ₹50 exact
+    # for the flagship Premium plan; other plans scale proportionally.
+    {"plan_id": "premium_60", "name": "Premium Dining", "description": "Eat at our hall · 56 home-style meals across 28 days · scan QR at counter", "amount": 2800.0, "currency": "INR", "duration_days": 28, "meals": 56, "active": True, "sort_order": 1, "plan_type": "kiosk", "service_type": "dining", "tiffin_size": None, "tiffins_per_day": 0},
+    {"plan_id": "classic_60", "name": "Classic Full Tiffin", "description": "Full home-style tiffin — 5 chapati + sabzi/dal/rice, delivered twice daily · 28 days", "amount": 2600.0, "currency": "INR", "duration_days": 28, "meals": 56, "active": True, "sort_order": 2, "plan_type": "delivery", "service_type": "tiffin", "tiffin_size": "full", "tiffins_per_day": 2},
+    {"plan_id": "saver_60", "name": "Classic Half Tiffin", "description": "Lighter portion tiffin — 3 chapati + sabzi/dal, delivered twice daily · 28 days", "amount": 1800.0, "currency": "INR", "duration_days": 28, "meals": 56, "active": True, "sort_order": 3, "plan_type": "delivery", "service_type": "tiffin", "tiffin_size": "half", "tiffins_per_day": 2},
 ]
 
 

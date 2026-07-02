@@ -18,6 +18,33 @@ Build a tiffin / dining subscription app with:
 
 ## Implemented (Feb 2026)
 
+### Iteration 129 (Feb 2026, fork) — Monthly plans re-scoped 30d → 28d
+Business-rule change approved by product. New monthly-plan math (`amount` stays the same, `duration_days` and `meals` both shrink 30→28 / 60→56, keeping the 2 meals/day invariant exact).
+
+**Result table:**
+| Plan (`plan_id`) | Before | After | New per-day | New per-meal |
+|---|---|---|---|---|
+| Premium Dining (`premium_60`)      | 60m/30d/₹2800 | **56m/28d/₹2800** | **₹100.00** | **₹50.00** |
+| Classic Full Tiffin (`classic_60`) | 60m/30d/₹2600 | 56m/28d/₹2600     | ₹92.86      | ₹46.43      |
+| Classic Half Tiffin (`saver_60`)   | 60m/30d/₹1800 | 56m/28d/₹1800     | ₹64.29      | ₹32.14      |
+
+**Wallet-deduction integration**: no separate wiring needed — `per_day_amount = round(amount / duration_days, 2)` is derived at subscription-creation time (server.py:664 and :2911). Any new subscription created from these plans now automatically gets:
+- `per_day_amount = 100` (or 92.86 / 64.29) 
+- `meals_total = 56`
+- `end_date = start + 28 days`
+The daily cron (iter-126 IST-aware) then ticks ₹100/day and 2 meals/day exactly, hitting 0/0 on day 28 with no drift.
+
+**Existing subscriptions**: NOT touched (user chose option 2a). 0 active 30-day subs modified. Users who bought under the old contract keep their 30-day/60-meal/₹93.33-day terms.
+
+**Frontend copy updated** in `Landing.jsx` (3 sites: SEO description, hero subtitle, "how it works" title). Plans page reads `duration_days` from the API so it auto-shows "28 DAYS" without code changes.
+
+**Verified**:
+- 4/4 new pytests in `test_iter129_28day_plans.py` pass (default plans are 28d, 2/day invariant, premium exact math, no existing subs migrated).
+- 18/18 combined regression suite pass (iter-119 mobile-sync + iter-126 IST + iter-129).
+- Live smoke: `/plans` at 1440px desktop shows "56 MEALS · 28 DAYS · ₹2800 · ≈ ₹100/day · ₹50/meal" cleanly.
+
+Also removed 1 leftover test-artefact plan (`plan_729538fa "TEST iter47 plan"`) that had been sitting in the DB.
+
 ### Iteration 128 (Feb 2026, fork) — Auto-Pause Banner + Desktop Grid + Address Test-Leak Fix
 Two-part user request handled in one pass.
 
