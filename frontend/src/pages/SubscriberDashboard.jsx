@@ -199,6 +199,32 @@ export default function SubscriberDashboard() {
         <span>{Math.round(sub.wallet_balance).toLocaleString("en-IN")}</span>
       </p>
       <p className="text-xs opacity-80 mt-3">of ₹{Math.round(sub.amount_paid).toLocaleString("en-IN")} loaded</p>
+
+      {/* iter-127 — prominent auto-pause banner. Fires whenever the sub has
+          drifted into pause territory (paused_days > 0). For tiffin subs we
+          use `user_paused` (an explicit manual pause). Message is friendly
+          and action-oriented so the user knows what to do next. */}
+      {(isPaused || (sub.paused_days || 0) > 0) && (
+        <div
+          className="mt-4 rounded-xl bg-white/15 border border-white/25 px-3 py-2 flex items-start gap-2"
+          data-testid="wallet-pause-banner"
+        >
+          <Pause className="h-4 w-4 mt-0.5 shrink-0" strokeWidth={2} />
+          <div className="text-[12px] leading-snug">
+            <p className="font-extrabold">
+              {isPaused
+                ? "Your plan is paused right now — wallet won't deduct today."
+                : `Plan extended by ${sub.paused_days} day${sub.paused_days === 1 ? "" : "s"} due to inactivity.`}
+            </p>
+            <p className="opacity-85 mt-0.5">
+              {isTiffin
+                ? "Resume from your subscription page and we'll start deducting again."
+                : "Scan the counter QR on your next visit — normal ₹/day deduction resumes automatically."}
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="mt-5 pt-5 border-t border-white/15 grid grid-cols-2 gap-4 text-sm">
         <div>
           <p className="text-[10px] tracking-overline uppercase font-bold opacity-70">Per day · per meal</p>

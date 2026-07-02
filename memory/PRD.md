@@ -18,6 +18,26 @@ Build a tiffin / dining subscription app with:
 
 ## Implemented (Feb 2026)
 
+### Iteration 128 (Feb 2026, fork) — Auto-Pause Banner + Desktop Grid + Address Test-Leak Fix
+Two-part user request handled in one pass.
+
+**Part 1 — Prominent auto-pause banner on wallet card** (dashboard `/dashboard`):
+- When the subscriber's plan is currently paused (either explicitly `user_paused` for tiffin, or accumulated `paused_days > 0` from auto-pause), the wallet card now shows a full-width banner right below the ₹ amount:
+  - Header: *"Your plan is paused right now — wallet won't deduct today."* (when currently paused)
+  - Or: *"Plan extended by N days due to inactivity."* (when previously paused, back to active)
+  - Body: *"Scan the counter QR on your next visit — normal ₹/day deduction resumes automatically."* (dining) / *"Resume from your subscription page and we'll start deducting again."* (tiffin)
+- Uses existing `sub.paused_days` and `isPaused` state — no backend contract change.
+- `data-testid="wallet-pause-banner"` for QA automation.
+
+**Part 2 — Desktop layout fix for `/restaurant`**:
+- Restaurant dish grid was hard-coded `grid-cols-2` — at desktop viewport (≥1024 px) this stretched dish cards + images to ~700 px wide each, looking mobile-stretched.
+- Changed to `grid-cols-2 lg:grid-cols-3 xl:grid-cols-4` — at 1440 px the layout now shows **4 dish cards per row** with proportional images, all price/badge/button UI properly sized.
+- Live verified: 12 dishes render 4-per-row above the fold; nothing else touched (mobile / tablet layouts unchanged).
+
+**Bonus cleanup — address test-leak (same pattern as iter-127 hero-title leak)**:
+- `db.messes.efoodcare-amravati.address` was showing `TEST_IT94 kitchen address` (leaked from an earlier admin-CRUD test).
+- Restored to `"Shilangan Road, behind Bhakti Dham Mandir, Amravati, Maharashtra 444601"`.
+
 ### Iteration 127 (Feb 2026, fork) — Restaurant CMS Test-Data Cleanup + Leaky Test Fixed
 - **Reported (with screenshot)**: preview `/restaurant` hero shows garbage `test_hero_e96f76` and `test tagline` instead of real brand text.
 - **Root cause**: `test_iter25_theme_geo.py::test_put_theme_admin_persists` PUTs a unique `TEST_hero_<uuid>` value to `/admin/restaurant/theme` to verify persistence, but **never restored the pre-test snapshot**. So every CI run left new junk in `db.restaurant_theme` (singleton doc). The most recent run left `test_hero_e96f76` + `test tagline` sitting in the live DB.
