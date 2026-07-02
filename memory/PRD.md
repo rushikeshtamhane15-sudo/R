@@ -18,6 +18,20 @@ Build a tiffin / dining subscription app with:
 
 ## Implemented (Feb 2026)
 
+### Iteration 130 (Feb 2026, fork) — Idempotent Startup Migration for 30d→28d Plans
+- **Reported (with screenshot on production)**: Premium plan card showing a MIX of stale + fresh values simultaneously — chip says "60 MEALS · 30 DAYS", but description says "56 across 28 days", and per-day/per-meal show ₹93/₹47 instead of ₹100/₹50.
+- **Root cause diagnosed**: iter-129's manual DB migration only touched **preview's** MongoDB. Production has a **separate** MongoDB where `db.plans` still had the old `duration_days=30, meals=60` values. The DEFAULT_PLANS seed (`_seed_plans_if_empty`) short-circuits when plans already exist, so re-deploying the iter-129 code didn't fix production's data. Result: chip + checklist read stale DB values, description reads the (updated) seed default → visual mismatch.
+- **Fix shipped — startup migration** (`_startup_migrate_plans_30d_to_28d` in `server.py`):
+  - Runs on every server boot, guarded by a marker doc `db.migrations.find_one({"key": "iter129_28day_plans"})`.
+  - First boot after deploy: converts every `duration_days == 30` plan → 28d, snaps meals to nearest even to preserve 2/day invariant (60→56, 45→42, 30→28), writes the marker with `plans_touched` count.
+  - Subsequent boots: marker exists → immediate no-op.
+  - Existing subscriptions are NEVER touched (only `db.plans`).
+- **Production impact**: when the user re-deploys, production's server boots on iter-130 code, sees no marker in ITS db.migrations, runs the migration on ITS plans collection, writes the marker. Chip + checklist + description all instantly align. Zero manual admin work required.
+- **Verified**:
+  - Backend restarted on preview → migration ran, marker written with `plans_touched=0` (correct — preview was already migrated manually in iter-129), no errors.
+  - 3/3 new iter-130 tests pass (marker present, no stale 30d plans, idempotency guaranteed).
+  - 10/10 combined regression suite passes (iter-126 + iter-129 + iter-130).
+
 ### Iteration 129 (Feb 2026, fork) — Monthly plans re-scoped 30d → 28d
 Business-rule change approved by product. New monthly-plan math (`amount` stays the same, `duration_days` and `meals` both shrink 30→28 / 60→56, keeping the 2 meals/day invariant exact).
 

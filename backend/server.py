@@ -1669,6 +1669,58 @@ async def _startup_seed_messes():
         logger.warning(f"[messes] seed failed: {e}")
 
 
+@app.on_event("startup")
+async def _startup_migrate_plans_30d_to_28d():
+    """iter-129 idempotent DB migration — monthly plans move from 30d → 28d.
+
+    Runs at server boot, exactly once (guarded by a marker doc in `db.migrations`).
+    Behaviour:
+      • Every active plan whose `duration_days == 30` is switched to 28.
+      • Its `meals` count is shrunk proportionally to preserve the 2/day
+        invariant (60 → 56, 45 → 42, etc.). Snapped to nearest even int.
+      • `amount` is NOT touched — that was the product decision (keep price,
+        shorter window, higher daily rate).
+      • Existing subscriptions are NEVER touched. Contracts honored.
+
+    Marker: db.migrations.find_one({"key": "iter129_28day_plans"}).
+    Safe to redeploy — re-runs are a no-op if marker exists.
+    """
+    try:
+        marker = await db.migrations.find_one({"key": "iter129_28day_plans"})
+        if marker:
+            return   # already ran on this DB
+        cursor = db.plans.find({"duration_days": 30}, {"plan_id": 1, "meals": 1, "duration_days": 1})
+        touched = 0
+        async for p in cursor:
+            old_meals = int(p.get("meals") or 0)
+            # snap to nearest even to preserve 2/day invariant, drop by 4 as floor
+            new_meals = max(2, (old_meals * 28 // 30) // 2 * 2)
+            if new_meals == old_meals:
+                new_meals = max(2, old_meals - 4)
+            await db.plans.update_one(
+                {"_id": p["_id"]},
+                {"$set": {
+                    "duration_days": 28,
+                    "meals": new_meals,
+                    "_migrated_from_30d": True,
+                    "_migrated_at": "iter-129-startup",
+                }},
+            )
+            touched += 1
+        await db.migrations.insert_one({
+            "key": "iter129_28day_plans",
+            "ran_at": now_utc().isoformat(),
+            "plans_touched": touched,
+            "note": "30d plans → 28d; meals snapped to 2/day invariant; existing subs untouched.",
+        })
+        if touched:
+            logger.info(f"[migrations] iter129: migrated {touched} plans from 30d to 28d")
+    except Exception as e:  # noqa: BLE001
+        # Don't crash server boot — an admin can re-trigger via a manual admin
+        # endpoint if this ever fails (unlikely for a simple update-many).
+        logger.warning(f"[migrations] iter129 plan re-scope failed: {e}")
+
+
 @api_router.get("/messes")
 async def list_messes_public():
     """Public list of ACTIVE messes — used by signup mess-picker."""
