@@ -16,6 +16,17 @@ Build a tiffin / dining subscription app with:
 - Staff (scans subscriber QR at counter)
 - Subscriber (owns e-Meal Pass + wallet)
 
+### Iteration 131 (Feb 2026, fork) — Brand Logo Restore + `delivery/admin.py` Decomposition
+- **Brand logo fix**: `BRAND_LOGO_URL` (in `/app/frontend/src/lib/brand.js`) previously pointed to a CDN URL that stopped rendering. Replaced with a locally-served `/brand-logo.jpg` copied into `/app/frontend/public/`. All secondary hardcoded URLs (`AdminLiveMap.jsx`, `SplashScreen.jsx`, `TrackMap3D.jsx`) now use the central `BRAND_LOGO_URL` (or a local `/brand-logo.jpg` in JSX/map-marker HTML strings). Verified visible in header via screenshot.
+- **`delivery/admin.py` refactor (P1)**: The 490-line monolithic `make_router()` (cyclomatic complexity ~101) has been decomposed into 4 focused sub-modules, each with a single `register(router, db, admin_only)` entry:
+  - `delivery/admin_settings.py` — settings GET/PATCH + delivery-boy CRUD (77 lines)
+  - `delivery/admin_roster.py` — `generate_roster_for_date()` helper + `POST /generate`, `GET /today` (156 lines; `_bucket_for_meal()` extracted for readability)
+  - `delivery/admin_handoff.py` — handoff/mark/reconcile (190 lines; `_handle_delivered_mark` and `_debit_tiffin_stock` helpers cut down the mark_item complexity)
+  - `delivery/admin_diagnostics.py` — empties, geofence health, live map (85 lines)
+  - `delivery/admin.py` — 40-line thin composer that just wires the 4 registers.
+- **Public API unchanged**: All 13 `/api/admin/delivery/*` routes remain (verified via OpenAPI schema). Each returns 401 on unauth GET (auth wiring intact). No frontend changes needed.
+
+
 ## Implemented (Feb 2026)
 
 ### Iteration 130 (Feb 2026, fork) — Idempotent Startup Migration for 30d→28d Plans

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { BRAND_LOGO_URL as LOGO_URL } from "../lib/brand";
 
 /**
  * Brand splash screen — full-bleed red overlay, 3D digital logo treatment,
@@ -12,8 +13,6 @@ import React, { useEffect, useState } from "react";
  *   │  ghar se accha khana   │   tagline (white, italic)
  *   └────────────────────────┘
  */
-const LOGO_URL =
-  "https://customer-assets.emergentagent.com/job_dining-pass-scan/artifacts/uzs344m6_9a705f5a-b3a0-4286-b51d-b9bd6f55b7bb_20260504_011957_0000.png";
 
 const HOLD_MS = 800;
 const FADE_MS = 350;

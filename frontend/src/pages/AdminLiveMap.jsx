@@ -46,7 +46,7 @@ const ICON_DELIVERED = makePinIcon({ color: "#10b981", label: "✓" });
 
 function makeRiderIcon() {
   // Restaurant rider — red pulse + bobbing motion + small efoodcare logo helmet
-  const LOGO = "https://customer-assets.emergentagent.com/job_dining-pass-scan/artifacts/uzs344m6_9a705f5a-b3a0-4286-b51d-b9bd6f55b7bb_20260504_011957_0000.png";
+  const LOGO = "/brand-logo.jpg";
   const html = `
     <div class="efc-rider-marker" style="position:relative;width:54px;height:60px">
       <span style="position:absolute;left:5px;top:8px;width:44px;height:44px;border-radius:50%;background:#a02323;opacity:0.28;animation:efc-rider-pulse 1.4s ease-out infinite"></span>
