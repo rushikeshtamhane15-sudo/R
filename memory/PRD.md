@@ -16,6 +16,24 @@ Build a tiffin / dining subscription app with:
 - Staff (scans subscriber QR at counter)
 - Subscriber (owns e-Meal Pass + wallet)
 
+### Iteration 131.2 (Feb 2026, fork) — Mess-Menu UX overhaul (splash, windows, delivery-only, roti add-on, thali opt-outs)
+- **Splash screen**: reverted to the ORIGINAL efoodcare logo URL (kept in-file) so the splash animation is untouched by future header-logo swaps. Hold time bumped from 800 ms → 2800 ms (+2 s per user request).
+- **Delivery-only for online users**: `TodayMessMenuFlash` now hides the Takeaway + Dining service tabs — those remain available on the physical kiosk (`Kiosk.jsx`). Old sessionStorage/pending payloads that referenced takeaway/dining are ignored on resume so nothing breaks for returning users.
+- **Vertical meal picker**: The order form now stacks LUNCH and DINNER as full-width selectable cards showing icon, meal name, IST window label, `Open/Closed` status pill, one-line menu preview, and a radio-selected indicator. Clicking a closed meal shows a toast pointing the user to "Tomorrow's menu".
+- **Meal-window enforcement** (IST): Same-day orders are only accepted while the meal window is open. `MEAL_WINDOWS_IST` (in both `messMenuHelpers.js` and `routes/mess_menu_cal.py`):
+  - `lunch`  → 00:00 – 15:00 (orderable until lunch service closes)
+  - `dinner` → 15:00 – 22:00 (orderable from post-lunch until dinner closes)
+  - Pre-booking via "Tomorrow's menu" is always allowed, regardless of current time.
+  - Backend hardens the rule with a 400 response: `"Lunch orders are only open 0:00 – 15:00 IST for today. Try tomorrow's menu instead."`
+- **Extra rotis add-on**: New config field `price_extra_roti` (default ₹10) in `mess_menu_cms_v1`. User can add 0–20 extra rotis via a +/- control; total is `unit_price*qty + extra_roti_price*extra_rotis*qty`. Verified backend math: 2 dinners @₹140 + 3 rotis @₹10 × 2 qty = ₹340.
+- **Thali item opt-outs**: New order field `excluded_items: []`. UI shows a checkbox grid ("Skip anything? · price stays same, saves food") that toggles each thali item in/out. Excluded items are persisted on the order doc but do NOT alter price — the intent is food-waste reduction. Opt-outs reset when switching meals so lunch selections never leak into dinner.
+- **Files touched**:
+  - `frontend/src/components/SplashScreen.jsx` (logo URL + hold time)
+  - `frontend/src/components/messMenuHelpers.js` (SERVICE_TABS narrowed to delivery, added `MEAL_WINDOWS_IST`, `isMealWindowOpen`, `currentISTHour`, exported KIOSK_SERVICE_TABS for kiosk usage)
+  - `frontend/src/components/TodayMessMenuFlash.jsx` (state cleanup, vertical picker UI, extra roti control, thali opt-outs, place-order guarding, initial-meal auto-pick)
+  - `backend/routes/mess_menu_cal.py` (config defaults, `price_extra_roti`, `MEAL_WINDOWS_IST`, `_meal_window_open`, `MessMenuOrderIn` new fields, order-doc extra_rotis/excluded_items persistence, same-day window enforcement)
+
+
 ### Iteration 131 (Feb 2026, fork) — Brand Logo Restore + `delivery/admin.py` Decomposition
 - **Brand logo fix**: `BRAND_LOGO_URL` (in `/app/frontend/src/lib/brand.js`) previously pointed to a CDN URL that stopped rendering. Replaced with a locally-served `/brand-logo.jpg` copied into `/app/frontend/public/`. All secondary hardcoded URLs (`AdminLiveMap.jsx`, `SplashScreen.jsx`, `TrackMap3D.jsx`) now use the central `BRAND_LOGO_URL` (or a local `/brand-logo.jpg` in JSX/map-marker HTML strings). Verified visible in header via screenshot.
 - **`delivery/admin.py` refactor (P1)**: The 490-line monolithic `make_router()` (cyclomatic complexity ~101) has been decomposed into 4 focused sub-modules, each with a single `register(router, db, admin_only)` entry:

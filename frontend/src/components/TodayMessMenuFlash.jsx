@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import {
   ChefHat, Sun, Moon, Sunrise, ShoppingCart,
-  Loader2, Minus, Plus,
+  Loader2, Minus, Plus, Truck, Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
@@ -11,7 +11,8 @@ import MenuPushBanner from "./MenuPushBanner";
 import CartSaverBanner from "./CartSaverBanner";
 import {
   splitMenuItems, loadRazorpay, cleanIndianMobile,
-  SERVICE_TABS, PAY_TABS, PENDING_KEY,
+  PAY_TABS, PENDING_KEY,
+  MEAL_WINDOWS_IST, isMealWindowOpen,
 } from "./messMenuHelpers";
 
 /**
@@ -34,11 +35,15 @@ export default function TodayMessMenuFlash({ compact = false }) {
   const [tab, setTab] = useState("today"); // today | tomorrow
   const [orderOpen, setOrderOpen] = useState(false);
   const [orderMeal, setOrderMeal] = useState("lunch");
-  const [service, setService] = useState("delivery");
+  // iter-131: online users only get Delivery. Takeaway/Dining are kiosk-only.
+  const [service] = useState("delivery");
   const [qty, setQty] = useState(1);
   const [payMethod, setPayMethod] = useState("online");
   const [phone, setPhone] = useState("");
   const [placing, setPlacing] = useState(false);
+  // iter-131: add-ons + thali customisation
+  const [extraRotis, setExtraRotis] = useState(0);
+  const [excludedItems, setExcludedItems] = useState([]);
   // iter-74 #10: on-spot OTP for delivery (no /login redirect needed)
   const [otpMode, setOtpMode] = useState(false);
   const [otpValue, setOtpValue] = useState("");
@@ -59,8 +64,7 @@ export default function TodayMessMenuFlash({ compact = false }) {
     const raw = String(user.phone || "").replace(/\D/g, "");
     const ten = raw.startsWith("91") && raw.length > 10 ? raw.slice(-10) : raw;
     if (ten.length === 10) setPhone(ten);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, phone]);
   useEffect(() => {
     // iter-73 #9: when the user just logged in (or already had a pending mess
     // order in sessionStorage), re-hydrate the form and auto-fire the order
@@ -78,7 +82,8 @@ export default function TodayMessMenuFlash({ compact = false }) {
       setOrderOpen(true);
       if (pending.tab) setTab(pending.tab);
       if (pending.meal) setOrderMeal(pending.meal);
-      if (pending.service) setService(pending.service);
+      // iter-131: `service` is now always "delivery" — ignore any legacy
+      // takeaway/dining value stashed in an older pending payload.
       if (pending.qty) setQty(pending.qty);
       if (pending.payMethod) setPayMethod(pending.payMethod);
       if (pending.phone) setPhone(pending.phone);
@@ -105,7 +110,20 @@ export default function TodayMessMenuFlash({ compact = false }) {
     : "";
 
   const priceFor = (svc) => Number(cfg[`price_${svc}`] || 0);
-  const total = priceFor(service) * qty;
+  // iter-131: extra roti add-on. Per roti price defaults to ₹10 (backend cfg).
+  const extraRotiPrice = Number(cfg.price_extra_roti ?? 10);
+  const extraRotisTotal = extraRotis * extraRotiPrice * qty;
+  const total = priceFor(service) * qty + extraRotisTotal;
+
+  // iter-131: meal-window awareness. For "today" tab, block picking a meal
+  // whose IST window has already closed / not yet opened. "tomorrow" is
+  // always pre-orderable.
+  const mealDisabled = (m) => tab === "today" && !isMealWindowOpen(m);
+  const mealBlocked = mealDisabled(orderMeal);
+
+  // iter-131: available thali items for the currently-picked meal, used
+  // to render the opt-out checkboxes. Recomputed when tab / meal changes.
+  const thaliItems = active ? splitMenuItems(active[orderMeal] || "") : [];
 
   // Phone validation now imported from messMenuHelpers (cleanIndianMobile).
 
@@ -130,6 +148,8 @@ export default function TodayMessMenuFlash({ compact = false }) {
         meal_type: src.meal,
         payment_method: src.payMethod,
         phone: src.phone || null,
+        extra_rotis: Number(src.extraRotis || extraRotis || 0),
+        excluded_items: Array.isArray(src.excludedItems) ? src.excludedItems : excludedItems,
       });
       const checkout = r.data?.checkout;
       const order = r.data?.order;
@@ -260,7 +280,7 @@ export default function TodayMessMenuFlash({ compact = false }) {
       <CartSaverBanner
         onResume={(b) => {
           if (b.meal_type) setOrderMeal(b.meal_type);
-          if (b.service) setService(b.service);
+          // iter-131: service is fixed to delivery — ignore legacy resume value.
           if (b.qty) setQty(b.qty);
           if (data && b.date === data.tomorrow) setTab("tomorrow");
           else setTab("today");
@@ -396,7 +416,14 @@ export default function TodayMessMenuFlash({ compact = false }) {
                   type="button"
                   onClick={() => {
                     setOrderOpen(true);
-                    const initialMeal = active.lunch ? "lunch" : "dinner";
+                    // iter-131: pick a meal that is actually openable given
+                    // the current tab + IST time-window. Prefer the meal
+                    // whose window is currently open; fall back to whatever
+                    // menu the day has.
+                    const bothTabs = tab === "today";
+                    const lunchOk = active.lunch && (!bothTabs || isMealWindowOpen("lunch"));
+                    const dinnerOk = active.dinner && (!bothTabs || isMealWindowOpen("dinner"));
+                    const initialMeal = lunchOk ? "lunch" : dinnerOk ? "dinner" : (active.lunch ? "lunch" : "dinner");
                     setOrderMeal(initialMeal);
                     if (user) {
                       api.post("/mess-menu/order-intent", {
@@ -415,27 +442,134 @@ export default function TodayMessMenuFlash({ compact = false }) {
                   <ShoppingCart className="h-3.5 w-3.5" /> Order this menu
                 </button>
               ) : (
-                <div className="rounded-xl bg-white/12 backdrop-blur-sm p-2 space-y-1.5" data-testid="menu-order-form">
-                  {/* meal toggle */}
-                  {active.lunch && active.dinner && (
-                    <div className="inline-flex rounded-full bg-black/15 p-0.5 gap-0.5">
-                      <button type="button" onClick={() => setOrderMeal("lunch")} className={`px-2.5 h-6 rounded-full text-[10px] font-bold ${orderMeal === "lunch" ? "bg-white text-emerald-900" : "text-white/80"}`} data-testid="order-meal-lunch">Lunch</button>
-                      <button type="button" onClick={() => setOrderMeal("dinner")} className={`px-2.5 h-6 rounded-full text-[10px] font-bold ${orderMeal === "dinner" ? "bg-white text-emerald-900" : "text-white/80"}`} data-testid="order-meal-dinner">Dinner</button>
+                <div className="rounded-xl bg-white/12 backdrop-blur-sm p-2.5 space-y-2" data-testid="menu-order-form">
+                  {/* iter-131: vertical meal picker.
+                      Each meal shows: icon, label, IST window, "open/closed"
+                      status, menu preview, radio-selected state. Clicking a
+                      closed same-day meal shows a toast — pre-orders for
+                      tomorrow are always allowed. */}
+                  {(active.lunch || active.dinner) && (
+                    <div className="flex flex-col gap-1.5" data-testid="order-meal-vertical">
+                      {["lunch", "dinner"].filter((m) => !!active[m]).map((m) => {
+                        const selected = orderMeal === m;
+                        const disabled = mealDisabled(m);
+                        const win = MEAL_WINDOWS_IST[m];
+                        const Icon = m === "lunch" ? Sun : Moon;
+                        return (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => {
+                              if (disabled) {
+                                toast.error(`${m[0].toUpperCase() + m.slice(1)} is closed for today (open ${win.label} IST). Try tomorrow's menu.`);
+                                return;
+                              }
+                              if (m !== orderMeal) {
+                                // Reset per-meal customisations when switching so
+                                // opt-outs from one meal don't leak into the other.
+                                setExcludedItems([]);
+                                setExtraRotis(0);
+                              }
+                              setOrderMeal(m);
+                            }}
+                            aria-pressed={selected}
+                            aria-disabled={disabled}
+                            data-testid={`order-meal-${m}`}
+                            className={`w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left transition-all border ${
+                              selected
+                                ? "bg-white text-emerald-900 border-white shadow-sm"
+                                : disabled
+                                  ? "bg-white/5 text-white/50 border-white/10 cursor-not-allowed"
+                                  : "bg-white/10 text-white/90 border-white/15 hover:bg-white/20"
+                            }`}
+                          >
+                            <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full shrink-0 ${
+                              selected ? "bg-emerald-100" : "bg-white/15"
+                            }`}>
+                              <Icon className="h-4 w-4" />
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[12px] font-extrabold uppercase tracking-wider">{m}</span>
+                                <span className={`text-[9px] uppercase tracking-[0.15em] font-bold px-1.5 py-0.5 rounded-full ${
+                                  disabled ? "bg-red-500/20 text-red-200" : "bg-emerald-500/20 text-emerald-100"
+                                }`}>
+                                  {disabled ? "Closed" : "Open"}
+                                </span>
+                                <span className="text-[9px] uppercase tracking-[0.15em] font-bold opacity-70 ml-auto">{win.label}</span>
+                              </div>
+                              <p className={`mt-0.5 text-[10.5px] leading-tight ${selected ? "text-emerald-900/80" : "opacity-75"} line-clamp-1`}>
+                                {active[m]}
+                              </p>
+                            </div>
+                            <span className={`inline-flex h-4 w-4 rounded-full border-2 shrink-0 ${
+                              selected ? "bg-emerald-600 border-emerald-600" : "border-white/60"
+                            }`} aria-hidden />
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {SERVICE_TABS.map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => setService(s.id)}
-                        data-testid={`order-svc-${s.id}`}
-                        className={`inline-flex flex-col items-center justify-center gap-0 px-1 py-1 rounded-lg text-[10px] font-extrabold tracking-wide leading-tight ${service === s.id ? "bg-white text-emerald-900" : "bg-white/10 text-white/85 hover:bg-white/20"}`}
-                      >
-                        <span className="inline-flex items-center gap-1"><s.icon className="h-3 w-3" /> {s.label}</span>
-                        <span className="tabular-nums text-[10px] opacity-90">₹{priceFor(s.id)}</span>
-                      </button>
-                    ))}
+
+                  {/* iter-131: online users are always Delivery. Kiosk has its
+                      own screen with Takeaway + Dining. We keep the service
+                      pill visible so the user knows this order will be
+                      delivered — cheaper than a hidden implicit default. */}
+                  <div className="flex items-center gap-2 rounded-lg bg-white/10 px-2.5 py-1.5" data-testid="order-service-pill">
+                    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/20">
+                      <Truck className="h-3 w-3" />
+                    </span>
+                    <span className="text-[11px] font-extrabold tracking-wider uppercase">Delivery</span>
+                    <span className="ml-auto tabular-nums text-[11px] font-extrabold">₹{priceFor("delivery")}</span>
+                  </div>
+
+                  {/* iter-131: opt-out checkboxes for thali items.
+                      Price stays the same — we just prep less food. */}
+                  {thaliItems.length > 0 && (
+                    <div className="rounded-lg bg-white/10 px-2.5 py-1.5" data-testid="order-thali-opts">
+                      <p className="text-[10px] tracking-[0.16em] uppercase font-extrabold text-white/80">
+                        Skip anything? <span className="opacity-70 normal-case tracking-normal font-semibold">(price stays same, saves food)</span>
+                      </p>
+                      <div className="mt-1 grid grid-cols-2 gap-x-2 gap-y-0.5">
+                        {thaliItems.map((it) => {
+                          const on = !excludedItems.includes(it);
+                          return (
+                            <label
+                              key={it}
+                              data-testid={`order-thali-item-${it.replace(/\s+/g, "-").toLowerCase()}`}
+                              className={`flex items-center gap-1.5 text-[11px] font-semibold cursor-pointer select-none ${on ? "text-white" : "text-white/50 line-through"}`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={on}
+                                onChange={() => {
+                                  setExcludedItems((prev) => (
+                                    prev.includes(it)
+                                      ? prev.filter((x) => x !== it)
+                                      : [...prev, it]
+                                  ));
+                                }}
+                                className="h-3 w-3 accent-emerald-400"
+                              />
+                              <span className="truncate">{it}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* iter-131: extra rotis add-on. ₹10 per roti (config). */}
+                  <div className="flex items-center gap-2 rounded-lg bg-white/10 px-2.5 py-1.5" data-testid="order-extra-roti">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-extrabold">Extra rotis</p>
+                      <p className="text-[9.5px] opacity-75">₹{extraRotiPrice} each · added to total</p>
+                    </div>
+                    <div className="inline-flex items-center rounded-full bg-black/20 text-white">
+                      <button type="button" onClick={() => setExtraRotis((n) => Math.max(0, n - 1))} data-testid="order-roti-dec" className="h-6 w-6 inline-flex items-center justify-center hover:bg-white/10 rounded-l-full disabled:opacity-40" disabled={extraRotis <= 0}><Minus className="h-3 w-3" /></button>
+                      <span className="px-2 text-[13px] font-extrabold tabular-nums" data-testid="order-roti-qty">{extraRotis}</span>
+                      <button type="button" onClick={() => setExtraRotis((n) => Math.min(20, n + 1))} data-testid="order-roti-inc" className="h-6 w-6 inline-flex items-center justify-center hover:bg-white/10 rounded-r-full"><Plus className="h-3 w-3" /></button>
+                    </div>
                   </div>
 
                   {/* iter-73 #10: payment method picker (online / cash / wallet) */}
@@ -481,13 +615,20 @@ export default function TodayMessMenuFlash({ compact = false }) {
                     <div className="flex-1 text-right text-white font-extrabold text-sm tabular-nums" data-testid="order-total">₹{total}</div>
                     <button
                       type="button"
-                      onClick={placeOrder}
-                      disabled={placing}
+                      onClick={() => {
+                        if (mealBlocked) {
+                          const w = MEAL_WINDOWS_IST[orderMeal];
+                          toast.error(`${orderMeal[0].toUpperCase() + orderMeal.slice(1)} closed for today (open ${w.label} IST). Pre-order via Tomorrow's menu.`);
+                          return;
+                        }
+                        placeOrder();
+                      }}
+                      disabled={placing || mealBlocked}
                       data-testid="order-place"
-                      className="inline-flex items-center gap-1 rounded-full bg-white text-emerald-800 px-3 h-7 text-[11px] font-extrabold shadow hover:bg-white/95 disabled:opacity-60"
+                      className="inline-flex items-center gap-1 rounded-full bg-white text-emerald-800 px-3 h-7 text-[11px] font-extrabold shadow hover:bg-white/95 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      {placing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                      Place order
+                      {placing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : mealBlocked ? <Clock className="h-3.5 w-3.5" /> : null}
+                      {mealBlocked ? "Closed for today" : "Place order"}
                     </button>
                   </div>
                   <button type="button" onClick={() => setOrderOpen(false)} className="text-[10px] text-white/70 hover:text-white" data-testid="order-cancel">Cancel</button>

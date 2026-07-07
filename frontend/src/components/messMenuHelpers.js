@@ -43,7 +43,19 @@ export function cleanIndianMobile(raw) {
   return stripped;
 }
 
+/* --------------------------------------------------------------------------
+ * iter-131 additions
+ * -------------------------------------------------------------------------- */
+
+// Delivery-only for the online web app. Takeaway + Dining are kiosk-only
+// (see `pages/Kiosk.jsx`). Keeping the array shape for backwards-compat
+// with the existing map/render code.
 export const SERVICE_TABS = [
+  { id: "delivery", label: "Delivery", icon: Truck },
+];
+
+// Kept for reference (used on the physical kiosk screen).
+export const KIOSK_SERVICE_TABS = [
   { id: "delivery", label: "Delivery", icon: Truck },
   { id: "takeaway", label: "Takeaway", icon: Package },
   { id: "dining",   label: "Dining",   icon: Utensils },
@@ -56,3 +68,33 @@ export const PAY_TABS = [
 ];
 
 export const PENDING_KEY = "efc_pending_mess_order_v1";
+
+/**
+ * Same-day meal-window rules (IST). Must stay in sync with backend
+ * MEAL_WINDOWS_IST in routes/mess_menu_cal.py.
+ *
+ * Semantics: `lunch` orders for TODAY are accepted until lunch service ends
+ * (~3 pm IST). Once 3 pm crosses, TODAY's lunch is closed; `dinner` opens.
+ * After 10 pm both are closed for today — pre-orders for tomorrow are
+ * always allowed regardless of window.
+ */
+export const MEAL_WINDOWS_IST = {
+  lunch:  { start: 0,  end: 15, label: "12 – 3 pm" },
+  dinner: { start: 15, end: 22, label: "7 – 10 pm" },
+};
+
+/** Current IST hour (0-23). */
+export function currentISTHour() {
+  const now = new Date();
+  // Add IST offset (+5:30) to UTC to get IST hour, mod 24.
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+  return new Date(utcMs + 5.5 * 3600000).getHours();
+}
+
+/** True if the meal-window for `meal` is currently open in IST. */
+export function isMealWindowOpen(meal) {
+  const w = MEAL_WINDOWS_IST[meal];
+  if (!w) return true;
+  const h = currentISTHour();
+  return h >= w.start && h < w.end;
+}

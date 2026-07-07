@@ -170,8 +170,29 @@ DEFAULT_CONFIG = {
     "price_delivery": 140,
     "price_takeaway": 120,
     "price_dining": 100,
+    # iter-131: extra roti add-on price (₹ per roti). Users can order more rotis
+    # than the thali includes at this fixed price.
+    "price_extra_roti": 10,
     "order_enabled": True,
 }
+
+
+# iter-131: same-day meal-time windows (IST hours, 24h). Orders for TODAY are
+# only accepted while the meal window is open. Orders for TOMORROW are
+# always allowed (pre-booking). Semantics:
+#   · Lunch  → orderable from midnight until lunch service ends (3 pm IST).
+#   · Dinner → orderable from 3 pm until dinner service ends (10 pm IST).
+# Keep in sync with the UI hint in messMenuHelpers.js.
+MEAL_WINDOWS_IST = {
+    "lunch":  (0, 15),    # 00:00 – 15:00
+    "dinner": (15, 22),   # 15:00 – 22:00
+}
+
+
+def _meal_window_open(meal: str) -> bool:
+    start, end = MEAL_WINDOWS_IST.get(meal, (0, 24))
+    hour = _now_ist().hour
+    return start <= hour < end
 
 
 async def _get_config() -> dict:
@@ -189,6 +210,7 @@ class MessMenuConfigIn(BaseModel):
     price_delivery: int = Field(default=DEFAULT_CONFIG["price_delivery"], ge=0, le=2000)
     price_takeaway: int = Field(default=DEFAULT_CONFIG["price_takeaway"], ge=0, le=2000)
     price_dining: int = Field(default=DEFAULT_CONFIG["price_dining"], ge=0, le=2000)
+    price_extra_roti: int = Field(default=DEFAULT_CONFIG["price_extra_roti"], ge=0, le=200)
     order_enabled: bool = True
 
 
@@ -216,6 +238,9 @@ class MessMenuOrderIn(BaseModel):
     phone: Optional[str] = Field(default=None, description="+91 mobile (delivery only)")
     payment_method: str = Field(default="online", description="online | cash | wallet")
     note: str = ""
+    # iter-131: optional add-ons / customisations
+    extra_rotis: int = Field(default=0, ge=0, le=50, description="Extra rotis beyond thali (₹price_extra_roti each)")
+    excluded_items: list[str] = Field(default_factory=list, description="Thali items user has opted out of (price unchanged)")
 
 
 @router.post("/mess-menu/order")
@@ -241,9 +266,23 @@ async def place_mess_order(payload: MessMenuOrderIn, user: server.User = Depends
     menu = await server.db.mess_menu.find_one({"date": payload.date}, {"_id": 0})
     if not menu or not (menu.get(payload.meal_type) or "").strip():
         raise HTTPException(status_code=400, detail=f"No {payload.meal_type} planned for {payload.date}")
+    # iter-131: enforce meal-time window for SAME-day orders. Pre-orders
+    # (tomorrow) are always allowed. Keeps kitchen from having to accept a
+    # lunch order at 8 pm when the batch cook is already sealed.
+    if payload.date == _today_ist() and not _meal_window_open(payload.meal_type):
+        start, end = MEAL_WINDOWS_IST[payload.meal_type]
+        raise HTTPException(
+            status_code=400,
+            detail=f"{payload.meal_type.capitalize()} orders are only open "
+                   f"{start}:00 – {end}:00 IST for today. Try tomorrow's menu instead.",
+        )
     price_key = f"price_{payload.service}"
     unit_price = int(cfg.get(price_key) or 0)
-    total = unit_price * payload.qty
+    # iter-131: extra rotis add-on. Excluded items (opt-outs) don't change price.
+    extra_rotis = int(payload.extra_rotis or 0)
+    extra_roti_price = int(cfg.get("price_extra_roti") or 0)
+    extra_rotis_total = extra_rotis * extra_roti_price * payload.qty
+    total = unit_price * payload.qty + extra_rotis_total
 
     # iter-66 #2: chain with Razorpay so users can actually pay.
     # iter-73 #10: payment_method dictates flow — cash/wallet skip Razorpay.
@@ -288,6 +327,10 @@ async def place_mess_order(payload: MessMenuOrderIn, user: server.User = Depends
         "menu_text": menu.get(payload.meal_type),
         "unit_price": unit_price,
         "total": total,
+        "extra_rotis": extra_rotis,
+        "extra_roti_price": extra_roti_price,
+        "extra_rotis_total": extra_rotis_total,
+        "excluded_items": [s.strip() for s in (payload.excluded_items or []) if s and s.strip()],
         "amount_paise": amount_paise,
         "currency": "INR",
         "status": initial_status,

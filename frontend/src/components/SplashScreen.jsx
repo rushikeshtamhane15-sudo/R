@@ -1,20 +1,17 @@
 import React, { useEffect, useState } from "react";
-import { BRAND_LOGO_URL as LOGO_URL } from "../lib/brand";
 
 /**
  * Brand splash screen — full-bleed red overlay, 3D digital logo treatment,
- * holds for 2 s on every cold load (no sessionStorage skip — user wants the
- * splash to be the FIRST thing every launch).
+ * holds for ~3 s on every cold load (iter-131: bumped by +2 s per request).
  *
- *   ┌────────────────────────┐   #a02323 background
- *   │   [3D logo · 96 px]    │
- *   │                        │
- *   │      efoodcare         │   wordmark (white)
- *   │  ghar se accha khana   │   tagline (white, italic)
- *   └────────────────────────┘
+ * Note: uses its OWN logo URL (not `BRAND_LOGO_URL`) so the splash keeps
+ * the original efoodcare brand mark + animation even if the header logo
+ * is swapped later.
  */
+const LOGO_URL =
+  "https://customer-assets.emergentagent.com/job_dining-pass-scan/artifacts/uzs344m6_9a705f5a-b3a0-4286-b51d-b9bd6f55b7bb_20260504_011957_0000.png";
 
-const HOLD_MS = 800;
+const HOLD_MS = 2800;
 const FADE_MS = 350;
 const SS_KEY = "efc_splash_seen_v2";
 
