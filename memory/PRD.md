@@ -16,6 +16,13 @@ Build a tiffin / dining subscription app with:
 - Staff (scans subscriber QR at counter)
 - Subscriber (owns e-Meal Pass + wallet)
 
+### Iteration 131.4 (Feb 2026, fork) — Menu items back to horizontal + compile-error fix
+- **Compile error resolved**: The previous vertical-layout edits left an extra dangling `</div>); }` block at the tail of `TodayMessMenuFlash.jsx`, breaking the JSX parser. Removed the duplicate closer — component now compiles clean.
+- **Mess menu item lists reverted to HORIZONTAL 3-column grid** (`grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-0.5`) for both LUNCH and DINNER preview sections, as well as the "Skip anything?" thali opt-out checkbox group. This is the layout the user asked for in iter-131.4 (opposite of the vertical stack shipped in iter-131.3).
+- **Meal picker inside the order form stays vertical** (`flex flex-col`) — that was the deliberate change the user explicitly requested earlier and did not ask to revert. Only the ITEM lists inside meal cards were flipped back.
+- **Logo icon**: user's "not visible" report was a symptom of the compile error above; once the JSX was valid, the header + splash + all other logos rendered correctly. No logo-URL changes needed.
+
+
 ### Iteration 131.3 (Feb 2026, fork) — Full-vertical mess menu items + Header logo isolation
 - **Mess menu container is now 100 % vertical**: the lunch/dinner item lists inside the menu preview were previously a 2-col responsive grid (`grid-cols-2 sm:grid-cols-3`) — now they render as a stacked `flex flex-col` bullet list. The "Skip anything?" checkbox group inside the order form matches (single-column stack).
 - **Header logo isolated**: introduced `HEADER_LOGO_URL` in `frontend/src/lib/brand.js` (points to the original CDN copy). Header (`Header.jsx`) now uses `HEADER_LOGO_URL` while every other component keeps using `BRAND_LOGO_URL` (`/brand-logo.jpg`). This lets the user swap the app-wide brand mark without disturbing the header. User confirmed option (a) — keep icon in header, no visible change to it.
