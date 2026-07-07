@@ -16,6 +16,12 @@ Build a tiffin / dining subscription app with:
 - Staff (scans subscriber QR at counter)
 - Subscriber (owns e-Meal Pass + wallet)
 
+### Iteration 131.3 (Feb 2026, fork) — Full-vertical mess menu items + Header logo isolation
+- **Mess menu container is now 100 % vertical**: the lunch/dinner item lists inside the menu preview were previously a 2-col responsive grid (`grid-cols-2 sm:grid-cols-3`) — now they render as a stacked `flex flex-col` bullet list. The "Skip anything?" checkbox group inside the order form matches (single-column stack).
+- **Header logo isolated**: introduced `HEADER_LOGO_URL` in `frontend/src/lib/brand.js` (points to the original CDN copy). Header (`Header.jsx`) now uses `HEADER_LOGO_URL` while every other component keeps using `BRAND_LOGO_URL` (`/brand-logo.jpg`). This lets the user swap the app-wide brand mark without disturbing the header. User confirmed option (a) — keep icon in header, no visible change to it.
+- **Pure-veg tag** untouched (it's a CSS-drawn badge, never used `BRAND_LOGO_URL`).
+
+
 ### Iteration 131.2 (Feb 2026, fork) — Mess-Menu UX overhaul (splash, windows, delivery-only, roti add-on, thali opt-outs)
 - **Splash screen**: reverted to the ORIGINAL efoodcare logo URL (kept in-file) so the splash animation is untouched by future header-logo swaps. Hold time bumped from 800 ms → 2800 ms (+2 s per user request).
 - **Delivery-only for online users**: `TodayMessMenuFlash` now hides the Takeaway + Dining service tabs — those remain available on the physical kiosk (`Kiosk.jsx`). Old sessionStorage/pending payloads that referenced takeaway/dining are ignored on resume so nothing breaks for returning users.
