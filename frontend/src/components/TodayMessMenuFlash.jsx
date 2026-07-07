@@ -355,7 +355,7 @@ export default function TodayMessMenuFlash({ compact = false }) {
                 <span className="text-[9px] uppercase tracking-[0.15em] text-amber-100/70 font-bold">12 – 3 pm</span>
               </div>
               {active.lunch ? (
-                <ul className="mt-1.5 grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-0.5">
+                <ul className="mt-1.5 flex flex-col gap-y-0.5">
                   {splitMenuItems(active.lunch).map((it, i) => (
                     <li key={`lunch-${it}-${i}`} className="flex items-center gap-1.5 text-[12px] leading-tight font-semibold min-w-0">
                       <span aria-hidden className="inline-block h-1 w-1 rounded-full bg-amber-300/80 shrink-0" />
@@ -387,7 +387,7 @@ export default function TodayMessMenuFlash({ compact = false }) {
                 <span className="text-[9px] uppercase tracking-[0.15em] text-blue-100/70 font-bold">7 – 10 pm</span>
               </div>
               {active.dinner ? (
-                <ul className="mt-1.5 grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-0.5">
+                <ul className="mt-1.5 flex flex-col gap-y-0.5">
                   {splitMenuItems(active.dinner).map((it, i) => (
                     <li key={`dinner-${it}-${i}`} className="flex items-center gap-1.5 text-[12px] leading-tight font-semibold min-w-0">
                       <span aria-hidden className="inline-block h-1 w-1 rounded-full bg-blue-300/80 shrink-0" />
@@ -530,7 +530,7 @@ export default function TodayMessMenuFlash({ compact = false }) {
                       <p className="text-[10px] tracking-[0.16em] uppercase font-extrabold text-white/80">
                         Skip anything? <span className="opacity-70 normal-case tracking-normal font-semibold">(price stays same, saves food)</span>
                       </p>
-                      <div className="mt-1 grid grid-cols-2 gap-x-2 gap-y-0.5">
+                      <div className="mt-1 flex flex-col gap-y-0.5">
                         {thaliItems.map((it) => {
                           const on = !excludedItems.includes(it);
                           return (

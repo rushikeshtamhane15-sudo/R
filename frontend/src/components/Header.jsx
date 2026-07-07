@@ -6,7 +6,7 @@ import { Button } from "./ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "./ui/sheet";
 import WalletPill from "./WalletPill";
 import MessSwitcher from "./MessSwitcher";
-import { BRAND_LOGO_URL } from "../lib/brand";
+import { HEADER_LOGO_URL } from "../lib/brand";
 import { api } from "../lib/api";
 import { LogOut, Menu, X, Wallet } from "lucide-react";
 
@@ -77,7 +77,7 @@ export default function Header() {
             data-testid="brand-logo-frame"
           >
             <img
-              src={BRAND_LOGO_URL}
+              src={HEADER_LOGO_URL}
               alt={brandName}
               className="h-[92%] w-[92%] object-contain"
               data-testid="brand-logo"
@@ -113,7 +113,7 @@ export default function Header() {
               <div className="bg-primary text-primary-foreground px-6 py-6" data-testid="drawer-brand">
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center h-12 w-16 rounded-md bg-primary shrink-0 overflow-hidden">
-                    <img src={BRAND_LOGO_URL} alt={brandName} className="h-[92%] w-[92%] object-contain" />
+                    <img src={HEADER_LOGO_URL} alt={brandName} className="h-[92%] w-[92%] object-contain" />
                   </span>
                   <div className="flex flex-col leading-none">
                     <span className="font-display font-extrabold text-xl text-primary-foreground" data-testid="drawer-brand-name">{brandName}</span>
