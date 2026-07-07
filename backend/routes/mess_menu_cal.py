@@ -173,6 +173,10 @@ DEFAULT_CONFIG = {
     # iter-131: extra roti add-on price (₹ per roti). Users can order more rotis
     # than the thali includes at this fixed price.
     "price_extra_roti": 10,
+    # iter-131.5: admins can toggle whether lunch/dinner item lists render as
+    # a horizontal 3-col grid or a single vertical list, live from the CMS
+    # calendar page without needing a redeploy.
+    "item_layout": "horizontal",   # "horizontal" | "list"
     "order_enabled": True,
 }
 
@@ -211,6 +215,7 @@ class MessMenuConfigIn(BaseModel):
     price_takeaway: int = Field(default=DEFAULT_CONFIG["price_takeaway"], ge=0, le=2000)
     price_dining: int = Field(default=DEFAULT_CONFIG["price_dining"], ge=0, le=2000)
     price_extra_roti: int = Field(default=DEFAULT_CONFIG["price_extra_roti"], ge=0, le=200)
+    item_layout: str = Field(default=DEFAULT_CONFIG["item_layout"], pattern="^(horizontal|list)$")
     order_enabled: bool = True
 
 

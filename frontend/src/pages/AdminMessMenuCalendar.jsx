@@ -313,6 +313,44 @@ function MessMenuConfigCard() {
         <PriceField label="Takeaway ₹" value={cfg.price_takeaway} onChange={(v) => set("price_takeaway")(Number(v || 0))} testId="mm-price-takeaway" />
         <PriceField label="Dining ₹" value={cfg.price_dining} onChange={(v) => set("price_dining")(Number(v || 0))} testId="mm-price-dining" />
       </div>
+      <div className="mt-3 grid sm:grid-cols-2 gap-3 items-end">
+        <PriceField
+          label="Extra roti ₹ (per piece)"
+          value={cfg.price_extra_roti ?? 10}
+          onChange={(v) => set("price_extra_roti")(Number(v || 0))}
+          testId="mm-price-extra-roti"
+        />
+        {/* iter-131.5: layout chip — flip lunch/dinner item list between
+            horizontal 3-col grid and stacked vertical list, no redeploy. */}
+        <div>
+          <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground block">Item list layout</span>
+          <div className="mt-1 inline-flex rounded-full bg-muted p-0.5 gap-0.5" role="tablist" data-testid="mm-item-layout-chip">
+            {[
+              { id: "horizontal", label: "Horizontal" },
+              { id: "list",       label: "List" },
+            ].map((opt) => {
+              const on = (cfg.item_layout || "horizontal") === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => set("item_layout")(opt.id)}
+                  data-testid={`mm-item-layout-${opt.id}`}
+                  aria-pressed={on}
+                  className={`px-3 h-8 rounded-full text-xs font-extrabold transition-colors ${on ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            {(cfg.item_layout || "horizontal") === "horizontal"
+              ? "Items shown side-by-side in a 3-col grid."
+              : "Items shown one below the other."}
+          </p>
+        </div>
+      </div>
       <label className="mt-3 flex items-center gap-2 text-xs">
         <input type="checkbox" checked={!!cfg.order_enabled} onChange={(e) => set("order_enabled")(e.target.checked)} data-testid="mm-order-enabled" />
         <span className="font-semibold">Allow users to order from this card</span>

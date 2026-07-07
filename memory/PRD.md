@@ -16,6 +16,13 @@ Build a tiffin / dining subscription app with:
 - Staff (scans subscriber QR at counter)
 - Subscriber (owns e-Meal Pass + wallet)
 
+### Iteration 131.5 (Feb 2026, fork) — CMS-driven mess-menu item layout chip
+- **New config field** `item_layout` (`"horizontal" | "list"`, default `"horizontal"`) added to `mess_menu_cms_v1`. Persisted alongside prices + colors so admins can flip it live from the calendar page.
+- **Admin CMS UI**: `AdminMessMenuCalendar → MessMenuConfigCard` now renders a chip toggle labelled "Item list layout · Horizontal | List" plus an inline preview helper text. Same card also gained the missing `price_extra_roti` field (was invisible to admins earlier).
+- **Frontend consumer**: `TodayMessMenuFlash.jsx` reads `cfg.item_layout` and swaps class names between `grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-0.5` (horizontal) and `flex flex-col gap-y-0.5` (list) for both lunch/dinner previews AND the "Skip anything?" opt-out grid inside the order form.
+- **Verified**: PUT `/api/admin/mess-menu/config` with `item_layout=list` → preview page shows stacked items. Flip back to `horizontal` → 3-col grid returns. Two clicks, zero redeploy.
+
+
 ### Iteration 131.4 (Feb 2026, fork) — Menu items back to horizontal + compile-error fix
 - **Compile error resolved**: The previous vertical-layout edits left an extra dangling `</div>); }` block at the tail of `TodayMessMenuFlash.jsx`, breaking the JSX parser. Removed the duplicate closer — component now compiles clean.
 - **Mess menu item lists reverted to HORIZONTAL 3-column grid** (`grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-0.5`) for both LUNCH and DINNER preview sections, as well as the "Skip anything?" thali opt-out checkbox group. This is the layout the user asked for in iter-131.4 (opposite of the vertical stack shipped in iter-131.3).
