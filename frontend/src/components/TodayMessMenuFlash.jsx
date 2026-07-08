@@ -115,15 +115,19 @@ export default function TodayMessMenuFlash({ compact = false }) {
   const extraRotisTotal = extraRotis * extraRotiPrice * qty;
   const total = priceFor(service) * qty + extraRotisTotal;
 
-  // iter-131.5: CMS-driven layout switch. Admins can flip lunch/dinner item
-  // lists between a horizontal 3-col grid and a stacked vertical list
-  // straight from the mess-menu calendar page.
-  const itemLayoutClass = cfg.item_layout === "list"
+  // iter-131.6: CMS-driven tile layout. `item_layout` now controls whether
+  // the LUNCH and DINNER tiles sit side-by-side (default, "horizontal") or
+  // stacked one above the other ("list"). Items inside each tile flip
+  // accordingly — vertical bullets read best in a narrow side-by-side
+  // column; a 3-col horizontal grid reads best when the tile is full-width.
+  const isHorizTiles = cfg.item_layout !== "list";
+  const tileContainerClass = isHorizTiles
+    ? "mt-1.5 z-10 relative grid grid-cols-2 gap-1.5 items-stretch"
+    : "mt-1.5 z-10 relative space-y-1.5";
+  const itemLayoutClass = isHorizTiles
     ? "mt-1.5 flex flex-col gap-y-0.5"
     : "mt-1.5 grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-0.5";
-  const optOutLayoutClass = cfg.item_layout === "list"
-    ? "mt-1 flex flex-col gap-y-0.5"
-    : "mt-1 grid grid-cols-2 gap-x-2 gap-y-0.5";
+  const optOutLayoutClass = "mt-1 grid grid-cols-2 gap-x-2 gap-y-0.5";
 
   // iter-131: meal-window awareness. For "today" tab, block picking a meal
   // whose IST window has already closed / not yet opened. "tomorrow" is
@@ -352,7 +356,10 @@ export default function TodayMessMenuFlash({ compact = false }) {
                 (3-col on sm+) so items align consistently instead of wrap-jumbling.
               · Meal label shows service window (12-3 pm / 7-10 pm) for context.
               · Subtle gold mid-divider remains for visual rhythm. */}
-          <div className="mt-1.5 z-10 relative space-y-1.5">
+          {/* iter-131.6: LUNCH + DINNER tiles. Layout swaps between
+              side-by-side (default) and stacked based on CMS
+              `item_layout`. See computed classes above. */}
+          <div className={tileContainerClass} data-testid="mess-meal-grid">
             {/* LUNCH card */}
             <div data-testid="mess-lunch-col" className="rounded-xl bg-amber-500/10 ring-1 ring-amber-300/20 px-2.5 py-2">
               <div className="flex items-center justify-between gap-2">
@@ -378,12 +385,14 @@ export default function TodayMessMenuFlash({ compact = false }) {
               )}
             </div>
 
-            {/* Thin gold seam separator between meals */}
-            <div className="flex items-center gap-2 opacity-50" aria-hidden>
-              <span className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-300/50 to-amber-300/50" />
-              <span className="w-1 h-1 rotate-45 bg-amber-300/70" />
-              <span className="flex-1 h-px bg-gradient-to-l from-transparent via-amber-300/50 to-amber-300/50" />
-            </div>
+            {/* Mid-seam gold separator — only in stacked mode. */}
+            {!isHorizTiles && (
+              <div className="flex items-center gap-2 opacity-50" aria-hidden>
+                <span className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-300/50 to-amber-300/50" />
+                <span className="w-1 h-1 rotate-45 bg-amber-300/70" />
+                <span className="flex-1 h-px bg-gradient-to-l from-transparent via-amber-300/50 to-amber-300/50" />
+              </div>
+            )}
 
             {/* DINNER card */}
             <div data-testid="mess-dinner-col" className="rounded-xl bg-blue-500/10 ring-1 ring-blue-300/20 px-2.5 py-2">

@@ -5,6 +5,7 @@ import { HelmetProvider } from "react-helmet-async";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
+import { BrandingProvider } from "./context/BrandingContext";
 import { Toaster } from "sonner";
 import PWAInstallPrompt from "./components/PWAInstallPrompt";
 import SplashScreen from "./components/SplashScreen";
@@ -23,6 +24,7 @@ import AdminDelivery from "./pages/AdminDelivery";
 import AdminLiveMap from "./pages/AdminLiveMap";
 import AdminControlTower from "./pages/AdminControlTower";
 import AdminMessMenuCalendar from "./pages/AdminMessMenuCalendar";
+import AdminBranding from "./pages/AdminBranding";
 import DeliveryBoyDashboard from "./pages/DeliveryBoyDashboard";
 import Track from "./pages/Track";
 import AdminCounter from "./pages/AdminCounter";
@@ -165,6 +167,7 @@ function AppRoutes() {
             <Route index element={<AdminIndex />} />
             <Route path="control-tower" element={<AdminControlTower />} />
             <Route path="mess-menu" element={<AdminMessMenuCalendar />} />
+            <Route path="branding" element={<AdminBranding />} />
             <Route path="plans" element={<AdminPlans />} />
             <Route path="delivery" element={<AdminDelivery />} />
             <Route path="live" element={<AdminLiveMap />} />
@@ -231,9 +234,11 @@ export default function App() {
           <BrowserRouter>
             <ThemeProvider>
               <AuthProvider>
-                <AppRoutes />
-                <Toaster position="top-right" richColors />
-                <PWAInstallPrompt />
+                <BrandingProvider>
+                  <AppRoutes />
+                  <Toaster position="top-right" richColors />
+                  <PWAInstallPrompt />
+                </BrandingProvider>
               </AuthProvider>
             </ThemeProvider>
           </BrowserRouter>

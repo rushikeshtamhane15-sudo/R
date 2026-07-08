@@ -3,11 +3,12 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { QRCodeSVG } from "qrcode.react";
 import { Sun, Moon } from "lucide-react";
-import { BRAND_LOGO_URL } from "../lib/brand";
+import { useBranding } from "../context/BrandingContext";
 
 export default function Kiosk() {
   const { locationId = "main" } = useParams();
   const [params] = useSearchParams();
+  const { brandLogoUrl } = useBranding();
   const [meal, setMeal] = useState(params.get("meal") || currentMeal());
   const [data, setData] = useState(null);
   const [stats, setStats] = useState(null);
@@ -61,7 +62,7 @@ export default function Kiosk() {
         {/* Top strip */}
         <div className="flex items-center justify-between px-8 md:px-12 py-6 border-b border-black/5">
           <div className="flex items-center gap-3">
-            <img src={BRAND_LOGO_URL} alt="efoodcare" className="h-10 w-10 rounded-xl bg-primary p-1 object-contain" />
+            <img src={brandLogoUrl} alt="efoodcare" className="h-10 w-10 rounded-xl bg-primary p-1 object-contain" />
             <div>
               <p className="font-display font-extrabold text-lg leading-none">e-Meal Pass</p>
               <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground mt-1">Counter · {locationId}</p>

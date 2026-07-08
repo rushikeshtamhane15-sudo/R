@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../lib/api";
-import { BRAND_LOGO_URL } from "../lib/brand";
+import { useBranding } from "../context/BrandingContext";
+import { PureVegMark } from "./PureVegMark";
 
-// User-provided composite image — green Pure Veg square + fssai logo + "Approved"
-const FSSAI_IMG = "https://customer-assets.emergentagent.com/job_dining-pass-scan/artifacts/li3dreby_images.jpeg";
+// iter-131.6: replaced the tiny composite FSSAI+PureVeg image with a
+// standalone SVG PureVegMark + inline FSSAI text. The composite is kept
+// commented out for reference in case marketing wants it back.
+// const FSSAI_IMG = "https://customer-assets.emergentagent.com/job_dining-pass-scan/artifacts/li3dreby_images.jpeg";
 
 // iter-65 #4: corporate identity block above the bottom copyright bar.
 // Same numbers and addresses used everywhere — CMS-overridable via
@@ -20,6 +23,7 @@ const DEFAULT_CORPORATE = {
 
 export default function Footer() {
   const [data, setData] = useState(null);
+  const { brandLogoUrl } = useBranding();
   useEffect(() => { (async () => { try { const r = await api.get("/content/footer"); setData(r.data); } catch {} })(); }, []);
 
   const copyright = data?.copyright || "copyright © efoodcare.in all rights reserved";
@@ -39,7 +43,7 @@ export default function Footer() {
             primary background underlay so it stays readable on light bg too. */}
         <div className="flex flex-col items-center text-center gap-2 mb-6" data-testid="footer-brand-block">
           <span className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary overflow-hidden shadow-md">
-            <img src={BRAND_LOGO_URL} alt={brandName} className="h-[88%] w-[88%] object-contain" />
+            <img src={brandLogoUrl} alt={brandName} className="h-[88%] w-[88%] object-contain" />
           </span>
           <span
             className="font-display font-extrabold text-3xl sm:text-4xl tracking-tight text-white"
@@ -79,12 +83,13 @@ export default function Footer() {
         </div>
 
         <div className="flex flex-col items-center gap-3 text-sm border-t border-border pt-5">
-          {/* FSSAI compliance — required mark for restaurant brands in India */}
+          {/* FSSAI compliance card — iter-131.6: split the composite image
+              into a standalone, high-contrast PureVegMark + FSSAI number
+              so the green vegetarian symbol is always crisp and readable,
+              instead of being lost inside a tiny bitmap. */}
           <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-border bg-card shadow-sm" data-testid="fssai-mark">
-            <img
-              src={FSSAI_IMG}
-              alt="Pure Veg · FSSAI Approved"
-              className="h-14 w-12 object-contain"
+            <PureVegMark
+              className="h-10 w-10 flex-shrink-0"
               data-testid="fssai-logo-image"
             />
             <div className="flex flex-col leading-tight">

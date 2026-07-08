@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { ChefHat, Truck, Phone, MessageCircle } from "lucide-react";
-import { BRAND_LOGO_URL } from "../../lib/brand";
+import { PureVegMark } from "../PureVegMark";
 
 const SUPPORT_PHONE_DIGITS = "919175560211";  // brand support number
 const SUPPORT_PHONE_DISPLAY = "+919175560211";
@@ -126,10 +126,8 @@ export default function HeroPanel({ theme, meta }) {
               } : undefined}
               data-testid="pure-veg-badge"
             >
-              <img
-                src={BRAND_LOGO_URL}
-                alt="efoodcare"
-                className="pure-veg-logo-3d h-3.5 w-3.5 rounded-sm flex-shrink-0"
+              <PureVegMark
+                className="pure-veg-logo-3d h-3.5 w-3.5 flex-shrink-0"
                 data-testid="pure-veg-logo"
               />
               <span aria-hidden className="opacity-60 text-[10px] leading-none">·</span>

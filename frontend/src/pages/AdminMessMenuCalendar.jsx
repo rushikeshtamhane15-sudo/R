@@ -320,14 +320,15 @@ function MessMenuConfigCard() {
           onChange={(v) => set("price_extra_roti")(Number(v || 0))}
           testId="mm-price-extra-roti"
         />
-        {/* iter-131.5: layout chip — flip lunch/dinner item list between
-            horizontal 3-col grid and stacked vertical list, no redeploy. */}
+        {/* iter-131.5 (revised in 131.6): layout chip — flip LUNCH & DINNER
+            TILES between side-by-side (horizontal) and stacked (list) live,
+            without a redeploy. Items inside each tile flow accordingly. */}
         <div>
-          <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground block">Item list layout</span>
+          <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground block">Menu tile layout</span>
           <div className="mt-1 inline-flex rounded-full bg-muted p-0.5 gap-0.5" role="tablist" data-testid="mm-item-layout-chip">
             {[
-              { id: "horizontal", label: "Horizontal" },
-              { id: "list",       label: "List" },
+              { id: "horizontal", label: "Side by side" },
+              { id: "list",       label: "Stacked" },
             ].map((opt) => {
               const on = (cfg.item_layout || "horizontal") === opt.id;
               return (
@@ -346,8 +347,8 @@ function MessMenuConfigCard() {
           </div>
           <p className="text-[10px] text-muted-foreground mt-1">
             {(cfg.item_layout || "horizontal") === "horizontal"
-              ? "Items shown side-by-side in a 3-col grid."
-              : "Items shown one below the other."}
+              ? "Lunch on the left, Dinner on the right (each tile shows items as a vertical bullet list)."
+              : "Lunch on top, Dinner below (each tile shows items in a 3-col grid)."}
           </p>
         </div>
       </div>

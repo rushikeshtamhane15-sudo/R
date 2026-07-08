@@ -24,6 +24,7 @@ const SECTIONS = [
       { to: "/admin/restaurant-tracking", label: "Restaurant tracking", icon: Truck, roles: FRANCHISE_VIEW },
       { to: "/admin/restaurant-takeaway", label: "Take-away tiffins", icon: Package, roles: FRANCHISE_VIEW },
       { to: "/admin/restaurant-theme", label: "Restaurant page editor", icon: Palette, roles: ["admin"] },
+      { to: "/admin/branding", label: "Brand logo", icon: Palette, roles: ["admin"] },
     ],
   },
   {

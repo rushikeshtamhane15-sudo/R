@@ -4171,6 +4171,7 @@ from routes.rider import router as _rider_router
 from routes.whatsapp_admin import router as _wa_admin_router
 from routes.app_cms import router as _app_cms_router
 from routes.promotions import router as _promotions_router
+from routes.branding import router as _branding_router
 from routes.auth_google import router as _auth_google_router
 from routes.testimonials import router as _testimonials_router
 from routes.plans import router as _plans_router
@@ -4201,6 +4202,7 @@ api_router.include_router(_rider_router)
 api_router.include_router(_wa_admin_router)
 api_router.include_router(_app_cms_router)
 api_router.include_router(_promotions_router)
+api_router.include_router(_branding_router)
 api_router.include_router(_testimonials_router)
 api_router.include_router(_plans_router)
 api_router.include_router(_wallet_router)

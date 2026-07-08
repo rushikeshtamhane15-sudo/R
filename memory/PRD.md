@@ -16,6 +16,14 @@ Build a tiffin / dining subscription app with:
 - Staff (scans subscriber QR at counter)
 - Subscriber (owns e-Meal Pass + wallet)
 
+### Iteration 131.6 (Feb 2026, fork) — Admin brand-logo uploader + visible PureVegMark + side-by-side meal tiles
+- **Brand logo uploader (admin CMS)**: New route `/admin/branding` (linked in the sidebar). Admin can upload JPG/PNG/WEBP up to 2 MB — the backend optimises to WebP and stores as a base64 data URL in `app_settings["branding_settings_v1"]`. Reset button reverts to the bundled `/brand-logo.jpg`. Public endpoint `GET /api/branding` exposes the current URL; admin endpoints `GET/POST /api/admin/branding[/logo|/reset]` control it.
+- **BrandingContext** (`frontend/src/context/BrandingContext.jsx`) fetches once on app boot and exposes `useBranding().brandLogoUrl`. Consumers now hooked: `Footer`, `restaurant/HeroPanel`, `pages/Kiosk`. Header (`HEADER_LOGO_URL`) and map markers (`TrackMap3D`, `AdminLiveMap`) intentionally NOT hooked — they use standalone constants per product decision.
+- **PureVegMark component** (`frontend/src/components/PureVegMark.jsx`) — a scalable SVG rendering the Indian vegetarian symbol (green filled circle inside a green square). Replaces the previous BRAND_LOGO_URL misuse inside `HeroPanel` pure-veg badge AND the tiny composite bitmap that used to sit in the footer FSSAI card. The green mark is now clearly visible on every page.
+- **Mess menu meal tiles side-by-side (option b)**: LUNCH and DINNER now render as two equal columns (`grid grid-cols-2 gap-1.5`) with items inside each tile as a vertical bullet list. The CMS "Menu tile layout" chip (in `AdminMessMenuCalendar`) was updated to `Side by side | Stacked` semantics — flipping to "Stacked" restores the old full-width top/bottom layout with 3-col item grids.
+- **Backend endpoints registered**: `include_router(_branding_router)` added after promotions router in `server.py`. Lint clean. Verified end-to-end via curl: upload → WebP compression (17.7 KB → 2.6 KB) → public GET returns data URL → reset reverts.
+
+
 ### Iteration 131.5 (Feb 2026, fork) — CMS-driven mess-menu item layout chip
 - **New config field** `item_layout` (`"horizontal" | "list"`, default `"horizontal"`) added to `mess_menu_cms_v1`. Persisted alongside prices + colors so admins can flip it live from the calendar page.
 - **Admin CMS UI**: `AdminMessMenuCalendar → MessMenuConfigCard` now renders a chip toggle labelled "Item list layout · Horizontal | List" plus an inline preview helper text. Same card also gained the missing `price_extra_roti` field (was invisible to admins earlier).
