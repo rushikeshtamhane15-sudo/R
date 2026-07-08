@@ -16,6 +16,12 @@ Build a tiffin / dining subscription app with:
 - Staff (scans subscriber QR at counter)
 - Subscriber (owns e-Meal Pass + wallet)
 
+### Iteration 131.7 (Feb 2026, fork) — Header logo reliability + DINNER label polish
+- **Root cause: header logo broken on production**. `HEADER_LOGO_URL` previously pointed to an external CDN (`customer-assets.emergentagent.com/...uzs344m6...png`). Production sometimes loaded before the CDN responded → a broken-image glyph appeared next to the "efoodcare" wordmark. Fix: point `HEADER_LOGO_URL` at the same bundled `/brand-logo.jpg` file that the rest of the app already uses. Kept it as a separate constant (not wired to `BrandingContext`) so the header still stays out of admin-side logo swaps — that decision is preserved, but the file it reads from is now local and 100% reliable.
+- **DINNER label colour changed to WHITE** on the mess-menu tile, matching the moon icon (also switched from `text-blue-200` → `text-white`). Icon container ring updated to `bg-white/15 ring-white/25` so the icon reads on the tile's teal background.
+- **Time label wrap fixed**: "7 – 10 pm" and "12 – 3 pm" now use `whitespace-nowrap flex-shrink-0`. On the narrow side-by-side tiles the "PM" was previously wrapping to a new line. Meal-name spans also gained `min-w-0 truncate` for safety on very long meal names.
+
+
 ### Iteration 131.6 (Feb 2026, fork) — Admin brand-logo uploader + visible PureVegMark + side-by-side meal tiles
 - **Brand logo uploader (admin CMS)**: New route `/admin/branding` (linked in the sidebar). Admin can upload JPG/PNG/WEBP up to 2 MB — the backend optimises to WebP and stores as a base64 data URL in `app_settings["branding_settings_v1"]`. Reset button reverts to the bundled `/brand-logo.jpg`. Public endpoint `GET /api/branding` exposes the current URL; admin endpoints `GET/POST /api/admin/branding[/logo|/reset]` control it.
 - **BrandingContext** (`frontend/src/context/BrandingContext.jsx`) fetches once on app boot and exposes `useBranding().brandLogoUrl`. Consumers now hooked: `Footer`, `restaurant/HeroPanel`, `pages/Kiosk`. Header (`HEADER_LOGO_URL`) and map markers (`TrackMap3D`, `AdminLiveMap`) intentionally NOT hooked — they use standalone constants per product decision.

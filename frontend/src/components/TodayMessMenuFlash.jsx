@@ -363,13 +363,13 @@ export default function TodayMessMenuFlash({ compact = false }) {
             {/* LUNCH card */}
             <div data-testid="mess-lunch-col" className="rounded-xl bg-amber-500/10 ring-1 ring-amber-300/20 px-2.5 py-2">
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-400/20 ring-1 ring-amber-300/40">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-400/20 ring-1 ring-amber-300/40 flex-shrink-0">
                     <Sun className="h-3 w-3 text-amber-200" />
                   </span>
-                  <span className="text-[10px] tracking-[0.22em] uppercase font-extrabold text-amber-200">Lunch</span>
+                  <span className="text-[10px] tracking-[0.22em] uppercase font-extrabold text-amber-200 truncate">Lunch</span>
                 </div>
-                <span className="text-[9px] uppercase tracking-[0.15em] text-amber-100/70 font-bold">12 – 3 pm</span>
+                <span className="text-[9px] uppercase tracking-[0.12em] text-amber-100/70 font-bold whitespace-nowrap flex-shrink-0">12 – 3 pm</span>
               </div>
               {active.lunch ? (
                 <ul className={itemLayoutClass}>
@@ -397,13 +397,17 @@ export default function TodayMessMenuFlash({ compact = false }) {
             {/* DINNER card */}
             <div data-testid="mess-dinner-col" className="rounded-xl bg-blue-500/10 ring-1 ring-blue-300/20 px-2.5 py-2">
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-400/20 ring-1 ring-blue-300/40">
-                    <Moon className="h-3 w-3 text-blue-200" />
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/15 ring-1 ring-white/25 flex-shrink-0">
+                    {/* iter-131.7: moon icon + label switched to WHITE per
+                        brand refresh. */}
+                    <Moon className="h-3 w-3 text-white" />
                   </span>
-                  <span className="text-[10px] tracking-[0.22em] uppercase font-extrabold text-blue-200">Dinner</span>
+                  <span className="text-[10px] tracking-[0.22em] uppercase font-extrabold text-white truncate">Dinner</span>
                 </div>
-                <span className="text-[9px] uppercase tracking-[0.15em] text-blue-100/70 font-bold">7 – 10 pm</span>
+                {/* iter-131.7: force the time to render on a single line —
+                    "PM" was wrapping onto a second row on narrow tiles. */}
+                <span className="text-[9px] uppercase tracking-[0.12em] text-white/80 font-bold whitespace-nowrap flex-shrink-0">7 – 10 pm</span>
               </div>
               {active.dinner ? (
                 <ul className={itemLayoutClass}>

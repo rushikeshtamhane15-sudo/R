@@ -5,10 +5,13 @@
 //
 // BRAND_LOGO_URL  — the "app icon" mark (red rounded-square, iter-131 upload).
 //                   Used EVERYWHERE except the site header and the "PURE VEG"
-//                   certification tag.
-// HEADER_LOGO_URL — the original efoodcare wordmark logo. Used ONLY in the
-//                   Header (and the SplashScreen keeps its own copy of this
-//                   URL inline for animation isolation).
+//                   certification tag. Overridable at runtime via the
+//                   BrandingContext (populated from /api/branding).
+// HEADER_LOGO_URL — the icon used ONLY in the top navigation Header.
+//                   Kept as a SEPARATE constant (never affected by the
+//                   admin BrandingContext), but points to the same
+//                   bundled `/brand-logo.jpg` file so it (a) always loads
+//                   even when the CDN is unreachable, and (b) can never
+//                   flash a broken-image glyph on cold production loads.
 export const BRAND_LOGO_URL = "/brand-logo.jpg";
-export const HEADER_LOGO_URL =
-  "https://customer-assets.emergentagent.com/job_dining-pass-scan/artifacts/uzs344m6_9a705f5a-b3a0-4286-b51d-b9bd6f55b7bb_20260504_011957_0000.png";
+export const HEADER_LOGO_URL = "/brand-logo.jpg";
