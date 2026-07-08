@@ -16,6 +16,13 @@ Build a tiffin / dining subscription app with:
 - Staff (scans subscriber QR at counter)
 - Subscriber (owns e-Meal Pass + wallet)
 
+### Iteration 131.8 (Feb 2026, fork) — Deploy unblocked (`.gitignore` cleanup)
+- **Symptom**: Production deploys of `dining-pass-scan` had been failing with K8s readiness timeout for the last two attempts. Preview was healthy so it looked like the app was fine.
+- **Root cause**: `/app/.gitignore` had been corrupted with 3 blocks of duplicated `*.env` / `.env.*` / `.env` patterns plus stray `-e ` fragments (likely from a `pip freeze` accident). Result: `backend/.env` and `frontend/.env` were git-ignored, so the container built by the platform shipped WITHOUT MongoDB URL, session secret, Razorpay keys, etc. The backend crashed instantly, never bound to :8001, K8s readiness probe timed out → deploy marked failed.
+- **Fix**: Rewrote `/app/.gitignore` (88 lines, was 131 lines with 3 duplicated blocks). Kept credential-file globs (`*token.json*`, `credentials.json`, `.pem`, `.key`, `memory/test_credentials.md`) but dropped the `.env` blanket patterns. Verified `git check-ignore -v backend/.env frontend/.env` now exits with status 1 (i.e. NOT ignored).
+- **Verification**: Ran `deployment_agent` twice — first pass identified the malformed `-e ` lines as BLOCKERs; second pass after cleanup returned `status: PASS`. Preview backend cold-start still imports cleanly and registers the new `/api/branding` routes.
+
+
 ### Iteration 131.7 (Feb 2026, fork) — Header logo reliability + DINNER label polish
 - **Root cause: header logo broken on production**. `HEADER_LOGO_URL` previously pointed to an external CDN (`customer-assets.emergentagent.com/...uzs344m6...png`). Production sometimes loaded before the CDN responded → a broken-image glyph appeared next to the "efoodcare" wordmark. Fix: point `HEADER_LOGO_URL` at the same bundled `/brand-logo.jpg` file that the rest of the app already uses. Kept it as a separate constant (not wired to `BrandingContext`) so the header still stays out of admin-side logo swaps — that decision is preserved, but the file it reads from is now local and 100% reliable.
 - **DINNER label colour changed to WHITE** on the mess-menu tile, matching the moon icon (also switched from `text-blue-200` → `text-white`). Icon container ring updated to `bg-white/15 ring-white/25` so the icon reads on the tile's teal background.
