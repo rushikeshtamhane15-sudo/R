@@ -30,10 +30,14 @@ next-env.d.ts
 dist/
 dist
 
-# Environment files (comprehensive coverage)
-
+# Credential blobs (do NOT match backend/.env or frontend/.env — those are
+# platform-injected at deploy time and must remain trackable).
 *token.json*
 *credentials.json*
+credentials.json
+.credentials
+*.pem
+*.key
 
 # Logs and debug files
 npm-debug.log*
@@ -44,11 +48,10 @@ dump.rdb
 
 # System files
 .DS_Store
-*.pem
 
 # Python
 __pycache__/
-*pyc*
+*.pyc
 venv/
 .venv/
 
@@ -70,61 +73,18 @@ agenthub/agents/youtube/db
 **/*.tar
 **/*.tgz
 *.pack
+*.pack_
 *.deb
 *.dylib
 
 # Build caches
 .cache/
+frontend/node_modules/.cache/
 
+# Credentials file used only by the QA testing agent
 memory/test_credentials.md
 
 # Mobile development
-android-sdk/frontend/node_modules/.cache/default-development/5.pack
-frontend/node_modules/.cache/default-development/5.pack
-frontend/node_modules/.cache/default-development/3.pack
-frontend/node_modules/.cache/default-development/4.pack
-frontend/node_modules/.cache/default-development/2.pack
-frontend/node_modules/.cache/default-development/11.pack
-frontend/node_modules/.cache/default-development/1.pack
-frontend/node_modules/.cache/default-development/12.pack
-frontend/node_modules/.cache/default-development/7.pack
+android-sdk/
 frontend/node_modules/.cache/default-development/0.pack
-frontend/node_modules/.cache/default-development/2.pack_
-frontend/node_modules/.cache/default-development/6.pack
-frontend/node_modules/.cache/default-development/10.pack
-frontend/node_modules/.cache/default-development/13.pack
-frontend/node_modules/.cache/default-development/9.pack
-frontend/node_modules/.cache/default-development/8.pack
-frontend/node_modules/.cache/default-development/7.pack_
-frontend/node_modules/.cache/default-development/1.pack_
--e 
-# Environment and credential files
-.env
-.env.*
-*.env
-credentials.json
-*.pem
-*.key
-.credentials
--e 
-# Environment and credential files
-.env
-.env.*
-*.env
-credentials.json
-*.pem
-*.key
-.credentials
--e 
-# Environment and credential files
-.env
-.env.*
-*.env
-credentials.json
-*.pem
-*.key
-.credentials
-frontend/node_modules/.cache/default-development/14.pack
-frontend/node_modules/.cache/default-development/16.pack
-frontend/node_modules/.cache/default-development/18.pack
-frontend/node_modules/.cache/default-development/15.pack
+frontend/node_modules/.cache/default-development/3.pack
