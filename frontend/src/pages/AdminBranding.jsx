@@ -164,9 +164,9 @@ export default function AdminBranding() {
   return (
     <div className="max-w-3xl mx-auto space-y-6" data-testid="admin-branding-page">
       <div>
-        <h1 className="text-2xl font-display font-extrabold" data-testid="admin-branding-heading">Brand & Header logos</h1>
+        <h1 className="text-2xl font-display font-extrabold" data-testid="admin-branding-heading">Brand · Header · Splash logos</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Two independent slots. Upload once — the change is instant across the app and every page&apos;s footer.
+          Three independent slots. Upload once — the change is instant across every page.
         </p>
       </div>
 
@@ -188,7 +188,7 @@ export default function AdminBranding() {
       <div className="rounded-xl border border-border bg-muted/30 p-4">
         <p className="text-xs font-bold uppercase tracking-overline text-muted-foreground">Excluded by design</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          The green Pure-Veg / FSSAI certification tag stays fixed (regulated symbol). The splash screen keeps its own bundled asset for animation isolation.
+          The green Pure-Veg / FSSAI certification tag stays fixed (regulated symbol).
         </p>
       </div>
     </div>

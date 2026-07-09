@@ -66,15 +66,14 @@ export default function Header() {
       className="sticky top-0 z-30 bg-primary text-primary-foreground border-b border-primary/40 shadow-sm"
       data-testid="app-header"
     >
-      {/* iter-58 #1: location pill moved from header to /restaurant page
-          (under the hero) per user request. Header is now clean. */}
-      {/* iter-78 #1: brand + tagline always STACKED (column) so the brand
-          line never truncates. Right-cluster gets smaller padding + tighter
-          pills so everything fits even on a 360-wide screen. */}
-      <div className="max-w-7xl mx-auto flex items-center justify-between px-2 sm:px-3 md:px-8 lg:px-12 py-2.5 md:py-4 gap-1 sm:gap-2">
-        <Link to="/" className="flex items-center gap-1.5 min-w-0 flex-1" data-testid="logo-link">
+      {/* iter-131.10: enlarged brand cluster (logo + wordmark + tagline).
+          Left cluster gets `min-w-0 flex-1` so it truncates on overflow;
+          right cluster gets `shrink-0 whitespace-nowrap` so wallet chips
+          up to 4 digits (e.g. ₹9,999) never overlap the brand line. */}
+      <div className="max-w-7xl mx-auto flex items-center justify-between px-2 sm:px-3 md:px-8 lg:px-12 py-2.5 md:py-4 gap-2 sm:gap-3">
+        <Link to="/" className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1" data-testid="logo-link">
           <span
-            className="inline-flex items-center justify-center h-8 w-10 sm:h-10 sm:w-14 md:h-11 md:w-16 rounded-md bg-primary shrink-0 overflow-hidden"
+            className="inline-flex items-center justify-center h-11 w-14 sm:h-12 sm:w-16 md:h-14 md:w-20 rounded-md bg-primary shrink-0 overflow-hidden"
             data-testid="brand-logo-frame"
           >
             <img
@@ -84,13 +83,13 @@ export default function Header() {
               data-testid="brand-logo"
             />
           </span>
-          <div className="flex flex-col justify-center min-w-0 flex-1">
-            <span className="font-display font-extrabold text-sm sm:text-lg md:text-2xl text-primary-foreground leading-none" data-testid="header-brand-name">{brandName}</span>
-            <span className="inline text-[7.5px] sm:text-[9px] md:text-[10px] tracking-[0.16em] uppercase font-semibold text-primary-foreground/80 leading-tight mt-0.5 whitespace-normal break-words" data-testid="header-tagline">{brandTagline}</span>
+          <div className="flex flex-col justify-center min-w-0 flex-1 leading-tight">
+            <span className="font-display font-extrabold text-base sm:text-xl md:text-2xl text-primary-foreground leading-none truncate" data-testid="header-brand-name">{brandName}</span>
+            <span className="inline text-[9px] sm:text-[10.5px] md:text-[11.5px] tracking-[0.16em] uppercase font-semibold text-primary-foreground/85 leading-tight mt-1 truncate" data-testid="header-tagline">{brandTagline}</span>
           </div>
         </Link>
 
-        <div className="flex items-center gap-1 md:gap-3 shrink-0">
+        <div className="flex items-center gap-1.5 md:gap-3 shrink-0 whitespace-nowrap">
           <MessSwitcher variant="pill" />
           {showWallet && <WalletPill compact />}
           <Sheet open={open} onOpenChange={setOpen}>

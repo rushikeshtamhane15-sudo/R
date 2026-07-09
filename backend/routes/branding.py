@@ -32,8 +32,9 @@ SETTINGS_KEY = "branding_settings_v1"
 MAX_UPLOAD_BYTES = 2 * 1024 * 1024   # 2 MB — logos should be small
 DEFAULT_BRAND_URL = "/brand-logo.jpg"    # bundled fallback for the app-wide brand mark
 DEFAULT_HEADER_URL = "/brand-logo.jpg"   # bundled fallback for the header icon
+DEFAULT_SPLASH_URL = "/brand-logo.jpg"   # bundled fallback for the splash screen icon
 
-VALID_SLOTS = ("brand", "header")
+VALID_SLOTS = ("brand", "header", "splash")
 
 _EXT_BY_MIME = {
     "image/jpeg": ".jpg",
@@ -52,8 +53,10 @@ async def _load() -> dict:
     return {
         "brand_logo_url":  doc.get("brand_logo_url", "") or "",
         "header_logo_url": doc.get("header_logo_url", "") or "",
+        "splash_logo_url": doc.get("splash_logo_url", "") or "",
         "brand_updated_at":  doc.get("brand_updated_at"),
         "header_updated_at": doc.get("header_updated_at"),
+        "splash_updated_at": doc.get("splash_updated_at"),
         "updated_at": doc.get("updated_at"),
     }
 
@@ -86,10 +89,13 @@ async def public_branding():
         # Legacy field, kept for older clients: mirrors `brand_logo_url`.
         "brand_logo_url":  cur["brand_logo_url"] or DEFAULT_BRAND_URL,
         "header_logo_url": cur["header_logo_url"] or DEFAULT_HEADER_URL,
-        "is_custom":       bool(cur["brand_logo_url"]),
+        "splash_logo_url": cur["splash_logo_url"] or DEFAULT_SPLASH_URL,
+        "is_custom":        bool(cur["brand_logo_url"]),
         "is_header_custom": bool(cur["header_logo_url"]),
+        "is_splash_custom": bool(cur["splash_logo_url"]),
         "brand_updated_at":  cur["brand_updated_at"],
         "header_updated_at": cur["header_updated_at"],
+        "splash_updated_at": cur["splash_updated_at"],
         "updated_at": cur["updated_at"],
     }
 
@@ -129,8 +135,8 @@ async def admin_upload_logo(
         payload = data
         mime = (file.content_type or "image/jpeg").lower()
     data_url = f"data:{mime};base64," + base64.b64encode(payload).decode("ascii")
-    field    = "brand_logo_url" if s == "brand" else "header_logo_url"
-    ts_field = "brand_updated_at" if s == "brand" else "header_updated_at"
+    field    = {"brand": "brand_logo_url", "header": "header_logo_url", "splash": "splash_logo_url"}[s]
+    ts_field = {"brand": "brand_updated_at", "header": "header_updated_at", "splash": "splash_updated_at"}[s]
     saved = await _save_patch({field: data_url, ts_field: _iso_now()})
     return {
         "slot": s,
@@ -147,9 +153,9 @@ async def admin_reset(
 ):
     _admin(user)
     s = _validate_slot(slot)
-    field    = "brand_logo_url" if s == "brand" else "header_logo_url"
-    ts_field = "brand_updated_at" if s == "brand" else "header_updated_at"
-    default  = DEFAULT_BRAND_URL if s == "brand" else DEFAULT_HEADER_URL
+    field    = {"brand": "brand_logo_url", "header": "header_logo_url", "splash": "splash_logo_url"}[s]
+    ts_field = {"brand": "brand_updated_at", "header": "header_updated_at", "splash": "splash_updated_at"}[s]
+    default  = {"brand": DEFAULT_BRAND_URL, "header": DEFAULT_HEADER_URL, "splash": DEFAULT_SPLASH_URL}[s]
     saved = await _save_patch({field: "", ts_field: _iso_now()})
     return {
         "slot": s,

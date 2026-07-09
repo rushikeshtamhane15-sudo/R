@@ -16,6 +16,13 @@ Build a tiffin / dining subscription app with:
 - Staff (scans subscriber QR at counter)
 - Subscriber (owns e-Meal Pass + wallet)
 
+### Iteration 131.10 (Feb 2026, fork) — Splash logo CMS slot + active-pill red + service tabs restored + header polish
+- **Splash screen logo admin-controllable**: Added a third slot `splash` to the branding CMS. `SplashScreen.jsx` now reads `useBranding().splashLogoUrl` (falls back to `/brand-logo.jpg`). Root cause of "splash logo not appearing on production" was the previous hardcoded external CDN URL — replaced with the durable local + CMS-controllable path. Admin uploader now shows THREE cards (brand · header · splash).
+- **Active meal's OPEN/CLOSED pill = RED (`#b51a1a`) + white text**; non-active meals keep the dark-green pill (`#064e3b`). This visually flags which meal is queued for order-placement.
+- **Delivery / Takeaway / Dining service tabs restored in the mess-menu order form**. `SERVICE_TABS` in `messMenuHelpers.js` widened back to all three. UI switched from the single-service pill to the original 3-tab picker showing each option's price.
+- **Header enlarged and overlap-hardened**: logo frame `h-11 w-14` → `h-14 w-20` on desktop, brand text `text-sm sm:text-lg md:text-2xl` → `text-base sm:text-xl md:text-2xl`, tagline `text-[7.5px]` → `text-[9px] sm:text-[10.5px] md:text-[11.5px]`. Left cluster uses `min-w-0 flex-1` with `truncate` on both label spans; right cluster uses `shrink-0 whitespace-nowrap`. `WalletPill` compact variant gains `whitespace-nowrap` + slightly wider padding so ₹9,999 (4 digits + comma) can never wrap.
+
+
 ### Iteration 131.9 (Feb 2026, fork) — Dark-green Open/Closed pills + admin uploader for Header logo
 - **Open / Closed pill restyle**: The status pill next to each meal in the vertical meal picker (`TodayMessMenuFlash`) is now `bg-emerald-900 text-white` for both states (was translucent emerald / red per state). Kept a single class expression since the user wanted BOTH states dark-green with white text.
 - **Admin can now upload BOTH the app-wide brand logo AND the site-header logo** independently. The two slots are stored side-by-side in `app_settings["branding_settings_v1"]` (`brand_logo_url` + `header_logo_url`). Endpoints support a `?slot=brand|header` query param:

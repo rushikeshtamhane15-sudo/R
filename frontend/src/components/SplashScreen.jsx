@@ -1,21 +1,22 @@
 import React, { useEffect, useState } from "react";
+import { useBranding } from "../context/BrandingContext";
 
 /**
  * Brand splash screen — full-bleed red overlay, 3D digital logo treatment,
- * holds for ~3 s on every cold load (iter-131: bumped by +2 s per request).
+ * holds for ~3 s on every cold load.
  *
- * Note: uses its OWN logo URL (not `BRAND_LOGO_URL`) so the splash keeps
- * the original efoodcare brand mark + animation even if the header logo
- * is swapped later.
+ * iter-131.10: logo source is now driven by the "splash" branding slot
+ * (`useBranding().splashLogoUrl`) — admins can swap the splash mark
+ * live from `/admin/branding` without a redeploy. Falls back to the
+ * bundled `/brand-logo.jpg` so it can never render broken.
  */
-const LOGO_URL =
-  "https://customer-assets.emergentagent.com/job_dining-pass-scan/artifacts/uzs344m6_9a705f5a-b3a0-4286-b51d-b9bd6f55b7bb_20260504_011957_0000.png";
 
 const HOLD_MS = 2800;
 const FADE_MS = 350;
 const SS_KEY = "efc_splash_seen_v2";
 
 export default function SplashScreen() {
+  const { splashLogoUrl } = useBranding();
   // Show only on first cold app launch per session — once dismissed, route
   // changes / hot reloads / soft navigations skip it. PWA install splash is
   // separately rendered by the OS.
@@ -91,7 +92,7 @@ export default function SplashScreen() {
           }}
         />
         <img
-          src={LOGO_URL}
+          src={splashLogoUrl}
           alt="efoodcare"
           width={72}
           height={72}

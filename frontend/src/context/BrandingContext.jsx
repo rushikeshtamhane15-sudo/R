@@ -16,15 +16,19 @@ import { api } from "../lib/api";
  */
 const DEFAULT_BRAND_URL = "/brand-logo.jpg";
 const DEFAULT_HEADER_URL = "/brand-logo.jpg";
+const DEFAULT_SPLASH_URL = "/brand-logo.jpg";
 
 const BrandingContext = createContext({
   brandLogoUrl: DEFAULT_BRAND_URL,
   headerLogoUrl: DEFAULT_HEADER_URL,
+  splashLogoUrl: DEFAULT_SPLASH_URL,
   isCustom: false,
   isHeaderCustom: false,
+  isSplashCustom: false,
   updatedAt: null,
   brandUpdatedAt: null,
   headerUpdatedAt: null,
+  splashUpdatedAt: null,
   refresh: async () => {},
 });
 
@@ -32,11 +36,14 @@ export function BrandingProvider({ children }) {
   const [state, setState] = useState({
     brandLogoUrl: DEFAULT_BRAND_URL,
     headerLogoUrl: DEFAULT_HEADER_URL,
+    splashLogoUrl: DEFAULT_SPLASH_URL,
     isCustom: false,
     isHeaderCustom: false,
+    isSplashCustom: false,
     updatedAt: null,
     brandUpdatedAt: null,
     headerUpdatedAt: null,
+    splashUpdatedAt: null,
   });
 
   const refresh = useCallback(async () => {
@@ -46,11 +53,14 @@ export function BrandingProvider({ children }) {
       setState({
         brandLogoUrl:  data.brand_logo_url  || DEFAULT_BRAND_URL,
         headerLogoUrl: data.header_logo_url || DEFAULT_HEADER_URL,
+        splashLogoUrl: data.splash_logo_url || DEFAULT_SPLASH_URL,
         isCustom:       Boolean(data.is_custom),
         isHeaderCustom: Boolean(data.is_header_custom),
+        isSplashCustom: Boolean(data.is_splash_custom),
         updatedAt:       data.updated_at        || null,
         brandUpdatedAt:  data.brand_updated_at  || null,
         headerUpdatedAt: data.header_updated_at || null,
+        splashUpdatedAt: data.splash_updated_at || null,
       });
     } catch {
       // fall through — keep defaults

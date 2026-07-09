@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import {
   ChefHat, Sun, Moon, Sunrise, ShoppingCart,
-  Loader2, Minus, Plus, Truck, Clock,
+  Loader2, Minus, Plus, Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
@@ -11,7 +11,7 @@ import MenuPushBanner from "./MenuPushBanner";
 import CartSaverBanner from "./CartSaverBanner";
 import {
   splitMenuItems, loadRazorpay, cleanIndianMobile,
-  PAY_TABS, PENDING_KEY,
+  SERVICE_TABS, PAY_TABS, PENDING_KEY,
   MEAL_WINDOWS_IST, isMealWindowOpen,
 } from "./messMenuHelpers";
 
@@ -35,8 +35,8 @@ export default function TodayMessMenuFlash({ compact = false }) {
   const [tab, setTab] = useState("today"); // today | tomorrow
   const [orderOpen, setOrderOpen] = useState(false);
   const [orderMeal, setOrderMeal] = useState("lunch");
-  // iter-131: online users only get Delivery. Takeaway/Dining are kiosk-only.
-  const [service] = useState("delivery");
+  // iter-131.10: full 3-way service picker restored — Delivery / Takeaway / Dining.
+  const [service, setService] = useState("delivery");
   const [qty, setQty] = useState(1);
   const [payMethod, setPayMethod] = useState("online");
   const [phone, setPhone] = useState("");
@@ -514,10 +514,15 @@ export default function TodayMessMenuFlash({ compact = false }) {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
                                 <span className="text-[12px] font-extrabold uppercase tracking-wider">{m}</span>
-                                {/* iter-131.9: both Open + Closed pills use
-                                    the dark-green + white treatment per
-                                    user brand direction. */}
-                                <span className="text-[9px] uppercase tracking-[0.15em] font-bold px-1.5 py-0.5 rounded-full bg-emerald-900 text-white">
+                                {/* iter-131.10: the pill next to the
+                                    currently-selected meal uses the brand
+                                    red (#b51a1a) + white text so it stands
+                                    out as the active choice. Non-selected
+                                    meals keep the neutral dark-green pill. */}
+                                <span
+                                  className="text-[9px] uppercase tracking-[0.15em] font-bold px-1.5 py-0.5 rounded-full text-white"
+                                  style={{ backgroundColor: selected ? "#b51a1a" : "#064e3b" }}
+                                >
                                   {disabled ? "Closed" : "Open"}
                                 </span>
                                 <span className="text-[9px] uppercase tracking-[0.15em] font-bold opacity-70 ml-auto">{win.label}</span>
@@ -535,16 +540,22 @@ export default function TodayMessMenuFlash({ compact = false }) {
                     </div>
                   )}
 
-                  {/* iter-131: online users are always Delivery. Kiosk has its
-                      own screen with Takeaway + Dining. We keep the service
-                      pill visible so the user knows this order will be
-                      delivered — cheaper than a hidden implicit default. */}
-                  <div className="flex items-center gap-2 rounded-lg bg-white/10 px-2.5 py-1.5" data-testid="order-service-pill">
-                    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/20">
-                      <Truck className="h-3 w-3" />
-                    </span>
-                    <span className="text-[11px] font-extrabold tracking-wider uppercase">Delivery</span>
-                    <span className="ml-auto tabular-nums text-[11px] font-extrabold">₹{priceFor("delivery")}</span>
+                  {/* iter-131.10: 3-tab service picker restored per user
+                      request. Delivery keeps a phone field (below); the
+                      other two rely on the kiosk / dine-in workflow. */}
+                  <div className="grid grid-cols-3 gap-1.5" data-testid="order-service-row">
+                    {SERVICE_TABS.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setService(s.id)}
+                        data-testid={`order-svc-${s.id}`}
+                        className={`inline-flex flex-col items-center justify-center gap-0 px-1 py-1 rounded-lg text-[10px] font-extrabold tracking-wide leading-tight ${service === s.id ? "bg-white text-emerald-900" : "bg-white/10 text-white/85 hover:bg-white/20"}`}
+                      >
+                        <span className="inline-flex items-center gap-1"><s.icon className="h-3 w-3" /> {s.label}</span>
+                        <span className="tabular-nums text-[10px] opacity-90">₹{priceFor(s.id)}</span>
+                      </button>
+                    ))}
                   </div>
 
                   {/* iter-131: opt-out checkboxes for thali items.

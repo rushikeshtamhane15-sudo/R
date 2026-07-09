@@ -47,19 +47,17 @@ export function cleanIndianMobile(raw) {
  * iter-131 additions
  * -------------------------------------------------------------------------- */
 
-// Delivery-only for the online web app. Takeaway + Dining are kiosk-only
-// (see `pages/Kiosk.jsx`). Keeping the array shape for backwards-compat
-// with the existing map/render code.
+// iter-131.10: user requested Delivery + Takeaway + Dining ALL to be
+// selectable again from the mess-menu order form. Restored to the original
+// three-option pill row.
 export const SERVICE_TABS = [
-  { id: "delivery", label: "Delivery", icon: Truck },
-];
-
-// Kept for reference (used on the physical kiosk screen).
-export const KIOSK_SERVICE_TABS = [
   { id: "delivery", label: "Delivery", icon: Truck },
   { id: "takeaway", label: "Takeaway", icon: Package },
   { id: "dining",   label: "Dining",   icon: Utensils },
 ];
+
+// Kept for reference (also used on the physical kiosk screen).
+export const KIOSK_SERVICE_TABS = SERVICE_TABS;
 
 export const PAY_TABS = [
   { id: "online", label: "Online", icon: ScanLine },
