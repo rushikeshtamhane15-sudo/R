@@ -16,6 +16,18 @@ Build a tiffin / dining subscription app with:
 - Staff (scans subscriber QR at counter)
 - Subscriber (owns e-Meal Pass + wallet)
 
+### Iteration 131.9 (Feb 2026, fork) — Dark-green Open/Closed pills + admin uploader for Header logo
+- **Open / Closed pill restyle**: The status pill next to each meal in the vertical meal picker (`TodayMessMenuFlash`) is now `bg-emerald-900 text-white` for both states (was translucent emerald / red per state). Kept a single class expression since the user wanted BOTH states dark-green with white text.
+- **Admin can now upload BOTH the app-wide brand logo AND the site-header logo** independently. The two slots are stored side-by-side in `app_settings["branding_settings_v1"]` (`brand_logo_url` + `header_logo_url`). Endpoints support a `?slot=brand|header` query param:
+  - `POST /api/admin/branding/logo?slot=brand|header` — multipart upload, 2 MB max, optimised to WebP.
+  - `POST /api/admin/branding/reset?slot=brand|header` — revert one slot to the bundled default.
+  - `GET  /api/branding` — public, returns both URLs + custom flags + per-slot `updated_at`.
+  - Backend defaults to `slot=brand` when the query is omitted, preserving compatibility with older callers.
+- **BrandingContext** now exposes `brandLogoUrl` + `headerLogoUrl` + per-slot `isCustom`/`updatedAt` flags.
+- **Header.jsx** switched from the static `HEADER_LOGO_URL` constant to `useBranding().headerLogoUrl` — swap is instant across every page.
+- **AdminBranding page** rebuilt with two independent uploader cards (`Brand logo (app icon)` and `Header logo (top navigation)`), each with its own preview, upload button, reset-to-default button, and last-updated timestamp. Footer is already brand-slot-driven, so the "footer of all pages" ask is naturally satisfied.
+
+
 ### Iteration 131.8 (Feb 2026, fork) — Deploy unblocked (`.gitignore` cleanup)
 - **Symptom**: Production deploys of `dining-pass-scan` had been failing with K8s readiness timeout for the last two attempts. Preview was healthy so it looked like the app was fine.
 - **Root cause**: `/app/.gitignore` had been corrupted with 3 blocks of duplicated `*.env` / `.env.*` / `.env` patterns plus stray `-e ` fragments (likely from a `pip freeze` accident). Result: `backend/.env` and `frontend/.env` were git-ignored, so the container built by the platform shipped WITHOUT MongoDB URL, session secret, Razorpay keys, etc. The backend crashed instantly, never bound to :8001, K8s readiness probe timed out → deploy marked failed.

@@ -1,22 +1,28 @@
-"""Admin-editable brand logo (app icon).
+"""Admin-editable brand logo & header logo (independent slots).
 
-Lets an admin swap the "brand logo" (used everywhere except the site header
-and the pure-veg FSSAI badge) without a redeploy. The uploaded image is
-optimised to WebP and persisted as a base64 data URL in Mongo so it survives
+Lets an admin swap the app-wide "brand logo" AND the top-navigation "header
+logo" independently, without a redeploy. Each uploaded image is optimised
+to WebP and persisted as a base64 data URL in Mongo so it survives
 deployments and is instantly available on all replicas.
 
 Endpoints:
-    GET  /api/branding                    (public — returns metadata)
-    GET  /api/admin/branding              (admin)
-    POST /api/admin/branding/logo         (admin, multipart)
-    POST /api/admin/branding/reset        (admin — revert to bundled default)
+    GET  /api/branding                       (public — returns both URLs)
+    GET  /api/admin/branding                 (admin — raw settings)
+    POST /api/admin/branding/logo?slot=…     (admin, multipart)
+    POST /api/admin/branding/reset?slot=…    (admin — revert one slot)
+
+`slot` accepts:
+    · `brand`  → the app icon used on Footer / HeroPanel / Kiosk / …
+    · `header` → the top-navigation logo (Header.jsx)
+Slot defaults to `brand` for backward compatibility with earlier clients.
 """
 from __future__ import annotations
 
 import base64
 from datetime import datetime, timezone
+from typing import Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 
 from shared import server  # late-binding via shared shim
 
@@ -24,7 +30,10 @@ router = APIRouter()
 
 SETTINGS_KEY = "branding_settings_v1"
 MAX_UPLOAD_BYTES = 2 * 1024 * 1024   # 2 MB — logos should be small
-DEFAULT_LOGO_URL = "/brand-logo.jpg"  # bundled fallback served from /public
+DEFAULT_BRAND_URL = "/brand-logo.jpg"    # bundled fallback for the app-wide brand mark
+DEFAULT_HEADER_URL = "/brand-logo.jpg"   # bundled fallback for the header icon
+
+VALID_SLOTS = ("brand", "header")
 
 _EXT_BY_MIME = {
     "image/jpeg": ".jpg",
@@ -39,16 +48,22 @@ def _iso_now() -> str:
 
 
 async def _load() -> dict:
-    doc = await server.db.app_settings.find_one({"_id": SETTINGS_KEY}, {"_id": 0})
-    return doc or {"brand_logo_url": "", "updated_at": None}
+    doc = await server.db.app_settings.find_one({"_id": SETTINGS_KEY}, {"_id": 0}) or {}
+    return {
+        "brand_logo_url":  doc.get("brand_logo_url", "") or "",
+        "header_logo_url": doc.get("header_logo_url", "") or "",
+        "brand_updated_at":  doc.get("brand_updated_at"),
+        "header_updated_at": doc.get("header_updated_at"),
+        "updated_at": doc.get("updated_at"),
+    }
 
 
-async def _save(data: dict) -> dict:
-    data["updated_at"] = _iso_now()
+async def _save_patch(patch: dict) -> dict:
+    patch["updated_at"] = _iso_now()
     await server.db.app_settings.update_one(
-        {"_id": SETTINGS_KEY}, {"$set": data}, upsert=True,
+        {"_id": SETTINGS_KEY}, {"$set": patch}, upsert=True,
     )
-    return data
+    return await _load()
 
 
 def _admin(user: server.User) -> None:
@@ -56,15 +71,26 @@ def _admin(user: server.User) -> None:
         raise HTTPException(status_code=403, detail="Admin only")
 
 
+def _validate_slot(slot: Optional[str]) -> str:
+    s = (slot or "brand").lower()
+    if s not in VALID_SLOTS:
+        raise HTTPException(status_code=400, detail=f"slot must be one of {VALID_SLOTS}")
+    return s
+
+
 @router.get("/branding")
 async def public_branding():
-    """Public — returns the current brand logo URL (or the bundled fallback)."""
+    """Public — returns current URLs for both logo slots (with fallbacks)."""
     cur = await _load()
-    url = cur.get("brand_logo_url") or DEFAULT_LOGO_URL
     return {
-        "brand_logo_url": url,
-        "is_custom": bool(cur.get("brand_logo_url")),
-        "updated_at": cur.get("updated_at"),
+        # Legacy field, kept for older clients: mirrors `brand_logo_url`.
+        "brand_logo_url":  cur["brand_logo_url"] or DEFAULT_BRAND_URL,
+        "header_logo_url": cur["header_logo_url"] or DEFAULT_HEADER_URL,
+        "is_custom":       bool(cur["brand_logo_url"]),
+        "is_header_custom": bool(cur["header_logo_url"]),
+        "brand_updated_at":  cur["brand_updated_at"],
+        "header_updated_at": cur["header_updated_at"],
+        "updated_at": cur["updated_at"],
     }
 
 
@@ -77,9 +103,11 @@ async def admin_branding(user: server.User = Depends(server.get_current_user)):
 @router.post("/admin/branding/logo")
 async def admin_upload_logo(
     file: UploadFile = File(...),
+    slot: Optional[str] = Query(default="brand"),
     user: server.User = Depends(server.get_current_user),
 ):
     _admin(user)
+    s = _validate_slot(slot)
     ext = _EXT_BY_MIME.get((file.content_type or "").lower())
     if not ext:
         raise HTTPException(status_code=400, detail="Only JPG / PNG / WEBP allowed")
@@ -101,12 +129,31 @@ async def admin_upload_logo(
         payload = data
         mime = (file.content_type or "image/jpeg").lower()
     data_url = f"data:{mime};base64," + base64.b64encode(payload).decode("ascii")
-    saved = await _save({"brand_logo_url": data_url})
-    return {"brand_logo_url": saved["brand_logo_url"], "bytes": len(payload), "updated_at": saved["updated_at"]}
+    field    = "brand_logo_url" if s == "brand" else "header_logo_url"
+    ts_field = "brand_updated_at" if s == "brand" else "header_updated_at"
+    saved = await _save_patch({field: data_url, ts_field: _iso_now()})
+    return {
+        "slot": s,
+        field: saved[field],
+        "bytes": len(payload),
+        "updated_at": saved.get(ts_field),
+    }
 
 
 @router.post("/admin/branding/reset")
-async def admin_reset(user: server.User = Depends(server.get_current_user)):
+async def admin_reset(
+    slot: Optional[str] = Query(default="brand"),
+    user: server.User = Depends(server.get_current_user),
+):
     _admin(user)
-    saved = await _save({"brand_logo_url": ""})
-    return {"brand_logo_url": DEFAULT_LOGO_URL, "is_custom": False, "updated_at": saved["updated_at"]}
+    s = _validate_slot(slot)
+    field    = "brand_logo_url" if s == "brand" else "header_logo_url"
+    ts_field = "brand_updated_at" if s == "brand" else "header_updated_at"
+    default  = DEFAULT_BRAND_URL if s == "brand" else DEFAULT_HEADER_URL
+    saved = await _save_patch({field: "", ts_field: _iso_now()})
+    return {
+        "slot": s,
+        field: default,
+        "is_custom": False,
+        "updated_at": saved.get(ts_field),
+    }

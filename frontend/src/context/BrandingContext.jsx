@@ -2,42 +2,58 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import { api } from "../lib/api";
 
 /**
- * BrandingContext — single source of truth for the app-wide brand logo.
+ * BrandingContext — single source of truth for admin-managed logos.
  *
- * The admin can upload a new logo via /admin/branding; that URL flows into
- * every component (Header uses HEADER_LOGO_URL independently, so it is NOT
- * affected — per product decision). All other places (footer, hero, kiosk,
- * live-map marker, 3D track map, mess-menu card) subscribe to this context
- * so the change is reflected instantly the moment the admin saves.
+ * Two independent slots:
+ *   · `brandLogoUrl`  — app-wide "app icon". Used by Footer, HeroPanel,
+ *                       Kiosk, admin surfaces, etc.
+ *   · `headerLogoUrl` — top-nav Header icon. Kept as its own slot so
+ *                       marketing can experiment with different marks
+ *                       between the navigation and the app icon.
+ *
+ * Both fall back to the bundled `/brand-logo.jpg` if no custom upload
+ * exists, so the UI never flashes a broken image.
  */
-const DEFAULT_URL = "/brand-logo.jpg";
+const DEFAULT_BRAND_URL = "/brand-logo.jpg";
+const DEFAULT_HEADER_URL = "/brand-logo.jpg";
 
 const BrandingContext = createContext({
-  brandLogoUrl: DEFAULT_URL,
+  brandLogoUrl: DEFAULT_BRAND_URL,
+  headerLogoUrl: DEFAULT_HEADER_URL,
   isCustom: false,
+  isHeaderCustom: false,
   updatedAt: null,
+  brandUpdatedAt: null,
+  headerUpdatedAt: null,
   refresh: async () => {},
 });
 
 export function BrandingProvider({ children }) {
   const [state, setState] = useState({
-    brandLogoUrl: DEFAULT_URL,
+    brandLogoUrl: DEFAULT_BRAND_URL,
+    headerLogoUrl: DEFAULT_HEADER_URL,
     isCustom: false,
+    isHeaderCustom: false,
     updatedAt: null,
+    brandUpdatedAt: null,
+    headerUpdatedAt: null,
   });
 
   const refresh = useCallback(async () => {
     try {
       const { data } = await api.get("/branding");
-      if (data && data.brand_logo_url) {
-        setState({
-          brandLogoUrl: data.brand_logo_url,
-          isCustom: Boolean(data.is_custom),
-          updatedAt: data.updated_at || null,
-        });
-      }
+      if (!data) return;
+      setState({
+        brandLogoUrl:  data.brand_logo_url  || DEFAULT_BRAND_URL,
+        headerLogoUrl: data.header_logo_url || DEFAULT_HEADER_URL,
+        isCustom:       Boolean(data.is_custom),
+        isHeaderCustom: Boolean(data.is_header_custom),
+        updatedAt:       data.updated_at        || null,
+        brandUpdatedAt:  data.brand_updated_at  || null,
+        headerUpdatedAt: data.header_updated_at || null,
+      });
     } catch {
-      // fall through — keep DEFAULT_URL
+      // fall through — keep defaults
     }
   }, []);
 

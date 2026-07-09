@@ -514,9 +514,10 @@ export default function TodayMessMenuFlash({ compact = false }) {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
                                 <span className="text-[12px] font-extrabold uppercase tracking-wider">{m}</span>
-                                <span className={`text-[9px] uppercase tracking-[0.15em] font-bold px-1.5 py-0.5 rounded-full ${
-                                  disabled ? "bg-red-500/20 text-red-200" : "bg-emerald-500/20 text-emerald-100"
-                                }`}>
+                                {/* iter-131.9: both Open + Closed pills use
+                                    the dark-green + white treatment per
+                                    user brand direction. */}
+                                <span className="text-[9px] uppercase tracking-[0.15em] font-bold px-1.5 py-0.5 rounded-full bg-emerald-900 text-white">
                                   {disabled ? "Closed" : "Open"}
                                 </span>
                                 <span className="text-[9px] uppercase tracking-[0.15em] font-bold opacity-70 ml-auto">{win.label}</span>
