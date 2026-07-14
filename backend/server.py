@@ -2937,11 +2937,24 @@ async def admin_assign_subscription(
             "plan_type": "manual",
         }
 
-    # Cancel/expire existing active sub if requested
-    existing = await db.subscriptions.find_one({"user_id": target_user_id, "status": "active"}, {"_id": 0})
+    # Cancel/expire existing active sub if requested.
+    # iter-131.12: dual-subscription support — a user MAY hold two active subs
+    # simultaneously as long as their `service_type` differs (e.g. one tiffin
+    # plan + one dining plan). Only clash on same-type existing subs.
+    new_service = (payload.service_type or plan.get("service_type") or plan.get("category") or "").lower() or None
+    existing = None
+    if new_service:
+        existing = await db.subscriptions.find_one(
+            {"user_id": target_user_id, "status": "active", "service_type": new_service}, {"_id": 0},
+        )
+    if not existing:
+        # fall back to the legacy check for docs that pre-date service_type field
+        existing_any = await db.subscriptions.find_one({"user_id": target_user_id, "status": "active"}, {"_id": 0})
+        if existing_any and not existing_any.get("service_type"):
+            existing = existing_any
     if existing:
         if not payload.replace_active:
-            raise HTTPException(status_code=409, detail="User already has an active subscription. Set replace_active=true to override.")
+            raise HTTPException(status_code=409, detail="User already has an active subscription of this type. Set replace_active=true to override.")
         await db.subscriptions.update_one(
             {"sub_id": existing["sub_id"]},
             {"$set": {

@@ -47,22 +47,29 @@ export default function SubscriberDashboard() {
   const [loading, setLoading] = useState(true);
   const [pausing, setPausing] = useState(false);
 
+  // iter-131.12: dual-subscription support. Track ALL active subs and let
+  // the user toggle which one drives the dashboard content.
+  const [allSubs, setAllSubs] = useState([]);
+  const [activeSubIdx, setActiveSubIdx] = useState(0);
+
   const load = async () => {
     // iter-111: progressive render — fire all 6 reads in parallel but use
     // Promise.allSettled so a single slow/failed call can't lock the UI.
-    // The 2 critical-path values (sub + config) drive the layout, so we
-    // stop the spinner the moment EITHER returns. Everything else fills
-    // in as it arrives. Net effect: dashboard renders in <300 ms even if
-    // /menu/today is slow.
+    // iter-131.12: replaced `/my/subscription` with `/my/subscriptions` to
+    // fetch every active plan; the toggle bar picks which one is shown.
     const [s, w, q, m, h, c] = await Promise.allSettled([
-      api.get("/my/subscription"),
+      api.get("/my/subscriptions"),
       api.get("/my/wallet"),
       api.get("/my/qr"),
       api.get("/menu/today"),
       api.get("/my/attendance"),
       api.get("/dashboard/config"),
     ]);
-    if (s.status === "fulfilled") setSub(s.value.data.subscription);
+    if (s.status === "fulfilled") {
+      const arr = s.value.data.subscriptions || [];
+      setAllSubs(arr);
+      setSub(arr[activeSubIdx] || arr[0] || null);
+    }
     if (w.status === "fulfilled") setWalletInfo(w.value.data);
     if (q.status === "fulfilled") setQr(q.value.data);
     if (m.status === "fulfilled") setMenu(m.value.data);
@@ -123,6 +130,19 @@ export default function SubscriberDashboard() {
 
   if (loading) return <DashboardSkeleton />;
 
+  // iter-131.12: helper — friendly label for each active subscription tab.
+  const labelForSub = (s) => {
+    const svc = (s?.service_type || s?.category || "").toLowerCase();
+    if (svc === "tiffin") return "Tiffin plan";
+    if (svc === "dining") return "Dining plan";
+    if (svc === "delivery") return "Delivery plan";
+    return s?.plan_name || "Plan";
+  };
+  const pickSub = (idx) => {
+    setActiveSubIdx(idx);
+    setSub(allSubs[idx] || null);
+  };
+
   // Section renderers — keyed for ordering
   const renderSection = (id) => {
     if (!visible(id)) return null;
@@ -135,6 +155,30 @@ export default function SubscriberDashboard() {
               {isTiffin ? texts.heading_tiffin : texts.heading_eatin}
             </h1>
             <p className="text-muted-foreground text-sm mt-1 italic">{texts.subtext}</p>
+            {/* iter-131.12: dual-plan toggle. Only rendered when the user
+                holds 2+ active subscriptions. Clicking swaps the entire
+                dashboard content to that plan's stats. */}
+            {allSubs.length > 1 && (
+              <div className="mt-4 inline-flex rounded-full bg-muted p-0.5 gap-0.5" role="tablist" data-testid="dashboard-plan-toggle">
+                {allSubs.map((s, i) => {
+                  const on = i === activeSubIdx;
+                  const svc = (s?.service_type || "").toLowerCase();
+                  return (
+                    <button
+                      key={s.sub_id}
+                      type="button"
+                      onClick={() => pickSub(i)}
+                      role="tab"
+                      aria-selected={on}
+                      data-testid={`dashboard-plan-tab-${svc || i}`}
+                      className={`px-4 h-9 rounded-full text-xs font-extrabold transition-colors ${on ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      Active {labelForSub(s)}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         );
       case "tiffin_tracker":

@@ -88,6 +88,46 @@ async def my_subscription(user: server.User = Depends(server.get_current_user)):
     return {"active": True, "subscription": sub}
 
 
+@router.get("/my/subscriptions")
+async def my_subscriptions(user: server.User = Depends(server.get_current_user)):
+    """Return ALL currently-active subscriptions for the caller.
+
+    iter-131.12: dual-subscription support. A user may hold one tiffin plan
+    and one dining plan simultaneously. Frontend uses this to render the
+    dashboard toggle tabs and the wallet drawer's per-plan slider.
+
+    Legacy `/my/subscription` is kept for older clients; new UI should
+    prefer this endpoint.
+    """
+    docs = await server.db.subscriptions.find(
+        {"user_id": user.user_id, "status": "active"}, {"_id": 0},
+    ).to_list(20)
+    # Expire any doc that has already ended / exhausted meals so the caller
+    # never sees stale actives.
+    fresh: list[dict] = []
+    for s in docs:
+        end_dt = server.parse_dt(s["end_date"])
+        if end_dt <= server.now_utc() or s.get("meals_used", 0) >= s.get("meals_total", 0):
+            await server.db.subscriptions.update_one(
+                {"sub_id": s["sub_id"]}, {"$set": {"status": "expired"}}
+            )
+            continue
+        try:
+            fresh.append(await server.catch_up_subscription(s))
+        except KeyError:
+            # Legacy seed docs may be missing `last_tick_date` etc. — surface them
+            # as-is; the frontend still shows plan_name / wallet_balance correctly.
+            fresh.append(s)
+    # Combined wallet total shown in the header pill.
+    # Combined wallet total shown in the header pill.
+    merged_wallet = round(sum(float(s.get("wallet_balance") or 0) for s in fresh), 2)
+    return {
+        "active": bool(fresh),
+        "subscriptions": fresh,
+        "merged_wallet_balance": merged_wallet,
+    }
+
+
 @router.post("/my/subscription/pause")
 async def pause_my_subscription(user: server.User = Depends(server.get_current_user)):
     """Tiffin subscriber pauses delivery — they'll be skipped in roster generation.

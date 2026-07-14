@@ -16,6 +16,24 @@ Build a tiffin / dining subscription app with:
 - Staff (scans subscriber QR at counter)
 - Subscriber (owns e-Meal Pass + wallet)
 
+### Iteration 131.11 & 131.12 (Feb 2026, fork) — Header polish, footer logo chrome, and dual-subscription support
+
+**131.11 — Header + footer polish**
+- **Site header no longer truncates on narrow phones**: switched to a 2-row wrap layout — brand cluster (logo + wordmark + tagline) on top, action pills (location + wallet + menu) on the bottom on `<sm` widths; single row on `sm+`. Removed the `truncate` classes so "efoodcare" and "GHAR SE ACHHA KHANA" always render in full.
+- **Footer brand-logo red frame removed** per user request. The logo now sits directly on the muted footer background without the red rounded-square backdrop or shadow.
+
+**131.12 — Dual-subscription support (tiffin + dining on one account)**
+- **Backend**:
+  - New endpoint `GET /api/my/subscriptions` — returns ALL active subs for caller + a `merged_wallet_balance` for the header pill (`routes/subscription.py`).
+  - Relaxed the "already has active subscription" 409 in `POST /api/subscriptions/create-admin` so a user can hold two subs with DIFFERENT `service_type` (tiffin vs dining) simultaneously; same-type still clashes.
+  - `GET /api/my/wallet/transactions` gained an optional `?sub_id=` query filter for the per-plan drawer slides.
+- **Frontend**:
+  - `WalletPill.jsx` rebuilt — header pill balance shows the SUM of both plans' wallet_balance; drawer becomes a 3-page slider (Merged / Tiffin / Dining) with dot indicators + prev/next arrows. Transaction list is scoped per slide.
+  - `SubscriberDashboard.jsx` — fetches `/my/subscriptions`, when 2+ actives exist renders a pill toggle bar under the greeting ("Active Tiffin plan" / "Active Dining plan"). Clicking swaps the entire dashboard content to that sub's stats.
+- **Verified backend**: seeded a tiffin + dining active pair for the test user; `GET /api/my/subscriptions` returns `count: 2, merged_wallet_balance: 4000`.
+- Slider collapses back to a single-page view when the user has only one active sub — no regression for existing users.
+
+
 ### Iteration 131.10 (Feb 2026, fork) — Splash logo CMS slot + active-pill red + service tabs restored + header polish
 - **Splash screen logo admin-controllable**: Added a third slot `splash` to the branding CMS. `SplashScreen.jsx` now reads `useBranding().splashLogoUrl` (falls back to `/brand-logo.jpg`). Root cause of "splash logo not appearing on production" was the previous hardcoded external CDN URL — replaced with the durable local + CMS-controllable path. Admin uploader now shows THREE cards (brand · header · splash).
 - **Active meal's OPEN/CLOSED pill = RED (`#b51a1a`) + white text**; non-active meals keep the dark-green pill (`#064e3b`). This visually flags which meal is queued for order-placement.
