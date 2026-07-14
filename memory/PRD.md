@@ -2,6 +2,25 @@
 
 > *ghar se achha khana*
 
+
+## iter-131.15 — Staff dispatch console + delivery-boy live GPS (2026-02-14)
+**Status: DONE — 100% backend + frontend tests pass (report_iteration_103).**
+
+- **Backend (server.py):** 4 new endpoints —
+  - `GET  /api/staff/dispatch/today` — admin+staff+franchise_owner. Returns date, items[] with customer_lat/lng joined, ready_stats.{lunch,dinner}, dispatch{lat,lng,radius_km}, boys[]. Auto-generates roster if empty.
+  - `POST /api/staff/dispatch/batch-ready` — flips all `planned` roster items in a meal → `ready`. Returns `{marked: N}`.
+  - `POST /api/staff/dispatch/roster/{roster_id}/ready` — toggles a single item planned↔ready. 404 unknown, 400 on out/delivered.
+  - `POST /api/delivery-boy/ping` — friendly alias for `/api/boy/location`. 403 if caller not a delivery boy. Validates lat/lng bounds. Updates `delivery_boys.current_lat/lng/accuracy/last_ping_at`.
+- **Frontend:**
+  - `/staff/dispatch` (StaffDispatch.jsx) — kitchen tablet console. Two ReadyTile cards (lunch/dinner), progress bar, "Mark N remaining ready" button, per-item toggle, Leaflet map with **OSRM fastest driving route** from kitchen → all stops. Polls every 20 s.
+  - `DeliveryMap.jsx` — new `drivingRoute` prop. Fetches `router.project-osrm.org` GeoJSON polyline; renders teal solid line + "Fastest route · N km" badge. Falls back silently to dashed straight-line on rate-limit/error.
+  - `DeliveryBoyDashboard` — ping interval bumped 15 s → 30 s; endpoint switched to `/delivery-boy/ping`. Map turns on drivingRoute once boy is on-trip.
+  - `Track` (customer) — driving route now paints on the customer's live-tracking map too.
+  - `StaffDeliveries` — new green **Dispatch console** button links to `/staff/dispatch`.
+- **RequireAuth roles:** `/staff/dispatch` allowed for admin + staff + franchise_owner. Subscriber attempts are redirected to `/dashboard`. Unauth → `/login?next=%2Fstaff%2Fdispatch`.
+- **Code review notes (deferred, non-blocking):** server.py is now 4770+ lines — should split the 4 new endpoints into `routes/staff_dispatch.py` to mirror the `/routes/` modular pattern. OSRM public demo has rate limits; UX gracefully falls back.
+
+
 ## Problem Statement
 Build a tiffin / dining subscription app with:
 - 30-day plans, 60 meals (lunch + dinner)
