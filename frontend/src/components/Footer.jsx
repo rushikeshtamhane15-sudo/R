@@ -42,8 +42,11 @@ export default function Footer() {
             brand name (was inline). Brand name in white per request, with
             primary background underlay so it stays readable on light bg too. */}
         <div className="flex flex-col items-center text-center gap-2 mb-6" data-testid="footer-brand-block">
-          <span className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary overflow-hidden shadow-md">
-            <img src={brandLogoUrl} alt={brandName} className="h-[88%] w-[88%] object-contain" />
+          {/* iter-131.11: red background/border removed from the footer
+              brand-logo tile per user request. Icon now sits directly on
+              the muted footer background with no chrome. */}
+          <span className="inline-flex items-center justify-center h-16 w-16 overflow-hidden">
+            <img src={brandLogoUrl} alt={brandName} className="h-full w-full object-contain" />
           </span>
           <span
             className="font-display font-extrabold text-3xl sm:text-4xl tracking-tight text-white"
