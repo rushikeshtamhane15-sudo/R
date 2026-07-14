@@ -95,6 +95,14 @@ def register(router: APIRouter, db, admin_only) -> None:
         already = [i for i in items if i.get("handoff_id")]
         if already:
             raise HTTPException(status_code=400, detail=f"{len(already)} items already in another handoff")
+        # iter-131.14: staff must mark every item as `ready` before a handoff
+        # can be created. This is what gates the boy's dispatch button.
+        not_ready = [i for i in items if i["status"] not in ("ready", "out", "delivered")]
+        if not_ready:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{len(not_ready)} tiffins are not yet ready. Ask the kitchen to mark them ready first.",
+            )
 
         expected_full = sum(1 for i in items if i.get("tiffin_size") == "full")
         expected_half = sum(1 for i in items if i.get("tiffin_size") == "half")

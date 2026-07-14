@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import date as date_cls
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
 from .shared import (
     MEALS,
@@ -136,6 +136,54 @@ def register(router: APIRouter, db, admin_only) -> None:
         d = date or today_local()
         return await generate_roster_for_date(db, d)
 
+    @router.post("/roster/{roster_id}/ready")
+    async def mark_ready(
+        roster_id: str,
+        payload: dict = Body(default=None),
+        user=Depends(admin_only),
+    ):
+        """iter-131.14: Staff flips a roster item to `ready` (or unsets it).
+        Records `ready_by` + `ready_at` for audit. Delivery-boy dispatch
+        button turns green only when ALL items in the boy's handoff are ready.
+        """
+        want_ready = True if payload is None else bool((payload or {}).get("ready", True))
+        item = await db.daily_rosters.find_one({"roster_id": roster_id}, {"_id": 0})
+        if not item:
+            raise HTTPException(status_code=404, detail="Roster item not found")
+        if item["status"] not in ("planned", "ready"):
+            raise HTTPException(status_code=400, detail=f"Cannot toggle ready on item with status={item['status']}")
+        new_status = "ready" if want_ready else "planned"
+        upd = {"status": new_status}
+        if want_ready:
+            upd["ready_by"] = getattr(user, "user_id", "admin")
+            upd["ready_at"] = iso(now_utc())
+        else:
+            upd["ready_by"] = None
+            upd["ready_at"] = None
+        await db.daily_rosters.update_one({"roster_id": roster_id}, {"$set": upd})
+        return {"roster_id": roster_id, **upd}
+
+    @router.post("/roster/batch-ready")
+    async def batch_ready(payload: dict = Body(...), user=Depends(admin_only)):
+        """Mark a whole meal batch as ready in one click.
+
+        Body: `{"date": "YYYY-MM-DD", "meal_type": "lunch"|"dinner"}` — flips
+        every roster item for that meal from planned → ready.
+        """
+        d = str(payload.get("date") or today_local())
+        meal = str(payload.get("meal_type") or "").lower()
+        if meal not in MEALS:
+            raise HTTPException(status_code=400, detail="meal_type must be lunch|dinner")
+        r = await db.daily_rosters.update_many(
+            {"date": d, "meal_type": meal, "status": {"$in": ["planned"]}},
+            {"$set": {
+                "status": "ready",
+                "ready_by": getattr(user, "user_id", "admin"),
+                "ready_at": iso(now_utc()),
+            }},
+        )
+        return {"date": d, "meal_type": meal, "marked": r.modified_count}
+
     @router.get("/today")
     async def today_summary(date: str | None = Query(None), _=Depends(admin_only)):
         d = date or today_local()
@@ -146,11 +194,17 @@ def register(router: APIRouter, db, admin_only) -> None:
         items = await db.daily_rosters.find({"date": d}, {"_id": 0}).to_list(20000)
         settings = await _load_settings_db(db)
         handoffs = await db.delivery_handoffs.find({"date": d}, {"_id": 0}).to_list(500)
+        # iter-131.14: per-meal ready counts for the dispatch gating UI.
+        def _ready_stats(meal: str) -> dict:
+            meal_items = [i for i in items if i["meal_type"] == meal]
+            ready = sum(1 for i in meal_items if i["status"] in ("ready", "out", "delivered"))
+            return {"total": len(meal_items), "ready": ready, "pending": max(0, len(meal_items) - ready)}
         return {
             "date": d,
             "settings": settings,
             "generated_now": gen_info,
             "lunch": _bucket_for_meal("lunch", items, settings),
             "dinner": _bucket_for_meal("dinner", items, settings),
+            "ready_stats": {"lunch": _ready_stats("lunch"), "dinner": _ready_stats("dinner")},
             "handoffs": handoffs,
         }

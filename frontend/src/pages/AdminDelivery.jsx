@@ -93,9 +93,15 @@ function TodayPanel() {
         <Stat label="Outside service" value={outsideTotal} icon={AlertTriangle} warn={outsideTotal > 0} />
       </div>
 
+      {/* iter-131.14: dispatch-ready counters. Big, readable, kitchen-tablet friendly. */}
+      <div className="grid grid-cols-2 gap-3" data-testid="dispatch-summary">
+        <DispatchTile label="Lunch to dispatch" stats={data.ready_stats?.lunch} meal="lunch" />
+        <DispatchTile label="Dinner to dispatch" stats={data.ready_stats?.dinner} meal="dinner" />
+      </div>
+
       <div className="grid lg:grid-cols-2 gap-6">
-        <MealCard meal="lunch" bucket={data.lunch} cutoff={data.settings?.lunch_cutoff} onHandoff={setActiveHandoff} />
-        <MealCard meal="dinner" bucket={data.dinner} cutoff={data.settings?.dinner_cutoff} onHandoff={setActiveHandoff} />
+        <MealCard meal="lunch" bucket={{ ...data.lunch, date: data.date }} cutoff={data.settings?.lunch_cutoff} onHandoff={setActiveHandoff} readyStats={data.ready_stats?.lunch} onReadyChanged={load} />
+        <MealCard meal="dinner" bucket={{ ...data.dinner, date: data.date }} cutoff={data.settings?.dinner_cutoff} onHandoff={setActiveHandoff} readyStats={data.ready_stats?.dinner} onReadyChanged={load} />
       </div>
 
       {data.handoffs?.length > 0 && (
@@ -116,9 +122,35 @@ function TodayPanel() {
   );
 }
 
-function Stat({ label, value, icon: Icon, accent, warn }) {
+function DispatchTile({ label, stats, meal }) {
+  const s = stats || { total: 0, ready: 0, pending: 0 };
+  const pct = s.total ? Math.round((s.ready * 100) / s.total) : 0;
+  const status = s.total === 0 ? "empty" : s.pending === 0 ? "green" : s.ready > 0 ? "amber" : "red";
+  const palette = {
+    empty: { bg: "bg-muted", ring: "ring-border",           bar: "bg-muted-foreground", label: "text-muted-foreground" },
+    red:   { bg: "bg-destructive/10", ring: "ring-destructive/30",  bar: "bg-destructive", label: "text-destructive" },
+    amber: { bg: "bg-amber-50",       ring: "ring-amber-300/60",    bar: "bg-amber-500",   label: "text-amber-800" },
+    green: { bg: "bg-emerald-50",     ring: "ring-emerald-300/60",  bar: "bg-emerald-600", label: "text-emerald-800" },
+  }[status];
   return (
-    <div className={`rounded-2xl p-4 ${warn ? "bg-destructive/10 border border-destructive/30" : accent ? "bg-primary/5 border border-primary/15" : "bg-card border border-border"}`} data-testid={`stat-${label.toLowerCase().replace(/\s+/g, "-")}`}>
+    <div className={`rounded-2xl p-4 ring-1 ${palette.bg} ${palette.ring}`} data-testid={`dispatch-tile-${meal}`}>
+      <p className={`text-[10px] tracking-overline uppercase font-bold ${palette.label}`}>{label}</p>
+      <p className="font-display font-extrabold text-3xl mt-1 tabular-nums">{s.total}</p>
+      <div className="mt-2 h-1.5 rounded-full bg-black/5 overflow-hidden">
+        <div className={`h-full transition-all ${palette.bar}`} style={{ width: `${pct}%` }} />
+      </div>
+      <p className={`text-xs mt-1.5 font-semibold ${palette.label}`}>
+        {status === "empty" && "No tiffins scheduled"}
+        {status === "red"   && `${s.pending} pending — kitchen not started`}
+        {status === "amber" && `${s.ready}/${s.total} ready · waiting on ${s.pending}`}
+        {status === "green" && `All ${s.total} ready — dispatch unlocked`}
+      </p>
+    </div>
+  );
+}
+
+function Stat({ label, value, icon: Icon, accent, warn }) {
+  return (    <div className={`rounded-2xl p-4 ${warn ? "bg-destructive/10 border border-destructive/30" : accent ? "bg-primary/5 border border-primary/15" : "bg-card border border-border"}`} data-testid={`stat-${label.toLowerCase().replace(/\s+/g, "-")}`}>
       <div className="flex items-center justify-between">
         <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">{label}</p>
         <Icon className={`h-4 w-4 ${warn ? "text-destructive" : "text-muted-foreground"}`} />
@@ -128,12 +160,26 @@ function Stat({ label, value, icon: Icon, accent, warn }) {
   );
 }
 
-function MealCard({ meal, bucket, cutoff, onHandoff }) {
+function MealCard({ meal, bucket, cutoff, onHandoff, readyStats, onReadyChanged }) {
   const Title = meal === "lunch" ? "Lunch" : "Dinner";
+  const stats = readyStats || { total: bucket.total, ready: 0, pending: bucket.total };
+  const pct = stats.total ? Math.round((stats.ready * 100) / stats.total) : 0;
+  const allReady = stats.total > 0 && stats.pending === 0;
+
+  const bulkReady = async () => {
+    try {
+      await api.post("/admin/delivery/roster/batch-ready", { date: bucket.date || undefined, meal_type: meal });
+      toast.success(`All ${meal} tiffins marked ready`);
+      onReadyChanged && onReadyChanged();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Failed to mark batch ready");
+    }
+  };
+
   return (
     <div className="rounded-2xl border border-border bg-card p-5" data-testid={`meal-card-${meal}`}>
-      <div className="flex items-baseline justify-between">
-        <div>
+      <div className="flex items-baseline justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
           <p className="text-[10px] tracking-overline uppercase font-bold text-secondary">{meal === "lunch" ? "Mid-day" : "Evening"}</p>
           <h3 className="font-display font-extrabold text-2xl">{Title} · {bucket.total} tiffin{bucket.total !== 1 ? "s" : ""}</h3>
           <p className="text-sm text-muted-foreground mt-1">
@@ -141,6 +187,27 @@ function MealCard({ meal, bucket, cutoff, onHandoff }) {
             {cutoff && <> · cut-off <Clock className="inline h-3 w-3 ml-1 -mt-0.5" /> {cutoff}</>}
           </p>
         </div>
+        {/* iter-131.14: kitchen-ready progress + bulk toggle. When 100 %
+            of items are `ready`, the delivery boy's dispatch button turns
+            green (else amber / red). */}
+        {bucket.total > 0 && (
+          <div className="shrink-0 flex items-center gap-3">
+            <div className="text-right leading-tight">
+              <p className={`text-[10px] tracking-overline uppercase font-bold ${allReady ? "text-emerald-700" : "text-amber-700"}`}>Kitchen ready</p>
+              <p className="text-sm font-mono font-extrabold tabular-nums" data-testid={`ready-count-${meal}`}>{stats.ready}/{stats.total} ({pct}%)</p>
+            </div>
+            {!allReady && (
+              <Button
+                size="sm"
+                onClick={bulkReady}
+                className="rounded-full bg-emerald-700 hover:bg-emerald-800 text-white"
+                data-testid={`bulk-ready-${meal}`}
+              >
+                Mark all ready
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {bucket.groups.length === 0 ? (
@@ -164,7 +231,7 @@ function MealCard({ meal, bucket, cutoff, onHandoff }) {
                 </div>
               </summary>
               <ul className="border-t border-border divide-y divide-border">
-                {g.items.map((it) => <ItemRow key={it.roster_id} item={it} />)}
+                {g.items.map((it) => <ItemRow key={it.roster_id} item={it} onReadyChanged={onReadyChanged} />)}
                 <li className="px-4 py-3 bg-muted/30">
                   <Button
                     size="sm"
@@ -184,14 +251,28 @@ function MealCard({ meal, bucket, cutoff, onHandoff }) {
   );
 }
 
-function ItemRow({ item }) {
+function ItemRow({ item, onReadyChanged }) {
   const statusBadge = {
     planned: "bg-muted text-muted-foreground",
+    ready:   "bg-emerald-100 text-emerald-700",
     out: "bg-secondary/15 text-secondary",
     delivered: "bg-emerald-100 text-emerald-700",
     undelivered: "bg-amber-100 text-amber-700",
     returned: "bg-amber-100 text-amber-700",
   }[item.status] || "bg-muted text-muted-foreground";
+  const isReady = item.status === "ready" || item.status === "out" || item.status === "delivered";
+  const toggleReady = async () => {
+    try {
+      await api.post(`/admin/delivery/roster/${item.roster_id}/ready`, { ready: !isReady });
+      onReadyChanged && onReadyChanged();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Failed to toggle");
+    }
+  };
+  const prefs = item.tiffin_preferences || null;
+  const prefsSummary = prefs && typeof prefs === "object"
+    ? Object.entries(prefs).map(([k, v]) => `${k}: ${typeof v === "boolean" ? (v ? "yes" : "no") : v}`).join(" · ")
+    : (typeof prefs === "string" ? prefs : "");
   return (
     <li className="px-4 py-3 flex items-start gap-3 text-sm" data-testid={`item-${item.roster_id}`}>
       <span className={`text-[10px] tracking-overline uppercase font-bold px-2 py-0.5 rounded-full ${item.tiffin_size === "full" ? "bg-primary/10 text-primary" : "bg-secondary/15 text-secondary"}`}>
@@ -201,8 +282,26 @@ function ItemRow({ item }) {
         <p className="font-semibold truncate">{item.name}</p>
         <p className="text-xs text-muted-foreground truncate flex items-center gap-1"><Phone className="h-3 w-3" /> {item.phone}</p>
         <p className="text-xs text-muted-foreground line-clamp-2">{item.address}</p>
+        {prefsSummary && (
+          <p className="mt-1 text-[10.5px] font-semibold text-primary/80 line-clamp-2" data-testid={`item-prefs-${item.roster_id}`}>
+            <span className="uppercase tracking-wider text-[9px] mr-1 opacity-70">Prefs:</span>
+            {prefsSummary}
+          </p>
+        )}
       </div>
-      <span className={`text-[10px] tracking-overline uppercase font-bold px-2 py-0.5 rounded-full ${statusBadge}`}>{item.status}</span>
+      <div className="flex flex-col items-end gap-1 shrink-0">
+        <span className={`text-[10px] tracking-overline uppercase font-bold px-2 py-0.5 rounded-full ${statusBadge}`}>{item.status}</span>
+        {item.status === "planned" || item.status === "ready" ? (
+          <button
+            type="button"
+            onClick={toggleReady}
+            data-testid={`ready-toggle-${item.roster_id}`}
+            className={`text-[10px] font-extrabold px-2 py-1 rounded-full uppercase tracking-wide ${isReady ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-amber-100 text-amber-800 hover:bg-amber-200"}`}
+          >
+            {isReady ? "Ready ✓" : "Mark ready"}
+          </button>
+        ) : null}
+      </div>
     </li>
   );
 }

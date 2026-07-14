@@ -16,6 +16,23 @@ Build a tiffin / dining subscription app with:
 - Staff (scans subscriber QR at counter)
 - Subscriber (owns e-Meal Pass + wallet)
 
+### Iteration 131.14 (Feb 2026, fork) — Dispatch orchestration MVP (staff-ready gating, per-meal counters, tiffin preferences visible)
+- **New roster state `ready`** added to the status enum. Full lifecycle is now `planned → ready → out → delivered` (with `undelivered`/`returned` as terminal branches). Each item also stamps `ready_by` (staff user_id) + `ready_at` (ISO ts) for audit.
+- **Backend endpoints**:
+  - `POST /api/admin/delivery/roster/{roster_id}/ready` — toggle a single item (`{ready: true|false}`).
+  - `POST /api/admin/delivery/roster/batch-ready` — bulk-mark a whole meal (`{date, meal_type}`).
+  - `GET /api/admin/delivery/today` now returns `ready_stats.{lunch,dinner} = {total, ready, pending}`.
+  - `POST /api/admin/delivery/handoff` (unchanged surface) now blocks with a 400 if any item in the batch is NOT ready — kitchen must mark first.
+  - `GET /api/delivery-boy/today` gained `dispatch_progress.{lunch,dinner} + can_dispatch: bool` so the boy's Dispatch button can render amber / green.
+- **Admin frontend**:
+  - New **DispatchTile** at the top of `/admin/delivery` — big kitchen-tablet-friendly counter with a progress bar and RED / AMBER / GREEN colour band (empty · red / amber `X/Y ready · waiting on N` / green `All ready — dispatch unlocked`).
+  - Each meal card gained a `Ready X/Y (Z%)` header + a `Mark all ready` bulk button.
+  - Each item row now displays `tiffin_preferences` under the address (e.g. `Prefs: rice: full · dal: half · chapati_qty: 4`) — the preferences flow through from the subscriber's tiffin-preference form via `subscriptions.tiffin_preferences → daily_rosters.tiffin_preferences` (already wired in `admin_roster.generate_roster_for_date`).
+  - Each item row gained a `Mark ready ✓ / Ready ✓` per-item toggle button (staff can un-ready if needed while status is still ≤ ready).
+- **Data flow tested end-to-end via curl**: seeded a lunch + dinner item, GET today reported `pending: 1` each; batch-ready lunch → `ready: 1, pending: 0`; dinner unchanged. Handoff-create refuses non-ready items.
+- **Deferred to a follow-up iteration** (context budget): the standalone `/staff/dispatch` kitchen-tablet route (same data, more spacious layout) and the delivery-boy post-dispatch OSM/Leaflet route view with per-waypoint (Full/Half + name + phone) labels. Backend already exposes everything needed for both.
+
+
 ### Iteration 131.13 (Feb 2026, fork) — 3D tiffin hero card + single-line header + footer logo blend
 - **3D depth on TiffinHeroCard**: Added a layered box-shadow (outer soft shadow + inner top highlight + inner bottom shade), subtle radial highlight in the upper-left corner, and a `hover:-translate-y-0.5` micro-lift. Text is untouched — only the container reads as raised. (`SubscriberDashboard → TiffinHeroCard`)
 - **Site header back to single line**: rolled back the iter-131.11 2-row wrap. Reduced logo frame `h-11 w-14 → h-9 w-11` (mobile), brand text `text-base → text-sm sm:text-base md:text-lg`, tagline `text-[9px] → text-[7.5px] sm:text-[9px] md:text-[10px]`. All content now fits on ONE row at 360w without truncation.

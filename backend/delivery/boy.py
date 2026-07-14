@@ -82,6 +82,17 @@ def make_boy_router(db) -> APIRouter:
         # Nearest-neighbour route order from boy's current position (or from first item if unknown)
         ordered = _nearest_neighbour_order(items, boy.get("current_lat"), boy.get("current_lng"))
         settings = await _load_settings_local()
+        # iter-131.14: dispatch-progress gating for the "Dispatch Now" button.
+        # RED (locked) while any lunch/dinner tiffin is still pending, AMBER
+        # while some are ready ("28/30 ready — waiting on 2 more"), GREEN
+        # once every item's status is `ready` (or beyond).
+        def _progress(meal: str) -> dict:
+            meal_items = [i for i in items if i["meal_type"] == meal]
+            total = len(meal_items)
+            ready = sum(1 for i in meal_items if i.get("status") in ("ready", "out", "delivered"))
+            return {"meal": meal, "total": total, "ready": ready, "pending": max(0, total - ready)}
+        lunch_p = _progress("lunch")
+        dinner_p = _progress("dinner")
         return {
             "date": d,
             "boy": boy,
@@ -91,7 +102,13 @@ def make_boy_router(db) -> APIRouter:
                 "full": sum(1 for i in items if i.get("tiffin_size") == "full"),
                 "half": sum(1 for i in items if i.get("tiffin_size") == "half"),
                 "delivered": sum(1 for i in items if i.get("status") == "delivered"),
-                "pending": sum(1 for i in items if i.get("status") in ("planned", "out")),
+                "pending": sum(1 for i in items if i.get("status") in ("planned", "ready", "out")),
+            },
+            "dispatch_progress": {
+                "lunch": lunch_p,
+                "dinner": dinner_p,
+                # Overall gate: dispatch button turns green only when all pending items are ready.
+                "can_dispatch": (lunch_p["pending"] + dinner_p["pending"]) == 0 and (lunch_p["total"] + dinner_p["total"]) > 0,
             },
             "dispatch": {
                 "lat": settings.get("dispatch_lat"),
