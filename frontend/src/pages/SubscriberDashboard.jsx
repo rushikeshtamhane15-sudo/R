@@ -387,7 +387,22 @@ function NoSubscriptionCard({ texts }) {
 function TiffinHeroCard({ sub, isPaused, pausing, togglePause, daysLeft, accent }) {
   const accentStyle = accent ? { color: accent } : null;
   return (
-    <div className="rounded-3xl border border-border bg-card p-6 md:p-7 space-y-5" data-testid="tiffin-hero-card">
+    <div
+      className="rounded-3xl border border-border bg-card p-6 md:p-7 space-y-5 relative overflow-hidden transition-transform hover:-translate-y-0.5"
+      style={{
+        // iter-131.13: pseudo-3D depth around the tile — layered outer soft
+        // shadow, inner top highlight, and a subtle bottom shade. Text is
+        // untouched by the 3D treatment; only the container reads as raised.
+        boxShadow: "0 22px 40px -20px rgba(15,23,42,0.28), 0 6px 12px -6px rgba(15,23,42,0.14), inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -1px 0 rgba(15,23,42,0.06)",
+      }}
+      data-testid="tiffin-hero-card"
+    >
+      {/* subtle radial highlight in the upper-left corner for depth */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-24 -left-24 h-56 w-56 rounded-full opacity-60"
+        style={{ background: "radial-gradient(circle at center, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 65%)" }}
+      />
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] tracking-overline uppercase font-bold text-secondary flex items-center gap-1.5" style={accentStyle || undefined}>

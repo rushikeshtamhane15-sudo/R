@@ -16,6 +16,12 @@ Build a tiffin / dining subscription app with:
 - Staff (scans subscriber QR at counter)
 - Subscriber (owns e-Meal Pass + wallet)
 
+### Iteration 131.13 (Feb 2026, fork) — 3D tiffin hero card + single-line header + footer logo blend
+- **3D depth on TiffinHeroCard**: Added a layered box-shadow (outer soft shadow + inner top highlight + inner bottom shade), subtle radial highlight in the upper-left corner, and a `hover:-translate-y-0.5` micro-lift. Text is untouched — only the container reads as raised. (`SubscriberDashboard → TiffinHeroCard`)
+- **Site header back to single line**: rolled back the iter-131.11 2-row wrap. Reduced logo frame `h-11 w-14 → h-9 w-11` (mobile), brand text `text-base → text-sm sm:text-base md:text-lg`, tagline `text-[9px] → text-[7.5px] sm:text-[9px] md:text-[10px]`. All content now fits on ONE row at 360w without truncation.
+- **Footer logo bg blend**: applied `mix-blend-mode: lighten` on the footer brand-logo image. The `lighten` mode replaces each darker pixel with the lighter of image-vs-backdrop — the red rectangular padding around the F becomes the footer's muted background, while the white F silhouette stays visible. Result: the icon appears to sit directly on the footer with no visible red frame.
+
+
 ### Iteration 131.11 & 131.12 (Feb 2026, fork) — Header polish, footer logo chrome, and dual-subscription support
 
 **131.11 — Header + footer polish**

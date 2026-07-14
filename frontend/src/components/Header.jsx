@@ -66,18 +66,17 @@ export default function Header() {
       className="sticky top-0 z-30 bg-primary text-primary-foreground border-b border-primary/40 shadow-sm"
       data-testid="app-header"
     >
-      {/* iter-131.11: On narrow phones (<sm) the header wraps to TWO rows —
-          brand cluster on top, action pills on the bottom — so "efoodcare"
-          + "GHAR SE ACHHA KHANA" + Amravati + ₹9,999 wallet + menu button
-          all fit without truncation. On sm+ it stays a single row. */}
-      <div className="max-w-7xl mx-auto flex flex-wrap sm:flex-nowrap items-center justify-between px-2 sm:px-3 md:px-8 lg:px-12 py-2.5 md:py-4 gap-y-1.5 gap-x-2 sm:gap-x-3">
+      {/* iter-131.13: SINGLE-ROW header again. Sizes reduced enough that the
+          full brand cluster + Amravati + ₹9,999 wallet + menu button all fit
+          on a 360-wide screen without wrapping or truncation. */}
+      <div className="max-w-7xl mx-auto flex items-center justify-between px-2 sm:px-3 md:px-8 lg:px-12 py-2 md:py-3 gap-2 sm:gap-3">
         <Link
           to="/"
-          className="flex items-center gap-2 sm:gap-2.5 min-w-0 order-1 sm:flex-1"
+          className="flex items-center gap-2 min-w-0 flex-1"
           data-testid="logo-link"
         >
           <span
-            className="inline-flex items-center justify-center h-11 w-14 sm:h-12 sm:w-16 md:h-14 md:w-20 rounded-md bg-primary shrink-0 overflow-hidden"
+            className="inline-flex items-center justify-center h-9 w-11 sm:h-10 sm:w-12 md:h-12 md:w-14 rounded-md bg-primary shrink-0 overflow-hidden"
             data-testid="brand-logo-frame"
           >
             <img
@@ -88,14 +87,12 @@ export default function Header() {
             />
           </span>
           <div className="flex flex-col justify-center min-w-0 leading-tight">
-            {/* Removed `truncate` so wordmark + tagline never ellipsize; the
-                2-row wrap on mobile provides enough horizontal room. */}
-            <span className="font-display font-extrabold text-base sm:text-xl md:text-2xl text-primary-foreground leading-none" data-testid="header-brand-name">{brandName}</span>
-            <span className="inline text-[9px] sm:text-[10.5px] md:text-[11.5px] tracking-[0.16em] uppercase font-semibold text-primary-foreground/85 leading-tight mt-1 whitespace-nowrap" data-testid="header-tagline">{brandTagline}</span>
+            <span className="font-display font-extrabold text-sm sm:text-base md:text-lg text-primary-foreground leading-tight" data-testid="header-brand-name">{brandName}</span>
+            <span className="inline text-[7.5px] sm:text-[9px] md:text-[10px] tracking-[0.14em] uppercase font-semibold text-primary-foreground/85 leading-tight mt-0.5 whitespace-nowrap" data-testid="header-tagline">{brandTagline}</span>
           </div>
         </Link>
 
-        <div className="flex items-center gap-1.5 md:gap-3 shrink-0 whitespace-nowrap order-2 ml-auto sm:ml-0">
+        <div className="flex items-center gap-1 md:gap-2 shrink-0 whitespace-nowrap">
           <MessSwitcher variant="pill" />
           {showWallet && <WalletPill compact />}
           <Sheet open={open} onOpenChange={setOpen}>
