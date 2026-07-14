@@ -3,6 +3,18 @@
 > *ghar se achha khana*
 
 
+## iter-131.16 — Per-user delivery-time windows across every dashboard (2026-02-14)
+**Status: DONE — Backend 100% (11/11 new + 12/12 regression, report_104). Frontend 100% (report_104 UI pass).**
+
+- **User dashboard:** new `DeliveryTimeCard` — two free-form time pickers per meal (lunch, dinner). Amber "not set" prompt for new users, green "Set" pill once saved.
+- **Backend endpoints:** `GET/PUT /api/my/delivery-prefs` with HH:MM 24 h validation (end > start, 15 min ≤ duration ≤ 4 h). Save also splashes the change onto today's planned/ready rosters so staff see it before the next day.
+- **Roster snapshot:** `generate_roster_for_date` now copies `delivery_prefs[meal].{start,end}` onto every roster row as `pref_start`/`pref_end`.
+- **Late flag:** `_handle_delivered_mark` + customer self-confirm compute `delivered_late` + `delivered_late_by` (minutes) by comparing IST now vs `pref_end`.
+- **Sorted + pilled everywhere:** delivery-boy `/boy/today`, `/staff/dispatch`, `/admin/deliveries-today` all sort by earliest window. New shared `DeliveryWindowPill` renders IST-aware color (blue upcoming / amber ≤10 min / green in-window / red late / cyan delivered-late / emerald on-time / grey no-window). Customer track page also shows the pill.
+- **Admin metrics:** `/staff/dispatch/today` returns `late_stats` (delivered_late + no_pref per meal). `/staff/today-deliveries` counts now include `delivered_late` + `no_pref`. Two dashboard strips: "N late deliveries today" and "N without a window set".
+
+
+
 ## iter-131.15 — Staff dispatch console + delivery-boy live GPS (2026-02-14)
 **Status: DONE — 100% backend + frontend tests pass (report_iteration_103).**
 
