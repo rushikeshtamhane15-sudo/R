@@ -64,9 +64,18 @@ export default function StaffDeliveries() {
             Live packing list for lunch + dinner with full vs half splits. Read-only — delivery boys mark delivered from their app.
           </p>
         </div>
-        <Button onClick={load} variant="outline" className="rounded-full" data-testid="refresh-deliveries">
-          <RefreshCw className="h-4 w-4 mr-2" /> Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <a
+            href="/staff/dispatch"
+            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-bold"
+            data-testid="open-dispatch-console"
+          >
+            <Truck className="h-3.5 w-3.5" /> Dispatch console
+          </a>
+          <Button onClick={load} variant="outline" className="rounded-full" data-testid="refresh-deliveries">
+            <RefreshCw className="h-4 w-4 mr-2" /> Refresh
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

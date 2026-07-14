@@ -116,6 +116,10 @@ def iso(d: datetime) -> str:
     return d.isoformat()
 
 
+def now_utc_iso() -> str:
+    return now_utc().isoformat()
+
+
 def parse_dt(d) -> datetime:
     if isinstance(d, str):
         d = datetime.fromisoformat(d)
@@ -4157,6 +4161,134 @@ async def staff_today_deliveries(user: User = Depends(get_current_user)):
     }
 
     return {"date": d, "rows": rows, "counts": counts}
+
+
+# ---------------------------
+# Staff dispatch console — /staff/dispatch route + fastest-route map
+# iter-131.15: standalone dispatch UI for staff (also usable by admin/franchise_owner).
+# Wraps the delivery sub-router's roster+ready flows behind an admin-or-staff gate.
+# ---------------------------
+@api_router.get("/staff/dispatch/today")
+async def staff_dispatch_today(user: User = Depends(get_current_user)):
+    """Today's dispatch console — ready stats, kitchen coords, stop list with GPS pins."""
+    from delivery.shared import _load_settings_db, MEALS
+    from delivery.admin_roster import generate_roster_for_date
+    _admin_or_staff(user)
+    d = today_str()
+    cnt = await db.daily_rosters.count_documents({"date": d})
+    if cnt == 0:
+        await generate_roster_for_date(db, d)
+    items = await db.daily_rosters.find({"date": d}, {"_id": 0, "otp": 0}).to_list(20000)
+    user_ids = list({i["user_id"] for i in items})
+    users = {u["user_id"]: u async for u in db.users.find(
+        {"user_id": {"$in": user_ids}},
+        {"_id": 0, "user_id": 1, "name": 1, "phone": 1, "address": 1, "pincode": 1, "lat": 1, "lng": 1, "tiffin_balance": 1},
+    )}
+    for it in items:
+        u = users.get(it["user_id"]) or {}
+        it["customer_lat"] = u.get("lat")
+        it["customer_lng"] = u.get("lng")
+        it["tiffin_balance"] = int(u.get("tiffin_balance") or 0)
+    settings = await _load_settings_db(db)
+    boys = await db.delivery_boys.find({"active": {"$ne": False}}, {"_id": 0}).to_list(500)
+
+    def _stats(meal: str) -> dict:
+        meal_items = [i for i in items if i["meal_type"] == meal]
+        ready = sum(1 for i in meal_items if i["status"] in ("ready", "out", "delivered"))
+        out_or_delivered = sum(1 for i in meal_items if i["status"] in ("out", "delivered"))
+        return {
+            "total": len(meal_items),
+            "ready": ready,
+            "pending": max(0, len(meal_items) - ready),
+            "out_or_delivered": out_or_delivered,
+        }
+
+    return {
+        "date": d,
+        "items": items,
+        "ready_stats": {m: _stats(m) for m in MEALS},
+        "dispatch": {
+            "lat": settings.get("dispatch_lat"),
+            "lng": settings.get("dispatch_lng"),
+            "radius_km": settings.get("dispatch_radius_km") or 15,
+        },
+        "boys": boys,
+    }
+
+
+@api_router.post("/staff/dispatch/batch-ready")
+async def staff_dispatch_batch_ready(payload: dict = Body(...), user: User = Depends(get_current_user)):
+    """Flip every planned tiffin for a meal → ready. Staff-safe entry to the admin batch-ready."""
+    from delivery.shared import MEALS
+    _admin_or_staff(user)
+    d = str(payload.get("date") or today_str())
+    meal = str(payload.get("meal_type") or "").lower()
+    if meal not in MEALS:
+        raise HTTPException(status_code=400, detail="meal_type must be lunch|dinner")
+    r = await db.daily_rosters.update_many(
+        {"date": d, "meal_type": meal, "status": {"$in": ["planned"]}},
+        {"$set": {
+            "status": "ready",
+            "ready_by": user.user_id,
+            "ready_at": now_utc_iso(),
+        }},
+    )
+    return {"date": d, "meal_type": meal, "marked": r.modified_count}
+
+
+@api_router.post("/staff/dispatch/roster/{roster_id}/ready")
+async def staff_dispatch_toggle_ready(
+    roster_id: str,
+    payload: dict | None = Body(default=None),
+    user: User = Depends(get_current_user),
+):
+    """Toggle a single tiffin's ready state — kitchen staff can flip items one at a time."""
+    _admin_or_staff(user)
+    want_ready = True if payload is None else bool((payload or {}).get("ready", True))
+    item = await db.daily_rosters.find_one({"roster_id": roster_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="Roster item not found")
+    if item["status"] not in ("planned", "ready"):
+        raise HTTPException(status_code=400, detail=f"Cannot toggle ready on item with status={item['status']}")
+    new_status = "ready" if want_ready else "planned"
+    upd = {"status": new_status}
+    if want_ready:
+        upd["ready_by"] = user.user_id
+        upd["ready_at"] = now_utc_iso()
+    else:
+        upd["ready_by"] = None
+        upd["ready_at"] = None
+    await db.daily_rosters.update_one({"roster_id": roster_id}, {"$set": upd})
+    return {"roster_id": roster_id, **upd}
+
+
+# iter-131.15: friendly alias for /boy/location so the mobile PWA can post
+# GPS pings to a memorable `/api/delivery-boy/ping` endpoint. Delegates to
+# the existing boy router logic (validates coords + updates delivery_boys).
+class _DeliveryBoyPing(BaseModel):
+    lat: float
+    lng: float
+    accuracy: float | None = None
+
+
+@api_router.post("/delivery-boy/ping")
+async def delivery_boy_ping(payload: _DeliveryBoyPing = Body(...), user: User = Depends(get_current_user)):
+    """Alias for /api/boy/location — used by delivery-boy PWA to post live GPS every 30 s."""
+    boy = await db.delivery_boys.find_one({"user_id": user.user_id}, {"_id": 0})
+    if not boy:
+        raise HTTPException(status_code=403, detail="Not registered as a delivery boy")
+    if not (-90 <= payload.lat <= 90) or not (-180 <= payload.lng <= 180):
+        raise HTTPException(status_code=400, detail="Invalid GPS coordinates")
+    await db.delivery_boys.update_one(
+        {"boy_id": boy["boy_id"]},
+        {"$set": {
+            "current_lat": float(payload.lat),
+            "current_lng": float(payload.lng),
+            "current_accuracy": float(payload.accuracy or 0),
+            "last_ping_at": now_utc_iso(),
+        }},
+    )
+    return {"ok": True, "boy_id": boy["boy_id"]}
 
 
 # ---------------------------

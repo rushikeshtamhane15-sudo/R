@@ -1,0 +1,32 @@
+{
+  "summary": "iter-131.15 P0 /staff/dispatch + /delivery-boy/ping — all backend endpoints and frontend flows verified. 12/13 pytest cases pass (1 skipped due to no planned dinner items at test time; toggle-out/delivered path still tested via forced-status). All UI testids present and role gating works as designed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter131_staff_dispatch.py",
+    "/app/test_reports/pytest/iter131_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is >4700 lines — consider splitting the new /staff/dispatch endpoints into /app/backend/routes/staff_dispatch.py (mirroring the /routes/ pattern used for auth/payments/etc).",
+    "delivery_boy/ping validates coord bounds AFTER the boy-lookup, so a non-boy caller with garbage coords still gets 403 (test_bounds_when_not_a_boy_still_403 asserts 400 OR 403). Semantically fine, but worth documenting.",
+    "OSRM public demo is rate-limited — DeliveryMap already falls back to dashed straight-line, which is the right call. No action needed.",
+    "iter131 pytest silently skips the planned→ready toggle when no planned items exist (rare edge case in staging where batch-ready has already run). If this becomes flaky, seed a planned item in a fixture."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter131_staff_dispatch.py"],
+  "success_rate": {"backend": "100% (12/12 executed pass, 1 skipped)", "frontend": "100% (all critical flows pass)"},
+  "test_credentials": "OTP dev mode: phone 9999999999 → franchise_owner (seeded, mess=efoodcare-amravati). phone 8888888888 → auto-created subscriber.",
+  "seed_data_creation": "Temporary delivery_boys docs (boy_id=TEST_boy_iter131, TEST_boy_iter131b) created + cleaned up within test_boy_flow/test_regression_boy_location_alias.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Rate limits (3/10min per phone) on /api/auth/send-otp will burn quickly during repeated backend+frontend runs — clear via `mongosh test_database --eval 'db.rate_limit_hits.deleteMany({key: /9999999999/})'` if you get 429s. Franchise_owner seed (9999999999) is stable at user_id=user_bb39434e1a5c.",
+  "frontend_verification_details": {
+    "unauth_redirect_to_login": "PASS (redirects to /login?next=%2Fstaff%2Fdispatch)",
+    "subscriber_blocked": "PASS (redirected to /dashboard)",
+    "franchise_owner_renders_page": "PASS",
+    "all_required_testids_present": ["staff-dispatch-page","dispatch-tile-lunch","dispatch-tile-dinner","delivery-map","mark-all-ready","dispatch-refresh","dispatch-back","ready-progress-bar"],
+    "tile_switch_active_state": "PASS — ring-2 shadow-md toggles correctly between lunch/dinner",
+    "mark-all-ready_disable_logic": "PASS — auto-disables and shows 'All ready' when pending=0",
+    "open-dispatch-console_button_on_staff_deliveries": "PASS — href=/staff/dispatch"
+  }
+}

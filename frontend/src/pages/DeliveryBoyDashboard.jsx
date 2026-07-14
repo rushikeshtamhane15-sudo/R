@@ -9,7 +9,7 @@ import {
   Navigation, Wifi, WifiOff, RefreshCw, AlertTriangle, Lock, Recycle, ChevronDown,
 } from "lucide-react";
 
-const PING_MS = 15000;
+const PING_MS = 30000;
 
 export default function DeliveryBoyDashboard() {
   const { user } = useAuth();
@@ -82,7 +82,7 @@ export default function DeliveryBoyDashboard() {
     );
     pingRef.current = setInterval(async () => {
       if (!pos) return;
-      try { await api.post("/boy/location", { lat: pos.lat, lng: pos.lng, accuracy: pos.accuracy }); } catch {}
+      try { await api.post("/delivery-boy/ping", { lat: pos.lat, lng: pos.lng, accuracy: pos.accuracy }); } catch {}
     }, PING_MS);
   };
 
@@ -93,7 +93,7 @@ export default function DeliveryBoyDashboard() {
 
   useEffect(() => {
     if (!pos || !boy?.on_trip) return;
-    api.post("/boy/location", { lat: pos.lat, lng: pos.lng, accuracy: pos.accuracy }).catch(() => {});
+    api.post("/delivery-boy/ping", { lat: pos.lat, lng: pos.lng, accuracy: pos.accuracy }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pos?.lat, pos?.lng, boy?.on_trip]);
 
@@ -295,6 +295,7 @@ export default function DeliveryBoyDashboard() {
         items={filteredItems}
         dispatch={dispatch}
         showRoute
+        drivingRoute={onTrip}
         height={320}
       />
 

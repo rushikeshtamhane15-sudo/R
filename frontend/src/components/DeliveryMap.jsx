@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import L from "leaflet";
 import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap, Circle } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -73,7 +73,8 @@ function ApplyMaxBounds({ center, radiusKm }) {
  *   - customer:   { lat, lng } | null
  *   - items:      [{ customer_lat, customer_lng, name, tiffin_size, status }] | null
  *   - dispatch:   { lat, lng, radius_km } | null
- *   - showRoute:  bool — draw polyline boy → items in order
+ *   - showRoute:  bool — draw polyline boy → items in order (dashed straight line)
+ *   - drivingRoute: bool — fetch OSRM driving polyline from dispatch → stops (solid)
  *   - bounded:    bool — clamp the map to dispatch + radius_km (default true if dispatch given)
  */
 export default function DeliveryMap({
@@ -82,6 +83,7 @@ export default function DeliveryMap({
   items,
   dispatch,
   showRoute = false,
+  drivingRoute = false,
   bounded,
   height = 400,
 }) {
@@ -103,6 +105,42 @@ export default function DeliveryMap({
       ...items.filter((i) => i.customer_lat && i.customer_lng).map((i) => [i.customer_lat, i.customer_lng]),
     ];
   }, [boy, items, showRoute]);
+
+  // iter-131.15: fastest driving route via OSRM public demo. Fires when
+  // drivingRoute=true. Silently falls back to the dashed straight-line
+  // polyline if OSRM rate-limits or errors — we never block the map render.
+  const [drivingPath, setDrivingPath] = useState(null);
+  const [drivingKm, setDrivingKm] = useState(null);
+  useEffect(() => {
+    if (!drivingRoute) { setDrivingPath(null); setDrivingKm(null); return; }
+    const start = boy?.lat && boy?.lng ? [boy.lng, boy.lat]
+                : dispatch?.lat && dispatch?.lng ? [dispatch.lng, dispatch.lat]
+                : null;
+    const stops = (items || []).filter((i) => i.customer_lat && i.customer_lng).slice(0, 24)
+      .map((i) => [i.customer_lng, i.customer_lat]);
+    if (!start || stops.length === 0) { setDrivingPath(null); setDrivingKm(null); return; }
+    const coords = [start, ...stops].map(([lng, lat]) => `${lng},${lat}`).join(";");
+    const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch(url, { method: "GET" });
+        if (!r.ok) throw new Error(`OSRM ${r.status}`);
+        const j = await r.json();
+        const route = j?.routes?.[0];
+        if (!route || cancelled) return;
+        const line = route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+        setDrivingPath(line);
+        setDrivingKm(route.distance / 1000);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn("[DeliveryMap] OSRM route unavailable, fallback to straight-line", e?.message);
+        setDrivingPath(null);
+        setDrivingKm(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [drivingRoute, boy?.lat, boy?.lng, dispatch?.lat, dispatch?.lng, items]);
 
   const radiusKm = dispatch?.radius_km || 15;
   const shouldBound = bounded !== false && dispatch?.lat && dispatch?.lng;
@@ -127,7 +165,13 @@ export default function DeliveryMap({
         <TileLayer url={TILE_URL} attribution={TILE_ATTR} subdomains="abcd" />
         {shouldBound && <ApplyMaxBounds center={[dispatch.lat, dispatch.lng]} radiusKm={radiusKm} />}
         <FitBounds points={points} />
-        {routeLine && (
+        {drivingPath && (
+          <Polyline
+            positions={drivingPath}
+            pathOptions={{ color: "#0f766e", weight: 5, opacity: 0.9 }}
+          />
+        )}
+        {routeLine && !drivingPath && (
           <Polyline
             positions={routeLine}
             pathOptions={{ color: "#a02323", weight: 4, opacity: 0.7, dashArray: "6,8" }}
@@ -179,6 +223,14 @@ export default function DeliveryMap({
           );
         })}
       </MapContainer>
+      {drivingRoute && drivingKm != null && (
+        <span
+          className="absolute top-2 left-2 z-[500] inline-flex items-center gap-1 rounded-full bg-teal-700/95 text-white text-[10px] tracking-overline uppercase font-bold px-2.5 py-1 pointer-events-none shadow"
+          data-testid="driving-route-badge"
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" /> Fastest route · {drivingKm < 1 ? `${Math.round(drivingKm * 1000)}m` : `${drivingKm.toFixed(1)} km`}
+        </span>
+      )}
       <MapBrandCaption />
     </div>
   );

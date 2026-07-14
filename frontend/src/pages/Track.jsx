@@ -134,6 +134,7 @@ export default function Track() {
             customer={myPos?.lat ? { lat: myPos.lat, lng: myPos.lng } : null}
             dispatch={data?.dispatch}
             showRoute={!!(boyPos && myPos?.lat)}
+            drivingRoute={!!(boyPos && myPos?.lat)}
             items={(boyPos && myPos?.lat) ? [{ customer_lat: myPos.lat, customer_lng: myPos.lng, name: "You", tiffin_size: data.tiffin_size, meal_type: data.meal_type, address: "Home", status: "out", tiffin_balance: data.tiffin_balance }] : null}
             height={380}
           />

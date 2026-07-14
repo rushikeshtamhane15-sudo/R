@@ -43,6 +43,7 @@ import AdminPromotion from "./pages/AdminPromotion";
 import AdminRestaurantOrders from "./pages/AdminRestaurantOrders";
 import AdminWhatsAppOutbox from "./pages/AdminWhatsAppOutbox";
 import StaffDeliveries from "./pages/StaffDeliveries";
+import StaffDispatch from "./pages/StaffDispatch";
 import Plans from "./pages/Plans";
 import Checkout from "./pages/Checkout";
 import Profile from "./pages/Profile";
@@ -152,6 +153,7 @@ function AppRoutes() {
           <Route path="/self-scan" element={<RequireAuth><SelfScan /></RequireAuth>} />
           <Route path="/track" element={<RequireAuth><Track /></RequireAuth>} />
           <Route path="/boy" element={<RequireAuth roles={["delivery_boy"]}><DeliveryBoyDashboard /></RequireAuth>} />
+          <Route path="/staff/dispatch" element={<RequireAuth roles={["admin", "staff", "franchise_owner"]}><StaffDispatch /></RequireAuth>} />
 
           {/* Public information pages */}
           <Route path="/privacy" element={<Privacy />} />
