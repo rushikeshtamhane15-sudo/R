@@ -2151,6 +2151,49 @@ async def my_attendance(user: User = Depends(get_current_user)):
 
 
 # ---------------------------
+# iter-131.16: per-user delivery-time preferences
+# Users pick a lunch window (e.g. 10:00 → 10:30) and dinner window so the
+# staff console, delivery-boy route, and admin dashboard can plan around it.
+# ---------------------------
+@api_router.get("/my/delivery-prefs")
+async def get_my_delivery_prefs(user: User = Depends(get_current_user)):
+    u = await db.users.find_one({"user_id": user.user_id}, {"_id": 0, "delivery_prefs": 1})
+    prefs = (u or {}).get("delivery_prefs") or {}
+    return {
+        "lunch": prefs.get("lunch") or None,
+        "dinner": prefs.get("dinner") or None,
+        "is_set": bool(prefs.get("lunch") and prefs.get("dinner")),
+    }
+
+
+@api_router.put("/my/delivery-prefs")
+async def put_my_delivery_prefs(payload: dict = Body(...), user: User = Depends(get_current_user)):
+    """Body: {lunch: {start, end}, dinner: {start, end}} — both required, HH:MM 24h."""
+    from delivery.shared import validate_delivery_window
+    lunch = payload.get("lunch") or {}
+    dinner = payload.get("dinner") or {}
+    ls, le = validate_delivery_window(lunch.get("start"), lunch.get("end"))
+    ds, de = validate_delivery_window(dinner.get("start"), dinner.get("end"))
+    prefs = {
+        "lunch": {"start": ls, "end": le},
+        "dinner": {"start": ds, "end": de},
+        "updated_at": now_utc_iso(),
+    }
+    await db.users.update_one({"user_id": user.user_id}, {"$set": {"delivery_prefs": prefs}})
+    # Splash today's planned/ready rosters so a same-day window change is
+    # reflected on the staff/boy screens without waiting for the next day.
+    await db.daily_rosters.update_many(
+        {"user_id": user.user_id, "date": today_str(), "meal_type": "lunch", "status": {"$in": ["planned", "ready"]}},
+        {"$set": {"pref_start": ls, "pref_end": le}},
+    )
+    await db.daily_rosters.update_many(
+        {"user_id": user.user_id, "date": today_str(), "meal_type": "dinner", "status": {"$in": ["planned", "ready"]}},
+        {"$set": {"pref_start": ds, "pref_end": de}},
+    )
+    return {"ok": True, "prefs": prefs}
+
+
+# ---------------------------
 # Attendance
 # ---------------------------
 async def _mark_attendance(target_user: dict, meal_type: str, marked_by: str, method: str):
@@ -4139,6 +4182,10 @@ async def staff_today_deliveries(user: User = Depends(get_current_user)):
             "tiffin_size": r.get("tiffin_size") or "full",
             "status": r["status"],
             "tiffin_balance": int(u.get("tiffin_balance") or 0),
+            "pref_start": r.get("pref_start"),
+            "pref_end": r.get("pref_end"),
+            "delivered_late": bool(r.get("delivered_late")),
+            "delivered_late_by": int(r.get("delivered_late_by") or 0),
         })
 
     def _bucket(meal: str, size: str):
@@ -4149,11 +4196,15 @@ async def staff_today_deliveries(user: User = Depends(get_current_user)):
             "full": len(_bucket("lunch", "full")),
             "half": len(_bucket("lunch", "half")),
             "delivered": sum(1 for x in rows if x["meal_type"] == "lunch" and x["status"] == "delivered"),
+            "delivered_late": sum(1 for x in rows if x["meal_type"] == "lunch" and x.get("delivered_late")),
+            "no_pref": sum(1 for x in rows if x["meal_type"] == "lunch" and not x.get("pref_start")),
         },
         "dinner": {
             "full": len(_bucket("dinner", "full")),
             "half": len(_bucket("dinner", "half")),
             "delivered": sum(1 for x in rows if x["meal_type"] == "dinner" and x["status"] == "delivered"),
+            "delivered_late": sum(1 for x in rows if x["meal_type"] == "dinner" and x.get("delivered_late")),
+            "no_pref": sum(1 for x in rows if x["meal_type"] == "dinner" and not x.get("pref_start")),
         },
         "total_lunch": sum(1 for x in rows if x["meal_type"] == "lunch"),
         "total_dinner": sum(1 for x in rows if x["meal_type"] == "dinner"),
@@ -4207,6 +4258,12 @@ async def staff_dispatch_today(user: User = Depends(get_current_user)):
         "date": d,
         "items": items,
         "ready_stats": {m: _stats(m) for m in MEALS},
+        "late_stats": {
+            "delivered_late_lunch": sum(1 for i in items if i["meal_type"] == "lunch" and i.get("delivered_late")),
+            "delivered_late_dinner": sum(1 for i in items if i["meal_type"] == "dinner" and i.get("delivered_late")),
+            "no_pref_lunch": sum(1 for i in items if i["meal_type"] == "lunch" and not i.get("pref_start")),
+            "no_pref_dinner": sum(1 for i in items if i["meal_type"] == "dinner" and not i.get("pref_start")),
+        },
         "dispatch": {
             "lat": settings.get("dispatch_lat"),
             "lng": settings.get("dispatch_lng"),

@@ -48,6 +48,9 @@ async def generate_roster_for_date(db, date_str: str) -> dict:
         address = user.get("address") or ""
         pincode = extract_pincode(address)
         is_outside = bool(service_pins) and (pincode != "unknown") and (pincode not in service_pins)
+        # iter-131.16: snapshot the user's chosen delivery window for each meal
+        # onto the roster row so downstream sorting/late-checks don't re-query users.
+        user_prefs = (user.get("delivery_prefs") or {})
         base = {
             "user_id": sub["user_id"],
             "sub_id": sub["sub_id"],
@@ -88,6 +91,9 @@ async def generate_roster_for_date(db, date_str: str) -> dict:
                 # Iter-52: snapshot the user's tiffin food preferences so
                 # dispatch staff packs exactly what was requested.
                 "tiffin_preferences": sub.get("tiffin_preferences") or None,
+                # iter-131.16: delivery-window snapshot (per meal).
+                "pref_start": ((user_prefs.get(meal) or {}).get("start")) or None,
+                "pref_end": ((user_prefs.get(meal) or {}).get("end")) or None,
             }
             await db.daily_rosters.insert_one(doc.copy())
             if meal == "lunch":
@@ -199,6 +205,12 @@ def register(router: APIRouter, db, admin_only) -> None:
             meal_items = [i for i in items if i["meal_type"] == meal]
             ready = sum(1 for i in meal_items if i["status"] in ("ready", "out", "delivered"))
             return {"total": len(meal_items), "ready": ready, "pending": max(0, len(meal_items) - ready)}
+        # iter-131.16: late-delivery + missing-prefs counts so admin can nudge users.
+        def _late_stats(meal: str) -> dict:
+            meal_items = [i for i in items if i["meal_type"] == meal]
+            delivered_late = sum(1 for i in meal_items if i.get("delivered_late"))
+            no_pref = sum(1 for i in meal_items if not i.get("pref_start"))
+            return {"delivered_late": delivered_late, "no_pref": no_pref}
         return {
             "date": d,
             "settings": settings,
@@ -206,5 +218,6 @@ def register(router: APIRouter, db, admin_only) -> None:
             "lunch": _bucket_for_meal("lunch", items, settings),
             "dinner": _bucket_for_meal("dinner", items, settings),
             "ready_stats": {"lunch": _ready_stats("lunch"), "dinner": _ready_stats("dinner")},
+            "late_stats": {"lunch": _late_stats("lunch"), "dinner": _late_stats("dinner")},
             "handoffs": handoffs,
         }

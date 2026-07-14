@@ -226,4 +226,53 @@ async def _load_settings_db(db) -> dict:
     return {**DEFAULT_SETTINGS, **s}
 
 
+# ---------- iter-131.16: per-user delivery-time windows ----------
+_HHMM_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
+
+
+def hhmm_to_minutes(s: str | None) -> int | None:
+    """'HH:MM' → total minutes since midnight (IST). Returns None on invalid."""
+    if not s or not isinstance(s, str) or not _HHMM_RE.match(s):
+        return None
+    h, m = s.split(":")
+    return int(h) * 60 + int(m)
+
+
+def validate_delivery_window(start: str, end: str) -> tuple[str, str]:
+    """Reject invalid or nonsense windows. Returns (start, end) normalized."""
+    if not _HHMM_RE.match(start or "") or not _HHMM_RE.match(end or ""):
+        raise HTTPException(status_code=400, detail="Time must be in HH:MM 24h format (e.g. 10:00)")
+    sm = hhmm_to_minutes(start)
+    em = hhmm_to_minutes(end)
+    if em is None or sm is None or em <= sm:
+        raise HTTPException(status_code=400, detail="End time must be after start time")
+    if em - sm < 15:
+        raise HTTPException(status_code=400, detail="Delivery window must be at least 15 minutes long")
+    if em - sm > 240:
+        raise HTTPException(status_code=400, detail="Delivery window can't exceed 4 hours — pick a tighter slot")
+    return start, end
+
+
+def ist_minutes_now() -> int:
+    """Minutes since 00:00 IST for the current moment."""
+    now = _ist_now()
+    return now.hour * 60 + now.minute
+
+
+def compute_late_flag(pref_end: str | None, delivered_at_iso: str | None) -> tuple[bool, int]:
+    """(delivered_late, late_by_minutes). Non-late if either input missing."""
+    if not pref_end or not delivered_at_iso:
+        return False, 0
+    end_m = hhmm_to_minutes(pref_end)
+    if end_m is None:
+        return False, 0
+    try:
+        dt = datetime.fromisoformat(delivered_at_iso).astimezone(timezone(timedelta(hours=5, minutes=30)))
+    except Exception:
+        return False, 0
+    delivered_min = dt.hour * 60 + dt.minute
+    late = max(0, delivered_min - end_m)
+    return late > 0, late
+
+
 

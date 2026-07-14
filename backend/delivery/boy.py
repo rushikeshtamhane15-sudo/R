@@ -81,6 +81,13 @@ def make_boy_router(db) -> APIRouter:
             it["tiffin_balance"] = int(u.get("tiffin_balance") or 0)
         # Nearest-neighbour route order from boy's current position (or from first item if unknown)
         ordered = _nearest_neighbour_order(items, boy.get("current_lat"), boy.get("current_lng"))
+        # iter-131.16: pull items with an earlier delivery-window preference to
+        # the top so the boy visits the 10:00 person before the 10:30 person,
+        # while still using distance as the tiebreaker via nearest-neighbour.
+        def _pref_key(it):
+            from .shared import hhmm_to_minutes
+            return hhmm_to_minutes(it.get("pref_start")) if it.get("pref_start") else 10 ** 6
+        ordered.sort(key=_pref_key)
         settings = await _load_settings_local()
         # iter-131.14: dispatch-progress gating for the "Dispatch Now" button.
         # RED (locked) while any lunch/dinner tiffin is still pending, AMBER

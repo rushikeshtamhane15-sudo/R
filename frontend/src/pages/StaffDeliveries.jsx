@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import {
   Truck, Sun, Moon, Loader2, RefreshCw, Phone, MapPin, Recycle, Search, Package,
 } from "lucide-react";
+import DeliveryWindowPill from "../components/DeliveryWindowPill";
 
 export default function StaffDeliveries() {
   const [data, setData] = useState(null);
@@ -30,6 +31,7 @@ export default function StaffDeliveries() {
   const rows = data?.rows || [];
 
   const filtered = useMemo(() => {
+    const parse = (s) => (!s || !/^\d{2}:\d{2}$/.test(s) ? 10 ** 6 : parseInt(s.slice(0, 2), 10) * 60 + parseInt(s.slice(3, 5), 10));
     return rows
       .filter((r) => r.meal_type === meal)
       .filter((r) => (size === "all" ? true : r.tiffin_size === size))
@@ -42,7 +44,8 @@ export default function StaffDeliveries() {
           (r.address || "").toLowerCase().includes(needle) ||
           (r.pincode || "").includes(q)
         );
-      });
+      })
+      .sort((a, b) => parse(a.pref_start) - parse(b.pref_start) || (a.name || "").localeCompare(b.name || ""));
   }, [rows, meal, size, q]);
 
   const fullCount = filtered.filter((x) => x.tiffin_size === "full").length;
@@ -96,6 +99,16 @@ export default function StaffDeliveries() {
         {counts.outstanding_empties > 0 && (
           <div className="rounded-full bg-amber-200 text-amber-900 px-4 py-2 text-xs font-bold flex items-center gap-1.5" data-testid="outstanding-empties">
             <Recycle className="h-3.5 w-3.5" /> {counts.outstanding_empties} empties to collect
+          </div>
+        )}
+        {(counts.lunch?.delivered_late || 0) + (counts.dinner?.delivered_late || 0) > 0 && (
+          <div className="rounded-full bg-rose-200 text-rose-900 px-4 py-2 text-xs font-bold flex items-center gap-1.5" data-testid="late-deliveries-strip">
+            ⏰ {(counts.lunch?.delivered_late || 0) + (counts.dinner?.delivered_late || 0)} late deliveries today
+          </div>
+        )}
+        {(counts.lunch?.no_pref || 0) + (counts.dinner?.no_pref || 0) > 0 && (
+          <div className="rounded-full bg-muted text-muted-foreground px-4 py-2 text-xs font-bold flex items-center gap-1.5" data-testid="no-pref-strip">
+            {(counts.lunch?.no_pref || 0) + (counts.dinner?.no_pref || 0)} without a window set
           </div>
         )}
       </div>
@@ -166,6 +179,15 @@ export default function StaffDeliveries() {
                   <td className="px-4 py-3">
                     <p className="font-semibold">{r.name}</p>
                     {r.phone && <a href={`tel:${r.phone}`} className="text-xs text-primary hover:underline inline-flex items-center gap-1"><Phone className="h-3 w-3" /> {r.phone}</a>}
+                    <div className="mt-1.5">
+                      <DeliveryWindowPill
+                        start={r.pref_start}
+                        end={r.pref_end}
+                        status={r.status}
+                        deliveredLate={r.delivered_late}
+                        deliveredLateBy={r.delivered_late_by}
+                      />
+                    </div>
                   </td>
                   <td className="px-4 py-3 max-w-xs">
                     <p className="text-xs text-muted-foreground line-clamp-2">{r.address || "—"}</p>

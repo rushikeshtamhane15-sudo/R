@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import QRTicket from "../components/QRTicket";
 import PendingDeliveriesBanner from "../components/PendingDeliveriesBanner";
 import TiffinPreferencesCard from "../components/TiffinPreferencesCard";
+import DeliveryTimeCard from "../components/DeliveryTimeCard";
 import PendingDuesCard from "../components/PendingDuesCard";
 import PendingCashOtpFlash from "../components/PendingCashOtpFlash";
 import TodayMessMenuFlash from "../components/TodayMessMenuFlash";
@@ -192,6 +193,7 @@ export default function SubscriberDashboard() {
             <PendingDeliveriesBanner />
             <hr className="dash-divider" data-testid="dash-divider-2" />
             <TiffinPreferencesCard />
+            <DeliveryTimeCard />
           </>
         ) : (
           <div className="space-y-3 mb-3" data-testid="dashboard-payment-stack">

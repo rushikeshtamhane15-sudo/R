@@ -3,6 +3,7 @@ import { Link, Navigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import DeliveryMap from "../components/DeliveryMap";
+import DeliveryWindowPill from "../components/DeliveryWindowPill";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
 import { Truck, Clock, MapPin, Phone, CheckCircle2, Loader2, ArrowLeft } from "lucide-react";
@@ -99,6 +100,15 @@ export default function Track() {
                   <a href={`tel:${data.boy_phone}`} className="inline-flex items-center gap-1.5 text-sm text-primary mt-1" data-testid="call-boy">
                     <Phone className="h-3.5 w-3.5" /> {data.boy_phone}
                   </a>
+                )}
+                {(data.pref_start || data.pref_end) && (
+                  <div className="mt-2">
+                    <DeliveryWindowPill
+                      start={data.pref_start}
+                      end={data.pref_end}
+                      status={data.status}
+                    />
+                  </div>
                 )}
               </div>
               <div className="text-right">

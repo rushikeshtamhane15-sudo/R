@@ -60,12 +60,17 @@ def make_customer_router(db) -> APIRouter:
             raise HTTPException(status_code=403, detail="Forbidden")
         if item["status"] == "delivered":
             return {"ok": True, "already": True}
+        from .shared import compute_late_flag
+        now_iso = iso(now_utc())
+        late, late_by = compute_late_flag(item.get("pref_end"), now_iso)
         await db.daily_rosters.update_one(
             {"roster_id": roster_id},
             {"$set": {
                 "status": "delivered",
-                "delivered_at": iso(now_utc()),
+                "delivered_at": now_iso,
                 "confirmed_by": "customer",
+                "delivered_late": late,
+                "delivered_late_by": late_by,
             }},
         )
         # Tiffin balance / stock movement
@@ -122,6 +127,8 @@ def make_customer_router(db) -> APIRouter:
             "meal_type": item["meal_type"],
             "tiffin_size": item.get("tiffin_size"),
             "status": item["status"],
+            "pref_start": item.get("pref_start"),
+            "pref_end": item.get("pref_end"),
             "dispatch": {
                 "lat": settings.get("dispatch_lat"),
                 "lng": settings.get("dispatch_lng"),

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 
 from .shared import (
     DEFAULT_SETTINGS, MEALS, HandoffCreate, MarkItem,
-    _load_settings_db, haversine_m, iso, now_utc,
+    _load_settings_db, compute_late_flag, haversine_m, iso, now_utc,
 )
 
 
@@ -157,15 +157,20 @@ def register(router: APIRouter, db, admin_only) -> None:
         item = await db.daily_rosters.find_one({"roster_id": roster_id}, {"_id": 0})
         if not item:
             raise HTTPException(status_code=404, detail="Roster item not found")
+        now_iso = iso(now_utc())
         upd: dict = {
             "status": payload.status,
-            "delivered_at": iso(now_utc()) if payload.status == "delivered" else None,
+            "delivered_at": now_iso if payload.status == "delivered" else None,
         }
         if payload.notes:
             upd["notes"] = payload.notes
 
         if payload.status == "delivered":
             upd["confirmed_by"] = "admin"
+            # iter-131.16: flag late deliveries against the user's window.
+            late, late_by = compute_late_flag(item.get("pref_end"), now_iso)
+            upd["delivered_late"] = late
+            upd["delivered_late_by"] = late_by
             await _handle_delivered_mark(db, roster_id, item, payload, upd)
 
         await db.daily_rosters.update_one({"roster_id": roster_id}, {"$set": upd})

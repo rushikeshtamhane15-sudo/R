@@ -18,6 +18,7 @@ import {
   Truck, Sun, Moon, RefreshCw, CheckCircle2, Circle, Loader2, ArrowLeft,
   Package, MapPin, Route as RouteIcon, ChefHat,
 } from "lucide-react";
+import DeliveryWindowPill from "../components/DeliveryWindowPill";
 
 const POLL_MS = 20000;
 
@@ -44,10 +45,26 @@ export default function StaffDispatch() {
   }, [load]);
 
   const items = useMemo(
-    () => (data?.items || []).filter((i) => i.meal_type === meal),
+    () => {
+      const filtered = (data?.items || []).filter((i) => i.meal_type === meal);
+      // iter-131.16: sort by user's delivery window (earliest first).
+      // Items without a preference sink to the bottom, then fall back to name.
+      const parse = (s) => {
+        if (!s || !/^\d{2}:\d{2}$/.test(s)) return 10 ** 6;
+        const [h, m] = s.split(":");
+        return parseInt(h, 10) * 60 + parseInt(m, 10);
+      };
+      return filtered.sort((a, b) => {
+        const da = parse(a.pref_start);
+        const db = parse(b.pref_start);
+        if (da !== db) return da - db;
+        return (a.name || "").localeCompare(b.name || "");
+      });
+    },
     [data, meal],
   );
   const stats = data?.ready_stats?.[meal] || { total: 0, ready: 0, pending: 0 };
+  const lateStats = data?.late_stats || {};
   const allReady = stats.total > 0 && stats.pending === 0;
 
   const flipReady = async (rosterId, wantReady) => {
@@ -152,6 +169,24 @@ export default function StaffDispatch() {
           </p>
         )}
       </div>
+
+      {(lateStats[`delivered_late_${meal}`] > 0 || lateStats[`no_pref_${meal}`] > 0) && (
+        <div
+          className="rounded-2xl border border-amber-300 bg-amber-50 p-3 flex flex-wrap items-center gap-2 text-xs text-amber-900"
+          data-testid="dispatch-late-strip"
+        >
+          {lateStats[`delivered_late_${meal}`] > 0 && (
+            <span className="inline-flex items-center gap-1 font-bold" data-testid="stat-late-count">
+              ⏰ {lateStats[`delivered_late_${meal}`]} delivered late today
+            </span>
+          )}
+          {lateStats[`no_pref_${meal}`] > 0 && (
+            <span className="inline-flex items-center gap-1" data-testid="stat-no-pref-count">
+              · {lateStats[`no_pref_${meal}`]} customer{lateStats[`no_pref_${meal}`] === 1 ? "" : "s"} haven&apos;t set a window
+            </span>
+          )}
+        </div>
+      )}
 
       {(!data?.dispatch?.lat || !data?.dispatch?.lng) && (
         <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 flex items-start gap-3 text-sm text-amber-900" data-testid="dispatch-no-coords">
@@ -282,6 +317,13 @@ function TiffinRow({ item, flipping, onFlip }) {
           <span className={`text-[10px] tracking-overline uppercase font-bold px-2 py-0.5 rounded-full ${item.tiffin_size === "full" ? "bg-primary/10 text-primary" : "bg-secondary/15 text-secondary"}`}>
             {item.tiffin_size}
           </span>
+          <DeliveryWindowPill
+            start={item.pref_start}
+            end={item.pref_end}
+            status={item.status}
+            deliveredLate={item.delivered_late}
+            deliveredLateBy={item.delivered_late_by}
+          />
           <span className={`text-[10px] tracking-overline uppercase font-bold ${
             item.status === "delivered" ? "text-emerald-700"
             : item.status === "out" ? "text-secondary"

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import DeliveryMap from "../components/DeliveryMap";
+import DeliveryWindowPill from "../components/DeliveryWindowPill";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
 import {
@@ -363,6 +364,13 @@ function StopRow({ idx, item, marking, collecting, onDelivered, onReturned, onCo
             <span className={`text-[10px] tracking-overline uppercase font-bold px-2 py-0.5 rounded-full ${item.tiffin_size === "full" ? "bg-primary/10 text-primary" : "bg-secondary/15 text-secondary"}`}>{item.tiffin_size}</span>
             <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">{item.meal_type}</span>
             {item.customer_pincode && <span className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">PIN {item.customer_pincode}</span>}
+            <DeliveryWindowPill
+              start={item.pref_start}
+              end={item.pref_end}
+              status={item.status}
+              deliveredLate={item.delivered_late}
+              deliveredLateBy={item.delivered_late_by}
+            />
           </div>
           <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{item.address}</p>
           {owesEmpties && !isDone && (
