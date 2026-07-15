@@ -42,17 +42,18 @@ export default function Footer() {
             brand name (was inline). Brand name in white per request, with
             primary background underlay so it stays readable on light bg too. */}
         <div className="flex flex-col items-center text-center gap-2 mb-6" data-testid="footer-brand-block">
-          {/* iter-131.13: `mix-blend-mode: lighten` compares each pixel with
-              the footer background — the darker red padding is replaced
-              with the lighter footer bg, while the white F letterform
-              stays visible. Result: the brand icon appears to sit
-              directly on the footer with no red rectangle around it. */}
+          {/* iter-131.17: The uploaded brand logo asset has a WHITE
+              rectangle around the F letterform. Using `mixBlendMode:
+              multiply` makes those white pixels blend into the footer bg
+              (white × anything = the anything), so the box disappears
+              while the coloured F stays crisp. Works on any footer bg
+              colour — the logo appears to sit directly on the footer. */}
           <span className="inline-flex items-center justify-center h-16 w-16 overflow-hidden">
             <img
               src={brandLogoUrl}
               alt={brandName}
               className="h-full w-full object-contain"
-              style={{ mixBlendMode: "lighten" }}
+              style={{ mixBlendMode: "multiply" }}
             />
           </span>
           <span

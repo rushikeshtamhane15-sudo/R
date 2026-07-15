@@ -175,6 +175,15 @@ class PlanUpsert(BaseModel):
     # meal_window: "both" | "lunch" | "dinner" — for single-meal plans
     category: Optional[Literal["dining", "tiffin"]] = "dining"
     meal_window: Optional[Literal["both", "lunch", "dinner"]] = "both"
+    # iter-131.17: admin-editable bullet features under each plan card.
+    # `features_override` — if set (non-empty string), replaces the default
+    #   auto-generated bullets ("56 total meals", "Lunch + Dinner…" etc.)
+    #   Each newline is one bullet.
+    # `features_extra` — always appended to the bullets (auto or override)
+    #   so admin can bolt on marketing lines like "100% pure veg" without
+    #   rewriting the whole list.
+    features_override: Optional[str] = None
+    features_extra: Optional[List[str]] = None
 
 
 class ProfileUpdate(BaseModel):

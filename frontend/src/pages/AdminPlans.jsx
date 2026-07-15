@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Switch } from "../components/ui/switch";
 import { Plus, Pencil, Trash2, IndianRupee, ShieldCheck, Loader2, AlertTriangle, CheckCircle2, KeyRound, Webhook, RefreshCw, Ban, HelpCircle } from "lucide-react";
 
-const EMPTY = { plan_id: null, name: "", description: "", amount: 0, currency: "INR", duration_days: 30, meals: 60, active: true, sort_order: 100, category: "dining", meal_window: "both" };
+const EMPTY = { plan_id: null, name: "", description: "", amount: 0, currency: "INR", duration_days: 30, meals: 60, active: true, sort_order: 100, category: "dining", meal_window: "both", features_override: "", features_extra: [] };
 
 const STATUS_LOOKUP = {
   live:        { tone: "ok",   icon: CheckCircle2,  label: "Live",          desc: "Real Razorpay payments enabled. Customers can check out via UPI/cards." },
@@ -230,6 +230,8 @@ export default function AdminPlans() {
         sort_order: Number(form.sort_order) || 100,
         category: form.category || "dining",
         meal_window: form.meal_window || "both",
+        features_override: (form.features_override || "").trim() || null,
+        features_extra: (form.features_extra || []).map((s) => (s || "").trim()).filter(Boolean),
       });
       toast.success("Plan saved");
       setOpen(false);
@@ -377,6 +379,8 @@ export default function AdminPlans() {
                 </div>
               </div>
             </div>
+
+            <FeaturesEditor form={form} setForm={setForm} />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)} className="rounded-full">Cancel</Button>
@@ -393,6 +397,67 @@ function Field({ label, children }) {
     <div>
       <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">{label}</label>
       <div className="mt-2">{children}</div>
+    </div>
+  );
+}
+
+// iter-131.17: mirror the auto-features from Plans.jsx so admin sees exactly
+// what will show if they leave the override blank. Kept in sync manually.
+function autoFeaturesFor(plan) {
+  const meals = Number(plan.meals) || 0;
+  const days = Number(plan.duration_days) || 0;
+  if ((plan.category || "dining") === "dining") {
+    return [`${meals} total meals`, "Lunch + Dinner at our hall", "Scan QR at counter", "Auto-pause on 3+ skipped days"];
+  }
+  return [`${meals} tiffins · ${days} days`, "Lunch + Dinner delivered daily", "Doorstep geofence verification", "Pause anytime · 7+ days extends plan"];
+}
+
+function FeaturesEditor({ form, setForm }) {
+  const auto = autoFeaturesFor(form);
+  const extraLines = (form.features_extra || []).join("\n");
+  const usingOverride = (form.features_override || "").trim().length > 0;
+  return (
+    <div className="rounded-2xl border border-border bg-muted/40 p-3 space-y-3" data-testid="features-editor">
+      <div>
+        <div className="flex items-center justify-between gap-2">
+          <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Custom features (override)</label>
+          <button
+            type="button"
+            onClick={() => setForm({ ...form, features_override: "" })}
+            disabled={!usingOverride}
+            className={`text-[10px] tracking-overline uppercase font-bold rounded-full px-2 py-1 ${usingOverride ? "bg-primary/10 text-primary hover:bg-primary/20" : "bg-muted text-muted-foreground cursor-not-allowed"}`}
+            data-testid="reset-features-override"
+          >
+            Reset to auto
+          </button>
+        </div>
+        <Textarea
+          rows={4}
+          value={form.features_override || ""}
+          onChange={(e) => setForm({ ...form, features_override: e.target.value })}
+          placeholder={auto.join("\n")}
+          className="mt-2 font-mono text-xs"
+          data-testid="field-features-override"
+        />
+        <p className="text-[10px] text-muted-foreground mt-1">
+          One bullet per line. Leave blank to keep the auto bullets shown as placeholder above.
+        </p>
+      </div>
+
+      <div>
+        <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Extra bullets (always appended)</label>
+        <Textarea
+          rows={3}
+          value={extraLines}
+          onChange={(e) => setForm({ ...form, features_extra: e.target.value.split(/\r?\n/).map((l) => l) })}
+          placeholder={"100% pure veg\nFree delivery within 5 km"}
+          className="mt-2 font-mono text-xs"
+          data-testid="field-features-extra"
+        />
+        <p className="text-[10px] text-muted-foreground mt-1">
+          Marketing lines added below whatever bullets show above.
+        </p>
+      </div>
     </div>
   );
 }

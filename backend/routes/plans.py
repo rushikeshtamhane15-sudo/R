@@ -48,6 +48,9 @@ async def admin_upsert_plan(payload: server.PlanUpsert, user: server.User = Depe
         # iter-51 bifurcation
         "category": (payload.category or "dining").lower(),
         "meal_window": (payload.meal_window or "both").lower(),
+        # iter-131.17: admin-editable bullet features
+        "features_override": (payload.features_override or "").strip() or None,
+        "features_extra": [s.strip() for s in (payload.features_extra or []) if s and s.strip()],
         "updated_at": server.iso(server.now_utc()),
     }
     existing = await server.db.plans.find_one({"plan_id": plan_id}, {"_id": 0})

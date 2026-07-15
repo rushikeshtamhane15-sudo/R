@@ -214,17 +214,25 @@ export default function Plans() {
               </div>
 
               <ul className="relative z-10 mt-3.5 space-y-1.5 text-[12px] sm:text-[13px]">
-                {(service === "dining"
-                  ? [`${p.meals} total meals`, "Lunch + Dinner at our hall", "Scan QR at counter", "Auto-pause on 3+ skipped days"]
-                  : [`${p.meals} tiffins · ${p.duration_days} days`, "Lunch + Dinner delivered daily", "Doorstep geofence verification", "Pause anytime · 7+ days extends plan"]
-                ).map((f) => (
-                  <li key={f} className="flex items-start gap-1.5">
-                    <span className={`mt-0.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full ${isPopular ? "bg-white/20" : "bg-primary/10"} shrink-0`}>
-                      <Check className={`h-2.5 w-2.5 ${isPopular ? "text-white" : "text-primary"}`} strokeWidth={2.5} />
-                    </span>
-                    <span>{f}</span>
-                  </li>
-                ))}
+                {(() => {
+                  // iter-131.17: admin-editable bullets. If features_override
+                  // set → split on newlines; else fall back to auto bullets.
+                  // features_extra is always appended.
+                  const auto = service === "dining"
+                    ? [`${p.meals} total meals`, "Lunch + Dinner at our hall", "Scan QR at counter", "Auto-pause on 3+ skipped days"]
+                    : [`${p.meals} tiffins · ${p.duration_days} days`, "Lunch + Dinner delivered daily", "Doorstep geofence verification", "Pause anytime · 7+ days extends plan"];
+                  const override = (p.features_override || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+                  const extra = Array.isArray(p.features_extra) ? p.features_extra.filter(Boolean) : [];
+                  const bullets = (override.length > 0 ? override : auto).concat(extra);
+                  return bullets.map((f, i) => (
+                    <li key={`${f}-${i}`} className="flex items-start gap-1.5" data-testid={`plan-feature-${p.plan_id}-${i}`}>
+                      <span className={`mt-0.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full ${isPopular ? "bg-white/20" : "bg-primary/10"} shrink-0`}>
+                        <Check className={`h-2.5 w-2.5 ${isPopular ? "text-white" : "text-primary"}`} strokeWidth={2.5} />
+                      </span>
+                      <span>{f}</span>
+                    </li>
+                  ));
+                })()}
               </ul>
               <Button
                 onClick={() => startCheckout(p.plan_id)}

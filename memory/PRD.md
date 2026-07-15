@@ -3,6 +3,18 @@
 > *ghar se achha khana*
 
 
+## iter-131.17 — Header overflow fix + admin-editable plan features + footer logo blend (2026-02-14)
+**Status: DONE — Header widths verified `hasOverflow=false` @ 360w; admin plan override round-trip verified on `/api/plans`; footer logo blend `mixBlendMode:multiply` visually confirmed.**
+
+- **Header (mobile 360w overlap fix)**: added `overflow-hidden` on logo cluster, `truncate` on brand name + tagline (was `whitespace-nowrap` which forced overflow), tightened gaps `gap-1.5` on mobile, dropped brand-name font to `text-[13px]` on mobile, shrunk MessSwitcher max-width to `80px` on mobile. All 5 elements (logo + brand + tagline + MessSwitcher + WalletPill + menu) now fit inside 360w with no overflow.
+- **Admin plan features (option c — full override + always-append extras)**:
+  - `PlanUpsert` model + `/api/admin/plans` route accept `features_override: str | null` and `features_extra: list[str]`.
+  - `AdminPlans.jsx` gets a `FeaturesEditor` panel with two textareas: "Custom features (override)" with a **Reset to auto** button + placeholder showing the auto bullets; "Extra bullets (always appended)" for marketing lines.
+  - `Plans.jsx` renders `override.length > 0 ? override : auto` then always appends `features_extra`. Every bullet gets a `data-testid=plan-feature-{plan_id}-{i}` for QA.
+- **Footer logo blend**: `mixBlendMode: "lighten"` → `"multiply"`. On the current light footer bg (`bg-muted/40` ≈ #F7F3F3), the white surround around the F-logo blends into the footer bg (`white × X = X`) while the red F stays crisp.
+
+
+
 ## iter-131.16 — Per-user delivery-time windows across every dashboard (2026-02-14)
 **Status: DONE — Backend 100% (11/11 new + 12/12 regression, report_104). Frontend 100% (report_104 UI pass).**
 
