@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -6,9 +6,10 @@ import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
 import { Switch } from "../components/ui/switch";
-import { Plus, Pencil, Trash2, IndianRupee, ShieldCheck, Loader2, AlertTriangle, CheckCircle2, KeyRound, Webhook, RefreshCw, Ban, HelpCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, IndianRupee, ShieldCheck, Loader2, AlertTriangle, CheckCircle2, KeyRound, Webhook, RefreshCw, Ban, HelpCircle, Image as ImageIcon, Upload, X } from "lucide-react";
+import { BULLET_ICONS, BULLET_ICON_KEYS, getBulletIcon } from "../lib/planBulletIcons";
 
-const EMPTY = { plan_id: null, name: "", description: "", amount: 0, currency: "INR", duration_days: 30, meals: 60, active: true, sort_order: 100, category: "dining", meal_window: "both", features_override: "", features_extra: [] };
+const EMPTY = { plan_id: null, name: "", description: "", amount: 0, currency: "INR", duration_days: 30, meals: 60, active: true, sort_order: 100, category: "dining", meal_window: "both", features_override: "", features_extra: [], features_override_v2: [], features_extra_v2: [], hero_image_url: null };
 
 const STATUS_LOOKUP = {
   live:        { tone: "ok",   icon: CheckCircle2,  label: "Live",          desc: "Real Razorpay payments enabled. Customers can check out via UPI/cards." },
@@ -210,7 +211,21 @@ export default function AdminPlans() {
   useEffect(() => { load(); }, []);
 
   const openNew = () => { setForm(EMPTY); setOpen(true); };
-  const openEdit = (p) => { setForm({ ...p }); setOpen(true); };
+  const openEdit = (p) => {
+    // iter-131.18: migrate plain-text overrides to structured v2 lists so the
+    // BulletTextareaWithRows can render the icon dropdowns immediately.
+    const asRows = (txt) => (txt || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean).map((t) => ({ icon: "check", text: t }));
+    setForm({
+      ...EMPTY,
+      ...p,
+      features_override_v2: Array.isArray(p.features_override_v2) && p.features_override_v2.length ? p.features_override_v2 : asRows(p.features_override),
+      features_extra_v2:    Array.isArray(p.features_extra_v2)    && p.features_extra_v2.length    ? p.features_extra_v2    : (p.features_extra || []).map((t) => ({ icon: "check", text: t })),
+      features_override: p.features_override || "",
+      features_extra: p.features_extra || [],
+      hero_image_url: p.hero_image_url || null,
+    });
+    setOpen(true);
+  };
 
   const save = async () => {
     if (!form.name.trim() || Number(form.amount) <= 0 || Number(form.meals) <= 0 || Number(form.duration_days) <= 0) {
@@ -232,6 +247,12 @@ export default function AdminPlans() {
         meal_window: form.meal_window || "both",
         features_override: (form.features_override || "").trim() || null,
         features_extra: (form.features_extra || []).map((s) => (s || "").trim()).filter(Boolean),
+        // iter-131.18: structured bullets + hero image URL (image itself is
+        // uploaded separately to /admin/plans/{id}/hero-image and stored on
+        // the same plan doc; here we just persist whatever URL is set).
+        features_override_v2: (form.features_override_v2 || []).filter((b) => b && (b.text || "").trim()),
+        features_extra_v2:    (form.features_extra_v2    || []).filter((b) => b && (b.text || "").trim()),
+        hero_image_url: form.hero_image_url || null,
       });
       toast.success("Plan saved");
       setOpen(false);
@@ -381,6 +402,7 @@ export default function AdminPlans() {
             </div>
 
             <FeaturesEditor form={form} setForm={setForm} />
+            <HeroImageUploader form={form} setForm={setForm} />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)} className="rounded-full">Cancel</Button>
@@ -392,11 +414,110 @@ export default function AdminPlans() {
   );
 }
 
-function Field({ label, children }) {
+// iter-131.18: bidirectional bullet editor.
+// The textarea is the fast typing surface with `icon: text` prefix syntax:
+//   leaf: 100% pure veg
+//   clock: 30-minute delivery window
+//   plain line without prefix → defaults to check icon
+// Every parsed row is also shown below with a dropdown so admin can flip
+// the icon visually. Editing either surface updates the underlying
+// features_override_v2 / features_extra_v2 structured arrays, and re-emits
+// a canonical textarea string so both stay in sync.
+const _ICON_RE = new RegExp(`^(${BULLET_ICON_KEYS.join("|")})\\s*:\\s*(.+)$`, "i");
+
+function parseBulletLine(line) {
+  const s = (line || "").trim();
+  if (!s) return null;
+  const m = s.match(_ICON_RE);
+  if (m) return { icon: m[1].toLowerCase(), text: m[2].trim() };
+  return { icon: "check", text: s };
+}
+
+function serialiseBullets(list) {
+  return (list || [])
+    .filter((b) => b && (b.text || "").trim())
+    .map((b) => (b.icon && b.icon !== "check" ? `${b.icon}: ${b.text.trim()}` : b.text.trim()))
+    .join("\n");
+}
+
+function BulletTextareaWithRows({ label, hint, textareaTestId, rowsTestId, structKey, plainKey, form, setForm, placeholder }) {
+  const rows = form[structKey] || [];
+  const asText = serialiseBullets(rows);
+
+  const onText = (value) => {
+    // parse newline-separated lines into structured rows
+    const parsed = value.split(/\r?\n/).map(parseBulletLine).filter(Boolean);
+    setForm({ ...form, [structKey]: parsed, [plainKey]: value });
+  };
+
+  const setRowIcon = (i, icon) => {
+    const next = rows.slice();
+    next[i] = { ...next[i], icon };
+    setForm({ ...form, [structKey]: next, [plainKey]: serialiseBullets(next) });
+  };
+
+  const setRowText = (i, text) => {
+    const next = rows.slice();
+    next[i] = { ...next[i], text };
+    setForm({ ...form, [structKey]: next, [plainKey]: serialiseBullets(next) });
+  };
+
+  const deleteRow = (i) => {
+    const next = rows.filter((_, idx) => idx !== i);
+    setForm({ ...form, [structKey]: next, [plainKey]: serialiseBullets(next) });
+  };
+
   return (
-    <div>
+    <div className="space-y-2">
       <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">{label}</label>
-      <div className="mt-2">{children}</div>
+      <Textarea
+        rows={4}
+        value={asText}
+        onChange={(e) => onText(e.target.value)}
+        placeholder={placeholder}
+        className="font-mono text-xs"
+        data-testid={textareaTestId}
+      />
+      <p className="text-[10px] text-muted-foreground">
+        {hint} · Prefix a line with <code className="rounded bg-muted px-1">leaf:</code>, <code className="rounded bg-muted px-1">clock:</code>, <code className="rounded bg-muted px-1">star:</code>, <code className="rounded bg-muted px-1">truck:</code>, <code className="rounded bg-muted px-1">utensils:</code>, <code className="rounded bg-muted px-1">zap:</code>, <code className="rounded bg-muted px-1">heart:</code>, <code className="rounded bg-muted px-1">shield:</code>, <code className="rounded bg-muted px-1">flame:</code> to pick an icon.
+      </p>
+      {rows.length > 0 && (
+        <ul className="rounded-xl bg-background/60 border border-border divide-y divide-border" data-testid={rowsTestId}>
+          {rows.map((b, i) => {
+            const Icon = getBulletIcon(b.icon);
+            return (
+              <li key={i} className="flex items-center gap-2 p-2" data-testid={`${rowsTestId}-row-${i}`}>
+                <select
+                  value={b.icon || "check"}
+                  onChange={(e) => setRowIcon(i, e.target.value)}
+                  className="h-8 rounded-lg border border-input bg-background px-2 text-xs font-semibold"
+                  data-testid={`${rowsTestId}-icon-${i}`}
+                >
+                  {BULLET_ICON_KEYS.map((k) => <option key={k} value={k}>{k}</option>)}
+                </select>
+                <span className="shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Icon className="h-3 w-3" />
+                </span>
+                <Input
+                  value={b.text || ""}
+                  onChange={(e) => setRowText(i, e.target.value)}
+                  className="h-8 text-xs flex-1"
+                  data-testid={`${rowsTestId}-text-${i}`}
+                />
+                <button
+                  type="button"
+                  onClick={() => deleteRow(i)}
+                  className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  aria-label="Delete row"
+                  data-testid={`${rowsTestId}-delete-${i}`}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }
@@ -414,50 +535,163 @@ function autoFeaturesFor(plan) {
 
 function FeaturesEditor({ form, setForm }) {
   const auto = autoFeaturesFor(form);
-  const extraLines = (form.features_extra || []).join("\n");
-  const usingOverride = (form.features_override || "").trim().length > 0;
+  const usingOverride = (form.features_override_v2 || []).length > 0;
   return (
-    <div className="rounded-2xl border border-border bg-muted/40 p-3 space-y-3" data-testid="features-editor">
-      <div>
-        <div className="flex items-center justify-between gap-2">
-          <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Custom features (override)</label>
-          <button
-            type="button"
-            onClick={() => setForm({ ...form, features_override: "" })}
-            disabled={!usingOverride}
-            className={`text-[10px] tracking-overline uppercase font-bold rounded-full px-2 py-1 ${usingOverride ? "bg-primary/10 text-primary hover:bg-primary/20" : "bg-muted text-muted-foreground cursor-not-allowed"}`}
-            data-testid="reset-features-override"
-          >
-            Reset to auto
-          </button>
-        </div>
-        <Textarea
-          rows={4}
-          value={form.features_override || ""}
-          onChange={(e) => setForm({ ...form, features_override: e.target.value })}
-          placeholder={auto.join("\n")}
-          className="mt-2 font-mono text-xs"
-          data-testid="field-features-override"
-        />
-        <p className="text-[10px] text-muted-foreground mt-1">
-          One bullet per line. Leave blank to keep the auto bullets shown as placeholder above.
-        </p>
+    <div className="rounded-2xl border border-border bg-muted/40 p-3 space-y-4" data-testid="features-editor">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs tracking-overline uppercase font-bold text-secondary">Plan bullets</p>
+        <button
+          type="button"
+          onClick={() => setForm({ ...form, features_override_v2: [], features_override: "" })}
+          disabled={!usingOverride}
+          className={`text-[10px] tracking-overline uppercase font-bold rounded-full px-2 py-1 ${usingOverride ? "bg-primary/10 text-primary hover:bg-primary/20" : "bg-muted text-muted-foreground cursor-not-allowed"}`}
+          data-testid="reset-features-override"
+        >
+          Reset to auto
+        </button>
       </div>
 
-      <div>
-        <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Extra bullets (always appended)</label>
-        <Textarea
-          rows={3}
-          value={extraLines}
-          onChange={(e) => setForm({ ...form, features_extra: e.target.value.split(/\r?\n/).map((l) => l) })}
-          placeholder={"100% pure veg\nFree delivery within 5 km"}
-          className="mt-2 font-mono text-xs"
-          data-testid="field-features-extra"
-        />
-        <p className="text-[10px] text-muted-foreground mt-1">
-          Marketing lines added below whatever bullets show above.
+      <BulletTextareaWithRows
+        label="Custom bullets (override)"
+        hint="One bullet per line. Leave blank to use the auto bullets shown below."
+        textareaTestId="field-features-override"
+        rowsTestId="rows-features-override"
+        structKey="features_override_v2"
+        plainKey="features_override"
+        placeholder={auto.map((t) => t).join("\n")}
+        form={form}
+        setForm={setForm}
+      />
+
+      <BulletTextareaWithRows
+        label="Extra bullets (always appended)"
+        hint="Marketing lines added below whatever bullets show above."
+        textareaTestId="field-features-extra"
+        rowsTestId="rows-features-extra"
+        structKey="features_extra_v2"
+        plainKey="features_extra"
+        placeholder={"leaf: 100% pure veg\nclock: 30-minute delivery window\nstar: most popular"}
+        form={form}
+        setForm={setForm}
+      />
+    </div>
+  );
+}
+
+// iter-131.18: hero image uploader for the plan card. Uses multipart POST
+// to /admin/plans/{plan_id}/hero-image. Requires the plan to be saved
+// first (upload endpoint needs a plan_id) — we surface a friendly hint if
+// the admin tries to upload before the initial Save.
+function HeroImageUploader({ form, setForm }) {
+  const [uploading, setUploading] = useState(false);
+  const inputRef = useRef(null);
+  const planId = form.plan_id;
+
+  const onFile = async (file) => {
+    if (!file) return;
+    if (!planId) {
+      toast.error("Save the plan first, then upload the hero image.");
+      return;
+    }
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const r = await api.post(`/admin/plans/${planId}/hero-image`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setForm({ ...form, hero_image_url: r.data.hero_image_url });
+      toast.success("Hero image uploaded");
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Upload failed");
+    } finally { setUploading(false); }
+  };
+
+  const clear = async () => {
+    if (!planId) { setForm({ ...form, hero_image_url: null }); return; }
+    try {
+      await api.post(`/admin/plans/${planId}/hero-image/reset`);
+      setForm({ ...form, hero_image_url: null });
+      toast.success("Hero image removed");
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Reset failed");
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-muted/40 p-3 space-y-3" data-testid="hero-image-uploader">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs tracking-overline uppercase font-bold text-secondary flex items-center gap-1.5">
+          <ImageIcon className="h-3.5 w-3.5" /> Plan hero image
         </p>
+        {form.hero_image_url && (
+          <button
+            type="button"
+            onClick={clear}
+            className="text-[10px] tracking-overline uppercase font-bold rounded-full px-2 py-1 bg-destructive/10 text-destructive hover:bg-destructive/20"
+            data-testid="clear-hero-image"
+          >
+            Remove
+          </button>
+        )}
       </div>
+      {form.hero_image_url ? (
+        <div
+          className="relative rounded-xl overflow-hidden aspect-video ring-1 ring-border"
+          style={{
+            backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.10) 0%, rgba(0,0,0,0.55) 100%), url(${form.hero_image_url})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+          data-testid="hero-preview"
+        >
+          <div className="absolute bottom-2 left-3 right-3 text-white">
+            <p className="text-[9px] tracking-overline uppercase font-bold text-white/80">Preview · {form.name || "Untitled plan"}</p>
+            <p className="font-display font-extrabold text-lg leading-tight drop-shadow-md">₹{form.amount || 0}</p>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-xl border-2 border-dashed border-border bg-background/40 aspect-video flex items-center justify-center text-center p-4">
+          <div>
+            <ImageIcon className="h-6 w-6 mx-auto text-muted-foreground" />
+            <p className="text-xs text-muted-foreground mt-2">No hero image · card falls back to solid or red background.</p>
+          </div>
+        </div>
+      )}
+      <div className="flex items-center gap-2">
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={(e) => onFile(e.target.files?.[0])}
+          data-testid="hero-file-input"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+          className="rounded-full text-xs"
+          data-testid="hero-upload-button"
+        >
+          {uploading ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Upload className="h-3.5 w-3.5 mr-1.5" />}
+          {form.hero_image_url ? "Replace image" : "Upload hero image"}
+        </Button>
+        <p className="text-[10px] text-muted-foreground">JPG / PNG / WebP · up to 3 MB · saved and served instantly.</p>
+      </div>
+      {!planId && (
+        <p className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">Save the plan first, then upload the hero image.</p>
+      )}
+    </div>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <div>
+      <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground">{label}</label>
+      <div className="mt-2">{children}</div>
     </div>
   );
 }

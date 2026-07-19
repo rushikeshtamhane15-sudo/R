@@ -3,6 +3,15 @@
 > *ghar se achha khana*
 
 
+## iter-131.18 — Plan-bullet icons + hero images + tiffin-user grid dashboard (2026-02-14)
+**Status: DONE — Backend 9/9 pytest pass; frontend visually verified (bullets render 4 distinct lucide icons; tiffin grid gap=12px with 8 tiles).**
+
+- **Plan-bullet icons (option c — bidirectional editor):** structured `features_override_v2` + `features_extra_v2` on `PlanUpsert` model with 10 valid icons (leaf, clock, star, check, truck, utensils, zap, heart, shield, flame). `_clean_bullets` coerces invalid icons to `check` and drops empty text. `AdminPlans` gets `BulletTextareaWithRows` — a textarea with `icon: text` prefix syntax AND per-row icon dropdown + delete button; both surfaces stay in sync. `openEdit` migrates legacy plain-text overrides into structured rows.
+- **Plan hero image (full-bleed + upload):** new `POST /api/admin/plans/{id}/hero-image` (multipart, ≤3 MB, JPG/PNG/WebP) writes an optimised WebP data URL onto the plan doc. `POST .../reset` clears it. `Plans.jsx` renders the image as full-bleed card background with a bottom-heavy dark gradient overlay (`data-has-hero='true'`); text, price strip, subscribe button all re-styled for readability on the darker card. `AdminPlans` gets `HeroImageUploader` with 16:9 preview, replace, and remove.
+- **Tiffin user dashboard redesign (`TiffinDashboardGrid.jsx`):** professional mobile-first 2-col grid, uniform 12 px gap, tiny 3D-elevated tiles. 8 tiles across 6 rows: (1) Active plan hero — pause/resume + track + 3 mini stats; (2 + 3) Wallet + Meal streak; (4) Today's meals (lunch/dinner status pills with delivery window); (5) Delivery time card slot; (6) Tiffin preferences slot; (7 + 8) QR identity + Recent deliveries. All tiles share the same shadow token for consistent depth. Dining users still get the classic 2-column desktop layout.
+
+
+
 ## iter-131.17 — Header overflow fix + admin-editable plan features + footer logo blend (2026-02-14)
 **Status: DONE — Header widths verified `hasOverflow=false` @ 360w; admin plan override round-trip verified on `/api/plans`; footer logo blend `mixBlendMode:multiply` visually confirmed.**
 

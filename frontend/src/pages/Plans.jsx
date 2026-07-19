@@ -7,6 +7,7 @@ import { Input } from "../components/ui/input";
 import { toast } from "sonner";
 import { Check, Loader2, Sparkles, Utensils, Truck, MapPin, AlertTriangle } from "lucide-react";
 import { ensureServiceableFix } from "../lib/serviceability";
+import { getBulletIcon } from "../lib/planBulletIcons";
 
 const MEAL_PRICE_FULL = 70;
 const MEAL_PRICE_HALF = 50;
@@ -174,16 +175,26 @@ export default function Plans() {
               key={p.plan_id}
               data-testid={`plan-card-${p.plan_id}`}
               className={`group relative rounded-3xl p-4 sm:p-5 transition-all duration-300 hover:-translate-y-1.5 overflow-hidden ${
-                isPopular
+                p.hero_image_url
+                  ? "text-white"
+                  : isPopular
                   ? "text-primary-foreground"
                   : "bg-gradient-to-br from-card to-muted/30 border border-border/80 hover:border-primary/40"
               }`}
-              style={isPopular ? {
+              style={p.hero_image_url ? {
+                // iter-131.18: full-bleed hero background w/ dark gradient
+                // overlay so text stays readable. Zomato/Swiggy-style card.
+                backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.55) 55%, rgba(0,0,0,0.82) 100%), url(${p.hero_image_url})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                boxShadow: "0 16px 36px -16px rgba(0,0,0,0.55), 0 4px 10px rgba(0,0,0,0.18), inset 0 0 0 3px rgba(255,255,255,0.35), inset 0 1px 0 rgba(255,255,255,0.28)",
+              } : isPopular ? {
                 background: "linear-gradient(155deg, #c92626 0%, #a02323 40%, #7a1a1a 100%)",
                 boxShadow: "0 16px 36px -16px rgba(160,35,35,0.55), 0 4px 10px rgba(0,0,0,0.18), inset 0 0 0 3px rgba(255,255,255,0.55), inset 0 1px 0 rgba(255,255,255,0.32), inset 0 -2px 6px rgba(0,0,0,0.22)",
               } : {
                 boxShadow: "0 6px 18px -12px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04), inset 0 0 0 2px rgba(160,35,35,0.35), inset 0 1px 0 rgba(255,255,255,0.6)",
               }}
+              data-has-hero={p.hero_image_url ? "true" : "false"}
             >
               {/* Decorative gloss & accent corner */}
               {!isPopular && (
@@ -193,52 +204,76 @@ export default function Plans() {
                 <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-[radial-gradient(80%_60%_at_50%_0%,_rgba(255,255,255,0.18)_0%,_transparent_70%)]" />
               )}
 
-              {isPopular && (
+              {isPopular && !p.hero_image_url && (
                 <span className="relative z-10 inline-flex items-center gap-1 bg-white text-primary text-[9px] tracking-overline uppercase font-extrabold px-2.5 py-0.5 rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.18)]">
                   Most popular
                 </span>
               )}
-              <p className={`relative z-10 ${isPopular ? "mt-2" : ""} text-[9px] sm:text-[10px] tracking-overline uppercase font-bold ${isPopular ? "text-primary-foreground/80" : "text-secondary"}`}>
+              {isPopular && p.hero_image_url && (
+                <span className="relative z-10 inline-flex items-center gap-1 bg-white/25 backdrop-blur-sm text-white text-[9px] tracking-overline uppercase font-extrabold px-2.5 py-0.5 rounded-full ring-1 ring-white/40">
+                  Most popular
+                </span>
+              )}
+              <p className={`relative z-10 ${isPopular ? "mt-2" : ""} text-[9px] sm:text-[10px] tracking-overline uppercase font-bold ${p.hero_image_url ? "text-white/85" : isPopular ? "text-primary-foreground/80" : "text-secondary"}`}>
                 {p.meals} meals · {p.duration_days} days
               </p>
               <h3 className="relative z-10 font-display font-extrabold text-lg sm:text-xl mt-1.5 leading-tight">{p.name}</h3>
-              <p className={`relative z-10 mt-1.5 text-[12px] sm:text-[13px] leading-snug ${isPopular ? "text-primary-foreground/85" : "text-muted-foreground"}`}>{p.description}</p>
+              <p className={`relative z-10 mt-1.5 text-[12px] sm:text-[13px] leading-snug ${p.hero_image_url ? "text-white/85" : isPopular ? "text-primary-foreground/85" : "text-muted-foreground"}`}>{p.description}</p>
 
               {/* Price strip with tabular numerals + per-day micro */}
-              <div className={`relative z-10 mt-3.5 rounded-xl p-3 ${isPopular ? "bg-white/12 backdrop-blur-sm" : "bg-muted/40 border border-border/60"}`}>
+              <div className={`relative z-10 mt-3.5 rounded-xl p-3 ${p.hero_image_url ? "bg-black/35 backdrop-blur-md ring-1 ring-white/15" : isPopular ? "bg-white/12 backdrop-blur-sm" : "bg-muted/40 border border-border/60"}`}>
                 <div className="flex items-baseline gap-1.5">
                   <span className="font-display font-extrabold text-[28px] sm:text-[32px] tabular-nums leading-none">₹{p.amount.toFixed(0)}</span>
-                  <span className={`text-[10px] sm:text-[11px] ${isPopular ? "text-primary-foreground/75" : "text-muted-foreground"}`}>one-time</span>
+                  <span className={`text-[10px] sm:text-[11px] ${p.hero_image_url ? "text-white/75" : isPopular ? "text-primary-foreground/75" : "text-muted-foreground"}`}>one-time</span>
                 </div>
-                <p className={`text-[10px] mt-1 tabular-nums ${isPopular ? "text-primary-foreground/80" : "text-muted-foreground"}`}>≈ ₹{perDay} per day · ₹{(p.amount / p.meals).toFixed(0)} per meal</p>
+                <p className={`text-[10px] mt-1 tabular-nums ${p.hero_image_url ? "text-white/80" : isPopular ? "text-primary-foreground/80" : "text-muted-foreground"}`}>≈ ₹{perDay} per day · ₹{(p.amount / p.meals).toFixed(0)} per meal</p>
               </div>
 
               <ul className="relative z-10 mt-3.5 space-y-1.5 text-[12px] sm:text-[13px]">
                 {(() => {
-                  // iter-131.17: admin-editable bullets. If features_override
-                  // set → split on newlines; else fall back to auto bullets.
-                  // features_extra is always appended.
+                  // iter-131.17 / iter-131.18: prefer structured bullets when
+                  // admin has set them, else fall back to plain-text override,
+                  // else auto. Extras are always appended.
                   const auto = service === "dining"
                     ? [`${p.meals} total meals`, "Lunch + Dinner at our hall", "Scan QR at counter", "Auto-pause on 3+ skipped days"]
                     : [`${p.meals} tiffins · ${p.duration_days} days`, "Lunch + Dinner delivered daily", "Doorstep geofence verification", "Pause anytime · 7+ days extends plan"];
-                  const override = (p.features_override || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
-                  const extra = Array.isArray(p.features_extra) ? p.features_extra.filter(Boolean) : [];
-                  const bullets = (override.length > 0 ? override : auto).concat(extra);
-                  return bullets.map((f, i) => (
-                    <li key={`${f}-${i}`} className="flex items-start gap-1.5" data-testid={`plan-feature-${p.plan_id}-${i}`}>
-                      <span className={`mt-0.5 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full ${isPopular ? "bg-white/20" : "bg-primary/10"} shrink-0`}>
-                        <Check className={`h-2.5 w-2.5 ${isPopular ? "text-white" : "text-primary"}`} strokeWidth={2.5} />
-                      </span>
-                      <span>{f}</span>
-                    </li>
-                  ));
+                  const structOverride = Array.isArray(p.features_override_v2) ? p.features_override_v2.filter(Boolean) : [];
+                  const structExtra    = Array.isArray(p.features_extra_v2)    ? p.features_extra_v2.filter(Boolean)    : [];
+                  const textOverride   = (p.features_override || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+                  const textExtra      = Array.isArray(p.features_extra) ? p.features_extra.filter(Boolean) : [];
+
+                  // Resolve override — structured wins if present
+                  let bullets;
+                  if (structOverride.length > 0) bullets = structOverride;
+                  else if (textOverride.length > 0) bullets = textOverride.map((t) => ({ icon: "check", text: t }));
+                  else bullets = auto.map((t) => ({ icon: "check", text: t }));
+
+                  // Append extras (structured first, then plain-text extras)
+                  const extras = structExtra.length > 0 ? structExtra : textExtra.map((t) => ({ icon: "check", text: t }));
+                  bullets = bullets.concat(extras);
+
+                  const iconBg = p.hero_image_url ? "bg-white/25 backdrop-blur-sm" : isPopular ? "bg-white/20" : "bg-primary/10";
+                  const iconFg = p.hero_image_url ? "text-white" : isPopular ? "text-white" : "text-primary";
+                  return bullets.map((b, i) => {
+                    const Icon = getBulletIcon(b.icon);
+                    return (
+                      <li key={`${b.text}-${i}`} className="flex items-start gap-1.5" data-testid={`plan-feature-${p.plan_id}-${i}`}>
+                        <span className={`mt-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full shrink-0 ${iconBg}`}>
+                          <Icon className={`h-2.5 w-2.5 ${iconFg}`} strokeWidth={2.5} />
+                        </span>
+                        <span>{b.text}</span>
+                      </li>
+                    );
+                  });
                 })()}
               </ul>
               <Button
                 onClick={() => startCheckout(p.plan_id)}
                 data-testid={`subscribe-button-${p.plan_id}`}
                 className={`relative z-10 mt-5 w-full rounded-full h-10 font-bold text-xs sm:text-sm tracking-wide transition-shadow ${
-                  isPopular
+                  p.hero_image_url
+                    ? "bg-white text-primary hover:bg-white/95 shadow-[0_4px_12px_rgba(0,0,0,0.35)]"
+                    : isPopular
                     ? "bg-white text-primary hover:bg-white/95 shadow-[0_4px_12px_rgba(0,0,0,0.18)]"
                     : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_4px_12px_-4px_rgba(160,35,35,0.45)]"
                 }`}

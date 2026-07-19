@@ -184,6 +184,14 @@ class PlanUpsert(BaseModel):
     #   rewriting the whole list.
     features_override: Optional[str] = None
     features_extra: Optional[List[str]] = None
+    # iter-131.18: parallel structured bullet lists — each entry is
+    #   {icon: 'leaf'|'clock'|..., text: '...'}. When set, these take
+    #   precedence over the plain-text `features_override`/`features_extra`
+    #   fields above. Kept in sync by the AdminPlans editor.
+    features_override_v2: Optional[List[dict]] = None
+    features_extra_v2: Optional[List[dict]] = None
+    # iter-131.18: hero image URL (Zomato-style full-bleed card background).
+    hero_image_url: Optional[str] = None
 
 
 class ProfileUpdate(BaseModel):

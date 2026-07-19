@@ -6,6 +6,7 @@ import QRTicket from "../components/QRTicket";
 import PendingDeliveriesBanner from "../components/PendingDeliveriesBanner";
 import TiffinPreferencesCard from "../components/TiffinPreferencesCard";
 import DeliveryTimeCard from "../components/DeliveryTimeCard";
+import TiffinDashboardGrid from "../components/TiffinDashboardGrid";
 import PendingDuesCard from "../components/PendingDuesCard";
 import PendingCashOtpFlash from "../components/PendingCashOtpFlash";
 import TodayMessMenuFlash from "../components/TodayMessMenuFlash";
@@ -189,11 +190,7 @@ export default function SubscriberDashboard() {
               <PendingCashOtpFlash />
               <PendingDuesCard onRefreshUser={checkAuth} />
             </div>
-            <hr className="dash-divider" data-testid="dash-divider-1" />
             <PendingDeliveriesBanner />
-            <hr className="dash-divider" data-testid="dash-divider-2" />
-            <TiffinPreferencesCard />
-            <DeliveryTimeCard />
           </>
         ) : (
           <div className="space-y-3 mb-3" data-testid="dashboard-payment-stack">
@@ -348,27 +345,41 @@ export default function SubscriberDashboard() {
   const orderedSide = sectionsByOrder.filter((s) => lane.side.includes(s.id));
 
   return (
-    <div className="max-w-6xl mx-auto px-6 md:px-8 lg:px-12 py-10" data-testid="subscriber-dashboard">
+    <div className="max-w-6xl mx-auto px-3 sm:px-6 md:px-8 lg:px-12 py-6 md:py-10" data-testid="subscriber-dashboard">
       <AdminNoticesBanner onAcknowledged={load} />
       {orderedTop.map((s) => <React.Fragment key={s.id}>{renderSection(s.id)}</React.Fragment>)}
 
-      <div className="grid lg:grid-cols-5 gap-8">
-        <div className="lg:col-span-3 space-y-6">
-          {heroSection}
-        </div>
+      {isTiffin && sub ? (
+        <TiffinDashboardGrid
+          sub={sub}
+          qr={qr}
+          history={history}
+          isPaused={isPaused}
+          pausing={pausing}
+          togglePause={togglePause}
+          daysLeft={daysLeft}
+          preferencesSlot={<TiffinPreferencesCard />}
+          deliveryTimeSlot={<DeliveryTimeCard />}
+        />
+      ) : (
+        <div className="grid lg:grid-cols-5 gap-8">
+          <div className="lg:col-span-3 space-y-6">
+            {heroSection}
+          </div>
 
-        <div className="lg:col-span-2 space-y-6">
-          {orderedSide.map((s) => {
-            switch (s.id) {
-              case "wallet": return <React.Fragment key={s.id}>{walletSection}</React.Fragment>;
-              case "today_status": return <React.Fragment key={s.id}>{todayStatusSection}</React.Fragment>;
-              case "todays_menu": return <React.Fragment key={s.id}>{menuSection}</React.Fragment>;
-              case "history": return <React.Fragment key={s.id}>{historySection}</React.Fragment>;
-              default: return null;
-            }
-          })}
+          <div className="lg:col-span-2 space-y-6">
+            {orderedSide.map((s) => {
+              switch (s.id) {
+                case "wallet": return <React.Fragment key={s.id}>{walletSection}</React.Fragment>;
+                case "today_status": return <React.Fragment key={s.id}>{todayStatusSection}</React.Fragment>;
+                case "todays_menu": return <React.Fragment key={s.id}>{menuSection}</React.Fragment>;
+                case "history": return <React.Fragment key={s.id}>{historySection}</React.Fragment>;
+                default: return null;
+              }
+            })}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
