@@ -87,8 +87,8 @@ export default function Header() {
             />
           </span>
           <div className="flex flex-col justify-center min-w-0 leading-tight overflow-hidden">
-            <span className="font-display font-extrabold text-[13px] sm:text-base md:text-lg text-primary-foreground leading-tight truncate" data-testid="header-brand-name">{brandName}</span>
-            <span className="inline text-[7px] sm:text-[9px] md:text-[10px] tracking-[0.12em] sm:tracking-[0.14em] uppercase font-semibold text-primary-foreground/85 leading-tight mt-0.5 truncate" data-testid="header-tagline">{brandTagline}</span>
+            <span className="font-display font-extrabold text-base sm:text-lg md:text-xl text-primary-foreground leading-tight truncate" data-testid="header-brand-name">{brandName}</span>
+            <span className="hidden sm:inline text-[9px] md:text-[10px] tracking-[0.14em] uppercase font-semibold text-primary-foreground/85 leading-tight mt-0.5 truncate" data-testid="header-tagline">{brandTagline}</span>
           </div>
         </Link>
 

@@ -1,0 +1,44 @@
+{
+  "verdict": "fixed",
+  "user_reported_bug": "1) Still site header is overlapping also Brand text is looking smaller than as compare header location pill and wallet pill please look into it. 2) redesign attached screenshot of tiffin tracking to look nice and professional. 3) also reduce size of all the containers on user dashboard under active dining plan tab currently all the containers are very big in size make it tiny or medium in size. 4) also reduce size and make tiny in size of \"delivery time\" container which is under active tiffin plan tab on user dashboard. 5) also give centre alignment for text above toogle buttons on user dashboard also align toogle buttons on centre.",
+  "summary": "Focused 360px mobile preview verification passed. No relevant testing skill found. OTP login was tested for tiffin and dining subscribers; header no longer overflows and brand font is larger than pill fonts; tiffin tracking redesign, compact delivery-time card, compact dining containers, centered greeting/toggle, wallet drawer, tiffin 8-tile grid, and pending-delivery banner regression all verified.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "GET /api/my/wallet",
+        "issue": "Browser console showed HTTP 500 during dashboard load, but the current dashboard UI still rendered correctly because the request is Promise.allSettled and wallet display uses subscription data. Not part of the requested frontend bug, but should be checked separately."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/bug_105_artifacts/dashboard_mobile_ui_verification.py",
+    "/root/.emergent/automation_output/20260719_193253/console_20260719_193253.log",
+    "/root/.emergent/automation_output/20260719_193414/console_20260719_193414.log"
+  ],
+  "action_items": [
+    "Optional follow-up: investigate the unrelated /api/my/wallet 500 seen in console during dashboard load."
+  ],
+  "critical_code_review_comments": [
+    "Header.jsx uses text-base brand and compact pill sizes; SubscriberDashboard.jsx centers greeting and uses gap-3/md:gap-4 with p-4 cards; DeliveryTimeCard.jsx is compact; PendingDeliveriesBanner.jsx tracking info card uses gradient with mb-4 and numbered step badges. Code matches observed UI."
+  ],
+  "updated_files": [
+    "/app/test_reports/bug_105_artifacts/dashboard_mobile_ui_verification.py",
+    "/app/test_reports/bug_verification_105.json",
+    "/app/test_reports/iteration_105.json"
+  ],
+  "success_rate": {
+    "backend": "not_run_frontend_only",
+    "frontend": "100%"
+  },
+  "seed_data_creation": "Updated test user 8888888888 with pinned lat/lng; created/updated dining subscriber 7777777777 with active dining subscription TEST_dining_iter105; added a second dining subscription TEST_888_dining_toggle_iter105 for 8888888888 to verify centered toggle; added today's pending delivery TEST_pending_iter105_lunch to verify PendingDeliveriesBanner regression. OTP dev-mode is MOCKED and returns dev_otp in response body.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Use preview URL https://dining-pass-scan.preview.emergentagent.com, 360x844 viewport. Seed data now includes 8888888888 as dual tiffin+dining subscriber with one pending delivery and 7777777777 as dining-only subscriber. Clear OTP rate-limit records for these phones before repeating if needed.",
+  "rca_of_the_issue": "Verification evidence: header brandFs=16, walletFs=12, messFs=10, header scrollWidth=clientWidth=360, gaps >=10px; tiffin info card class mb-4, linear-gradient background, 3 li step rows with numbered badges; delivery-time height 208.5px and heading 'Your windows'; dining cards padding 16px and outer grid gap 12px; subscription-status textAlign center; dual-sub toggle justifyContent center; wallet drawer and pending banner opened/rendered successfully. Initial localhost attempt was blocked by CORS because frontend env points to the HTTPS preview backend; final tests used the preview host as required."
+}

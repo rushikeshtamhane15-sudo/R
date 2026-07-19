@@ -71,59 +71,58 @@ export default function DeliveryTimeCard() {
 
   return (
     <section
-      className={`rounded-3xl border p-4 md:p-5 space-y-4 ${
+      className={`rounded-2xl border p-3 space-y-3 ${
         unset ? "border-amber-300 bg-amber-50/60" : "border-border bg-card"
       }`}
+      style={{
+        boxShadow: "0 8px 20px -12px rgba(15,23,42,0.16), 0 2px 6px -2px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,0.85)",
+      }}
       data-testid="delivery-time-card"
     >
-      <div className="flex items-start gap-3">
-        <div className={`shrink-0 h-10 w-10 rounded-full flex items-center justify-center ${unset ? "bg-amber-200 text-amber-900" : "bg-emerald-100 text-emerald-700"}`}>
-          {unset ? <AlertCircle className="h-5 w-5" /> : <Clock className="h-5 w-5" />}
+      <div className="flex items-start gap-2">
+        <div className={`shrink-0 h-8 w-8 rounded-lg flex items-center justify-center ${unset ? "bg-amber-200 text-amber-900" : "bg-emerald-100 text-emerald-700"}`}>
+          {unset ? <AlertCircle className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-[10px] tracking-overline uppercase font-bold text-secondary">Delivery time</p>
-          <h3 className="font-display font-extrabold text-xl mt-0.5" data-testid="delivery-time-heading">
-            {unset ? "Tell us when to deliver" : "Your delivery windows"}
+          <h3 className="font-display font-extrabold text-base mt-0.5" data-testid="delivery-time-heading">
+            {unset ? "Pick a delivery window" : "Your windows"}
           </h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            {unset
-              ? "Pick a lunch and dinner window (30–60 min slots work best). We&apos;ll plan the delivery-boy route to reach you inside your window every day."
-              : "Change these anytime — updates apply from your next dispatch (or today if the kitchen hasn&apos;t packed yet)."}
-          </p>
         </div>
         {!unset && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-700 text-[10px] tracking-overline uppercase font-bold px-2 py-1" data-testid="delivery-time-status-pill">
-            <CheckCircle2 className="h-3 w-3" /> Set
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-700 text-[9px] tracking-overline uppercase font-bold px-1.5 py-0.5" data-testid="delivery-time-status-pill">
+            <CheckCircle2 className="h-2.5 w-2.5" /> Set
           </span>
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-2">
         <WindowRow
           meal="lunch"
-          icon={<Sun className="h-4 w-4" />}
+          icon={<Sun className="h-3 w-3" />}
           label="Lunch"
           value={draft.lunch}
           onChange={(f, v) => setField("lunch", f, v)}
         />
         <WindowRow
           meal="dinner"
-          icon={<Moon className="h-4 w-4" />}
+          icon={<Moon className="h-3 w-3" />}
           label="Dinner"
           value={draft.dinner}
           onChange={(f, v) => setField("dinner", f, v)}
         />
       </div>
 
-      <div className="flex items-center gap-2 justify-end">
+      <div className="flex items-center justify-end">
         <Button
           onClick={save}
           disabled={!dirty || saving}
-          className={`rounded-full h-10 px-5 font-bold ${dirty ? "bg-primary hover:bg-primary/90 text-primary-foreground" : "bg-muted text-muted-foreground cursor-not-allowed"}`}
+          size="sm"
+          className={`rounded-full h-8 px-4 text-xs font-bold ${dirty ? "bg-primary hover:bg-primary/90 text-primary-foreground" : "bg-muted text-muted-foreground cursor-not-allowed"}`}
           data-testid="delivery-time-save"
         >
-          {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-          {saving ? "Saving…" : dirty ? "Save windows" : "Saved"}
+          {saving ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> : <Save className="h-3 w-3 mr-1.5" />}
+          {saving ? "Saving…" : dirty ? "Save" : "Saved"}
         </Button>
       </div>
     </section>
@@ -132,28 +131,28 @@ export default function DeliveryTimeCard() {
 
 function WindowRow({ meal, icon, label, value, onChange }) {
   return (
-    <div className="rounded-2xl bg-white/60 ring-1 ring-border p-3" data-testid={`window-row-${meal}`}>
-      <p className="flex items-center gap-1.5 text-[10px] tracking-overline uppercase font-bold text-secondary">
+    <div className="rounded-xl bg-white/60 ring-1 ring-border p-2" data-testid={`window-row-${meal}`}>
+      <p className="flex items-center gap-1 text-[9px] tracking-overline uppercase font-bold text-secondary">
         {icon} {label}
       </p>
-      <div className="mt-2 grid grid-cols-2 gap-2">
+      <div className="mt-1.5 grid grid-cols-2 gap-1.5">
         <label className="text-xs">
-          <span className="text-muted-foreground text-[11px]">From</span>
+          <span className="text-muted-foreground text-[10px]">From</span>
           <Input
             type="time"
             value={value.start}
             onChange={(e) => onChange("start", e.target.value)}
-            className="h-10 mt-1 rounded-xl tabular-nums text-base font-semibold"
+            className="h-8 mt-0.5 rounded-lg tabular-nums text-xs font-semibold px-2"
             data-testid={`window-${meal}-start`}
           />
         </label>
         <label className="text-xs">
-          <span className="text-muted-foreground text-[11px]">To</span>
+          <span className="text-muted-foreground text-[10px]">To</span>
           <Input
             type="time"
             value={value.end}
             onChange={(e) => onChange("end", e.target.value)}
-            className="h-10 mt-1 rounded-xl tabular-nums text-base font-semibold"
+            className="h-8 mt-0.5 rounded-lg tabular-nums text-xs font-semibold px-2"
             data-testid={`window-${meal}-end`}
           />
         </label>

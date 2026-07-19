@@ -151,9 +151,9 @@ export default function SubscriberDashboard() {
     switch (id) {
       case "greeting":
         return (
-          <div className="mb-8" data-testid="subscription-status">
+          <div className="mb-6 md:mb-8 text-center" data-testid="subscription-status">
             <p className="text-xs tracking-overline uppercase font-bold text-secondary">{texts.greeting_overline} {user?.name?.split(" ")[0]}</p>
-            <h1 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-2">
+            <h1 className="font-display font-extrabold text-2xl md:text-4xl tracking-tight mt-2">
               {isTiffin ? texts.heading_tiffin : texts.heading_eatin}
             </h1>
             <p className="text-muted-foreground text-sm mt-1 italic">{texts.subtext}</p>
@@ -161,24 +161,26 @@ export default function SubscriberDashboard() {
                 holds 2+ active subscriptions. Clicking swaps the entire
                 dashboard content to that plan's stats. */}
             {allSubs.length > 1 && (
-              <div className="mt-4 inline-flex rounded-full bg-muted p-0.5 gap-0.5" role="tablist" data-testid="dashboard-plan-toggle">
-                {allSubs.map((s, i) => {
-                  const on = i === activeSubIdx;
-                  const svc = (s?.service_type || "").toLowerCase();
-                  return (
-                    <button
-                      key={s.sub_id}
-                      type="button"
-                      onClick={() => pickSub(i)}
-                      role="tab"
-                      aria-selected={on}
-                      data-testid={`dashboard-plan-tab-${svc || i}`}
-                      className={`px-4 h-9 rounded-full text-xs font-extrabold transition-colors ${on ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                    >
-                      Active {labelForSub(s)}
-                    </button>
-                  );
-                })}
+              <div className="mt-4 flex justify-center" data-testid="dashboard-plan-toggle-wrap">
+                <div className="inline-flex rounded-full bg-muted p-0.5 gap-0.5" role="tablist" data-testid="dashboard-plan-toggle">
+                  {allSubs.map((s, i) => {
+                    const on = i === activeSubIdx;
+                    const svc = (s?.service_type || "").toLowerCase();
+                    return (
+                      <button
+                        key={s.sub_id}
+                        type="button"
+                        onClick={() => pickSub(i)}
+                        role="tab"
+                        aria-selected={on}
+                        data-testid={`dashboard-plan-tab-${svc || i}`}
+                        className={`px-4 h-9 rounded-full text-xs font-extrabold transition-colors ${on ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                      >
+                        Active {labelForSub(s)}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
@@ -229,103 +231,108 @@ export default function SubscriberDashboard() {
 
   const walletSection = visible("wallet") && sub && (
     <div
-      className={`text-primary-foreground rounded-2xl p-6 ${isPaused ? "bg-amber-600" : walletStyle ? "" : "bg-primary"}`}
-      style={walletStyle || undefined}
+      className={`text-primary-foreground rounded-2xl p-4 md:p-5 ${isPaused ? "bg-amber-600" : walletStyle ? "" : "bg-primary"}`}
+      style={{
+        ...(walletStyle || {}),
+        boxShadow: "0 10px 24px -14px rgba(160,35,35,0.4), 0 2px 6px -2px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.24)",
+      }}
       data-testid="wallet-card"
     >
       <div className="flex items-center justify-between">
-        <Wallet className="h-5 w-5 opacity-70" strokeWidth={1.75} />
+        <Wallet className="h-4 w-4 opacity-70" strokeWidth={1.75} />
         <span className="text-[10px] tracking-overline uppercase font-bold opacity-70">{isPaused ? "Wallet · Paused" : "Wallet"}</span>
       </div>
-      <p className="font-display font-extrabold text-5xl mt-3 leading-none flex items-baseline" data-testid="wallet-balance">
-        <IndianRupee className="h-7 w-7" strokeWidth={2} />
+      <p className="font-display font-extrabold text-3xl md:text-4xl mt-2 leading-none flex items-baseline" data-testid="wallet-balance">
+        <IndianRupee className="h-5 w-5" strokeWidth={2} />
         <span>{Math.round(sub.wallet_balance).toLocaleString("en-IN")}</span>
       </p>
-      <p className="text-xs opacity-80 mt-3">of ₹{Math.round(sub.amount_paid).toLocaleString("en-IN")} loaded</p>
+      <p className="text-[11px] opacity-80 mt-1.5">of ₹{Math.round(sub.amount_paid).toLocaleString("en-IN")} loaded</p>
 
-      {/* iter-127 — prominent auto-pause banner. Fires whenever the sub has
-          drifted into pause territory (paused_days > 0). For tiffin subs we
-          use `user_paused` (an explicit manual pause). Message is friendly
-          and action-oriented so the user knows what to do next. */}
       {(isPaused || (sub.paused_days || 0) > 0) && (
         <div
-          className="mt-4 rounded-xl bg-white/15 border border-white/25 px-3 py-2 flex items-start gap-2"
+          className="mt-3 rounded-lg bg-white/15 border border-white/25 px-2.5 py-2 flex items-start gap-2"
           data-testid="wallet-pause-banner"
         >
-          <Pause className="h-4 w-4 mt-0.5 shrink-0" strokeWidth={2} />
-          <div className="text-[12px] leading-snug">
+          <Pause className="h-3 w-3 mt-0.5 shrink-0" strokeWidth={2} />
+          <div className="text-[11px] leading-snug">
             <p className="font-extrabold">
               {isPaused
-                ? "Your plan is paused right now — wallet won't deduct today."
-                : `Plan extended by ${sub.paused_days} day${sub.paused_days === 1 ? "" : "s"} due to inactivity.`}
-            </p>
-            <p className="opacity-85 mt-0.5">
-              {isTiffin
-                ? "Resume from your subscription page and we'll start deducting again."
-                : "Scan the counter QR on your next visit — normal ₹/day deduction resumes automatically."}
+                ? "Plan paused — no deduction today."
+                : `Extended by ${sub.paused_days} day${sub.paused_days === 1 ? "" : "s"}.`}
             </p>
           </div>
         </div>
       )}
 
-      <div className="mt-5 pt-5 border-t border-white/15 grid grid-cols-2 gap-4 text-sm">
+      <div className="mt-3 pt-3 border-t border-white/15 grid grid-cols-2 gap-3 text-xs">
         <div>
-          <p className="text-[10px] tracking-overline uppercase font-bold opacity-70">Per day · per meal</p>
-          <p className="font-display font-bold text-lg mt-1" data-testid="per-day-amount">
+          <p className="text-[9px] tracking-overline uppercase font-bold opacity-70">Per day</p>
+          <p className="font-display font-bold text-base mt-0.5" data-testid="per-day-amount">
             ₹{Number(sub.per_day_amount || 0).toFixed(2)}
-            <span className="opacity-70 font-normal text-sm"> · ₹{(Number(sub.per_day_amount || 0) / 2).toFixed(2)}/meal</span>
           </p>
         </div>
         <div>
-          <p className="text-[10px] tracking-overline uppercase font-bold opacity-70 flex items-center gap-1"><Pause className="h-3 w-3" /> Extended</p>
-          <p className="font-display font-bold text-lg mt-1" data-testid="paused-days">{sub.paused_days} days</p>
+          <p className="text-[9px] tracking-overline uppercase font-bold opacity-70 flex items-center gap-1"><Pause className="h-2.5 w-2.5" /> Extended</p>
+          <p className="font-display font-bold text-base mt-0.5" data-testid="paused-days">{sub.paused_days} d</p>
         </div>
       </div>
-      <p className="text-xs opacity-70 mt-4">
-        {isTiffin
-          ? "Pause anytime · 7+ continuous days = end-date extended."
-          : "Skip 3+ days in a row → wallet pauses & your plan auto-extends. Days 1–3 still deduct normally."}
-      </p>
     </div>
   );
 
   const todayStatusSection = visible("today_status") && !isTiffin && sub && (
-    <div className="surface-3d bg-card rounded-2xl border border-black/5 p-6" style={sideCardStyle || undefined} data-testid="status-card">
-      <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Today</p>
-      <div className="mt-4 space-y-3">
+    <div
+      className="bg-card rounded-2xl border border-black/5 p-4"
+      style={{
+        ...(sideCardStyle || {}),
+        boxShadow: "0 8px 20px -12px rgba(15,23,42,0.16), 0 2px 6px -2px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,0.85)",
+      }}
+      data-testid="status-card"
+    >
+      <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Today</p>
+      <div className="mt-2.5 space-y-2">
         <StatusRow icon={Sun} label="Lunch" done={lunchDone} />
         <StatusRow icon={Moon} label="Dinner" done={dinnerDone} />
       </div>
       <Link to="/self-scan">
-        <Button className="mt-5 w-full rounded-full bg-primary hover:bg-primary/90" data-testid="self-scan-cta">Scan counter QR</Button>
+        <Button size="sm" className="mt-3 w-full rounded-full bg-primary hover:bg-primary/90 h-9 text-xs font-bold" data-testid="self-scan-cta">Scan counter QR</Button>
       </Link>
     </div>
   );
 
   const menuSection = visible("todays_menu") && (
-    <div className="surface-3d bg-card rounded-2xl border border-black/5 p-6" style={sideCardStyle || undefined} data-testid="todays-menu">
-      <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Today's menu</p>
+    <div
+      className="bg-card rounded-2xl border border-black/5 p-4"
+      style={{
+        ...(sideCardStyle || {}),
+        boxShadow: "0 8px 20px -12px rgba(15,23,42,0.16), 0 2px 6px -2px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,0.85)",
+      }}
+      data-testid="todays-menu"
+    >
+      <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Today&apos;s menu</p>
       <TodayMessMenuFlash compact />
-      {/* iter-82 #2: removed the duplicate Lunch / Dinner text block that
-          showed beneath the green mess-menu card. The TodayMessMenuFlash
-          container already renders both meals in full — the extra block
-          was just visual repetition. */}
     </div>
   );
 
   const historySection = visible("history") && !isTiffin && (
-    <div className="surface-3d bg-card rounded-2xl border border-black/5 p-6" style={sideCardStyle || undefined} data-testid="history-card">
-      <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Recent check-ins</p>
-      <div className="mt-4 space-y-3 max-h-56 overflow-auto">
-        {history.length === 0 && <p className="text-sm text-muted-foreground">No check-ins yet.</p>}
+    <div
+      className="bg-card rounded-2xl border border-black/5 p-4"
+      style={{
+        ...(sideCardStyle || {}),
+        boxShadow: "0 8px 20px -12px rgba(15,23,42,0.16), 0 2px 6px -2px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,0.85)",
+      }}
+      data-testid="history-card"
+    >
+      <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground">Recent check-ins</p>
+      <div className="mt-2.5 space-y-2 max-h-44 overflow-auto">
+        {history.length === 0 && <p className="text-xs text-muted-foreground">No check-ins yet.</p>}
         {history.slice(0, 10).map((r) => (
-          <div key={r.att_id} className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2">
-              {r.meal_type === "lunch" ? <Sun className="h-4 w-4 text-secondary" strokeWidth={1.75} /> : <Moon className="h-4 w-4 text-primary" strokeWidth={1.75} />}
-              <span className="capitalize font-medium">{r.meal_type}</span>
-              <span className="text-muted-foreground text-xs">· {r.date_str}</span>
+          <div key={r.att_id} className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-1.5">
+              {r.meal_type === "lunch" ? <Sun className="h-3.5 w-3.5 text-secondary" strokeWidth={1.75} /> : <Moon className="h-3.5 w-3.5 text-primary" strokeWidth={1.75} />}
+              <span className="capitalize font-semibold">{r.meal_type}</span>
+              <span className="text-muted-foreground text-[10px]">· {r.date_str}</span>
             </div>
-            <span className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" />{formatTime(r.checked_at)}</span>
+            <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Clock className="h-2.5 w-2.5" />{formatTime(r.checked_at)}</span>
           </div>
         ))}
       </div>
@@ -362,12 +369,12 @@ export default function SubscriberDashboard() {
           deliveryTimeSlot={<DeliveryTimeCard />}
         />
       ) : (
-        <div className="grid lg:grid-cols-5 gap-8">
-          <div className="lg:col-span-3 space-y-6">
+        <div className="grid lg:grid-cols-5 gap-3 md:gap-4">
+          <div className="lg:col-span-3 space-y-3 md:space-y-4">
             {heroSection}
           </div>
 
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-3 md:space-y-4">
             {orderedSide.map((s) => {
               switch (s.id) {
                 case "wallet": return <React.Fragment key={s.id}>{walletSection}</React.Fragment>;
@@ -478,12 +485,12 @@ function Stat({ label, value }) {
 
 function StatusRow({ icon: Icon, label, done }) {
   return (
-    <div className={`flex items-center justify-between rounded-xl px-4 py-3 border ${done ? "bg-primary/10 border-primary/20" : "bg-muted/50 border-border"}`}>
-      <div className="flex items-center gap-3">
-        <Icon className={`h-4 w-4 ${done ? "text-primary" : "text-muted-foreground"}`} strokeWidth={1.75} />
-        <span className="font-semibold text-sm">{label}</span>
+    <div className={`flex items-center justify-between rounded-lg px-3 py-2 border ${done ? "bg-primary/10 border-primary/20" : "bg-muted/50 border-border"}`}>
+      <div className="flex items-center gap-2">
+        <Icon className={`h-3.5 w-3.5 ${done ? "text-primary" : "text-muted-foreground"}`} strokeWidth={1.75} />
+        <span className="font-semibold text-xs">{label}</span>
       </div>
-      <span className={`text-xs font-bold tracking-overline uppercase ${done ? "text-primary" : "text-muted-foreground"}`}>{done ? "Checked in" : "Pending"}</span>
+      <span className={`text-[10px] font-bold tracking-overline uppercase ${done ? "text-primary" : "text-muted-foreground"}`}>{done ? "Done" : "Pending"}</span>
     </div>
   );
 }

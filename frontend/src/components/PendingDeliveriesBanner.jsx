@@ -125,38 +125,72 @@ export default function PendingDeliveriesBanner() {
 
   // CASE B — no pending today; show always-on info + location pin CTA
   return (
-    <div className="rounded-3xl bg-card border border-border p-5 md:p-6 mb-8" data-testid="tiffin-tracking-info">
-      <div className="flex items-start gap-3">
-        <span className="inline-flex h-10 w-10 rounded-xl bg-primary/10 text-primary items-center justify-center shrink-0">
-          <ShieldCheck className="h-5 w-5" />
-        </span>
-        <div className="flex-1 min-w-0">
-          <p className="text-[10px] tracking-overline uppercase font-bold text-secondary">Tiffin tracking</p>
-          <h3 className="font-display font-extrabold text-lg md:text-xl mt-1 leading-tight">
-            How your tiffin reaches you
-          </h3>
-          <ul className="mt-3 space-y-1.5 text-xs md:text-sm text-muted-foreground">
-            <li className="flex items-start gap-2"><Sparkles className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" /> Each day, lunch + dinner are dispatched based on your active plan.</li>
-            <li className="flex items-start gap-2"><MapPin className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" /> Delivery boy can mark "delivered" only when their phone is within metres of your pinned home.</li>
-            <li className="flex items-start gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" /> You can also tap "I got my tiffin" yourself — appears here when delivery is out.</li>
-          </ul>
+    <div
+      className="relative rounded-2xl overflow-hidden mb-4"
+      style={{
+        background: "linear-gradient(135deg, #fef2f2 0%, #ffffff 55%, #f0fdf4 100%)",
+        boxShadow: "0 12px 28px -18px rgba(15,23,42,0.18), 0 3px 8px -3px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.9)",
+      }}
+      data-testid="tiffin-tracking-info"
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-20 -right-20 h-48 w-48 rounded-full opacity-50"
+        style={{ background: "radial-gradient(circle at center, rgba(160,35,35,0.18) 0%, transparent 65%)" }}
+      />
+      <div className="relative p-4 md:p-5">
+        <div className="flex items-center gap-2.5">
+          <span className="inline-flex h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-primary/70 text-white items-center justify-center shadow-md">
+            <ShieldCheck className="h-4 w-4" />
+          </span>
+          <div>
+            <p className="text-[9px] tracking-[0.16em] uppercase font-extrabold text-secondary">Tiffin tracking</p>
+            <h3 className="font-display font-extrabold text-base md:text-lg leading-tight">
+              How your tiffin reaches you
+            </h3>
+          </div>
         </div>
-      </div>
 
-      {!hasLocation ? (
-        <div className="mt-5 rounded-2xl bg-amber-50 border border-amber-200 p-4 flex flex-wrap items-center gap-3" data-testid="pin-location-cta">
-          <MapPin className="h-4 w-4 text-amber-600 shrink-0" />
-          <span className="text-xs text-amber-900 flex-1 font-semibold">Pin your home location to enable doorstep verification.</span>
-          <Button onClick={pinLocation} size="sm" className="rounded-full bg-amber-600 hover:bg-amber-700 text-white" data-testid="pin-location-btn-info">
-            <ChevronRight className="h-3.5 w-3.5 mr-1" /> Pin location
-          </Button>
-        </div>
-      ) : (
-        <div className="mt-5 rounded-2xl bg-primary/5 border border-primary/15 p-3 flex items-center gap-2 text-xs text-primary" data-testid="location-pinned-badge">
-          <CheckCircle2 className="h-4 w-4" /> <span className="font-semibold">Home location pinned · doorstep verification active</span>
-          <button onClick={pinLocation} className="ml-auto text-[11px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline">re-pin</button>
-        </div>
-      )}
+        <ol className="mt-3.5 grid gap-2">
+          <StepRow n={1} icon={Sparkles} title="Dispatched daily" desc="Lunch + dinner set from your active plan" />
+          <StepRow n={2} icon={MapPin} title="Doorstep verified" desc={"Only marked delivered when the boy's phone is at your door"} />
+          <StepRow n={3} icon={CheckCircle2} title={'Or tap "I got my tiffin"'} desc="Button appears here the moment delivery is out" />
+        </ol>
+
+        {!hasLocation ? (
+          <button
+            type="button"
+            onClick={pinLocation}
+            className="mt-4 w-full rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs h-10 flex items-center justify-center gap-1.5 shadow-md"
+            data-testid="pin-location-btn-info"
+          >
+            <MapPin className="h-3.5 w-3.5" /> Pin your home location to enable doorstep verification
+          </button>
+        ) : (
+          <div className="mt-4 rounded-xl bg-emerald-50 ring-1 ring-emerald-200 px-3 py-2 flex items-center gap-2 text-xs" data-testid="location-pinned-badge">
+            <span className="inline-flex h-5 w-5 rounded-full bg-emerald-600 text-white items-center justify-center shrink-0">
+              <CheckCircle2 className="h-3 w-3" />
+            </span>
+            <span className="font-bold text-emerald-900 flex-1">Home pinned · doorstep verification live</span>
+            <button onClick={pinLocation} className="text-[10px] tracking-overline uppercase font-bold text-emerald-700 hover:text-emerald-900 underline-offset-2 hover:underline">Re-pin</button>
+          </div>
+        )}
+      </div>
     </div>
+  );
+}
+
+function StepRow({ n, icon: Icon, title, desc }) {
+  return (
+    <li className="flex items-start gap-2.5">
+      <span className="relative shrink-0 h-6 w-6 rounded-lg bg-white ring-1 ring-black/5 flex items-center justify-center shadow-sm">
+        <Icon className="h-3 w-3 text-primary" strokeWidth={2.5} />
+        <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-primary text-white text-[8px] font-extrabold flex items-center justify-center leading-none">{n}</span>
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-bold text-foreground leading-tight">{title}</p>
+        <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">{desc}</p>
+      </div>
+    </li>
   );
 }
