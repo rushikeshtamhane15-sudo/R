@@ -3,6 +3,19 @@
 > *ghar se achha khana*
 
 
+## iter-131.19 — 5 dashboard polish fixes (2026-02-14)
+**Status: DONE — bug_testing_agent verdict `fixed` · frontend 100% (bug_verification_105).**
+
+- **Header brand text** — bumped mobile font from `text-[13px]` → `text-base` (16 px), hidden tagline on <sm; brand now visually dominates the Amravati (10 px) and wallet (12 px) pills. Header no-overflow maintained @ 360 w.
+- **Tiffin tracking info card** — full redesign in `PendingDeliveriesBanner.jsx` CASE B: linear-gradient background, numbered step badges (1/2/3) inside squircle icons, gradient CTA button. Card margin trimmed `mb-8` → `mb-4`.
+- **Compact dining containers** — `walletSection` / `todayStatusSection` / `menuSection` / `historySection` padding `p-6` → `p-4`, wallet numbers `text-5xl` → `text-3xl md:text-4xl`. Outer dining grid gap `gap-8` → `gap-3 md:gap-4`. `StatusRow` helper trimmed. `QRTicket` compacted (`p-8` → `p-5`, QR 200 → 148, stats `text-3xl` → `text-xl`).
+- **Compact `DeliveryTimeCard`** — `p-4 md:p-5` → `p-3`, heading `text-xl` → `text-base`, blurb paragraph removed, inputs `h-10` → `h-8`. Height dropped from ~340 px → 209 px on 360 w.
+- **Centered greeting + toggle** — greeting section wrapped in `text-center`; toggle wrapped in `flex justify-center`. Verified `subscription-status textAlign: center` + `dashboard-plan-toggle-wrap justify-content: center`.
+
+Minor unrelated: bug_testing_agent noticed a `GET /api/my/wallet` 500 in browser console. UI unaffected (uses subscription data as fallback). Deferred to next iter.
+
+
+
 ## iter-131.18 — Plan-bullet icons + hero images + tiffin-user grid dashboard (2026-02-14)
 **Status: DONE — Backend 9/9 pytest pass; frontend visually verified (bullets render 4 distinct lucide icons; tiffin grid gap=12px with 8 tiles).**
 
