@@ -126,117 +126,163 @@ export default function Profile() {
   const isComplete = user?.name && user?.phone && user?.address && user?.photo_url;
 
   return (
-    <div className="max-w-2xl mx-auto px-6 md:px-8 lg:px-12 py-10" data-testid="profile-page">
-      <SEO title="My profile" path="/profile" includeBusinessSchema={false} description="Manage your efoodcare profile, delivery address and subscription details." />
-      <p className="text-xs tracking-overline uppercase font-bold text-secondary">Your details</p>
-      <h1 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-2">
-        {isFranchiseOnboard ? "Complete profile to access Franchise Console" : next ? "Complete profile before checkout" : "Profile"}
-      </h1>
-      {isFranchiseOnboard && (
-        <div className="mt-3 rounded-2xl bg-amber-50 border border-amber-300 px-4 py-3" data-testid="franchise-onboard-banner">
-          <p className="text-sm font-bold text-amber-900">Your branch dashboard is one step away</p>
-          <p className="text-xs text-amber-800 mt-1 leading-relaxed">A complete profile (name, phone, delivery address) is required before you can manage your franchise. Fill the fields below and tap Save — we&apos;ll redirect you to your console.</p>
-        </div>
-      )}
-      {next && !isFranchiseOnboard && (
-        <p className="text-muted-foreground mt-3 text-sm">A selfie/photo, name, phone and delivery address are required. We&apos;ll save them for your subscription and future checkouts.</p>
-      )}
-      {isComplete && !next && (
-        <div className="mt-4 flex items-center gap-2 text-sm text-primary">
-          <CheckCircle2 className="h-4 w-4" /> Profile complete
-        </div>
-      )}
+    <div className="min-h-screen bg-muted/30 pb-20" data-testid="profile-page">
+      <SEO title="My account" path="/profile" includeBusinessSchema={false} description="Manage your efoodcare profile, delivery address and subscription details." />
 
-      <div className="surface-3d mt-8 bg-card rounded-2xl border border-border p-6 space-y-5">
-        {/* Photo */}
-        <div>
-          <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground flex items-center gap-1.5"><Camera className="h-3 w-3" /> Selfie / Photo (required)</label>
-          <div className="mt-3 flex items-start gap-4 flex-wrap">
-            <div className="h-28 w-28 rounded-2xl border-2 border-dashed border-border bg-muted/40 overflow-hidden flex items-center justify-center" data-testid="photo-preview">
+      {/* Native-mobile-app hero — red gradient with avatar, name and role pill centered */}
+      <div
+        className="relative text-primary-foreground overflow-hidden"
+        style={{
+          background: "linear-gradient(150deg, #c92626 0%, #a02323 55%, #7a1a1a 100%)",
+        }}
+        data-testid="profile-hero"
+      >
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-20 -right-20 h-56 w-56 rounded-full opacity-30"
+          style={{ background: "radial-gradient(circle at center, rgba(255,255,255,0.35) 0%, transparent 65%)" }}
+        />
+        <div className="relative max-w-2xl mx-auto px-5 pt-6 pb-10 text-center">
+          <p className="text-[10px] tracking-[0.18em] uppercase font-extrabold text-primary-foreground/85">My account</p>
+          <div className="mt-4 inline-block relative">
+            <div className="h-24 w-24 rounded-full bg-white/15 ring-4 ring-white/30 shadow-xl overflow-hidden flex items-center justify-center backdrop-blur-sm" data-testid="profile-hero-avatar">
               {form.photo_url ? (
-                <img src={form.photo_url} alt="profile" className="h-full w-full object-cover" />
+                <img src={form.photo_url} alt={form.name || "You"} className="h-full w-full object-cover" />
               ) : (
-                <Camera className="h-7 w-7 text-muted-foreground" />
+                <UserIcon className="h-10 w-10 text-white/85" />
               )}
             </div>
-            <div className="flex flex-col gap-2">
-              <input ref={cameraInputRef} type="file" accept="image/*" capture="user" onChange={(e) => onPickFile(e, "camera")} className="hidden" data-testid="camera-input" />
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={(e) => onPickFile(e, "file")} className="hidden" data-testid="file-input" />
-              <Button type="button" onClick={() => cameraInputRef.current?.click()} className="rounded-full bg-primary hover:bg-primary/90" data-testid="take-selfie-button">
-                <Camera className="h-4 w-4 mr-2" /> Take selfie
-              </Button>
-              <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} className="rounded-full" data-testid="upload-photo-button">
-                Upload from gallery
-              </Button>
-              {form.photo_url && (
-                <Button type="button" variant="outline" onClick={removePhoto} className="rounded-full text-destructive hover:text-destructive" data-testid="remove-photo-button">
-                  <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Remove
-                </Button>
-              )}
-            </div>
+            <button
+              type="button"
+              onClick={() => cameraInputRef.current?.click()}
+              className="absolute -bottom-1 -right-1 inline-flex h-9 w-9 rounded-full bg-white text-primary ring-4 ring-primary shadow-md items-center justify-center"
+              aria-label="Change photo"
+              data-testid="hero-change-photo"
+            >
+              <Camera className="h-4 w-4" strokeWidth={2.5} />
+            </button>
           </div>
-          <p className="text-xs text-muted-foreground mt-3">We compress and crop to ~720px. Used for staff verification at the counter.</p>
+          <h1 className="mt-4 font-display font-extrabold text-2xl leading-tight truncate" data-testid="profile-hero-name">
+            {form.name || "Complete your account"}
+          </h1>
+          {(form.phone || user?.phone) && (
+            <p className="text-sm text-primary-foreground/85 mt-1 tabular-nums">+91 {(form.phone || user.phone).replace(/^\+?91/, "")}</p>
+          )}
+          <div className="mt-3 flex items-center justify-center gap-2 flex-wrap">
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/20 backdrop-blur-sm px-2.5 py-1 text-[9px] tracking-overline uppercase font-extrabold ring-1 ring-white/25">
+              {user?.role || "guest"}
+            </span>
+            {isComplete && !next && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/25 backdrop-blur-sm px-2.5 py-1 text-[9px] tracking-overline uppercase font-extrabold ring-1 ring-emerald-300/40">
+                <CheckCircle2 className="h-2.5 w-2.5" /> Verified
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-2xl mx-auto px-4 -mt-6 relative z-10 space-y-3">
+        {isFranchiseOnboard && (
+          <div className="rounded-2xl bg-amber-50 border border-amber-300 px-4 py-3 shadow-sm" data-testid="franchise-onboard-banner">
+            <p className="text-sm font-bold text-amber-900">Your branch dashboard is one step away</p>
+            <p className="text-xs text-amber-800 mt-1 leading-relaxed">A complete profile (name, phone, delivery address) is required before you can manage your franchise. Fill the fields below and tap Save — we&apos;ll redirect you to your console.</p>
+          </div>
+        )}
+        {next && !isFranchiseOnboard && (
+          <div className="rounded-2xl bg-primary/8 border border-primary/25 px-4 py-3 shadow-sm">
+            <p className="text-sm font-bold text-primary">Almost there</p>
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">A selfie/photo, name, phone and delivery address are required before checkout. We&apos;ll save them for future orders too.</p>
+          </div>
+        )}
+
+        {/* Personal info — iOS-style grouped list */}
+        <SectionLabel icon={UserIcon} label="Personal info" />
+        <div className="bg-card rounded-2xl overflow-hidden shadow-sm border border-black/5">
+          <FieldRow icon={UserIcon} label="Full name">
+            <input
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value.replace(/[^A-Za-z\.\'\- ]/g, "") })}
+              className="w-full h-9 text-right text-sm font-semibold bg-transparent outline-none placeholder:text-muted-foreground/60"
+              data-testid="profile-name"
+              placeholder="Enter full name"
+              maxLength={50}
+            />
+          </FieldRow>
+          <FieldRow icon={Phone} label="Phone" border>
+            <div className="inline-flex items-center gap-1 text-sm font-semibold">
+              <span className="text-muted-foreground text-xs">+91</span>
+              <input
+                type="tel"
+                inputMode="numeric"
+                maxLength={10}
+                value={form.phone.replace(/^\+?91/, "").replace(/\D/g, "").slice(0, 10)}
+                onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })}
+                className="w-32 h-9 text-right text-sm font-semibold bg-transparent outline-none placeholder:text-muted-foreground/60 tabular-nums"
+                data-testid="profile-phone"
+                placeholder="98XXXXXXXX"
+              />
+            </div>
+          </FieldRow>
         </div>
 
-        <div>
-          <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground flex items-center gap-1.5"><UserIcon className="h-3 w-3" /> Full name</label>
-          <Input
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value.replace(/[^A-Za-z\.\'\- ]/g, "") })}
-            className="mt-2 rounded-xl"
-            data-testid="profile-name"
-            placeholder="Enter full name"
-            maxLength={50}
-          />
-          <p className="text-[11px] text-muted-foreground mt-1">2–80 letters · Latin or Indian scripts · spaces, hyphens, apostrophes &amp; dots allowed. No digits.</p>
-        </div>
-        <div>
-          <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground flex items-center gap-1.5"><Phone className="h-3 w-3" /> Phone</label>
-          <div className="mt-2 flex rounded-xl border border-input bg-background overflow-hidden focus-within:ring-2 focus-within:ring-ring">
-            <span className="px-3 inline-flex items-center bg-muted/50 text-sm font-semibold text-muted-foreground border-r border-input select-none" data-testid="phone-prefix">+91</span>
-            <input
-              type="tel"
-              inputMode="numeric"
-              maxLength={10}
-              value={form.phone.replace(/^\+?91/, "").replace(/\D/g, "").slice(0, 10)}
-              onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })}
-              className="flex-1 h-9 px-3 text-sm bg-transparent outline-none placeholder:text-muted-foreground"
-              data-testid="profile-phone"
-              placeholder="98XXXXXXXX"
-            />
+        <SectionLabel icon={Camera} label="Photo" hint="Used at the counter for verification" />
+        <div className="bg-card rounded-2xl px-4 py-3 shadow-sm border border-black/5 flex items-center gap-3">
+          <div className="h-14 w-14 rounded-xl bg-muted/40 border-2 border-dashed border-border overflow-hidden flex items-center justify-center shrink-0" data-testid="photo-preview">
+            {form.photo_url ? (
+              <img src={form.photo_url} alt="profile" className="h-full w-full object-cover" />
+            ) : (
+              <Camera className="h-5 w-5 text-muted-foreground" />
+            )}
           </div>
-          <p className="text-[11px] text-muted-foreground mt-1">10 digits — Indian mobile starting 6, 7, 8 or 9.</p>
+          <div className="flex-1 min-w-0 space-y-1.5">
+            <input ref={cameraInputRef} type="file" accept="image/*" capture="user" onChange={(e) => onPickFile(e, "camera")} className="hidden" data-testid="camera-input" />
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={(e) => onPickFile(e, "file")} className="hidden" data-testid="file-input" />
+            <Button type="button" size="sm" onClick={() => cameraInputRef.current?.click()} className="rounded-full h-8 px-3 bg-primary hover:bg-primary/90 text-xs" data-testid="take-selfie-button">
+              <Camera className="h-3.5 w-3.5 mr-1" /> Take selfie
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} className="rounded-full h-8 px-3 text-xs ml-1" data-testid="upload-photo-button">
+              Upload
+            </Button>
+            {form.photo_url && (
+              <Button type="button" size="sm" variant="outline" onClick={removePhoto} className="rounded-full h-8 px-3 text-xs ml-1 text-destructive hover:text-destructive" data-testid="remove-photo-button">
+                <Trash2 className="h-3 w-3 mr-1" /> Remove
+              </Button>
+            )}
+          </div>
         </div>
-        <div>
-          <label className="text-xs tracking-overline uppercase font-bold text-muted-foreground flex items-center gap-1.5"><MapPin className="h-3 w-3" /> Delivery address</label>
+
+        <SectionLabel icon={MapPin} label="Delivery address" hint="Min 10 chars — area + city works for delivery" />
+        <div className="bg-card rounded-2xl px-4 py-3 shadow-sm border border-black/5">
           <Textarea
             value={form.address}
             onChange={(e) => setForm({ ...form, address: e.target.value })}
-            className="mt-2 rounded-xl"
+            className="border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0 text-sm resize-none"
             data-testid="profile-address"
             placeholder="Flat / house no., street, area, city, pincode"
             rows={3}
             maxLength={300}
           />
-          <p className="text-[11px] text-muted-foreground mt-1">Min 10 chars — area + city is enough; full address is better for delivery.</p>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <Button onClick={save} disabled={submitting} className="rounded-full bg-primary hover:bg-primary/90 flex-1 min-w-[200px]" data-testid="save-profile-button">
-            {submitting ? "Saving…" : next ? "Save & continue to checkout" : "Save profile"}
+
+        <div className="pt-2 flex gap-2 flex-wrap">
+          <Button onClick={save} disabled={submitting} className="rounded-full h-12 bg-primary hover:bg-primary/90 flex-1 min-w-[200px] font-bold shadow-md" data-testid="save-profile-button">
+            {submitting ? "Saving…" : next ? "Save & continue to checkout" : "Save changes"}
           </Button>
-          {!next && <Link to="/dashboard"><Button variant="outline" className="rounded-full">Back</Button></Link>}
+          {!next && <Link to="/dashboard"><Button variant="outline" className="rounded-full h-12">Back</Button></Link>}
         </div>
 
         {!next && (
-          <div className="mt-10 pt-6 border-t border-destructive/20" data-testid="danger-zone">
-            <p className="text-xs tracking-overline uppercase font-bold text-destructive flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5" /> Privacy zone</p>
-            <h3 className="font-display font-extrabold text-lg mt-2">Delete my account</h3>
-            <p className="text-xs text-muted-foreground mt-1.5 max-w-md">
-              Permanently removes your profile, subscription, wallet history, attendance and deliveries. This cannot be undone.
-            </p>
-            <Button onClick={() => setDeleteOpen(true)} variant="outline" size="sm" className="mt-3 rounded-full text-destructive hover:bg-destructive/5" data-testid="delete-account-button">
-              <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete my account
-            </Button>
+          <div className="pt-6 mt-4" data-testid="danger-zone">
+            <SectionLabel icon={AlertTriangle} label="Privacy zone" />
+            <div className="bg-card rounded-2xl px-4 py-4 shadow-sm border border-destructive/20">
+              <h3 className="font-display font-extrabold text-sm text-destructive">Delete my account</h3>
+              <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
+                Permanently removes your profile, subscription, wallet history, attendance and deliveries. Cannot be undone.
+              </p>
+              <Button onClick={() => setDeleteOpen(true)} variant="outline" size="sm" className="mt-3 rounded-full text-destructive hover:bg-destructive/5 border-destructive/30" data-testid="delete-account-button">
+                <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete my account
+              </Button>
+            </div>
           </div>
         )}
       </div>
@@ -247,7 +293,7 @@ export default function Profile() {
             <div className="inline-flex h-11 w-11 rounded-xl bg-destructive/10 text-destructive items-center justify-center"><AlertTriangle className="h-5 w-5" /></div>
             <h3 className="font-display font-extrabold text-2xl mt-4">Delete account?</h3>
             <p className="text-sm text-muted-foreground mt-2">
-              We'll permanently remove everything tied to <b className="text-foreground">{user?.name}</b> — subscription, wallet, attendance, deliveries, history. <span className="text-destructive font-semibold">This cannot be undone.</span>
+              We&apos;ll permanently remove everything tied to <b className="text-foreground">{user?.name}</b> — subscription, wallet, attendance, deliveries, history. <span className="text-destructive font-semibold">This cannot be undone.</span>
             </p>
             <p className="text-xs text-muted-foreground mt-4">Type <b className="text-foreground">DELETE</b> to confirm:</p>
             <Input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} className="mt-2 rounded-xl" data-testid="confirm-delete-text" autoFocus />
@@ -265,6 +311,30 @@ export default function Profile() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// iter-131.20: native-app style grouped-list helpers.
+function SectionLabel({ icon: Icon, label, hint }) {
+  return (
+    <div className="px-4 pt-4 pb-1">
+      <p className="text-[10px] tracking-[0.16em] uppercase font-extrabold text-muted-foreground flex items-center gap-1.5">
+        <Icon className="h-3 w-3" /> {label}
+      </p>
+      {hint && <p className="text-[10px] text-muted-foreground/80 mt-0.5">{hint}</p>}
+    </div>
+  );
+}
+
+function FieldRow({ icon: Icon, label, border, children }) {
+  return (
+    <div className={`flex items-center gap-3 px-4 py-2.5 ${border ? "border-t border-border/60" : ""}`}>
+      <span className="inline-flex h-8 w-8 rounded-lg bg-muted text-secondary items-center justify-center shrink-0">
+        <Icon className="h-3.5 w-3.5" />
+      </span>
+      <span className="text-xs font-bold text-muted-foreground shrink-0">{label}</span>
+      <div className="flex-1 min-w-0 text-right">{children}</div>
     </div>
   );
 }

@@ -3,6 +3,16 @@
 > *ghar se achha khana*
 
 
+## iter-131.20 — QR ticket shrink + header tagline restored + native My Account & drawer (2026-02-14)
+**Status: DONE — verified visually + measured in DOM on 360w mobile viewport.**
+
+- **QRTicket shrunk further**: max-width `max-w-md` → `max-w-[280px]`, padding `p-5` → `p-3.5`, QR `148` → **108 px**, stats padding `p-3` → `p-2`, text `text-xl` → `text-lg`. Card now sits at ~280×370 px (was ~448×640 px, 44% smaller).
+- **Header tagline restored on mobile**: un-hid the `<sm` tagline, tuned sizes so brand (15 px) stays visually dominant over tagline (7.5 px); both truncate gracefully; header `hasOverflow=false` maintained @ 360 w with wallet pill visible.
+- **Native-mobile-app hamburger drawer**: red gradient hero, brand strip top-left, centered avatar with white ring, name + phone + role pill. Wallet button styled as gradient primary CTA. Menu items rendered as iOS-style grouped list (rounded card with dividers, icon squircle, chevron). Two sections: primary nav (Dashboard, Plans, Restaurant, My Account, Admin) + Information (About, Contact, Franchise, Privacy, Refund). Logout as outlined bottom button.
+- **Native-mobile-app My Account page**: red gradient hero at top with `MY ACCOUNT` overline, big centered avatar with camera-fab overlay, name + phone + role pill + verified badge. Body switches to iOS-style grouped-list sections (`SectionLabel` + `FieldRow` helpers): Personal info (name, phone), Photo (mini preview + take-selfie/upload/remove buttons), Delivery address, Privacy zone (delete). Right-aligned inline values inside each row. Sticky primary save button at bottom.
+
+
+
 ## iter-131.19 — 5 dashboard polish fixes (2026-02-14)
 **Status: DONE — bug_testing_agent verdict `fixed` · frontend 100% (bug_verification_105).**
 
