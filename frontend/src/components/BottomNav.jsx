@@ -84,10 +84,19 @@ export default function BottomNav() {
           if (it.to === "__logout__") { onClick = handleLogout; href = null; }
           else if (it.to === "__login__") { href = `/login${nextParam}`; }
           const isActive = href && location.pathname === href.split("?")[0];
-          const className = `flex flex-col items-center justify-center gap-1 py-2.5 px-1 w-full transition-colors min-w-0 ${isActive ? "text-primary" : "text-muted-foreground hover:text-primary"}`;
+          const className = `relative flex flex-col items-center justify-center gap-1 py-2.5 px-1 w-full transition-colors min-w-0 ${isActive ? "text-primary" : "text-muted-foreground hover:text-primary"}`;
           const tid = `bottom-nav-${it.id}`;
           const inner = (
             <>
+              {/* iter-131.21: subtle red dot indicator above the active tab
+                  so users know which page they are on at a glance. */}
+              {isActive && (
+                <span
+                  aria-hidden
+                  className="absolute top-1 h-1 w-1 rounded-full bg-primary"
+                  data-testid={`bottom-nav-active-dot-${it.id}`}
+                />
+              )}
               <Icon className="h-5 w-5 flex-shrink-0" strokeWidth={1.75} />
               <span className="text-[10px] font-bold leading-tight truncate max-w-full block text-center">{it.label}</span>
             </>

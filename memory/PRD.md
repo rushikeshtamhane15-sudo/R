@@ -3,6 +3,16 @@
 > *ghar se achha khana*
 
 
+## iter-131.21 — Bottom nav active dot + mobile-app drawer & Account hub clone (2026-02-14)
+**Status: DONE — hub + drawer + active-dot verified via 2 screenshots and 12 testid checks.**
+
+- **Bottom nav active dot**: `BottomNav.jsx` renders a 1×1 primary-red pill (`data-testid=bottom-nav-active-dot-{id}`) at the top of the active tab so users always know where they are.
+- **Hamburger drawer clone**: red header block with avatar + name + phone, three quick-action tiles (Pass / ₹Wallet / Scan), then five grouped sections styled as rounded white cards with red-tinted icon circles and chevrons: **Eat** (Home—restaurant menu, Subscription plans, Today's mess menu, Tiffin preferences), **My account** (My e-meal pass, My orders, Wallet & transactions, Edit profile, Admin console), **Discover** (Our branches, Become a rider, About efoodcare, Contact us), **Policies** (Privacy, Refund, Terms). Outlined red "Log out" button + `efoodcare · Dining Pass Scan · v1.0` footer.
+- **My Account HUB (`/profile` default view)**: mirrors the pass-scan-mobile screen with sections **Orders & payments** (My orders, Wallet & transactions, Scan & redeem), **Discover** (Our branches, Become a rider, About efoodcare), **Security** (Lock app with fingerprint toggle, persisted in localStorage), **Support** (Contact us, WhatsApp us, Privacy, Refund, Terms). Full-width outlined logout + version footer.
+- **Edit form preserved**: form still opens automatically when profile incomplete, when `?edit=1` is set, or during checkout redirect (`?next=`) — all existing flows keep working.
+
+
+
 ## iter-131.20 — QR ticket shrink + header tagline restored + native My Account & drawer (2026-02-14)
 **Status: DONE — verified visually + measured in DOM on 360w mobile viewport.**
 

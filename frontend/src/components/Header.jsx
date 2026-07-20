@@ -8,7 +8,7 @@ import WalletPill from "./WalletPill";
 import MessSwitcher from "./MessSwitcher";
 import { useBranding } from "../context/BrandingContext";
 import { api } from "../lib/api";
-import { LogOut, Menu, X, Wallet, Home, LayoutDashboard, Package, User as UserIcon, ShieldCheck, Info, Phone, Handshake, Lock, RefreshCw, ChevronRight, Utensils, MapPin } from "lucide-react";
+import { LogOut, Menu, X, Wallet, Home, LayoutDashboard, Package, User as UserIcon, ShieldCheck, Info, Phone, Handshake, Lock, RefreshCw, ChevronRight, Utensils, MapPin, QrCode, Bike, Bell, SlidersHorizontal, Calendar, Store, MessageCircle, FileText, Receipt, ScanLine } from "lucide-react";
 
 const DEFAULT_INFO = [
   { id: "about",      label: "About us",               to: "/about",                    visible: true, icon: Info },
@@ -25,10 +25,26 @@ export default function Header() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const [cmsInfo, setCmsInfo] = useState(null);
+  // iter-131.21: fetch wallet balance for the drawer quick-action tile.
+  // Lightweight — reuses the /my/subscriptions payload the app already fetches.
+  const [walletValue, setWalletValue] = useState(0);
+  const showWallet = user && user.role !== "staff" && user.role !== "admin";
 
   useEffect(() => {
     api.get("/header-menu").then((r) => setCmsInfo(r.data?.items || null)).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!user || !showWallet) return;
+    let cancel = false;
+    api.get("/my/subscriptions").then((r) => {
+      if (cancel) return;
+      const subs = r.data?.subscriptions || [];
+      const total = subs.reduce((sum, s) => sum + (s.wallet_balance || 0), 0);
+      setWalletValue(total);
+    }).catch(() => {});
+    return () => { cancel = true; };
+  }, [user, showWallet]);
 
   // Riders get their own bottom-nav-only chrome — no header / hamburger.
   if (user?.role === "rider") return null;
@@ -55,7 +71,6 @@ export default function Header() {
     primary.push({ to: "/restaurant", label: "Restaurant", icon: Utensils });
   }
   const close = () => setOpen(false);
-  const showWallet = user && user.role !== "staff" && user.role !== "admin";
 
   return (
     <header
@@ -103,141 +118,96 @@ export default function Header() {
                 {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-[86vw] max-w-sm p-0 flex flex-col bg-background" data-testid="menu-drawer">
+            <SheetContent side="right" className="w-[92vw] max-w-md p-0 flex flex-col bg-white" data-testid="menu-drawer">
               <SheetHeader className="sr-only">
                 <SheetTitle>Navigation menu</SheetTitle>
                 <SheetDescription>Navigate to pages, sign in, or log out.</SheetDescription>
               </SheetHeader>
 
-              {/* iter-131.20: native-mobile-app-style header — big centered avatar,
-                  name + role pill, small brand strip in the top-left. */}
+              {/* iter-131.21: mobile-app-style drawer clone.
+                  Top: red block with user avatar + name + phone + close.
+                  Below the head: 3 quick-action tiles (Pass / Wallet / Scan). */}
               <div
-                className="relative px-5 pt-8 pb-6 text-primary-foreground overflow-hidden"
-                style={{
-                  background: "linear-gradient(140deg, #c92626 0%, #a02323 55%, #7a1a1a 100%)",
-                }}
+                className="relative text-primary-foreground overflow-hidden"
+                style={{ background: "linear-gradient(160deg, #d92626 0%, #b32020 100%)" }}
                 data-testid="drawer-brand"
               >
-                <div
-                  aria-hidden
-                  className="pointer-events-none absolute -top-14 -right-14 h-40 w-40 rounded-full opacity-40"
-                  style={{ background: "radial-gradient(circle at center, rgba(255,255,255,0.25) 0%, transparent 70%)" }}
-                />
-                <div className="relative flex items-center gap-2">
-                  <span className="inline-flex items-center justify-center h-8 w-9 rounded bg-white/10 shrink-0 overflow-hidden">
-                    <img src={headerLogoUrl} alt={brandName} className="h-[92%] w-[92%] object-contain" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="font-display font-extrabold text-sm leading-none" data-testid="drawer-brand-name">{brandName}</p>
-                    <p className="text-[8px] tracking-[0.16em] uppercase font-bold text-primary-foreground/80 mt-0.5">{brandTagline}</p>
+                <div className="relative px-5 pt-4 pb-4 flex items-center gap-3">
+                  {user?.photo_url || user?.picture ? (
+                    <img src={user.photo_url || user.picture} alt={user.name} className="h-14 w-14 rounded-full object-cover ring-2 ring-white/40 shadow" data-testid="drawer-user-avatar" />
+                  ) : (
+                    <div className="h-14 w-14 rounded-full bg-white/20 text-white flex items-center justify-center font-display font-extrabold text-xl ring-2 ring-white/40 shadow" data-testid="drawer-user-avatar">
+                      {(user?.name || "G")[0].toUpperCase()}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-display font-extrabold text-xl leading-tight truncate" data-testid="drawer-user-name">{user?.name || "Not signed in"}</p>
+                    {user?.phone && (
+                      <p className="text-sm text-primary-foreground/90 tabular-nums truncate">+91 {(user.phone).replace(/^\+?91/, "")}</p>
+                    )}
                   </div>
                 </div>
 
-                {user ? (
-                  <div className="relative mt-5 flex flex-col items-center text-center" data-testid="drawer-user-block">
-                    {user.photo_url || user.picture ? (
-                      <img src={user.photo_url || user.picture} alt={user.name} className="h-16 w-16 rounded-full object-cover ring-4 ring-white/25 shadow-md" />
-                    ) : (
-                      <div className="h-16 w-16 rounded-full bg-white text-primary flex items-center justify-center font-display font-extrabold text-2xl ring-4 ring-white/25 shadow-md">
-                        {user.name?.[0]?.toUpperCase() || "U"}
-                      </div>
-                    )}
-                    <p className="mt-3 font-display font-extrabold text-lg leading-tight truncate max-w-full" data-testid="drawer-user-name">{user.name || "Guest"}</p>
-                    <p className="text-[10px] mt-1 tracking-[0.16em] uppercase font-bold text-primary-foreground/85">{user.phone || user.role}</p>
-                    <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-white/20 backdrop-blur-sm px-2.5 py-1 text-[9px] tracking-overline uppercase font-extrabold ring-1 ring-white/25">
-                      {user.role}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="relative mt-5 text-center">
-                    <div className="h-16 w-16 mx-auto rounded-full bg-white/20 flex items-center justify-center ring-4 ring-white/25">
-                      <UserIcon className="h-7 w-7 text-white/80" />
-                    </div>
-                    <p className="mt-3 font-display font-extrabold text-lg">Not signed in</p>
-                    <p className="text-[10px] mt-1 tracking-[0.16em] uppercase font-bold text-primary-foreground/80">Sign in to unlock your dashboard</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex-1 overflow-y-auto px-3 py-4 bg-muted/20">
-                {showWallet && (
-                  <div className="mb-3">
+                {user && (
+                  <div className="relative px-5 pb-5 grid grid-cols-3 gap-3" data-testid="drawer-quick-actions">
+                    <QuickTile icon={QrCode} label="Pass" to="/dashboard" onClick={close} testid="drawer-quick-pass" />
                     <WalletPill
                       trigger={
-                        <button
-                          type="button"
-                          data-testid="menu-wallet-button"
-                          className="w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-bold bg-gradient-to-br from-primary to-primary/85 text-primary-foreground shadow-[0_8px_20px_-10px_rgba(160,35,35,0.5),inset_0_1px_0_rgba(255,255,255,0.25)] hover:from-primary/90"
-                        >
-                          <span className="flex items-center gap-2">
-                            <span className="inline-flex h-8 w-8 rounded-lg bg-white/20 items-center justify-center">
-                              <Wallet className="h-4 w-4" />
-                            </span>
-                            My wallet
-                          </span>
-                          <span className="text-[9px] tracking-overline uppercase font-bold flex items-center gap-1 text-primary-foreground/85">
-                            Open <ChevronRight className="h-3 w-3" />
-                          </span>
-                        </button>
+                        <QuickTile icon={Wallet} label={`₹${Math.round(walletValue)}`} onClick={close} testid="drawer-quick-wallet" />
                       }
                     />
+                    <QuickTile icon={ScanLine} label="Scan" to="/self-scan" onClick={close} testid="drawer-quick-scan" />
                   </div>
                 )}
-
-                {/* Menu section — grouped-list style like iOS/Android native app */}
-                <div className="bg-card rounded-2xl overflow-hidden shadow-sm border border-black/5" data-testid="menu-primary">
-                  {primary.map((l, idx) => {
-                    const Icon = l.icon || Home;
-                    const active = location.pathname === l.to;
-                    return (
-                      <Link
-                        key={l.to}
-                        to={l.to}
-                        onClick={close}
-                        data-testid={`menu-${l.label.toLowerCase().replace(/\s/g, "-")}`}
-                        className={`flex items-center gap-3 px-4 py-3 transition-colors ${
-                          active ? "bg-primary/8" : "hover:bg-accent/50"
-                        } ${idx > 0 ? "border-t border-border/60" : ""}`}
-                      >
-                        <span className={`inline-flex h-9 w-9 rounded-xl items-center justify-center shrink-0 ${active ? "bg-primary text-primary-foreground" : "bg-muted text-secondary"}`}>
-                          <Icon className="h-4 w-4" strokeWidth={2} />
-                        </span>
-                        <span className={`flex-1 text-sm font-bold ${active ? "text-primary" : "text-foreground"}`}>{l.label}</span>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                      </Link>
-                    );
-                  })}
-                </div>
-
-                <p className="text-[9px] tracking-[0.16em] uppercase font-extrabold text-muted-foreground px-4 mt-5 mb-2">Information</p>
-                <div className="bg-card rounded-2xl overflow-hidden shadow-sm border border-black/5" data-testid="menu-info">
-                  {info.map((l, idx) => {
-                    const Icon = l.icon || Info;
-                    const active = location.pathname === l.to;
-                    return (
-                      <Link
-                        key={l.to}
-                        to={l.to}
-                        onClick={close}
-                        data-testid={`menu-${l.label.toLowerCase().replace(/\s/g, "-")}`}
-                        className={`flex items-center gap-3 px-4 py-2.5 transition-colors ${
-                          active ? "bg-primary/8" : "hover:bg-accent/50"
-                        } ${idx > 0 ? "border-t border-border/60" : ""}`}
-                      >
-                        <span className={`inline-flex h-8 w-8 rounded-lg items-center justify-center shrink-0 ${active ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
-                          <Icon className="h-3.5 w-3.5" strokeWidth={2} />
-                        </span>
-                        <span className={`flex-1 text-[13px] font-semibold ${active ? "text-primary" : "text-muted-foreground"}`}>{l.label}</span>
-                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
-                      </Link>
-                    );
-                  })}
-                </div>
               </div>
 
-              <div className="px-4 py-3 border-t border-border bg-background">
+              <div className="flex-1 overflow-y-auto px-4 py-4 bg-white space-y-4">
                 {user ? (
-                  <Button onClick={() => { logout(); close(); }} variant="outline" data-testid="logout-button" className="w-full rounded-xl h-11 font-bold text-destructive border-destructive/30 hover:bg-destructive/5">
+                  <>
+                    <MenuSection label="Eat" testid="drawer-section-eat">
+                      <MenuRow icon={Utensils} label="Home — restaurant menu" to="/restaurant" onClick={close} testid="drawer-item-restaurant" />
+                      <MenuRow icon={Bell} label="Subscription plans" to="/plans" onClick={close} testid="drawer-item-plans" />
+                      <MenuRow icon={Calendar} label="Today's mess menu" to="/mess-menu" onClick={close} testid="drawer-item-mess-menu" />
+                      <MenuRow icon={SlidersHorizontal} label="Tiffin preferences" to="/dashboard#tiffin-preferences" onClick={close} testid="drawer-item-tiffin-prefs" />
+                    </MenuSection>
+
+                    <MenuSection label="My account" testid="drawer-section-account">
+                      <MenuRow icon={QrCode} label="My e-meal pass" to="/dashboard" onClick={close} testid="drawer-item-emeal-pass" />
+                      <MenuRow icon={Receipt} label="My orders" to="/orders" onClick={close} testid="drawer-item-orders" />
+                      <WalletPill
+                        trigger={
+                          <MenuRow icon={Wallet} label="Wallet & transactions" onClick={close} testid="drawer-item-wallet-tx" />
+                        }
+                      />
+                      <MenuRow icon={UserIcon} label="Edit profile" to="/profile?edit=1" onClick={close} testid="drawer-item-edit-profile" />
+                      {user.role === "admin" && <MenuRow icon={ShieldCheck} label="Admin console" to="/admin" onClick={close} testid="drawer-item-admin" />}
+                    </MenuSection>
+                  </>
+                ) : (
+                  <MenuSection label="Explore" testid="drawer-section-explore">
+                    <MenuRow icon={Home} label="Home" to="/" onClick={close} testid="drawer-item-home" />
+                    <MenuRow icon={Package} label="Subscription plans" to="/plans" onClick={close} testid="drawer-item-plans" />
+                    <MenuRow icon={Utensils} label="Restaurant menu" to="/restaurant" onClick={close} testid="drawer-item-restaurant" />
+                  </MenuSection>
+                )}
+
+                <MenuSection label="Discover" testid="drawer-section-discover">
+                  <MenuRow icon={Store} label="Our branches" to="/branches" onClick={close} testid="drawer-item-branches" />
+                  <MenuRow icon={Bike} label="Become a rider" to="/become-a-rider" onClick={close} testid="drawer-item-rider" />
+                  <MenuRow icon={Info} label="About efoodcare" to="/about" onClick={close} testid="drawer-item-about" />
+                  <MenuRow icon={Phone} label="Contact us" to="/contact" onClick={close} testid="drawer-item-contact" />
+                </MenuSection>
+
+                <MenuSection label="Policies" testid="drawer-section-policies">
+                  <MenuRow icon={Lock} label="Privacy policy" to="/privacy" onClick={close} testid="drawer-item-privacy" />
+                  <MenuRow icon={RefreshCw} label="Refund policy" to="/refund" onClick={close} testid="drawer-item-refund" />
+                  <MenuRow icon={FileText} label="Terms of service" to="/terms" onClick={close} testid="drawer-item-terms" />
+                </MenuSection>
+              </div>
+
+              <div className="px-4 py-3 border-t border-border bg-white">
+                {user ? (
+                  <Button onClick={() => { logout(); close(); }} variant="outline" data-testid="logout-button" className="w-full rounded-xl h-11 font-bold text-primary border-primary/30 hover:bg-primary/5">
                     <LogOut className="h-4 w-4 mr-2" /> Log out
                   </Button>
                 ) : (
@@ -257,6 +227,9 @@ export default function Header() {
                     <Button className="w-full rounded-xl h-11 font-bold bg-primary hover:bg-primary/90">Sign In</Button>
                   </Link>
                 )}
+                <p className="text-center text-[10px] text-muted-foreground mt-3">
+                  efoodcare · Dining Pass Scan · v1.0
+                </p>
               </div>
             </SheetContent>
           </Sheet>
@@ -265,3 +238,42 @@ export default function Header() {
     </header>
   );
 }
+
+// iter-131.21: mobile-app-clone drawer helpers.
+// QuickTile — one of the 3 top action tiles (Pass / Wallet / Scan).
+const QuickTile = React.forwardRef(function QuickTile({ icon: Icon, label, to, onClick, testid }, ref) {
+  const inner = (
+    <span className="flex flex-col items-center justify-center gap-1.5 h-[74px] rounded-2xl bg-white/15 hover:bg-white/25 backdrop-blur-sm text-white transition-colors ring-1 ring-white/10">
+      <Icon className="h-5 w-5" strokeWidth={2} />
+      <span className="text-xs font-bold tracking-wide truncate max-w-full px-1">{label}</span>
+    </span>
+  );
+  if (to) return <Link ref={ref} to={to} onClick={onClick} data-testid={testid}>{inner}</Link>;
+  return <button ref={ref} type="button" onClick={onClick} data-testid={testid} className="w-full text-left">{inner}</button>;
+});
+
+// MenuSection — grouped-list section with a small overline label above.
+function MenuSection({ label, testid, children }) {
+  return (
+    <div data-testid={testid}>
+      <p className="text-[13px] tracking-wide font-bold text-muted-foreground/90 px-1 mb-2">{label}</p>
+      <div className="space-y-2.5">{children}</div>
+    </div>
+  );
+}
+
+// MenuRow — individual row with icon squircle + label + chevron. iOS/Android
+// card style with a subtle border and soft shadow — matches the mobile app.
+const MenuRow = React.forwardRef(function MenuRow({ icon: Icon, label, to, onClick, testid }, ref) {
+  const inner = (
+    <span className="flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_10px_-6px_rgba(0,0,0,0.06)] hover:bg-accent/40 transition-colors">
+      <span className="inline-flex h-10 w-10 rounded-full bg-primary/8 text-primary items-center justify-center shrink-0">
+        <Icon className="h-4 w-4" strokeWidth={2} />
+      </span>
+      <span className="flex-1 text-[15px] font-bold text-foreground">{label}</span>
+      <ChevronRight className="h-4 w-4 text-muted-foreground/70 shrink-0" />
+    </span>
+  );
+  if (to) return <Link ref={ref} to={to} onClick={onClick} data-testid={testid} className="block">{inner}</Link>;
+  return <button ref={ref} type="button" onClick={onClick} data-testid={testid} className="block w-full text-left">{inner}</button>;
+});

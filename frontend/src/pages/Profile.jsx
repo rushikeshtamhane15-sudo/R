@@ -6,7 +6,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
-import { MapPin, User as UserIcon, Phone, CheckCircle2, Camera, Trash2, AlertTriangle } from "lucide-react";
+import { MapPin, User as UserIcon, Phone, CheckCircle2, Camera, Trash2, AlertTriangle, Receipt as ReceiptIcon, Wallet as WalletIcon, ScanLine as ScanLineIcon, Store as StoreIcon, Bike as BikeIcon, Info as InfoIcon, Fingerprint as FingerprintIcon, Phone as PhoneIcon, MessageCircle as MessageCircleIcon, Lock as LockIcon, RefreshCw as RefreshCwIcon, FileText as FileTextIcon, LogOut as LogOutIcon, ChevronRight as ChevronRightIcon } from "lucide-react";
 import SEO from "../components/SEO";
 
 const MAX_DIM = 720;
@@ -49,7 +49,7 @@ async function compressImage(file) {
 export default function Profile() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, setUser } = useAuth();
+  const { user, setUser, logout } = useAuth();
   const [form, setForm] = useState({ name: "", phone: "", address: "", photo_url: "" });
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef(null);
@@ -125,6 +125,17 @@ export default function Profile() {
 
   const isComplete = user?.name && user?.phone && user?.address && user?.photo_url;
 
+  // iter-131.21: `/profile` acts as a mobile-app-style Account HUB by default.
+  // The full edit form is shown when the URL carries `?edit=1`, when a `next`
+  // redirect target is set (checkout flow), or when the user is missing any
+  // required field (auto-open editor for incomplete profiles).
+  const editMode = new URLSearchParams(location.search).get("edit") === "1"
+    || !!next
+    || (user && (!user.name || !user.phone || !user.address || !user.photo_url));
+
+  if (!editMode) {
+    return <AccountHub user={user} onLogout={() => { logout(); navigate("/"); }} />;
+  }
   return (
     <div className="min-h-screen bg-muted/30 pb-20" data-testid="profile-page">
       <SEO title="My account" path="/profile" includeBusinessSchema={false} description="Manage your efoodcare profile, delivery address and subscription details." />
@@ -336,5 +347,107 @@ function FieldRow({ icon: Icon, label, border, children }) {
       <span className="text-xs font-bold text-muted-foreground shrink-0">{label}</span>
       <div className="flex-1 min-w-0 text-right">{children}</div>
     </div>
+  );
+}
+
+// iter-131.21: Account HUB — mirrors the pass-scan-mobile app's My Account
+// screen. Sections: Orders & payments, Discover, Security, Support, Log out.
+function AccountHub({ user, onLogout }) {
+  const [fingerprint, setFingerprint] = useState(() => {
+    try { return localStorage.getItem("efc_biometric_lock") === "1"; } catch { return false; }
+  });
+  const toggleFingerprint = () => {
+    setFingerprint((v) => {
+      const nv = !v;
+      try { localStorage.setItem("efc_biometric_lock", nv ? "1" : "0"); } catch {}
+      toast.success(nv ? "Fingerprint lock enabled" : "Fingerprint lock disabled");
+      return nv;
+    });
+  };
+
+  return (
+    <div className="min-h-screen bg-muted/20 pb-24" data-testid="account-hub">
+      <SEO title="My account" path="/profile" includeBusinessSchema={false} description="Your efoodcare account." />
+
+      <div className="max-w-md mx-auto px-4 pt-4 space-y-4">
+        <HubSection label="Orders & payments" testid="hub-section-orders">
+          <HubRow icon={ReceiptIcon} label="My orders" to="/orders" testid="hub-row-orders" />
+          <HubRow icon={WalletIcon} label="Wallet & transactions" to="/wallet" testid="hub-row-wallet" />
+          <HubRow icon={ScanLineIcon} label="Scan & redeem" to="/self-scan" testid="hub-row-scan" />
+        </HubSection>
+
+        <HubSection label="Discover" testid="hub-section-discover">
+          <HubRow icon={StoreIcon} label="Our branches" to="/branches" testid="hub-row-branches" />
+          <HubRow icon={BikeIcon} label="Become a rider" to="/become-a-rider" testid="hub-row-rider" />
+          <HubRow icon={InfoIcon} label="About efoodcare" to="/about" testid="hub-row-about" />
+        </HubSection>
+
+        <HubSection label="Security" testid="hub-section-security">
+          <button
+            type="button"
+            onClick={toggleFingerprint}
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-card ring-1 ring-black/5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_10px_-6px_rgba(0,0,0,0.06)] text-left"
+            data-testid="hub-row-fingerprint"
+          >
+            <span className="inline-flex h-10 w-10 rounded-full bg-primary/8 text-primary items-center justify-center shrink-0">
+              <FingerprintIcon className="h-4 w-4" strokeWidth={2} />
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-[15px] font-bold text-foreground leading-tight">Lock app with fingerprint</p>
+              <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">Use Touch ID / Face ID at app launch</p>
+            </div>
+            <span className={`inline-flex h-6 w-11 rounded-full transition-colors shrink-0 ${fingerprint ? "bg-primary" : "bg-muted"}`}>
+              <span className={`h-5 w-5 rounded-full bg-white shadow mt-0.5 transition-transform ${fingerprint ? "translate-x-[22px]" : "translate-x-0.5"}`} />
+            </span>
+          </button>
+        </HubSection>
+
+        <HubSection label="Support" testid="hub-section-support">
+          <HubRow icon={PhoneIcon} label="Contact us" to="/contact" testid="hub-row-contact" />
+          <HubRow icon={MessageCircleIcon} label="WhatsApp us" to="/contact?ch=whatsapp" testid="hub-row-whatsapp" />
+          <HubRow icon={LockIcon} label="Privacy policy" to="/privacy" testid="hub-row-privacy" />
+          <HubRow icon={RefreshCwIcon} label="Refund policy" to="/refund" testid="hub-row-refund" />
+          <HubRow icon={FileTextIcon} label="Terms of service" to="/terms" testid="hub-row-terms" />
+        </HubSection>
+
+        <button
+          type="button"
+          onClick={onLogout}
+          className="w-full h-12 rounded-2xl border-2 border-primary/30 text-primary font-bold flex items-center justify-center gap-2 hover:bg-primary/5 transition-colors mt-2"
+          data-testid="hub-logout"
+        >
+          <LogOutIcon className="h-4 w-4" /> Log out
+        </button>
+
+        <p className="text-center text-[11px] text-muted-foreground mt-3" data-testid="hub-version">
+          efoodcare · Dining Pass Scan · v1.0
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function HubSection({ label, testid, children }) {
+  return (
+    <div data-testid={testid}>
+      <p className="text-[13px] font-bold text-muted-foreground/90 px-1 mb-2">{label}</p>
+      <div className="space-y-2.5">{children}</div>
+    </div>
+  );
+}
+
+function HubRow({ icon: Icon, label, to, testid }) {
+  return (
+    <Link
+      to={to}
+      className="flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-card ring-1 ring-black/5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_10px_-6px_rgba(0,0,0,0.06)] hover:bg-accent/40 transition-colors"
+      data-testid={testid}
+    >
+      <span className="inline-flex h-10 w-10 rounded-full bg-primary/8 text-primary items-center justify-center shrink-0">
+        <Icon className="h-4 w-4" strokeWidth={2} />
+      </span>
+      <span className="flex-1 text-[15px] font-bold text-foreground">{label}</span>
+      <ChevronRightIcon className="h-4 w-4 text-muted-foreground/70 shrink-0" />
+    </Link>
   );
 }
