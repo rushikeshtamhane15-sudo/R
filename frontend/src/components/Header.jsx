@@ -89,17 +89,16 @@ export default function Header() {
           <span
             className="inline-flex items-center justify-center h-9 w-10 sm:h-10 sm:w-12 md:h-12 md:w-14 rounded-md bg-primary shrink-0 overflow-hidden"
             data-testid="brand-logo-frame"
-          >
-            <img
+          >            <img
               src={headerLogoUrl}
               alt={brandName}
               className="h-[92%] w-[92%] object-contain"
               data-testid="brand-logo"
             />
           </span>
-          <div className="flex flex-col justify-center min-w-0 leading-tight overflow-hidden">
-            <span className="font-display font-extrabold text-[15px] sm:text-lg md:text-xl text-primary-foreground leading-[1.1] truncate" data-testid="header-brand-name">{brandName}</span>
-            <span className="text-[7.5px] sm:text-[9px] md:text-[10px] tracking-[0.14em] uppercase font-semibold text-primary-foreground/85 leading-tight mt-0.5 truncate" data-testid="header-tagline">{brandTagline}</span>
+          <div className="flex flex-col justify-center min-w-0 leading-none overflow-hidden">
+            <span className="font-display font-extrabold text-[14px] sm:text-lg md:text-xl text-primary-foreground leading-[1.05] truncate" data-testid="header-brand-name">{brandName}</span>
+            <span className="text-[8px] sm:text-[9px] md:text-[10px] tracking-[0.06em] sm:tracking-[0.14em] uppercase font-semibold text-primary-foreground/90 leading-tight mt-0.5 truncate" data-testid="header-tagline">{brandTagline}</span>
           </div>
         </Link>
 
@@ -118,15 +117,24 @@ export default function Header() {
                 {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-[92vw] max-w-md p-0 flex flex-col bg-white" data-testid="menu-drawer">
+            <SheetContent side="right" className="w-[72vw] max-w-[340px] p-0 flex flex-col bg-white" data-testid="menu-drawer">
               <SheetHeader className="sr-only">
                 <SheetTitle>Navigation menu</SheetTitle>
                 <SheetDescription>Navigate to pages, sign in, or log out.</SheetDescription>
               </SheetHeader>
 
-              {/* iter-131.21: mobile-app-style drawer clone.
-                  Top: red block with user avatar + name + phone + close.
-                  Below the head: 3 quick-action tiles (Pass / Wallet / Scan). */}
+              <button
+                type="button"
+                onClick={close}
+                aria-label="Close menu"
+                data-testid="drawer-close"
+                className="absolute top-3 right-3 z-20 h-9 w-9 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center backdrop-blur-sm ring-1 ring-white/20"
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+              {/* iter-131.22: drawer clone. Top: red block with user avatar +
+                  name + phone. Below the head: 3 quick-action tiles. */}
               <div
                 className="relative text-primary-foreground overflow-hidden"
                 style={{ background: "linear-gradient(160deg, #d92626 0%, #b32020 100%)" }}
@@ -167,13 +175,13 @@ export default function Header() {
                     <MenuSection label="Eat" testid="drawer-section-eat">
                       <MenuRow icon={Utensils} label="Home — restaurant menu" to="/restaurant" onClick={close} testid="drawer-item-restaurant" />
                       <MenuRow icon={Bell} label="Subscription plans" to="/plans" onClick={close} testid="drawer-item-plans" />
-                      <MenuRow icon={Calendar} label="Today's mess menu" to="/mess-menu" onClick={close} testid="drawer-item-mess-menu" />
-                      <MenuRow icon={SlidersHorizontal} label="Tiffin preferences" to="/dashboard#tiffin-preferences" onClick={close} testid="drawer-item-tiffin-prefs" />
+                      <MenuRow icon={Calendar} label="Today&apos;s mess menu" to="/dashboard" onClick={close} testid="drawer-item-mess-menu" />
+                      <MenuRow icon={SlidersHorizontal} label="Tiffin preferences" to="/dashboard" onClick={close} testid="drawer-item-tiffin-prefs" />
                     </MenuSection>
 
                     <MenuSection label="My account" testid="drawer-section-account">
                       <MenuRow icon={QrCode} label="My e-meal pass" to="/dashboard" onClick={close} testid="drawer-item-emeal-pass" />
-                      <MenuRow icon={Receipt} label="My orders" to="/orders" onClick={close} testid="drawer-item-orders" />
+                      <MenuRow icon={Receipt} label="My orders" to="/restaurant/orders" onClick={close} testid="drawer-item-orders" />
                       <WalletPill
                         trigger={
                           <MenuRow icon={Wallet} label="Wallet & transactions" onClick={close} testid="drawer-item-wallet-tx" />
@@ -192,7 +200,7 @@ export default function Header() {
                 )}
 
                 <MenuSection label="Discover" testid="drawer-section-discover">
-                  <MenuRow icon={Store} label="Our branches" to="/branches" onClick={close} testid="drawer-item-branches" />
+                  <MenuRow icon={Store} label="Our branches" to="/" onClick={close} testid="drawer-item-branches" />
                   <MenuRow icon={Bike} label="Become a rider" to="/become-a-rider" onClick={close} testid="drawer-item-rider" />
                   <MenuRow icon={Info} label="About efoodcare" to="/about" onClick={close} testid="drawer-item-about" />
                   <MenuRow icon={Phone} label="Contact us" to="/contact" onClick={close} testid="drawer-item-contact" />
@@ -201,7 +209,7 @@ export default function Header() {
                 <MenuSection label="Policies" testid="drawer-section-policies">
                   <MenuRow icon={Lock} label="Privacy policy" to="/privacy" onClick={close} testid="drawer-item-privacy" />
                   <MenuRow icon={RefreshCw} label="Refund policy" to="/refund" onClick={close} testid="drawer-item-refund" />
-                  <MenuRow icon={FileText} label="Terms of service" to="/terms" onClick={close} testid="drawer-item-terms" />
+                  <MenuRow icon={FileText} label="Terms of service" to="/privacy" onClick={close} testid="drawer-item-terms" />
                 </MenuSection>
               </div>
 

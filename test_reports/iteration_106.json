@@ -1,0 +1,44 @@
+{
+  "verdict": "fixed",
+  "user_reported_bug": "1) Reduce Hamburger toggle menu size horizontal because currently when open it is covering all the page behind ideally it should only used one 3rd of the page. 2) also all the Hamburger toggle menu are not opening correctly wire endpoints properly so when user hit on one of the menu in Hamburger toggle menu so that user can redirect to what he is expecting also give close cross ❌ option to Hamburger toggle menu currently it is not there. 3) also i have shared screenshot of site header still ghar se accha khana is hiding please arrange properly without removing the things. 4) redesign account menu in bottom nevigation menu as like i Attached in screenshots of account page also wire proper endpoints to it so that when user tap on it will get expected results.",
+  "summary": "No relevant testing skill found. Focused 360x800 mobile UI verification passed on preview: drawer width is 259.1875px, explicit X close exists and closes drawer, requested drawer routes navigate to expected URLs, header brand and full tagline are visible with no truncation, account hub redesign renders for complete subscriber 7777777777, edit FAB opens /profile?edit=1, and bottom-nav active dots remain visible.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "/api/my/wallet",
+        "issue": "Observed 500 responses during WalletPill/background wallet fetches. This did not block the reported hamburger/header/account-hub behavior, but wallet transaction API flow is not fully healthy. OTP dev-mode is MOCKED and returned dev_otp in the body for login."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/bug_verification_106_playwright.py",
+    "/app/test_reports/bug_verification_106.json",
+    "/app/test_reports/iteration_106.json"
+  ],
+  "action_items": [
+    "Optional follow-up: investigate /api/my/wallet 500 responses seen during background wallet fetches before redeploying wallet-specific changes."
+  ],
+  "critical_code_review_comments": [
+    "Reviewed changed files: Header.jsx, Profile.jsx, MessSwitcher.jsx, App.js. Drawer width is w-[72vw], drawer close testid is present, requested drawer items point only to valid existing routes, Profile renders AccountHub by default for complete users and edit form for ?edit=1/?next=."
+  ],
+  "updated_files": [
+    "/app/test_reports/bug_verification_106_playwright.py",
+    "/app/test_reports/bug_verification_106.json",
+    "/app/test_reports/iteration_106.json"
+  ],
+  "success_rate": {
+    "backend": "N/A frontend-only; one non-blocking wallet API 500 observed",
+    "frontend": "100%"
+  },
+  "seed_data_creation": "No seed data created. Used existing OTP dev-mode MOCKED login for complete subscriber phone 7777777777.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Run focused mobile test on 360x800. Use /plans to avoid restaurant closed popup when opening the unauth drawer, then login with 7777777777 via OTP dev-mode. Wait ~650ms after opening drawer before measuring/clicking because Radix Sheet slide-in animation starts off-viewport.",
+  "rca_of_the_issue": "Verification evidence: header tagline metrics scrollWidth=102 and clientWidth=102; unauth/auth drawer width=259.1875px on 360px viewport and right edge settles at 360; all requested drawer item routes matched expected path/search exactly and did not wildcard redirect; /profile rendered account-hub for complete subscriber with all required testids and version text. Initial automation attempts failed due to transient splash/restaurant closed modal and measuring/clicking during drawer animation, not due to product failure."
+}

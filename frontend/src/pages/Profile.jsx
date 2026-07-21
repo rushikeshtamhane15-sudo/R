@@ -6,7 +6,8 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
-import { MapPin, User as UserIcon, Phone, CheckCircle2, Camera, Trash2, AlertTriangle, Receipt as ReceiptIcon, Wallet as WalletIcon, ScanLine as ScanLineIcon, Store as StoreIcon, Bike as BikeIcon, Info as InfoIcon, Fingerprint as FingerprintIcon, Phone as PhoneIcon, MessageCircle as MessageCircleIcon, Lock as LockIcon, RefreshCw as RefreshCwIcon, FileText as FileTextIcon, LogOut as LogOutIcon, ChevronRight as ChevronRightIcon } from "lucide-react";
+import { MapPin, User as UserIcon, Phone, CheckCircle2, Camera, Trash2, AlertTriangle, Receipt as ReceiptIcon, Wallet as WalletIcon, ScanLine as ScanLineIcon, Store as StoreIcon, Bike as BikeIcon, Info as InfoIcon, Fingerprint as FingerprintIcon, Phone as PhoneIcon, MessageCircle as MessageCircleIcon, Lock as LockIcon, RefreshCw as RefreshCwIcon, FileText as FileTextIcon, LogOut as LogOutIcon, ChevronRight as ChevronRightIcon, Pencil as PencilIcon, QrCode as QrCodeIcon, MapPin as MapPinIcon, Gift as GiftIcon, Banknote as BanknoteIcon, Star as StarIcon, Newspaper as NewspaperIcon, ChefHat as ChefHatIcon, Bell as BellIcon, SlidersHorizontal as SlidersIcon } from "lucide-react";
+import WalletPill from "../components/WalletPill";
 import SEO from "../components/SEO";
 
 const MAX_DIM = 720;
@@ -350,12 +351,26 @@ function FieldRow({ icon: Icon, label, border, children }) {
   );
 }
 
-// iter-131.21: Account HUB — mirrors the pass-scan-mobile app's My Account
-// screen. Sections: Orders & payments, Discover, Security, Support, Log out.
+// iter-131.22: Account HUB — mirrors the pass-scan-mobile app screenshots
+// exactly. Structure: "My account" title + edit fab, hero card (avatar + name
+// + phone), 2 big square tiles (E-MEAL PASS · WALLET), then grouped sections
+// My subscription → Orders & payments → Discover → Security → Support → Log
+// out → version footer.
 function AccountHub({ user, onLogout }) {
+  const navigate = useNavigate();
+  const [walletBalance, setWalletBalance] = useState(0);
   const [fingerprint, setFingerprint] = useState(() => {
     try { return localStorage.getItem("efc_biometric_lock") === "1"; } catch { return false; }
   });
+  useEffect(() => {
+    let cancel = false;
+    api.get("/my/subscriptions").then((r) => {
+      if (cancel) return;
+      const subs = r.data?.subscriptions || [];
+      setWalletBalance(subs.reduce((s, x) => s + (x.wallet_balance || 0), 0));
+    }).catch(() => {});
+    return () => { cancel = true; };
+  }, []);
   const toggleFingerprint = () => {
     setFingerprint((v) => {
       const nv = !v;
@@ -366,18 +381,78 @@ function AccountHub({ user, onLogout }) {
   };
 
   return (
-    <div className="min-h-screen bg-muted/20 pb-24" data-testid="account-hub">
+    <div className="min-h-screen bg-muted/10 pb-24" data-testid="account-hub">
       <SEO title="My account" path="/profile" includeBusinessSchema={false} description="Your efoodcare account." />
 
-      <div className="max-w-md mx-auto px-4 pt-4 space-y-4">
+      <div className="max-w-md mx-auto px-4 pt-5 space-y-5">
+        <div className="flex items-center justify-between">
+          <h1 className="font-display font-extrabold text-3xl">My account</h1>
+          <button
+            type="button"
+            onClick={() => navigate("/profile?edit=1")}
+            className="h-11 w-11 rounded-full ring-1 ring-black/10 bg-white flex items-center justify-center hover:bg-accent/50"
+            aria-label="Edit profile"
+            data-testid="hub-edit-fab"
+          >
+            <PencilIcon className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Hero card — avatar + name + phone */}
+        <div className="rounded-2xl bg-white ring-1 ring-black/5 p-4 flex items-center gap-4 shadow-[0_4px_12px_-6px_rgba(0,0,0,0.08)]" data-testid="hub-hero-card">
+          {user?.photo_url || user?.picture ? (
+            <img src={user.photo_url || user.picture} alt={user.name} className="h-16 w-16 rounded-full object-cover" />
+          ) : (
+            <div className="h-16 w-16 rounded-full bg-primary text-white flex items-center justify-center font-display font-extrabold text-2xl" data-testid="hub-hero-avatar">
+              {(user?.name || "G")[0].toUpperCase()}
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="font-display font-extrabold text-xl leading-tight truncate" data-testid="hub-hero-name">{user?.name || "Guest"}</p>
+            {user?.phone && <p className="text-sm text-muted-foreground mt-0.5 tabular-nums">+91 {(user.phone).replace(/^\+?91/, "")}</p>}
+          </div>
+        </div>
+
+        {/* Two big tiles: E-MEAL PASS · WALLET */}
+        <div className="grid grid-cols-2 gap-3" data-testid="hub-big-tiles">
+          <Link to="/dashboard" className="rounded-2xl bg-white ring-1 ring-black/5 p-4 shadow-[0_4px_12px_-6px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-transform" data-testid="hub-tile-emeal">
+            <QrCodeIcon className="h-6 w-6 text-primary" strokeWidth={2} />
+            <p className="mt-2 text-[10px] tracking-[0.14em] uppercase font-extrabold text-muted-foreground">E-Meal Pass</p>
+            <p className="font-display font-extrabold text-2xl mt-1">View</p>
+          </Link>
+          <WalletPill
+            trigger={
+              <button type="button" className="text-left rounded-2xl bg-white ring-1 ring-black/5 p-4 shadow-[0_4px_12px_-6px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-transform w-full" data-testid="hub-tile-wallet">
+                <WalletIcon className="h-6 w-6 text-primary" strokeWidth={2} />
+                <p className="mt-2 text-[10px] tracking-[0.14em] uppercase font-extrabold text-muted-foreground">Wallet</p>
+                <p className="font-display font-extrabold text-2xl mt-1 tabular-nums">₹{Math.round(walletBalance).toLocaleString("en-IN")}</p>
+              </button>
+            }
+          />
+        </div>
+
+        <HubSection label="My subscription" testid="hub-section-subscription">
+          <HubRow icon={QrCodeIcon} label="My e-meal pass" to="/dashboard" testid="hub-row-emeal" />
+          <HubRow icon={ReceiptIcon} label="Order history" to="/restaurant/orders" testid="hub-row-history" />
+          <HubRow icon={MapPinIcon} label="Address book" to="/profile?edit=1" testid="hub-row-address" />
+          <HubRow icon={WalletIcon} label="Wallet & top-up" to="/dashboard" testid="hub-row-wallet-top" />
+          <HubRow icon={GiftIcon} label="Refer & earn" to="/contact?subject=refer" testid="hub-row-refer" />
+          <HubRow icon={BanknoteIcon} label="Request refund" to="/contact?subject=refund" testid="hub-row-refund-req" />
+          <HubRow icon={StarIcon} label="Rate your meals" to="/contact?subject=rate" testid="hub-row-rate" />
+          <HubRow icon={NewspaperIcon} label="Blog" to="/about" testid="hub-row-blog" />
+          <HubRow icon={ChefHatIcon} label="Today&apos;s mess menu" to="/dashboard" testid="hub-row-mess-menu" />
+          <HubRow icon={BellIcon} label="Subscription plans" to="/plans" testid="hub-row-plans" />
+          <HubRow icon={SlidersIcon} label="Tiffin preferences" to="/dashboard" testid="hub-row-tiffin-prefs" />
+        </HubSection>
+
         <HubSection label="Orders & payments" testid="hub-section-orders">
-          <HubRow icon={ReceiptIcon} label="My orders" to="/orders" testid="hub-row-orders" />
-          <HubRow icon={WalletIcon} label="Wallet & transactions" to="/wallet" testid="hub-row-wallet" />
+          <HubRow icon={ReceiptIcon} label="My orders" to="/restaurant/orders" testid="hub-row-orders" />
+          <HubRow icon={WalletIcon} label="Wallet & transactions" to="/dashboard" testid="hub-row-wallet" />
           <HubRow icon={ScanLineIcon} label="Scan & redeem" to="/self-scan" testid="hub-row-scan" />
         </HubSection>
 
         <HubSection label="Discover" testid="hub-section-discover">
-          <HubRow icon={StoreIcon} label="Our branches" to="/branches" testid="hub-row-branches" />
+          <HubRow icon={StoreIcon} label="Our branches" to="/" testid="hub-row-branches" />
           <HubRow icon={BikeIcon} label="Become a rider" to="/become-a-rider" testid="hub-row-rider" />
           <HubRow icon={InfoIcon} label="About efoodcare" to="/about" testid="hub-row-about" />
         </HubSection>
@@ -407,7 +482,7 @@ function AccountHub({ user, onLogout }) {
           <HubRow icon={MessageCircleIcon} label="WhatsApp us" to="/contact?ch=whatsapp" testid="hub-row-whatsapp" />
           <HubRow icon={LockIcon} label="Privacy policy" to="/privacy" testid="hub-row-privacy" />
           <HubRow icon={RefreshCwIcon} label="Refund policy" to="/refund" testid="hub-row-refund" />
-          <HubRow icon={FileTextIcon} label="Terms of service" to="/terms" testid="hub-row-terms" />
+          <HubRow icon={FileTextIcon} label="Terms of service" to="/privacy" testid="hub-row-terms" />
         </HubSection>
 
         <button
