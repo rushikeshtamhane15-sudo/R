@@ -3,6 +3,19 @@
 > *ghar se achha khana*
 
 
+## iter-131.22 — Drawer trim + X close + tagline fit + fuller Account hub (2026-02-14)
+**Status: DONE — bug_testing_agent verdict `fixed` · frontend 100% (bug_verification_106).**
+
+- **Drawer width trimmed**: `w-[92vw] max-w-md` → `w-[72vw] max-w-[340px]`. Measured 259 px on a 360 w viewport (72 % of screen, ~one-third of the page still visible behind).
+- **Explicit X close button**: circular white/15 button top-right of the drawer red header (`data-testid=drawer-close`) so users always have a visible way to close.
+- **All drawer menu items wired to valid routes**: `/restaurant`, `/plans`, `/dashboard`, `/restaurant/orders`, `/profile?edit=1`, `/become-a-rider`, `/about`, `/contact`, `/privacy`, `/refund`, `/admin`. `Wallet & transactions` still uses `WalletPill` for the drawer. No more dead-links.
+- **Header tagline fits without truncation** @ 360 w: tighter tracking `0.06em` on mobile, smaller MessSwitcher pill max-width `68 px`, brand text `14 px`. "Ghar se achha khana" now shows in full alongside the pills without wrapping.
+- **Account hub matches the pass-scan-mobile screenshots**: hero card with avatar/name/phone + pencil edit fab (`/profile?edit=1`), two big square tiles (E-Meal Pass · Wallet with live balance), then 5 grouped sections — **My subscription** (11 rows incl. e-meal pass, order history, address book, wallet & top-up, refer & earn, request refund, rate your meals, blog, today&apos;s mess menu, subscription plans, tiffin preferences), **Orders & payments**, **Discover**, **Security** (fingerprint toggle persisted in localStorage), **Support** (contact, WhatsApp, privacy, refund, terms). Outlined logout button + `efoodcare · Dining Pass Scan · v1.0` footer.
+
+Minor unrelated (deferred): `/api/my/wallet` 500 flagged again — background fetch, non-blocking, hub still shows subscription-derived wallet balance.
+
+
+
 ## iter-131.21 — Bottom nav active dot + mobile-app drawer & Account hub clone (2026-02-14)
 **Status: DONE — hub + drawer + active-dot verified via 2 screenshots and 12 testid checks.**
 
