@@ -370,11 +370,11 @@ export default function SubscriberDashboard() {
         />
       ) : (
         <div className="grid lg:grid-cols-5 gap-3 md:gap-4">
-          <div className="lg:col-span-3 space-y-3 md:space-y-4">
+          <div className="lg:col-span-3 max-w-[280px] mx-auto lg:max-w-none lg:mx-0 w-full space-y-3 md:space-y-4">
             {heroSection}
           </div>
 
-          <div className="lg:col-span-2 space-y-3 md:space-y-4">
+          <div className="lg:col-span-2 max-w-[280px] mx-auto lg:max-w-none lg:mx-0 w-full space-y-3 md:space-y-4">
             {orderedSide.map((s) => {
               switch (s.id) {
                 case "wallet": return <React.Fragment key={s.id}>{walletSection}</React.Fragment>;

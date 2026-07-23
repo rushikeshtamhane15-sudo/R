@@ -8,7 +8,7 @@ import WalletPill from "./WalletPill";
 import MessSwitcher from "./MessSwitcher";
 import { useBranding } from "../context/BrandingContext";
 import { api } from "../lib/api";
-import { LogOut, Menu, X, Wallet, Home, LayoutDashboard, Package, User as UserIcon, ShieldCheck, Info, Phone, Handshake, Lock, RefreshCw, ChevronRight, Utensils, MapPin, QrCode, Bike, Bell, SlidersHorizontal, Calendar, Store, MessageCircle, FileText, Receipt, ScanLine } from "lucide-react";
+import { LogOut, Menu, X, Wallet, Home, LayoutDashboard, Package, User as UserIcon, ShieldCheck, Info, Phone, Handshake, Lock, RefreshCw, ChevronRight, Utensils, MapPin, QrCode, Bike, Bell, SlidersHorizontal, Calendar, Store, MessageCircle, Receipt, ScanLine } from "lucide-react";
 
 const DEFAULT_INFO = [
   { id: "about",      label: "About us",               to: "/about",                    visible: true, icon: Info },
@@ -80,10 +80,10 @@ export default function Header() {
       {/* iter-131.13: SINGLE-ROW header again. Sizes reduced enough that the
           full brand cluster + Amravati + ₹9,999 wallet + menu button all fit
           on a 360-wide screen without wrapping or truncation. */}
-      <div className="max-w-7xl mx-auto flex items-center justify-between px-2 sm:px-3 md:px-8 lg:px-12 py-2 md:py-3 gap-1.5 sm:gap-3">
+      <div className="max-w-7xl mx-auto flex items-center justify-between px-2 sm:px-3 md:px-8 lg:px-12 py-2 md:py-3 gap-1 sm:gap-3">
         <Link
           to="/"
-          className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 overflow-hidden"
+          className="flex items-center gap-1 sm:gap-2 min-w-0 flex-1 overflow-hidden"
           data-testid="logo-link"
         >
           <span
@@ -98,11 +98,11 @@ export default function Header() {
           </span>
           <div className="flex flex-col justify-center min-w-0 leading-none overflow-hidden">
             <span className="font-display font-extrabold text-[14px] sm:text-lg md:text-xl text-primary-foreground leading-[1.05] truncate" data-testid="header-brand-name">{brandName}</span>
-            <span className="text-[8px] sm:text-[9px] md:text-[10px] tracking-[0.06em] sm:tracking-[0.14em] uppercase font-semibold text-primary-foreground/90 leading-tight mt-0.5 truncate" data-testid="header-tagline">{brandTagline}</span>
+            <span className="text-[7px] sm:text-[9px] md:text-[10px] tracking-[0.04em] sm:tracking-[0.14em] uppercase font-semibold text-primary-foreground/90 leading-tight mt-0.5 truncate" data-testid="header-tagline">{brandTagline}</span>
           </div>
         </Link>
 
-        <div className="flex items-center gap-1 md:gap-2 shrink-0 whitespace-nowrap">
+        <div className="flex items-center gap-0.5 md:gap-2 shrink-0 whitespace-nowrap">
           <MessSwitcher variant="pill" />
           {showWallet && <WalletPill compact />}
           <Sheet open={open} onOpenChange={setOpen}>
@@ -140,24 +140,24 @@ export default function Header() {
                 style={{ background: "linear-gradient(160deg, #d92626 0%, #b32020 100%)" }}
                 data-testid="drawer-brand"
               >
-                <div className="relative px-5 pt-4 pb-4 flex items-center gap-3">
+                <div className="relative px-4 pt-4 pb-3 flex items-center gap-3">
                   {user?.photo_url || user?.picture ? (
-                    <img src={user.photo_url || user.picture} alt={user.name} className="h-14 w-14 rounded-full object-cover ring-2 ring-white/40 shadow" data-testid="drawer-user-avatar" />
+                    <img src={user.photo_url || user.picture} alt={user.name} className="h-12 w-12 rounded-full object-cover ring-2 ring-white/40 shadow" data-testid="drawer-user-avatar" />
                   ) : (
-                    <div className="h-14 w-14 rounded-full bg-white/20 text-white flex items-center justify-center font-display font-extrabold text-xl ring-2 ring-white/40 shadow" data-testid="drawer-user-avatar">
+                    <div className="h-12 w-12 rounded-full bg-white/20 text-white flex items-center justify-center font-display font-extrabold text-lg ring-2 ring-white/40 shadow" data-testid="drawer-user-avatar">
                       {(user?.name || "G")[0].toUpperCase()}
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="font-display font-extrabold text-xl leading-tight truncate" data-testid="drawer-user-name">{user?.name || "Not signed in"}</p>
+                    <p className="font-display font-extrabold text-lg leading-tight truncate" data-testid="drawer-user-name">{user?.name || "Not signed in"}</p>
                     {user?.phone && (
-                      <p className="text-sm text-primary-foreground/90 tabular-nums truncate">+91 {(user.phone).replace(/^\+?91/, "")}</p>
+                      <p className="text-xs text-primary-foreground/90 tabular-nums truncate">+91 {(user.phone).replace(/^\+?91/, "")}</p>
                     )}
                   </div>
                 </div>
 
                 {user && (
-                  <div className="relative px-5 pb-5 grid grid-cols-3 gap-3" data-testid="drawer-quick-actions">
+                  <div className="relative px-4 pb-4 grid grid-cols-3 gap-2" data-testid="drawer-quick-actions">
                     <QuickTile icon={QrCode} label="Pass" to="/dashboard" onClick={close} testid="drawer-quick-pass" />
                     <WalletPill
                       trigger={
@@ -169,7 +169,7 @@ export default function Header() {
                 )}
               </div>
 
-              <div className="flex-1 overflow-y-auto px-4 py-4 bg-white space-y-4">
+              <div className="flex-1 overflow-y-auto px-3 py-3 bg-white space-y-3">
                 {user ? (
                   <>
                     <MenuSection label="Eat" testid="drawer-section-eat">
@@ -200,7 +200,7 @@ export default function Header() {
                 )}
 
                 <MenuSection label="Discover" testid="drawer-section-discover">
-                  <MenuRow icon={Store} label="Our branches" to="/" onClick={close} testid="drawer-item-branches" />
+                  <MenuRow icon={Store} label="Our branches" to="/contact" onClick={close} testid="drawer-item-branches" />
                   <MenuRow icon={Bike} label="Become a rider" to="/become-a-rider" onClick={close} testid="drawer-item-rider" />
                   <MenuRow icon={Info} label="About efoodcare" to="/about" onClick={close} testid="drawer-item-about" />
                   <MenuRow icon={Phone} label="Contact us" to="/contact" onClick={close} testid="drawer-item-contact" />
@@ -209,13 +209,12 @@ export default function Header() {
                 <MenuSection label="Policies" testid="drawer-section-policies">
                   <MenuRow icon={Lock} label="Privacy policy" to="/privacy" onClick={close} testid="drawer-item-privacy" />
                   <MenuRow icon={RefreshCw} label="Refund policy" to="/refund" onClick={close} testid="drawer-item-refund" />
-                  <MenuRow icon={FileText} label="Terms of service" to="/privacy" onClick={close} testid="drawer-item-terms" />
                 </MenuSection>
               </div>
 
-              <div className="px-4 py-3 border-t border-border bg-white">
+              <div className="px-3 py-2.5 border-t border-border bg-white">
                 {user ? (
-                  <Button onClick={() => { logout(); close(); }} variant="outline" data-testid="logout-button" className="w-full rounded-xl h-11 font-bold text-primary border-primary/30 hover:bg-primary/5">
+                  <Button onClick={() => { logout(); close(); }} variant="outline" data-testid="logout-button" className="w-full rounded-xl h-10 font-bold text-primary border-primary/30 hover:bg-primary/5">
                     <LogOut className="h-4 w-4 mr-2" /> Log out
                   </Button>
                 ) : (
@@ -232,10 +231,10 @@ export default function Header() {
                     }}
                     data-testid="menu-login-link"
                   >
-                    <Button className="w-full rounded-xl h-11 font-bold bg-primary hover:bg-primary/90">Sign In</Button>
+                    <Button className="w-full rounded-xl h-10 font-bold bg-primary hover:bg-primary/90">Sign In</Button>
                   </Link>
                 )}
-                <p className="text-center text-[10px] text-muted-foreground mt-3">
+                <p className="text-center text-[9px] text-muted-foreground mt-2">
                   efoodcare · Dining Pass Scan · v1.0
                 </p>
               </div>
@@ -251,9 +250,9 @@ export default function Header() {
 // QuickTile — one of the 3 top action tiles (Pass / Wallet / Scan).
 const QuickTile = React.forwardRef(function QuickTile({ icon: Icon, label, to, onClick, testid }, ref) {
   const inner = (
-    <span className="flex flex-col items-center justify-center gap-1.5 h-[74px] rounded-2xl bg-white/15 hover:bg-white/25 backdrop-blur-sm text-white transition-colors ring-1 ring-white/10">
-      <Icon className="h-5 w-5" strokeWidth={2} />
-      <span className="text-xs font-bold tracking-wide truncate max-w-full px-1">{label}</span>
+    <span className="flex flex-col items-center justify-center gap-1 h-[60px] rounded-2xl bg-white/15 hover:bg-white/25 backdrop-blur-sm text-white transition-colors ring-1 ring-white/10">
+      <Icon className="h-4 w-4" strokeWidth={2} />
+      <span className="text-[10px] font-bold tracking-wide truncate max-w-full px-1">{label}</span>
     </span>
   );
   if (to) return <Link ref={ref} to={to} onClick={onClick} data-testid={testid}>{inner}</Link>;
@@ -264,8 +263,8 @@ const QuickTile = React.forwardRef(function QuickTile({ icon: Icon, label, to, o
 function MenuSection({ label, testid, children }) {
   return (
     <div data-testid={testid}>
-      <p className="text-[13px] tracking-wide font-bold text-muted-foreground/90 px-1 mb-2">{label}</p>
-      <div className="space-y-2.5">{children}</div>
+      <p className="text-[11px] tracking-wide font-bold text-muted-foreground/90 px-1 mb-1.5 uppercase">{label}</p>
+      <div className="space-y-1.5">{children}</div>
     </div>
   );
 }
@@ -274,12 +273,12 @@ function MenuSection({ label, testid, children }) {
 // card style with a subtle border and soft shadow — matches the mobile app.
 const MenuRow = React.forwardRef(function MenuRow({ icon: Icon, label, to, onClick, testid }, ref) {
   const inner = (
-    <span className="flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_10px_-6px_rgba(0,0,0,0.06)] hover:bg-accent/40 transition-colors">
-      <span className="inline-flex h-10 w-10 rounded-full bg-primary/8 text-primary items-center justify-center shrink-0">
-        <Icon className="h-4 w-4" strokeWidth={2} />
+    <span className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white ring-1 ring-black/5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_10px_-6px_rgba(0,0,0,0.06)] hover:bg-accent/40 transition-colors">
+      <span className="inline-flex h-7 w-7 rounded-full bg-primary/8 text-primary items-center justify-center shrink-0">
+        <Icon className="h-3.5 w-3.5" strokeWidth={2} />
       </span>
-      <span className="flex-1 text-[15px] font-bold text-foreground">{label}</span>
-      <ChevronRight className="h-4 w-4 text-muted-foreground/70 shrink-0" />
+      <span className="flex-1 text-[13px] font-bold text-foreground leading-tight">{label}</span>
+      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />
     </span>
   );
   if (to) return <Link ref={ref} to={to} onClick={onClick} data-testid={testid} className="block">{inner}</Link>;

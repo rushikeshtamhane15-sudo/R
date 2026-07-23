@@ -105,11 +105,11 @@ export default function WalletPill({ trigger, alwaysShow = false, compact = fals
           <button
             type="button"
             data-testid="wallet-pill"
-            className={`flex items-center gap-1 rounded-full bg-white/15 hover:bg-white/25 active:bg-white/30 transition-colors border border-white/30 text-primary-foreground whitespace-nowrap ${compact ? "px-2.5 py-1" : "px-3.5 py-2"}`}
+            className={`flex items-center gap-1 rounded-full bg-white/15 hover:bg-white/25 active:bg-white/30 transition-colors border border-white/30 text-primary-foreground whitespace-nowrap ${compact ? "px-1.5 py-0.5" : "px-3.5 py-2"}`}
           >
-            <Wallet className={compact ? "h-3.5 w-3.5" : "h-4 w-4"} strokeWidth={2} />
-            <span className={`font-display font-bold flex items-center ${compact ? "text-xs" : "text-sm"}`} data-testid="wallet-pill-balance">
-              <IndianRupee className={compact ? "h-2.5 w-2.5" : "h-3 w-3"} strokeWidth={2.5} />
+            <Wallet className={compact ? "h-3 w-3" : "h-4 w-4"} strokeWidth={2} />
+            <span className={`font-display font-bold flex items-center ${compact ? "text-[11px]" : "text-sm"}`} data-testid="wallet-pill-balance">
+              <IndianRupee className={compact ? "h-2 w-2" : "h-3 w-3"} strokeWidth={2.5} />
               {balanceDisplay.toLocaleString("en-IN")}
             </span>
           </button>
