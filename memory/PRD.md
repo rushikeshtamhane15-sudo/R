@@ -2737,3 +2737,26 @@ Real name updates flow through `POST /auth/profile`, which writes the row direct
 - New name input is restricted to letters + spaces/hyphens/apostrophes/dots.
 
 
+
+
+---
+
+## iter-131.23 — P0 UI/UX mobile fixes (2026-02-23)
+
+Four user-reported bugs on 360w mobile view — all certified fixed by `bug_testing_agent`.
+
+### Fixes
+- **Hamburger drawer sized down**: `Header.jsx` — QuickTile h-74→h-60, icon h-5→h-4, text-xs→text-[10px]; MenuRow py-3.5→py-2.5, squircle h-10→h-7, icon h-4→h-3.5, label text-[15px]→text-[13px]; section label text-[13px]→text-[11px]; drawer body py-4→py-3, px-4→px-3; user header px-5→px-4, avatar h-14→h-12; log-out h-11→h-10; footer version text-[10px]→text-[9px].
+- **Wallet ↔ Meal-pass alignment**: `SubscriberDashboard.jsx` — both `lg:col-span-3` (hero/QRTicket) and `lg:col-span-2` (wallet + side) wrapped with `max-w-[280px] mx-auto lg:max-w-none lg:mx-0 w-full` so mobile stack is 280px centered end-to-end.
+- **Header tagline & Amravati pill no longer truncated**: `MessSwitcher.jsx` max-w-[68px]→max-w-[80px], h-7→h-6, gap-1→gap-0.5, px-1.5→px-1. `WalletPill.jsx` compact px-2.5→px-1.5, py-1→py-0.5, wallet icon h-3.5→h-3, IndianRupee h-2.5→h-2, text-xs→text-[11px]. `Header.jsx` container gap-1.5→gap-1, action cluster gap-1→gap-0.5, tagline text-[8px]→text-[7px] / tracking-[0.06em]→tracking-[0.04em] on mobile.
+- **Drawer routes corrected**: `Header.jsx` — `drawer-item-branches` `/` → `/contact`; removed `drawer-item-terms` (was wrongly pointing at `/privacy`); removed unused `FileText` import.
+
+### Verified evidence (from `bug_verification_107.json`)
+- Tagline scrollWidth/clientWidth: 86/86 (no clip). Amravati span: 47/47 (no clip).
+- QR meal-pass and wallet card both measure 280px wide, centered at cx=180 on 360w.
+- Drawer metrics: icon squircle 28px, menu label 13px, section label 11px, quick tile 60px.
+- All 13 requested drawer routes verified live from `/dashboard`.
+
+### Known Minor Follow-up (deferred per user choice — option b)
+- `/api/my/wallet` 500 (`KeyError: last_tick_date` in `catch_up_subscription`) for seeded/legacy subscriptions. Non-blocking — dashboard reads from `/api/my/subscriptions`. Deferred until user asks.
+
