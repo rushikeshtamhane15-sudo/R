@@ -127,12 +127,12 @@ export default function Profile() {
   const isComplete = user?.name && user?.phone && user?.address && user?.photo_url;
 
   // iter-131.21: `/profile` acts as a mobile-app-style Account HUB by default.
-  // The full edit form is shown when the URL carries `?edit=1`, when a `next`
-  // redirect target is set (checkout flow), or when the user is missing any
-  // required field (auto-open editor for incomplete profiles).
+  // The full edit form is shown when the URL carries `?edit=1` or when a `next`
+  // redirect target is set (checkout flow). iter-131.24: incomplete profiles
+  // used to auto-open the editor — now they see the Hub with an amber banner
+  // so the CTA is explicit ("Complete now →" → /profile?edit=1).
   const editMode = new URLSearchParams(location.search).get("edit") === "1"
-    || !!next
-    || (user && (!user.name || !user.phone || !user.address || !user.photo_url));
+    || !!next;
 
   if (!editMode) {
     return <AccountHub user={user} onLogout={() => { logout(); navigate("/"); }} />;

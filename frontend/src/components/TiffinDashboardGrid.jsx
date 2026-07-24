@@ -87,7 +87,7 @@ export default function TiffinDashboardGrid({
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-[280px] sm:max-w-none mx-auto sm:mx-0" data-testid="tiffin-dashboard-grid">
       {/* Row 1 — Active plan hero (full width) */}
       <div
-        className={`${TILE_BASE} col-span-2 text-primary-foreground bg-primary`}
+        className={`${TILE_BASE} col-span-1 sm:col-span-2 text-primary-foreground bg-primary`}
         style={TILE_SHADOW_PRIMARY}
         data-testid="tile-active-plan"
       >
@@ -162,7 +162,7 @@ export default function TiffinDashboardGrid({
       </div>
 
       {/* Row 3 — Today's delivery status (full width) */}
-      <div className={`${TILE_BASE} col-span-2`} style={TILE_SHADOW} data-testid="tile-today-meal">
+      <div className={`${TILE_BASE} col-span-1 sm:col-span-2`} style={TILE_SHADOW} data-testid="tile-today-meal">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 text-primary">
             <Package className="h-3.5 w-3.5" />
@@ -177,10 +177,10 @@ export default function TiffinDashboardGrid({
       </div>
 
       {/* Row 4 — Delivery time (full width) */}
-      <div className="col-span-2" data-testid="tile-delivery-time-slot">{deliveryTimeSlot}</div>
+      <div className="col-span-1 sm:col-span-2" data-testid="tile-delivery-time-slot">{deliveryTimeSlot}</div>
 
       {/* Row 5 — Tiffin preferences (full width) */}
-      <div className="col-span-2" data-testid="tile-preferences-slot">{preferencesSlot}</div>
+      <div className="col-span-1 sm:col-span-2" data-testid="tile-preferences-slot">{preferencesSlot}</div>
 
       {/* Row 6 — QR identity + Attendance (2-col) */}
       <div className={`${TILE_BASE} flex flex-col items-center text-center`} style={TILE_SHADOW} data-testid="tile-qr">

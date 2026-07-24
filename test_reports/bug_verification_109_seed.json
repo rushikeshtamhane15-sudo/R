@@ -1,0 +1,20 @@
+{
+  "run": "iter109",
+  "base": "https://dining-pass-scan.preview.emergentagent.com",
+  "users": {
+    "incomplete": "user_iter109_incomplete",
+    "complete": "user_iter109_complete",
+    "tiffin": "user_iter109_tiffin"
+  },
+  "tokens": {
+    "incomplete": "test_iter109_incomplete_23f394d1ac03",
+    "complete": "test_iter109_complete_97095136c87f",
+    "tiffin": "test_iter109_tiffin_33c13e625261"
+  },
+  "serviceability": {
+    "dispatch_lat": 18.5204,
+    "dispatch_lng": 73.8567,
+    "dispatch_radius_km": 12.0
+  },
+  "first_plan_id": "classic_60"
+}
