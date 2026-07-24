@@ -2760,3 +2760,33 @@ Four user-reported bugs on 360w mobile view — all certified fixed by `bug_test
 ### Known Minor Follow-up (deferred per user choice — option b)
 - `/api/my/wallet` 500 (`KeyError: last_tick_date` in `catch_up_subscription`) for seeded/legacy subscriptions. Non-blocking — dashboard reads from `/api/my/subscriptions`. Deferred until user asks.
 
+
+
+---
+
+## iter-131.24 — 7-task batch (2026-02-24)
+
+Certified via `bug_testing_agent` (bug_verification_108 + bug_verification_109 — verdict: fixed).
+
+### Backend
+- **`/api/my/wallet` 500 → 200**: `server.py` `catch_up_subscription` now backfills a missing `last_tick_date` from `start_date` (or today) and persists it. Also coerces BSON `datetime` `start_date` to string before slicing so legacy docs stop raising `TypeError`.
+- **Bottom-nav CMS default (subscriber)**: `routes/app_cms.py::DEFAULT_BOTTOM_NAV['subscriber']` replaced with 5-item Home / Restaurant / Scan / Subscribe / Profile. Cleared persisted override in `app_config.bottom_nav` so new defaults take effect.
+
+### Frontend
+- **New `/wallet` page** (`pages/WalletPage.jsx`): full-page transactions history with per-plan slider, balance card, back-to-dashboard link. `TxnRow` exported from `WalletPill.jsx`. Route added in `App.js`. All wallet entry points now navigate here: header pill (`WalletPill` no-trigger variant is a `<Link to="/wallet">`), drawer quick tile & "Wallet & transactions" row, AccountHub `hub-tile-wallet` and `hub-row-wallet`/`hub-row-wallet-top`.
+- **Drawer wider**: `Header.jsx` `SheetContent` `w-[72vw] max-w-[340px]` → `w-[82vw] max-w-[380px]`.
+- **Header logo + tagline bumped**: brand `text-[14px] sm:text-lg md:text-xl` → `text-base sm:text-lg md:text-xl`; tagline `text-[7px]` → `text-[8.5px]`, tracking widened. Compensated by shrinking `MessSwitcher` pill (`max-w-[80px] h-6` → `max-w-[72px] h-6`, text-[9px]) and `WalletPill` compact stayed slim.
+- **Tiffin dashboard = Dining alignment**: `TiffinDashboardGrid.jsx` outer grid `grid-cols-2` → `grid-cols-1 sm:grid-cols-2 max-w-[280px] sm:max-w-none mx-auto`; every wide tile `col-span-2` → `col-span-1 sm:col-span-2` so a single-column stack forms at mobile.
+- **Bottom-nav center floating circle**: `BottomNav.jsx` — for a 5-item subscriber nav, the middle (Scan) tab renders as a big elevated red circle (`h-14 w-14 rounded-full bg-primary absolute -top-5 shadow ring-4 ring-background`) matching the target mobile-app UI.
+- **Account page redesign + gating** (`Profile.jsx`):
+  - Removed auto-open of edit form when profile incomplete — incomplete users now see AccountHub with an amber `hub-incomplete-banner` + `hub-incomplete-cta` "Complete now →".
+  - Existing checkout gate still works: `/plans` → Subscribe with incomplete profile → `/profile?next=/checkout/{planId}` (edit form opens with checkout redirect).
+  - Redesigned edit form: `profile-progress` meter (X/4 fields) at top; Personal info + Photo + Delivery address consolidated into ONE bordered card with clean section headers instead of separate cards.
+  - Fixed hub links: `hub-row-branches` `/` → `/contact`; removed `hub-row-terms` (was wrongly pointing at `/privacy`); wallet rows/tile now → `/wallet`.
+
+### Known Follow-up (deferred)
+- P1: Turn meal-streak tile into real reward (7-day = ₹50 credit, 30-day badge)
+- P2: `useEffect` exhaustive-deps cleanup (~200 warnings)
+- P2: Split PRD.md into PRD / CHANGELOG / ROADMAP
+- Blocked: Acko insurance, Paytm Business QR
+
