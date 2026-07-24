@@ -47,6 +47,7 @@ import StaffDispatch from "./pages/StaffDispatch";
 import Plans from "./pages/Plans";
 import Checkout from "./pages/Checkout";
 import Profile from "./pages/Profile";
+import WalletPage from "./pages/WalletPage";
 import Kiosk from "./pages/Kiosk";
 import SelfScan from "./pages/SelfScan";
 import Contact from "./pages/Contact";
@@ -148,6 +149,7 @@ function AppRoutes() {
           <Route path="/become-a-rider" element={<RequireAuth><BecomeARider /></RequireAuth>} />
           <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
           <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
+          <Route path="/wallet" element={<RequireAuth><WalletPage /></RequireAuth>} />
           <Route path="/plans" element={<Plans />} />
           <Route path="/checkout/:planId" element={<RequireAuth><Checkout /></RequireAuth>} />
           <Route path="/self-scan" element={<RequireAuth><SelfScan /></RequireAuth>} />

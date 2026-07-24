@@ -120,7 +120,7 @@ export default function MessSwitcher({ variant = "pill" }) {
   if (variant === "pill") {
     return (
       <div
-        className="inline-flex items-center gap-0.5 rounded-full bg-white/15 text-white px-1 h-6 text-[10px] font-extrabold tracking-wide max-w-[80px] sm:max-w-[160px] select-none"
+        className="inline-flex items-center gap-0.5 rounded-full bg-white/15 text-white px-1 h-6 text-[9px] font-extrabold tracking-wide max-w-[72px] sm:max-w-[160px] select-none"
         data-testid="mess-switcher-pill"
         title={current?.name}
         aria-label={`Branch ${current?.city || current?.name}`}

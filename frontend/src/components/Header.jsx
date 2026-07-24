@@ -97,8 +97,8 @@ export default function Header() {
             />
           </span>
           <div className="flex flex-col justify-center min-w-0 leading-none overflow-hidden">
-            <span className="font-display font-extrabold text-[14px] sm:text-lg md:text-xl text-primary-foreground leading-[1.05] truncate" data-testid="header-brand-name">{brandName}</span>
-            <span className="text-[7px] sm:text-[9px] md:text-[10px] tracking-[0.04em] sm:tracking-[0.14em] uppercase font-semibold text-primary-foreground/90 leading-tight mt-0.5 truncate" data-testid="header-tagline">{brandTagline}</span>
+            <span className="font-display font-extrabold text-base sm:text-lg md:text-xl text-primary-foreground leading-[1.05] truncate" data-testid="header-brand-name">{brandName}</span>
+            <span className="text-[8.5px] sm:text-[9px] md:text-[10px] tracking-[0.05em] sm:tracking-[0.14em] uppercase font-semibold text-primary-foreground/90 leading-tight mt-0.5 truncate" data-testid="header-tagline">{brandTagline}</span>
           </div>
         </Link>
 
@@ -117,7 +117,7 @@ export default function Header() {
                 {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-[72vw] max-w-[340px] p-0 flex flex-col bg-white" data-testid="menu-drawer">
+            <SheetContent side="right" className="w-[82vw] max-w-[380px] p-0 flex flex-col bg-white" data-testid="menu-drawer">
               <SheetHeader className="sr-only">
                 <SheetTitle>Navigation menu</SheetTitle>
                 <SheetDescription>Navigate to pages, sign in, or log out.</SheetDescription>
@@ -159,11 +159,7 @@ export default function Header() {
                 {user && (
                   <div className="relative px-4 pb-4 grid grid-cols-3 gap-2" data-testid="drawer-quick-actions">
                     <QuickTile icon={QrCode} label="Pass" to="/dashboard" onClick={close} testid="drawer-quick-pass" />
-                    <WalletPill
-                      trigger={
-                        <QuickTile icon={Wallet} label={`₹${Math.round(walletValue)}`} onClick={close} testid="drawer-quick-wallet" />
-                      }
-                    />
+                    <QuickTile icon={Wallet} label={`₹${Math.round(walletValue)}`} to="/wallet" onClick={close} testid="drawer-quick-wallet" />
                     <QuickTile icon={ScanLine} label="Scan" to="/self-scan" onClick={close} testid="drawer-quick-scan" />
                   </div>
                 )}
@@ -182,11 +178,7 @@ export default function Header() {
                     <MenuSection label="My account" testid="drawer-section-account">
                       <MenuRow icon={QrCode} label="My e-meal pass" to="/dashboard" onClick={close} testid="drawer-item-emeal-pass" />
                       <MenuRow icon={Receipt} label="My orders" to="/restaurant/orders" onClick={close} testid="drawer-item-orders" />
-                      <WalletPill
-                        trigger={
-                          <MenuRow icon={Wallet} label="Wallet & transactions" onClick={close} testid="drawer-item-wallet-tx" />
-                        }
-                      />
+                      <MenuRow icon={Wallet} label="Wallet & transactions" to="/wallet" onClick={close} testid="drawer-item-wallet-tx" />
                       <MenuRow icon={UserIcon} label="Edit profile" to="/profile?edit=1" onClick={close} testid="drawer-item-edit-profile" />
                       {user.role === "admin" && <MenuRow icon={ShieldCheck} label="Admin console" to="/admin" onClick={close} testid="drawer-item-admin" />}
                     </MenuSection>

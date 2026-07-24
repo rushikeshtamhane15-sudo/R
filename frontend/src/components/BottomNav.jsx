@@ -75,8 +75,8 @@ export default function BottomNav() {
       className={`${visibilityCls} fixed bottom-0 inset-x-0 z-30 bg-background border-t border-border shadow-[0_-4px_12px_rgba(0,0,0,0.04)]`}
       data-testid="bottom-nav"
     >
-      <ul className="flex w-full">
-        {items.map((it) => {
+      <ul className="flex w-full items-end">
+        {items.map((it, idx) => {
           const Icon = ICON_MAP[it.icon] || ChefHat;
           // Special routes
           let href = it.to;
@@ -84,8 +84,33 @@ export default function BottomNav() {
           if (it.to === "__logout__") { onClick = handleLogout; href = null; }
           else if (it.to === "__login__") { href = `/login${nextParam}`; }
           const isActive = href && location.pathname === href.split("?")[0];
-          const className = `relative flex flex-col items-center justify-center gap-1 py-2.5 px-1 w-full transition-colors min-w-0 ${isActive ? "text-primary" : "text-muted-foreground hover:text-primary"}`;
+          // iter-131.24: for a 5-item subscriber nav, the center item (index 2)
+          // is rendered as a big elevated floating red circle so it stands out
+          // as the primary CTA (Scan & eat) — matches the target mobile-app UI.
+          const isFloating = role === "subscriber" && items.length === 5 && idx === 2;
           const tid = `bottom-nav-${it.id}`;
+
+          if (isFloating) {
+            const inner = (
+              <>
+                <span className="absolute -top-5 h-14 w-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-[0_6px_16px_rgba(220,38,38,0.45),0_2px_4px_rgba(0,0,0,0.15)] ring-4 ring-background" aria-hidden>
+                  <Icon className="h-6 w-6" strokeWidth={2.25} />
+                </span>
+                <span className={`text-[10px] font-bold leading-tight mt-9 ${isActive ? "text-primary" : "text-muted-foreground"}`}>{it.label}</span>
+              </>
+            );
+            return (
+              <li key={it.id} className="flex-1 min-w-0">
+                {onClick ? (
+                  <button type="button" onClick={onClick} data-testid={tid} className="relative flex flex-col items-center justify-end py-2 pt-3 w-full">{inner}</button>
+                ) : (
+                  <Link to={href} data-testid={tid} className="relative flex flex-col items-center justify-end py-2 pt-3 w-full">{inner}</Link>
+                )}
+              </li>
+            );
+          }
+
+          const className = `relative flex flex-col items-center justify-center gap-1 py-2.5 px-1 w-full transition-colors min-w-0 ${isActive ? "text-primary" : "text-muted-foreground hover:text-primary"}`;
           const inner = (
             <>
               {/* iter-131.21: subtle red dot indicator above the active tab

@@ -21,10 +21,11 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 DEFAULT_BOTTOM_NAV: dict = {
     "subscriber": [
-        {"id": "restaurant", "label": "Restaurant",   "icon": "ChefHat",         "to": "/restaurant",        "visible": True},
-        {"id": "orders",     "label": "Orders",       "icon": "Receipt",         "to": "/restaurant/orders", "visible": True},
-        {"id": "dashboard",  "label": "Dashboard",    "icon": "LayoutDashboard", "to": "/dashboard",         "visible": True},
-        {"id": "account",    "label": "Account",      "icon": "User",            "to": "/profile",           "visible": True},
+        {"id": "home",       "label": "Home",       "icon": "Home",            "to": "/dashboard",         "visible": True},
+        {"id": "restaurant", "label": "Restaurant", "icon": "ChefHat",         "to": "/restaurant",        "visible": True},
+        {"id": "scan",       "label": "Scan",       "icon": "ScanLine",        "to": "/self-scan",         "visible": True},
+        {"id": "subscribe",  "label": "Subscribe",  "icon": "Bell",            "to": "/plans",             "visible": True},
+        {"id": "profile",    "label": "Profile",    "icon": "User",            "to": "/profile",           "visible": True},
     ],
     "rider": [
         {"id": "dashboard",  "label": "Dashboard",    "icon": "Bike",            "to": "/rider",         "visible": True},

@@ -1,0 +1,85 @@
+{
+  "verdict": "not_fixed",
+  "user_reported_bug": "7 tasks from the user: (1) Fix /api/my/wallet 500 for legacy subs; (2) Add /wallet transaction history page; (3) Increase hamburger drawer width slightly; (4) Increase efoodcare logo text and tagline slightly without disturbing other header elements; (5) Match tiffin dashboard container widths/heights to dining dashboard; (6) Redesign account page to look cleaner + enforce profile completion before subscribe/checkout; (7) Restructure subscriber bottom nav to Home | Restaurant | Scan(big floating red circle center) | Subscribe(bell icon) | Profile.",
+  "summary": "No relevant testing skill found. Focused API/UI testing found tasks 1, 2, 3, 4, and 7 mostly working, but the full bug is NOT fixed because task 5 tiffin mobile grid is not a single-column stack and task 6 account-hub incomplete-profile banner/CTA does not render on /profile for incomplete users. The required 9333333333 user is also incomplete in preview DB, so /profile opens the edit form instead of AccountHub.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "/api/my/wallet",
+        "issue": "Returned 200 for required dining user and for a seeded legacy subscription missing last_tick_date; last_tick_date was backfilled. Note: preview DB user_54f9acc2eb0a has user wallet_balance -100 and missing address/photo, contrary to review credentials stating complete profile/wallet 2707."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "TiffinDashboardGrid",
+        "issue": "At 360px mobile, grid is not a single-column stack. Computed gridTemplateColumns was '27px 241px'; wallet/QR tiles rendered as a tiny 34px first-column tile plus a 241px second tile because col-span-2 children create an implicit second column under grid-cols-1.",
+        "selector": "[data-testid=\"tiffin-dashboard-grid\"]",
+        "priority": "HIGH"
+      },
+      {
+        "component": "Profile AccountHub",
+        "issue": "Incomplete users visiting /profile do not see the requested amber 'Complete your profile' hub banner or CTA. The page auto-opens edit mode instead (profile-progress/profile-form-card visible; account-hub/hub-incomplete-banner count 0).",
+        "selector": "[data-testid=\"hub-incomplete-banner\"], [data-testid=\"hub-incomplete-cta\"]",
+        "priority": "HIGH"
+      },
+      {
+        "component": "Profile AccountHub for required 9333333333 user",
+        "issue": "Required dining subscriber 9333333333 is not actually profile-complete in preview DB (address/photo missing), so /profile renders the edit form and not AccountHub; this fails task 6(a) as written for the provided credential.",
+        "selector": "[data-testid=\"account-hub\"]",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Profile completion gate from /plans",
+        "issue": "Redirect to /profile?next=/checkout/premium_60 was confirmed only with a JS-triggered button click after seeding serviceability cache. Regular Playwright click did not trigger navigation in two attempts, so main agent should self-test a real tap on the Subscribe button at mobile width.",
+        "affected_selectors": ["[data-testid^=\"subscribe-button-\"]", "[data-testid=\"profile-progress\"]"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "Tiffin dashboard mobile",
+        "issues": [
+          "Expected max-w-[280px] single-column centered stack matching dining dashboard; actual mobile layout still creates two columns for non-col-span tiles."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/tests/bug_verification_108_setup_and_api.py",
+    "/app/tests/bug_verification_108_seed_complete_user.py",
+    "/app/tests/bug_verification_108_db_probe.py",
+    "/app/test_reports/bug_verification_108_setup_api_results.json"
+  ],
+  "action_items": [
+    "Fix TiffinDashboardGrid mobile spans: full-width items should use responsive col-span (e.g. col-span-1 sm:col-span-2) so grid-cols-1 remains a true one-column stack at <640px.",
+    "Change /profile behavior for incomplete users to render AccountHub with hub-incomplete-banner and hub-incomplete-cta by default; CTA can navigate to /profile?edit=1. Do not auto-open edit mode unless edit=1 or next is present if the requested UX is a hub banner.",
+    "Update/seed required test subscriber 9333333333 with address and photo_url if it is meant to represent a completed profile, or adjust the credential note. Currently task 6(a) fails for that user.",
+    "Self-test mobile /plans Subscribe tap with a missing-profile user; ensure a normal tap redirects to /profile?next=/checkout/... without requiring JS-triggered click."
+  ],
+  "critical_code_review_comments": [
+    "Profile.jsx editMode includes `(user && (!user.name || !user.phone || !user.address || !user.photo_url))`, which makes the newly added AccountHub incomplete banner unreachable for incomplete users on /profile.",
+    "TiffinDashboardGrid.jsx keeps many children as `col-span-2`; with parent `grid-cols-1`, Tailwind CSS grid auto-placement creates implicit columns, so mobile is not one column."
+  ],
+  "updated_files": [
+    "/app/tests/bug_verification_108_setup_and_api.py",
+    "/app/tests/bug_verification_108_seed_complete_user.py",
+    "/app/tests/bug_verification_108_db_probe.py",
+    "/app/tests/bug_verification_108_ui_plan.py",
+    "/app/test_reports/bug_verification_108_setup_api_results.json",
+    "/app/test_reports/bug_verification_108.json",
+    "/app/test_reports/iteration_108.json"
+  ],
+  "success_rate": {
+    "backend": "90%",
+    "frontend": "65%"
+  },
+  "seed_data_creation": "Created temporary test users/sessions/subscriptions with test_run=iter108: user_iter108_legacy (legacy missing last_tick_date), user_iter108_incomplete (missing address/photo), user_iter108_tiffin (active tiffin sub), user_iter108_complete (complete AccountHub probe). Also created auth sessions for required user_54f9acc2eb0a.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "API evidence: /my/wallet 200 for user_54f9acc2eb0a and seeded legacy missing last_tick_date; /bottom-nav returns Home/Restaurant/Scan/Subscribe/Profile. UI evidence: header brand font 16px, tagline 8.5px, wallet pill href /wallet; drawer width 295px at 360 viewport in isolated probe; wallet page renders. Not fixed: tiffin grid computed columns 27px 241px at 360; incomplete /profile renders edit form not hub banner; required 9333333333 lacks address/photo in DB.",
+  "rca_of_the_issue": "Two regressions remain: responsive grid spans were changed only on the parent, not on col-span-2 children; and Profile.jsx routes incomplete users directly to edit mode, bypassing the AccountHub incomplete-profile banner that was added."
+}

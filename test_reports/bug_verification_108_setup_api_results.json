@@ -1,0 +1,365 @@
+{
+  "base": "https://dining-pass-scan.preview.emergentagent.com",
+  "tokens": {
+    "dining": "test_iter108_dining_90c6c4ab9d",
+    "legacy": "test_iter108_legacy_7985450846",
+    "incomplete": "test_iter108_incomplete_660bbb83fc",
+    "tiffin": "test_iter108_tiffin_2a217d4847"
+  },
+  "users": {
+    "dining": "user_54f9acc2eb0a",
+    "legacy": "user_iter108_legacy",
+    "incomplete": "user_iter108_incomplete",
+    "tiffin": "user_iter108_tiffin"
+  },
+  "checks": [
+    {
+      "name": "dining /my/wallet returns 200",
+      "status": 200,
+      "ok": true,
+      "body_excerpt": {
+        "wallet_balance": -100.0,
+        "subscription": {
+          "status": "active",
+          "user_id": "user_54f9acc2eb0a",
+          "amount_paid": 2800,
+          "created_at": "2026-07-23T05:23:57.938000",
+          "end_date": "2026-08-20T05:23:57.938000",
+          "meals_total": 56,
+          "meals_used": 4,
+          "paused_days": 0,
+          "per_day_amount": 100,
+          "plan_id": "premium_60",
+          "plan_name": "Premium Dining",
+          "service_type": "dining",
+          "start_date": "2026-07-23T05:23:57.944000",
+          "sub_id": "sub_test_dining_tf6zhn5l",
+          "user_paused": false,
+          "wallet_balance": 2607.0,
+          "mess_id": "efoodcare-amravati",
+          "last_tick_date": "2026-07-25"
+        },
+        "per_day_amount": 100,
+        "paused_days": 0,
+        "inactivity_threshold_days": 3
+      }
+    },
+    {
+      "name": "legacy missing last_tick /my/wallet returns 200",
+      "status": 200,
+      "ok": true,
+      "body_excerpt": {
+        "wallet_balance": 1300.0,
+        "subscription": {
+          "sub_id": "sub_iter108_legacy_missing_tick",
+          "user_id": "user_iter108_legacy",
+          "plan_id": "premium_60",
+          "plan_name": "Legacy Dining Missing Tick",
+          "amount_paid": 1400.0,
+          "plan_amount": 1400.0,
+          "pending_amount": 0,
+          "currency": "INR",
+          "meals_total": 30,
+          "meals_used": 4,
+          "wallet_balance": 1300.0,
+          "per_day_amount": 50.0,
+          "start_date": "2026-07-23T20:14:03.999088+00:00",
+          "end_date": "2026-08-13T20:14:03.999088+00:00",
+          "paused_days": 0,
+          "status": "active",
+          "service_type": "dining",
+          "plan_type": "kiosk",
+          "category": "dining",
+          "user_paused": false,
+          "created_at": "2026-07-23T20:14:03.999088+00:00",
+          "test_run": "iter108",
+          "last_tick_date": "2026-07-25"
+        },
+        "per_day_amount": 50.0,
+        "paused_days": 0,
+        "inactivity_threshold_days": 3
+      }
+    },
+    {
+      "name": "wallet transactions returns 200",
+      "status": 200,
+      "ok": true,
+      "body_excerpt": {
+        "transactions": [
+          {
+            "txn_id": "wtxn_070a88c9c0c6",
+            "user_id": "user_54f9acc2eb0a",
+            "sub_id": "sub_test_dining_tf6zhn5l",
+            "type": "debit",
+            "amount": 100.0,
+            "balance_after": 2607.0,
+            "reason": "Daily deduction \u00b7 2026-07-25 \u00b7 2 meals \u00b7 active",
+            "date_str": "2026-07-25",
+            "created_at": "2026-07-24T20:10:08.748840+00:00"
+          }
+        ]
+      }
+    },
+    {
+      "name": "bottom nav runtime config",
+      "status": 200,
+      "ok": true,
+      "body_excerpt": {
+        "subscriber": [
+          {
+            "id": "home",
+            "label": "Home",
+            "icon": "Home",
+            "to": "/dashboard",
+            "visible": true
+          },
+          {
+            "id": "restaurant",
+            "label": "Restaurant",
+            "icon": "ChefHat",
+            "to": "/restaurant",
+            "visible": true
+          },
+          {
+            "id": "scan",
+            "label": "Scan",
+            "icon": "ScanLine",
+            "to": "/self-scan",
+            "visible": true
+          },
+          {
+            "id": "subscribe",
+            "label": "Subscribe",
+            "icon": "Bell",
+            "to": "/plans",
+            "visible": true
+          },
+          {
+            "id": "profile",
+            "label": "Profile",
+            "icon": "User",
+            "to": "/profile",
+            "visible": true
+          }
+        ],
+        "rider": [
+          {
+            "id": "dashboard",
+            "label": "Dashboard",
+            "icon": "Bike",
+            "to": "/rider",
+            "visible": true
+          },
+          {
+            "id": "contact",
+            "label": "Contact",
+            "icon": "Phone",
+            "to": "/contact",
+            "visible": true
+          },
+          {
+            "id": "logout",
+            "label": "Logout",
+            "icon": "LogOut",
+            "to": "__logout__",
+            "visible": true
+          },
+          {
+            "id": "account",
+            "label": "Account",
+            "icon": "User",
+            "to": "/rider/account",
+            "visible": true
+          }
+        ],
+        "guest": [
+          {
+            "id": "restaurant",
+            "label": "Restaurant",
+            "icon": "ChefHat",
+            "to": "/restaurant",
+            "visible": true
+          },
+          {
+            "id": "subscription",
+            "label": "Plans",
+            "icon": "Home",
+            "to": "/home",
+            "visible": true
+          },
+          {
+            "id": "contact",
+            "label": "Contact",
+            "icon": "Phone",
+            "to": "/contact",
+            "visible": true
+          },
+          {
+            "id": "login",
+            "label": "Login",
+            "icon": "LogIn",
+            "to": "__login__",
+            "visible": true
+          }
+        ],
+        "franchise": [
+          {
+            "id": "fr-home",
+            "label": "Home",
+            "icon": "Home",
+            "to": "/",
+            "visible": true
+          },
+          {
+            "id": "fr-dashboard",
+            "label": "Dashboard",
+            "icon": "LayoutDashboard",
+            "to": "/admin",
+            "visible": true
+          },
+          {
+            "id": "fr-control",
+            "label": "Control",
+            "icon": "Radio",
+            "to": "/admin/control-tower",
+            "visible": true
+          },
+          {
+            "id": "fr-account",
+            "label": "Account",
+            "icon": "User",
+            "to": "/profile",
+            "visible": true
+          },
+          {
+            "id": "fr-logout",
+            "label": "Logout",
+            "icon": "LogOut",
+            "to": "__logout__",
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "plans available",
+      "status": 200,
+      "ok": true,
+      "body_excerpt": {
+        "plans": [
+          {
+            "plan_id": "classic_60",
+            "name": "Classic Full Tiffin",
+            "description": "Full home-style tiffin \u2014 5 chapati + sabzi/dal/rice, delivered twice daily \u00b7 28 days",
+            "amount": 2600.0,
+            "currency": "INR",
+            "duration_days": 28,
+            "meals": 56,
+            "active": true,
+            "sort_order": 2,
+            "created_at": "2026-05-05T07:05:25.642254+00:00",
+            "updated_at": "2026-07-02T05:08:00.256200+00:00",
+            "plan_type": "delivery",
+            "tiffin_size": "full",
+            "tiffins_per_day": 2,
+            "service_type": "tiffin",
+            "_migrated_at": "iter-129",
+            "_migrated_from_30d": true
+          },
+          {
+            "plan_id": "saver_60",
+            "name": "Classic Half Tiffin",
+            "description": "Lighter portion tiffin \u2014 3 chapati + sabzi/dal, delivered twice daily \u00b7 28 days",
+            "amount": 1800.0,
+            "currency": "INR",
+            "duration_days": 28,
+            "meals": 56,
+            "active": true,
+            "sort_order": 3,
+            "created_at": "2026-05-05T07:05:25.643082+00:00",
+            "updated_at": "2026-07-02T05:08:00.256856+00:00",
+            "plan_type": "delivery",
+            "tiffin_size": "half",
+            "tiffins_per_day": 2,
+            "service_type": "tiffin",
+            "_migrated_at": "iter-129",
+            "_migrated_from_30d": true
+          },
+          {
+            "plan_id": "premium_60",
+            "name": "Premium Dining",
+            "description": "Eat at our hall \u00b7 56 home-style meals across 28 days \u00b7 scan QR at counter",
+            "amount": 2800.0,
+            "currency": "INR",
+            "duration_days": 28,
+            "meals": 56,
+            "active": true,
+            "sort_order": 10,
+            "created_at": "2026-05-05T07:05:25.628753+00:00",
+            "updated_at": "2026-07-19T19:22:16.347757+00:00",
+            "plan_type": "kiosk",
+            "tiffins_per_day": 0,
+            "service_type": "dining",
+            "_migrated_at": "iter-129",
+            "_migrated_from_30d": true,
+            "category": "dining",
+            "meal_window": "both",
+            "features_extra": [],
+            "features_extra_v2": null,
+            "features_override": null,
+            "features_override_v2": null,
+            "hero_image_url": null
+          }
+        ]
+      }
+    }
+  ],
+  "dining_wallet": {
+    "wallet_balance": -100.0,
+    "sub_id": "sub_test_dining_tf6zhn5l",
+    "last_tick_date": "2026-07-25"
+  },
+  "legacy_backfill": {
+    "start_date": "2026-07-23T20:14:03.999088+00:00",
+    "last_tick_date": "2026-07-25"
+  },
+  "dining_txn_count": 1,
+  "subscriber_bottom_nav": [
+    {
+      "id": "home",
+      "label": "Home",
+      "icon": "Home",
+      "to": "/dashboard",
+      "visible": true
+    },
+    {
+      "id": "restaurant",
+      "label": "Restaurant",
+      "icon": "ChefHat",
+      "to": "/restaurant",
+      "visible": true
+    },
+    {
+      "id": "scan",
+      "label": "Scan",
+      "icon": "ScanLine",
+      "to": "/self-scan",
+      "visible": true
+    },
+    {
+      "id": "subscribe",
+      "label": "Subscribe",
+      "icon": "Bell",
+      "to": "/plans",
+      "visible": true
+    },
+    {
+      "id": "profile",
+      "label": "Profile",
+      "icon": "User",
+      "to": "/profile",
+      "visible": true
+    }
+  ],
+  "first_plan_id": "classic_60"
+}

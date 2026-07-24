@@ -84,7 +84,7 @@ export default function TiffinDashboardGrid({
   const todayDinner = pending.pending.find((p) => p.meal_type === "dinner");
 
   return (
-    <div className="grid grid-cols-2 gap-3" data-testid="tiffin-dashboard-grid">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-[280px] sm:max-w-none mx-auto sm:mx-0" data-testid="tiffin-dashboard-grid">
       {/* Row 1 — Active plan hero (full width) */}
       <div
         className={`${TILE_BASE} col-span-2 text-primary-foreground bg-primary`}

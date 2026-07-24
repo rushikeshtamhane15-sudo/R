@@ -193,7 +193,7 @@ export default function Profile() {
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 -mt-6 relative z-10 space-y-3">
+      <div className="max-w-2xl mx-auto px-4 -mt-6 relative z-10 space-y-4">
         {isFranchiseOnboard && (
           <div className="rounded-2xl bg-amber-50 border border-amber-300 px-4 py-3 shadow-sm" data-testid="franchise-onboard-banner">
             <p className="text-sm font-bold text-amber-900">Your branch dashboard is one step away</p>
@@ -207,13 +207,38 @@ export default function Profile() {
           </div>
         )}
 
-        {/* Personal info — iOS-style grouped list */}
-        <SectionLabel icon={UserIcon} label="Personal info" />
-        <div className="bg-card rounded-2xl overflow-hidden shadow-sm border border-black/5">
+        {/* iter-131.24: progress meter — visually communicates completeness */}
+        {(() => {
+          const filled = [form.name, form.phone, form.address, form.photo_url].filter((v) => (v || "").toString().trim()).length;
+          const pct = Math.round((filled / 4) * 100);
+          return (
+            <div className="rounded-2xl bg-white border border-black/5 shadow-sm px-4 py-3" data-testid="profile-progress">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Profile completeness</p>
+                <p className="text-sm font-display font-extrabold text-primary tabular-nums">{filled}/4</p>
+              </div>
+              <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all"
+                  style={{ width: `${pct}%` }}
+                  data-testid="profile-progress-bar"
+                />
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* One consolidated card — Personal info + Photo + Address grouped */}
+        <div className="bg-card rounded-2xl overflow-hidden shadow-sm border border-black/5" data-testid="profile-form-card">
+          <div className="px-4 pt-3.5 pb-1">
+            <p className="text-[10px] tracking-[0.16em] uppercase font-extrabold text-muted-foreground flex items-center gap-1.5">
+              <UserIcon className="h-3 w-3" /> Personal info
+            </p>
+          </div>
           <FieldRow icon={UserIcon} label="Full name">
             <input
               value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value.replace(/[^A-Za-z\.\'\- ]/g, "") })}
+              onChange={(e) => setForm({ ...form, name: e.target.value.replace(/[^A-Za-z.'\- ]/g, "") })}
               className="w-full h-9 text-right text-sm font-semibold bg-transparent outline-none placeholder:text-muted-foreground/60"
               data-testid="profile-name"
               placeholder="Enter full name"
@@ -235,48 +260,56 @@ export default function Profile() {
               />
             </div>
           </FieldRow>
-        </div>
 
-        <SectionLabel icon={Camera} label="Photo" hint="Used at the counter for verification" />
-        <div className="bg-card rounded-2xl px-4 py-3 shadow-sm border border-black/5 flex items-center gap-3">
-          <div className="h-14 w-14 rounded-xl bg-muted/40 border-2 border-dashed border-border overflow-hidden flex items-center justify-center shrink-0" data-testid="photo-preview">
-            {form.photo_url ? (
-              <img src={form.photo_url} alt="profile" className="h-full w-full object-cover" />
-            ) : (
-              <Camera className="h-5 w-5 text-muted-foreground" />
-            )}
+          <div className="border-t border-border/60 px-4 pt-3.5 pb-1">
+            <p className="text-[10px] tracking-[0.16em] uppercase font-extrabold text-muted-foreground flex items-center gap-1.5">
+              <Camera className="h-3 w-3" /> Photo <span className="normal-case text-[10px] font-normal text-muted-foreground/70">· counter verification</span>
+            </p>
           </div>
-          <div className="flex-1 min-w-0 space-y-1.5">
-            <input ref={cameraInputRef} type="file" accept="image/*" capture="user" onChange={(e) => onPickFile(e, "camera")} className="hidden" data-testid="camera-input" />
-            <input ref={fileInputRef} type="file" accept="image/*" onChange={(e) => onPickFile(e, "file")} className="hidden" data-testid="file-input" />
-            <Button type="button" size="sm" onClick={() => cameraInputRef.current?.click()} className="rounded-full h-8 px-3 bg-primary hover:bg-primary/90 text-xs" data-testid="take-selfie-button">
-              <Camera className="h-3.5 w-3.5 mr-1" /> Take selfie
-            </Button>
-            <Button type="button" size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} className="rounded-full h-8 px-3 text-xs ml-1" data-testid="upload-photo-button">
-              Upload
-            </Button>
-            {form.photo_url && (
-              <Button type="button" size="sm" variant="outline" onClick={removePhoto} className="rounded-full h-8 px-3 text-xs ml-1 text-destructive hover:text-destructive" data-testid="remove-photo-button">
-                <Trash2 className="h-3 w-3 mr-1" /> Remove
+          <div className="px-4 py-3 flex items-center gap-3">
+            <div className="h-14 w-14 rounded-xl bg-muted/40 border-2 border-dashed border-border overflow-hidden flex items-center justify-center shrink-0" data-testid="photo-preview">
+              {form.photo_url ? (
+                <img src={form.photo_url} alt="profile" className="h-full w-full object-cover" />
+              ) : (
+                <Camera className="h-5 w-5 text-muted-foreground" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0 flex flex-wrap gap-1.5">
+              <input ref={cameraInputRef} type="file" accept="image/*" capture="user" onChange={(e) => onPickFile(e, "camera")} className="hidden" data-testid="camera-input" />
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={(e) => onPickFile(e, "file")} className="hidden" data-testid="file-input" />
+              <Button type="button" size="sm" onClick={() => cameraInputRef.current?.click()} className="rounded-full h-8 px-3 bg-primary hover:bg-primary/90 text-xs" data-testid="take-selfie-button">
+                <Camera className="h-3.5 w-3.5 mr-1" /> Selfie
               </Button>
-            )}
+              <Button type="button" size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} className="rounded-full h-8 px-3 text-xs" data-testid="upload-photo-button">
+                Upload
+              </Button>
+              {form.photo_url && (
+                <Button type="button" size="sm" variant="outline" onClick={removePhoto} className="rounded-full h-8 px-3 text-xs text-destructive hover:text-destructive" data-testid="remove-photo-button">
+                  <Trash2 className="h-3 w-3 mr-1" /> Remove
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <div className="border-t border-border/60 px-4 pt-3.5 pb-1">
+            <p className="text-[10px] tracking-[0.16em] uppercase font-extrabold text-muted-foreground flex items-center gap-1.5">
+              <MapPin className="h-3 w-3" /> Delivery address <span className="normal-case text-[10px] font-normal text-muted-foreground/70">· area + city</span>
+            </p>
+          </div>
+          <div className="px-4 pb-3.5 pt-1">
+            <Textarea
+              value={form.address}
+              onChange={(e) => setForm({ ...form, address: e.target.value })}
+              className="border border-border/60 rounded-xl px-3 text-sm resize-none focus-visible:ring-1 focus-visible:ring-primary"
+              data-testid="profile-address"
+              placeholder="Flat / house no., street, area, city, pincode"
+              rows={3}
+              maxLength={300}
+            />
           </div>
         </div>
 
-        <SectionLabel icon={MapPin} label="Delivery address" hint="Min 10 chars — area + city works for delivery" />
-        <div className="bg-card rounded-2xl px-4 py-3 shadow-sm border border-black/5">
-          <Textarea
-            value={form.address}
-            onChange={(e) => setForm({ ...form, address: e.target.value })}
-            className="border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0 text-sm resize-none"
-            data-testid="profile-address"
-            placeholder="Flat / house no., street, area, city, pincode"
-            rows={3}
-            maxLength={300}
-          />
-        </div>
-
-        <div className="pt-2 flex gap-2 flex-wrap">
+        <div className="pt-1 flex gap-2 flex-wrap">
           <Button onClick={save} disabled={submitting} className="rounded-full h-12 bg-primary hover:bg-primary/90 flex-1 min-w-[200px] font-bold shadow-md" data-testid="save-profile-button">
             {submitting ? "Saving…" : next ? "Save & continue to checkout" : "Save changes"}
           </Button>
@@ -362,6 +395,12 @@ function AccountHub({ user, onLogout }) {
   const [fingerprint, setFingerprint] = useState(() => {
     try { return localStorage.getItem("efc_biometric_lock") === "1"; } catch { return false; }
   });
+  const missing = [];
+  if (!user?.name) missing.push("name");
+  if (!user?.phone) missing.push("phone");
+  if (!user?.address) missing.push("address");
+  if (!user?.photo_url) missing.push("photo");
+  const incomplete = missing.length > 0;
   useEffect(() => {
     let cancel = false;
     api.get("/my/subscriptions").then((r) => {
@@ -374,7 +413,7 @@ function AccountHub({ user, onLogout }) {
   const toggleFingerprint = () => {
     setFingerprint((v) => {
       const nv = !v;
-      try { localStorage.setItem("efc_biometric_lock", nv ? "1" : "0"); } catch {}
+      try { localStorage.setItem("efc_biometric_lock", nv ? "1" : "0"); } catch { /* storage blocked */ }
       toast.success(nv ? "Fingerprint lock enabled" : "Fingerprint lock disabled");
       return nv;
     });
@@ -398,6 +437,30 @@ function AccountHub({ user, onLogout }) {
           </button>
         </div>
 
+        {/* iter-131.24: incomplete-profile nudge — mandatory before subscribing */}
+        {incomplete && (
+          <div className="rounded-2xl bg-amber-50 border border-amber-300 p-4 shadow-sm" data-testid="hub-incomplete-banner">
+            <div className="flex items-start gap-3">
+              <span className="inline-flex h-10 w-10 rounded-full bg-amber-100 text-amber-700 items-center justify-center shrink-0">
+                <AlertTriangle className="h-5 w-5" />
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="font-display font-extrabold text-base text-amber-900">Complete your profile</p>
+                <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                  Add your {missing.join(", ")} to unlock subscriptions and checkout. It takes under a minute.
+                </p>
+                <Button
+                  onClick={() => navigate("/profile?edit=1")}
+                  className="mt-3 rounded-full h-9 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold"
+                  data-testid="hub-incomplete-cta"
+                >
+                  Complete now →
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Hero card — avatar + name + phone */}
         <div className="rounded-2xl bg-white ring-1 ring-black/5 p-4 flex items-center gap-4 shadow-[0_4px_12px_-6px_rgba(0,0,0,0.08)]" data-testid="hub-hero-card">
           {user?.photo_url || user?.picture ? (
@@ -420,22 +483,18 @@ function AccountHub({ user, onLogout }) {
             <p className="mt-2 text-[10px] tracking-[0.14em] uppercase font-extrabold text-muted-foreground">E-Meal Pass</p>
             <p className="font-display font-extrabold text-2xl mt-1">View</p>
           </Link>
-          <WalletPill
-            trigger={
-              <button type="button" className="text-left rounded-2xl bg-white ring-1 ring-black/5 p-4 shadow-[0_4px_12px_-6px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-transform w-full" data-testid="hub-tile-wallet">
-                <WalletIcon className="h-6 w-6 text-primary" strokeWidth={2} />
-                <p className="mt-2 text-[10px] tracking-[0.14em] uppercase font-extrabold text-muted-foreground">Wallet</p>
-                <p className="font-display font-extrabold text-2xl mt-1 tabular-nums">₹{Math.round(walletBalance).toLocaleString("en-IN")}</p>
-              </button>
-            }
-          />
+          <Link to="/wallet" className="rounded-2xl bg-white ring-1 ring-black/5 p-4 shadow-[0_4px_12px_-6px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-transform block" data-testid="hub-tile-wallet">
+            <WalletIcon className="h-6 w-6 text-primary" strokeWidth={2} />
+            <p className="mt-2 text-[10px] tracking-[0.14em] uppercase font-extrabold text-muted-foreground">Wallet</p>
+            <p className="font-display font-extrabold text-2xl mt-1 tabular-nums">₹{Math.round(walletBalance).toLocaleString("en-IN")}</p>
+          </Link>
         </div>
 
         <HubSection label="My subscription" testid="hub-section-subscription">
           <HubRow icon={QrCodeIcon} label="My e-meal pass" to="/dashboard" testid="hub-row-emeal" />
           <HubRow icon={ReceiptIcon} label="Order history" to="/restaurant/orders" testid="hub-row-history" />
           <HubRow icon={MapPinIcon} label="Address book" to="/profile?edit=1" testid="hub-row-address" />
-          <HubRow icon={WalletIcon} label="Wallet & top-up" to="/dashboard" testid="hub-row-wallet-top" />
+          <HubRow icon={WalletIcon} label="Wallet & top-up" to="/wallet" testid="hub-row-wallet-top" />
           <HubRow icon={GiftIcon} label="Refer & earn" to="/contact?subject=refer" testid="hub-row-refer" />
           <HubRow icon={BanknoteIcon} label="Request refund" to="/contact?subject=refund" testid="hub-row-refund-req" />
           <HubRow icon={StarIcon} label="Rate your meals" to="/contact?subject=rate" testid="hub-row-rate" />
@@ -447,12 +506,12 @@ function AccountHub({ user, onLogout }) {
 
         <HubSection label="Orders & payments" testid="hub-section-orders">
           <HubRow icon={ReceiptIcon} label="My orders" to="/restaurant/orders" testid="hub-row-orders" />
-          <HubRow icon={WalletIcon} label="Wallet & transactions" to="/dashboard" testid="hub-row-wallet" />
+          <HubRow icon={WalletIcon} label="Wallet & transactions" to="/wallet" testid="hub-row-wallet" />
           <HubRow icon={ScanLineIcon} label="Scan & redeem" to="/self-scan" testid="hub-row-scan" />
         </HubSection>
 
         <HubSection label="Discover" testid="hub-section-discover">
-          <HubRow icon={StoreIcon} label="Our branches" to="/" testid="hub-row-branches" />
+          <HubRow icon={StoreIcon} label="Our branches" to="/contact" testid="hub-row-branches" />
           <HubRow icon={BikeIcon} label="Become a rider" to="/become-a-rider" testid="hub-row-rider" />
           <HubRow icon={InfoIcon} label="About efoodcare" to="/about" testid="hub-row-about" />
         </HubSection>
@@ -482,7 +541,6 @@ function AccountHub({ user, onLogout }) {
           <HubRow icon={MessageCircleIcon} label="WhatsApp us" to="/contact?ch=whatsapp" testid="hub-row-whatsapp" />
           <HubRow icon={LockIcon} label="Privacy policy" to="/privacy" testid="hub-row-privacy" />
           <HubRow icon={RefreshCwIcon} label="Refund policy" to="/refund" testid="hub-row-refund" />
-          <HubRow icon={FileTextIcon} label="Terms of service" to="/privacy" testid="hub-row-terms" />
         </HubSection>
 
         <button

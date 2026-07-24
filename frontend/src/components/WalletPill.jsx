@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "./ui/sheet";
 import { Wallet, IndianRupee, ArrowDownLeft, ArrowUpRight, Pause, Receipt, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
@@ -98,22 +99,27 @@ export default function WalletPill({ trigger, alwaysShow = false, compact = fals
   const current = slides[clampedSlide] || slides[0];
   const currentTxns = current ? txnsByScope[current.txnKey] || [] : [];
 
+  // If no trigger passed, render a Link straight to /wallet (no sheet).
+  if (!trigger) {
+    return (
+      <Link
+        to="/wallet"
+        data-testid="wallet-pill"
+        className={`flex items-center gap-1 rounded-full bg-white/15 hover:bg-white/25 active:bg-white/30 transition-colors border border-white/30 text-primary-foreground whitespace-nowrap ${compact ? "px-1.5 py-0.5" : "px-3.5 py-2"}`}
+      >
+        <Wallet className={compact ? "h-3 w-3" : "h-4 w-4"} strokeWidth={2} />
+        <span className={`font-display font-bold flex items-center ${compact ? "text-[11px]" : "text-sm"}`} data-testid="wallet-pill-balance">
+          <IndianRupee className={compact ? "h-2 w-2" : "h-3 w-3"} strokeWidth={2.5} />
+          {balanceDisplay.toLocaleString("en-IN")}
+        </span>
+      </Link>
+    );
+  }
+
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        {trigger || (
-          <button
-            type="button"
-            data-testid="wallet-pill"
-            className={`flex items-center gap-1 rounded-full bg-white/15 hover:bg-white/25 active:bg-white/30 transition-colors border border-white/30 text-primary-foreground whitespace-nowrap ${compact ? "px-1.5 py-0.5" : "px-3.5 py-2"}`}
-          >
-            <Wallet className={compact ? "h-3 w-3" : "h-4 w-4"} strokeWidth={2} />
-            <span className={`font-display font-bold flex items-center ${compact ? "text-[11px]" : "text-sm"}`} data-testid="wallet-pill-balance">
-              <IndianRupee className={compact ? "h-2 w-2" : "h-3 w-3"} strokeWidth={2.5} />
-              {balanceDisplay.toLocaleString("en-IN")}
-            </span>
-          </button>
-        )}
+        {trigger}
       </SheetTrigger>
       <SheetContent className="w-full sm:max-w-md overflow-y-auto" data-testid="wallet-drawer">
         <SheetHeader>
@@ -208,7 +214,7 @@ export default function WalletPill({ trigger, alwaysShow = false, compact = fals
   );
 }
 
-function TxnRow({ t }) {
+export function TxnRow({ t }) {
   const isCredit = t.type === "credit";
   const isDebit = t.type === "debit";
   const isFee = t.type === "fee";

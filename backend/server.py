@@ -789,6 +789,26 @@ async def catch_up_subscription(sub: dict) -> dict:
     # iter-126: use IST day boundaries so cron ticks at 00:00 IST (not 05:30 IST
     # which was the effective time under UTC-based date.today()).
     today = ist_today()
+    # iter-131.24: legacy/seed docs may miss `last_tick_date`. Backfill from
+    # start_date (or today) instead of raising KeyError so /api/my/wallet works.
+    if not sub.get("last_tick_date"):
+        start = sub.get("start_date")
+        if isinstance(start, str):
+            try:
+                sub["last_tick_date"] = date.fromisoformat(start[:10]).isoformat()
+            except Exception:
+                sub["last_tick_date"] = today.isoformat()
+        elif hasattr(start, "isoformat"):
+            sub["last_tick_date"] = start.isoformat() if hasattr(start, "year") else start.date().isoformat()
+        else:
+            sub["last_tick_date"] = today.isoformat()
+        try:
+            await db.subscriptions.update_one(
+                {"sub_id": sub["sub_id"]},
+                {"$set": {"last_tick_date": sub["last_tick_date"]}},
+            )
+        except Exception:
+            pass
     last = date.fromisoformat(sub["last_tick_date"])
     if last >= today or sub["status"] != "active":
         return sub
@@ -842,7 +862,12 @@ async def catch_up_subscription(sub: dict) -> dict:
         else:
             # No scans ever — count from the sub's start_date so a brand-new
             # subscriber gets a 3-day no-show grace before pause kicks in.
-            anchor = date.fromisoformat(sub.get("start_date", current.isoformat())[:10])
+            # iter-131.24: start_date may be a datetime (BSON Date) in legacy
+            # docs — coerce to string before slicing.
+            _sd = sub.get("start_date", current.isoformat())
+            if hasattr(_sd, "isoformat"):
+                _sd = _sd.isoformat()
+            anchor = date.fromisoformat(str(_sd)[:10])
         days_since_anchor = (current - anchor).days
         is_inactive = (sub.get("service_type") != "tiffin") and (days_since_anchor >= INACTIVITY_THRESHOLD_DAYS + 1)
 
