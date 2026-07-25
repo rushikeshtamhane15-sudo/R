@@ -2790,3 +2790,20 @@ Certified via `bug_testing_agent` (bug_verification_108 + bug_verification_109 �
 - P2: Split PRD.md into PRD / CHANGELOG / ROADMAP
 - Blocked: Acko insurance, Paytm Business QR
 
+
+
+---
+
+## iter-131.25 — /self-scan redesign (2026-02-25)
+
+Certified via `bug_testing_agent` (bug_verification_110.json — verdict: fixed, 100% success).
+
+### Frontend
+- **/self-scan page redesigned** (`pages/SelfScan.jsx`, full rewrite) to match the user-provided screenshot:
+  - `[data-testid=scan-trust-badge]`: light-primary card with ShieldCheck icon, "efoodcare · ghar se achha khana" title, "101% PURE VEG · ZERO ADULTERATION · FSSAI CERTIFIED" green uppercase line.
+  - `[data-testid=scan-heading]`: large centered "Scan & eat" with subtitle.
+  - `[data-testid=scan-cta-card]`: big white card with a large red QrCode icon, "Ready to dine?" heading, description, red `[data-testid=self-start-scanner]` "Open scanner" button, and `[data-testid=view-emeal-pass-link]` red link → /dashboard.
+  - `[data-testid=scan-hindi-tagline]`: green banner "❤️ हमारा खाना आपको पसंद आये ना आये आपके स्वास्थ्य (Health) को जरूर पसंद आयेगा".
+  - Scanning mode now switches to a dedicated `[data-testid=self-scan-live]` view with the html5-qrcode region and a Stop button; success view unchanged.
+- Bottom nav (Home | Restaurant | Scan floating circle | Subscribe | Profile) from iter-131.24 preserved.
+
