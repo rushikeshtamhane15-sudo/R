@@ -2807,3 +2807,29 @@ Certified via `bug_testing_agent` (bug_verification_110.json — verdict: fixed,
   - Scanning mode now switches to a dedicated `[data-testid=self-scan-live]` view with the html5-qrcode region and a Stop button; success view unchanged.
 - Bottom nav (Home | Restaurant | Scan floating circle | Subscribe | Profile) from iter-131.24 preserved.
 
+
+
+---
+
+## iter-131.26 — 4-task follow-up (2026-02-25)
+
+Certified via `bug_testing_agent` (bug_verification_111 — verdict: fixed, 100% success on both backend & frontend).
+
+### Backend
+- **Subscriber bottom-nav default corrected + self-heal migration** (`routes/app_cms.py`):
+  - `DEFAULT_BOTTOM_NAV.subscriber` restored to `Restaurant | Dashboard | Scan | Subscribe | Account`.
+  - `GET /api/bottom-nav` auto-migrates legacy configs: if the persisted subscriber array contains `id="orders"` or is missing `id="scan"`, the read path `$unset`s the subscriber field so production self-heals on redeploy — no admin reset needed.
+
+### Frontend
+- **Bottom-nav active-subscription swap** (`BottomNav.jsx`): fetches `/api/my/subscriptions` for logged-in subscribers. When there's no active subscription, the client swaps the `dashboard` item to `orders` (label "Orders", icon Receipt, `/restaurant/orders`). Valid subscribers keep Dashboard.
+- **/self-scan compact redesign** (`SelfScan.jsx`):
+  - "Scan & eat" heading moved up (`mt-8` → `mt-4`).
+  - Ready-to-dine card slimmed: `max-w-[280px] mx-auto`, `p-4` padding, QR icon shrunk from `h-24 w-24` in `h-32 w-32` wrapper to `h-14 w-14` in `h-20 w-20`. Buttons and copy tightened.
+  - Hindi tagline banner centered (`flex-col items-center text-center`, `max-w-[280px] mx-auto`), heart above text.
+- **Tiffin tracking container alignment** (`SubscriberDashboard.jsx`, `PendingDeliveriesBanner.jsx`):
+  - `tiffin_tracker` section wrapped in `[data-testid=tiffin-tracker-wrapper]` with `max-w-[280px] sm:max-w-none mx-auto sm:mx-0` so PendingCashOtpFlash + PendingDuesCard + PendingDeliveriesBanner match the 280px stack width of the Tiffin dashboard grid on mobile.
+  - PendingDeliveriesBanner: `rounded-3xl p-5 md:p-6 mb-8` → `rounded-2xl p-4 mb-3`; info card `mb-4` → `mb-3` for consistent rhythm.
+
+### Production note
+User needs to redeploy to push these changes to `https://efoodcare.in`. The bottom-nav self-heal will kick in on the first `/api/bottom-nav` request post-redeploy — no manual DB reset required.
+
