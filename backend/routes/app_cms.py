@@ -23,7 +23,7 @@ DEFAULT_BOTTOM_NAV: dict = {
     "subscriber": [
         {"id": "restaurant", "label": "Restaurant", "icon": "ChefHat",         "to": "/restaurant",        "visible": True},
         {"id": "dashboard",  "label": "Dashboard",  "icon": "LayoutDashboard", "to": "/dashboard",         "visible": True},
-        {"id": "scan",       "label": "Scan",       "icon": "ScanLine",        "to": "/self-scan",         "visible": True},
+        {"id": "scan",       "label": "Scan",       "icon": "QrCode",          "to": "/self-scan",         "visible": True},
         {"id": "subscribe",  "label": "Subscribe",  "icon": "Bell",            "to": "/plans",             "visible": True},
         {"id": "account",    "label": "Account",    "icon": "User",            "to": "/profile",           "visible": True},
     ],
@@ -78,7 +78,13 @@ async def get_bottom_nav():
     # without requiring an admin to manually hit /admin/bottom-nav/reset.
     persisted_sub = doc.get("subscriber") or []
     ids = {i.get("id") for i in persisted_sub if isinstance(i, dict)}
-    if persisted_sub and ("orders" in ids or "scan" not in ids):
+    # iter-131.27: also refresh when the scan tile is still pinned to the old
+    # ScanLine icon — we now use QrCode to match the reference screenshot.
+    scan_icon_old = any(
+        isinstance(i, dict) and i.get("id") == "scan" and i.get("icon") == "ScanLine"
+        for i in persisted_sub
+    )
+    if persisted_sub and ("orders" in ids or "scan" not in ids or scan_icon_old):
         try:
             await server.db.app_config.update_one(
                 {"_id": "bottom_nav"},

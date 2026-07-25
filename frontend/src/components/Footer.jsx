@@ -48,7 +48,7 @@ export default function Footer() {
               (white × anything = the anything), so the box disappears
               while the coloured F stays crisp. Works on any footer bg
               colour — the logo appears to sit directly on the footer. */}
-          <span className="inline-flex items-center justify-center h-16 w-16 overflow-hidden">
+          <span className="inline-flex items-center justify-center h-14 w-28 overflow-hidden" data-testid="footer-brand-logo">
             <img
               src={brandLogoUrl}
               alt={brandName}

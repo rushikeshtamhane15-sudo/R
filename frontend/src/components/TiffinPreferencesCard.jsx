@@ -86,16 +86,23 @@ export default function TiffinPreferencesCard() {
               type="button"
               onClick={() => toggle(it.key)}
               data-testid={`tiffin-pref-${it.key}`}
-              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border-2 transition-colors text-left ${on ? "border-primary bg-primary/8 text-foreground" : "border-border bg-muted/40 text-muted-foreground"}`}
+              className={`relative flex items-center gap-1.5 pl-2 pr-6 py-2 rounded-xl border-2 transition-colors text-left min-w-0 ${on ? "border-primary bg-primary/8 text-foreground" : "border-border bg-muted/40 text-muted-foreground"}`}
             >
               {it.image_url ? (
-                <img src={it.image_url} alt="" className="h-9 w-9 rounded-lg object-cover" />
+                <img src={it.image_url} alt="" className="h-8 w-8 rounded-lg object-cover shrink-0" />
               ) : (
-                <span aria-hidden className="text-lg">{it.emoji || "🍽"}</span>
+                <span aria-hidden className="text-lg shrink-0">{it.emoji || "🍽"}</span>
               )}
-              <span className="flex-1 font-semibold text-sm">{it.label}</span>
-              <span className={`inline-flex items-center justify-center h-5 w-5 rounded border-2 ${on ? "bg-primary border-primary text-primary-foreground" : "border-border"}`}>
-                {on ? "✓" : ""}
+              <span className="flex-1 font-semibold text-[13px] leading-tight break-words min-w-0">{it.label}</span>
+              {/* iter-131.27: check badge absolutely positioned in the top-right
+                  corner so it never overlaps the tile border regardless of
+                  label wrapping (e.g. "Grevy Sabji"). */}
+              <span
+                aria-hidden
+                className={`absolute top-1.5 right-1.5 inline-flex items-center justify-center h-4 w-4 rounded text-[10px] font-extrabold leading-none ${on ? "bg-primary text-primary-foreground" : "bg-transparent border border-border/70 text-transparent"}`}
+                data-testid={`tiffin-pref-${it.key}-check`}
+              >
+                ✓
               </span>
             </button>
           );

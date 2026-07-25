@@ -96,7 +96,7 @@ export default function DeliveryTimeCard() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <WindowRow
           meal="lunch"
           icon={<Sun className="h-3 w-3" />}
@@ -142,7 +142,7 @@ function WindowRow({ meal, icon, label, value, onChange }) {
             type="time"
             value={value.start}
             onChange={(e) => onChange("start", e.target.value)}
-            className="h-8 mt-0.5 rounded-lg tabular-nums text-xs font-semibold px-2"
+            className="h-9 mt-0.5 rounded-lg tabular-nums text-[13px] font-semibold px-1.5 w-full"
             data-testid={`window-${meal}-start`}
           />
         </label>
@@ -152,7 +152,7 @@ function WindowRow({ meal, icon, label, value, onChange }) {
             type="time"
             value={value.end}
             onChange={(e) => onChange("end", e.target.value)}
-            className="h-8 mt-0.5 rounded-lg tabular-nums text-xs font-semibold px-2"
+            className="h-9 mt-0.5 rounded-lg tabular-nums text-[13px] font-semibold px-1.5 w-full"
             data-testid={`window-${meal}-end`}
           />
         </label>

@@ -5,13 +5,13 @@ import { api } from "../lib/api";
 import { toast } from "sonner";
 import {
   Home, ChefHat, LayoutDashboard, Bike, User, Phone, LogIn, LogOut, Receipt,
-  ShoppingBag, Wallet, Heart, Settings, Bell, MapPin, Clock, Star, ScanLine, Radio,
+  ShoppingBag, Wallet, Heart, Settings, Bell, MapPin, Clock, Star, ScanLine, Radio, QrCode,
 } from "lucide-react";
 
 // Icons admin can pick from (mapped from lucide-react names sent by backend).
 const ICON_MAP = {
   Home, ChefHat, LayoutDashboard, Bike, User, Phone, LogIn, LogOut, Receipt,
-  ShoppingBag, Wallet, Heart, Settings, Bell, MapPin, Clock, Star, ScanLine, Radio,
+  ShoppingBag, Wallet, Heart, Settings, Bell, MapPin, Clock, Star, ScanLine, Radio, QrCode,
 };
 
 /**
@@ -117,8 +117,8 @@ export default function BottomNav() {
           if (isFloating) {
             const inner = (
               <>
-                <span className="absolute -top-5 h-14 w-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-[0_6px_16px_rgba(220,38,38,0.45),0_2px_4px_rgba(0,0,0,0.15)] ring-4 ring-background" aria-hidden>
-                  <Icon className="h-6 w-6" strokeWidth={2.25} />
+                <span className="absolute -top-5 h-14 w-14 rounded-full bg-white flex items-center justify-center shadow-[0_6px_16px_rgba(220,38,38,0.35),0_2px_4px_rgba(0,0,0,0.12)] ring-[3px] ring-primary" aria-hidden>
+                  <Icon className="h-7 w-7 text-primary" strokeWidth={2.25} />
                 </span>
                 <span className={`text-[10px] font-bold leading-tight mt-9 ${isActive ? "text-primary" : "text-muted-foreground"}`}>{it.label}</span>
               </>

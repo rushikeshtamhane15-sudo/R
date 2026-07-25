@@ -1,0 +1,43 @@
+{
+  "items": [
+    {
+      "key": "rice",
+      "label": "Rice",
+      "emoji": "🍚",
+      "image_url": null,
+      "description": null,
+      "active": true,
+      "order": 0
+    },
+    {
+      "key": "dal",
+      "label": "Dal",
+      "emoji": "🍲",
+      "image_url": null,
+      "description": null,
+      "active": true,
+      "order": 1
+    },
+    {
+      "key": "chapati",
+      "label": "Chapati",
+      "emoji": "🫓",
+      "image_url": null,
+      "description": null,
+      "active": true,
+      "order": 2
+    },
+    {
+      "key": "sabji",
+      "label": "Sabji",
+      "emoji": "🥬",
+      "image_url": null,
+      "description": null,
+      "active": true,
+      "order": 3
+    }
+  ],
+  "page_subtitle": "Pick your favorites.",
+  "page_title": "What's on your plate today?",
+  "updated_at": "2026-06-03T10:17:35.463578+00:00"
+}

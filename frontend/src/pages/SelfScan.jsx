@@ -133,28 +133,28 @@ export default function SelfScan() {
 
   // Landing view — matches the user-provided screenshot exactly.
   return (
-    <div className="max-w-md mx-auto px-4 pt-4 pb-32" data-testid="self-scan-page">
-      {/* Trust badge card */}
+    <div className="max-w-md mx-auto px-4 pt-1 pb-32" data-testid="self-scan-page">
+      {/* Trust badge card — moved up */}
       <div
-        className="rounded-2xl bg-primary/6 border border-primary/15 px-4 py-3 flex items-center gap-3"
+        className="rounded-2xl bg-primary/6 border border-primary/15 px-3 py-2 flex items-center gap-2.5"
         data-testid="scan-trust-badge"
       >
-        <span className="inline-flex h-10 w-10 rounded-xl bg-primary/12 text-primary items-center justify-center shrink-0">
-          <ShieldCheck className="h-5 w-5" strokeWidth={2.2} />
+        <span className="inline-flex h-9 w-9 rounded-xl bg-primary/12 text-primary items-center justify-center shrink-0">
+          <ShieldCheck className="h-4 w-4" strokeWidth={2.2} />
         </span>
         <div className="min-w-0">
-          <p className="font-display font-extrabold text-sm text-foreground">
+          <p className="font-display font-extrabold text-[13px] text-foreground">
             efoodcare · <span className="text-primary">ghar se achha khana</span>
           </p>
-          <p className="text-[10.5px] tracking-[0.08em] uppercase font-extrabold text-emerald-700 leading-snug mt-0.5">
+          <p className="text-[9.5px] tracking-[0.08em] uppercase font-extrabold text-emerald-700 leading-snug mt-0.5">
             101% pure veg · zero adulteration · fssai certified
           </p>
         </div>
       </div>
 
-      {/* Heading — moved up per user request */}
-      <h1 className="font-display font-extrabold text-3xl text-center mt-4" data-testid="scan-heading">Scan &amp; eat</h1>
-      <p className="text-muted-foreground text-center text-xs mt-1">
+      {/* Heading — smaller and closer to the trust badge above */}
+      <h1 className="font-display font-extrabold text-2xl text-center mt-3" data-testid="scan-heading">Scan &amp; eat</h1>
+      <p className="text-muted-foreground text-center text-xs mt-0.5">
         Scan the counter QR to redeem your meal
       </p>
 

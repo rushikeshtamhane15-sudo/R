@@ -1,0 +1,46 @@
+{
+  "verdict": "fixed",
+  "user_reported_bug": "5 tasks: (1) Scan menu icon in bottom nav must match user-provided reference exactly — white circle bg with red QR code icon (lucide QrCode) inside a red ring border; consider matching size. (2) On /self-scan: move top trust-badge container upward, reduce Scan & eat heading font size and move heading upward, below the trust-badge. (3) Amravati mess-switcher pill in header should be slightly larger, matching the font size of the wallet pill. (4) Footer branding logo must be rectangular (currently square). (5) Tiffin dashboard fixes — on Active Tiffin plan tab: (a) DeliveryTimeCard From/To time inputs were showing only first digit (clipped) — need to show full HH:MM values. (b) TiffinPreferencesCard checkmark badges were overlapping tile borders and misaligned for wrapping labels like 'Grevy Sabji'.",
+  "summary": "Focused verification completed at 360px preview for subscriber 9333333333. No relevant testing skill found. Backend /api/bottom-nav returns QrCode and self-heals a persisted ScanLine override. UI verified bottom scan icon styling/size, /self-scan spacing and heading size, Amravati + ₹2,507 header pills, rectangular footer logo, mobile-stacked delivery time inputs showing full HH:MM, preference label wrapping/check placement including a temporary Grevy Sabji label, and toggle on/off check badge states. OTP login used DEV MODE MOCKED OTP auto-fill from the app test credentials.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Google login on preview (not part of this reported bug)",
+        "issue": "Browser console shows Google Identity origin/client errors on the login page in preview; OTP flow worked and was used for this verification.",
+        "affected_selectors": ["[data-testid=google-login-button]"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/tests/bug_verification_112_backend.py",
+    "/app/tests/bug_verification_112_clear_otp_rate_limit.py",
+    "/app/tests/bug_verification_112_grevy_seed.py",
+    "/app/test_reports/bug_verification_112.json",
+    "/app/test_reports/iteration_112.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/tests/bug_verification_112_backend.py",
+    "/app/tests/bug_verification_112_clear_otp_rate_limit.py",
+    "/app/tests/bug_verification_112_grevy_seed.py",
+    "/app/test_reports/bug_verification_112_tiffin_catalog_backup.json",
+    "/app/test_reports/bug_verification_112.json",
+    "/app/test_reports/iteration_112.json"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "seed_data_creation": "Cleared OTP rate-limit rows for test phone 9333333333. Temporarily changed tiffin_pref_catalog sabji label to Grevy Sabji for wrap/overlap verification, then restored original catalog from backup. OTP authentication used DEV MODE MOCKED OTP.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 112 fixed in preview. Relevant code inspected: app_cms.py, BottomNav.jsx, SelfScan.jsx, MessSwitcher.jsx, Footer.jsx, DeliveryTimeCard.jsx, TiffinPreferencesCard.jsx. Runtime evidence came from backend script and Playwright browser automation at https://dining-pass-scan.preview.emergentagent.com/login?next=/dashboard on 360w. No relevant testing skill found.",
+  "rca_of_the_issue": "Original symptoms were layout/styling regressions and a stale persisted bottom-nav CMS icon. The fix changes default scan icon to QrCode, auto-unsets legacy ScanLine subscriber configs, and adjusts Tailwind sizing/positioning classes for the affected mobile UI components. Verification covered the visible user outcome end-to-end through login, dashboard, /self-scan, footer, and backend config persistence."
+}
