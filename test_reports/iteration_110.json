@@ -1,0 +1,35 @@
+{
+  "verdict": "fixed",
+  "user_reported_bug": "Redesign /self-scan page exactly like the attached screenshot: trust-badge card at top (shield icon + 'efoodcare · ghar se achha khana' with green '101% PURE VEG · ZERO ADULTERATION · FSSAI CERTIFIED' tagline), 'Scan & eat' centered heading, big white card with red QR icon + 'Ready to dine?' + description + 'Open scanner' red button + 'View my e-meal pass QR' red link, and a green Hindi tagline banner at the bottom. Also confirmed: subscriber bottom nav = Home | Restaurant | Scan (big floating red circle center) | Subscribe | Profile — user pointed out this in the same screenshot as target state.",
+  "summary": "No relevant testing skill found. Focused 360x780 mobile UI verification passed for /self-scan as subscriber 9333333333: all requested landing elements/testids/texts are present, large red QR icon is visible, subscriber bottom nav renders Home | Restaurant | Scan | Subscribe | Profile with Scan as elevated red center circle, Open scanner transitions to live scanner UI with #self-qr-region and Stop returns to landing, and View my e-meal pass QR navigates to /dashboard. OTP dev-mode auth is MOCKED; because the phone became OTP rate-limited during setup, I seeded a temporary user_sessions doc for the specified subscriber and verified /api/auth/me accepted it.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/self_scan_iter110_playwright.py",
+    "/app/test_reports/seed_self_scan_session_iter110.py"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/test_reports/self_scan_iter110_playwright.py",
+    "/app/test_reports/seed_self_scan_session_iter110.py",
+    "/app/test_reports/bug_verification_110.json",
+    "/app/test_reports/iteration_110.json"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "seed_data_creation": "Created/updated user_sessions token sess_iter110_self_scan_9333333333 for user_54f9acc2eb0a, expiring in ~2 hours, only after OTP login became rate-limited. OTP dev mode used for setup is MOCKED.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Skill lookup completed first with query 'self-scan page QR scanner bottom nav redesign'; no relevant testing skill found. Code inspected: /app/frontend/src/pages/SelfScan.jsx and /app/frontend/src/components/BottomNav.jsx. Runtime evidence collected with Playwright at https://dining-pass-scan.preview.emergentagent.com/self-scan, viewport 360x780, seeded subscriber session. /api/bottom-nav returned the requested subscriber nav config; /api/auth/me returned subscriber user_54f9acc2eb0a for the seeded session.",
+  "rca_of_the_issue": "The previous /self-scan landing design was replaced by the requested screenshot-style landing. Verification steps: open /self-scan as subscriber, confirm scan-trust-badge/scan-heading/scan-cta-card/self-start-scanner/view-emeal-pass-link/scan-hindi-tagline, confirm bottom-nav-scan is the center elevated red circle, click Open scanner and Stop, then click View my e-meal pass QR and confirm /dashboard navigation. No remaining user-visible issue reproduced. Initial OTP UI login attempt was blocked by OTP per-phone rate limit caused during test setup, so the documented fallback seeded a session."
+}
