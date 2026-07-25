@@ -1,0 +1,15 @@
+{
+  "checks": [
+    {
+      "name": "tiffin tracking alignment at 360w",
+      "ok": true,
+      "details": {
+        "wrapper": {"x": 40, "y": 210.5, "width": 280, "height": 298.125},
+        "info": {"x": 40, "y": 210.5, "width": 280, "height": 298.125},
+        "grid": {"x": 40, "y": 520.625, "width": 280, "height": 1472.75},
+        "wrapper_class": "max-w-[280px] sm:max-w-none mx-auto sm:mx-0 space-y-3 mb-3",
+        "grid_class": "grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-[280px] sm:max-w-none mx-auto sm:mx-0"
+      }
+    }
+  ]
+}

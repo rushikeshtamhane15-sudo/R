@@ -25,11 +25,23 @@ export default function BottomNav() {
   const navigate = useNavigate();
   const { user, setUser } = useAuth();
   const [config, setConfig] = useState(null);
+  const [hasActiveSub, setHasActiveSub] = useState(false);
 
   // Pull CMS config once. Errors silently fall back to defaults below.
   useEffect(() => {
     api.get("/bottom-nav").then((r) => setConfig(r.data)).catch(() => {});
   }, []);
+
+  // iter-131.26: check if the logged-in subscriber has an active subscription.
+  // For users WITHOUT a valid plan, the "Dashboard" tab is swapped to "Orders"
+  // (their more relevant destination), per user request.
+  useEffect(() => {
+    if (!user || user.role !== "subscriber") { setHasActiveSub(false); return; }
+    api.get("/my/subscriptions").then((r) => {
+      const subs = r.data?.subscriptions || [];
+      setHasActiveSub(subs.some((s) => s.status === "active"));
+    }).catch(() => setHasActiveSub(false));
+  }, [user]);
 
   // iter-88 #1: franchise_owner gets their own bottom nav (Dashboard /
   // Account / Contact / Home / Logout). Other admins/staff/delivery still
@@ -63,6 +75,18 @@ export default function BottomNav() {
   let items = (config?.[role] || []).filter((it) => it.visible !== false);
   if (isFranchise && items.length === 0) items = FRANCHISE_FALLBACK;
   if (items.length === 0) return null;
+
+  // iter-131.26: subscribers WITHOUT an active plan see "Orders" in the slot
+  // where valid subscribers see "Dashboard" — the CMS default keeps Dashboard
+  // and this swap is done client-side so admin editability is preserved.
+  if (role === "subscriber" && !hasActiveSub) {
+    items = items.map((it) => {
+      if (it.id === "dashboard") {
+        return { ...it, id: "orders", label: "Orders", icon: "Receipt", to: "/restaurant/orders" };
+      }
+      return it;
+    });
+  }
 
   // Make the franchise bottom nav visible on every screen size (admin sidebar
   // is hidden on mobile so they'd otherwise have no nav).

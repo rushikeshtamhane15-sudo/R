@@ -152,52 +152,52 @@ export default function SelfScan() {
         </div>
       </div>
 
-      {/* Heading */}
-      <h1 className="font-display font-extrabold text-4xl text-center mt-8" data-testid="scan-heading">Scan &amp; eat</h1>
-      <p className="text-muted-foreground text-center text-sm mt-2">
+      {/* Heading — moved up per user request */}
+      <h1 className="font-display font-extrabold text-3xl text-center mt-4" data-testid="scan-heading">Scan &amp; eat</h1>
+      <p className="text-muted-foreground text-center text-xs mt-1">
         Scan the counter QR to redeem your meal
       </p>
 
-      {/* Big scan card */}
+      {/* Compact scan card — tighter than the original per user request */}
       <div
-        className="mt-6 rounded-3xl bg-white ring-1 ring-black/5 shadow-[0_10px_30px_-15px_rgba(0,0,0,0.15)] p-6"
+        className="mt-3 mx-auto max-w-[280px] rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.15)] p-4"
         data-testid="scan-cta-card"
       >
-        {/* Big QR illustration — matches the flat red QR in the screenshot */}
-        <div className="mx-auto h-32 w-32 rounded-3xl bg-primary/6 flex items-center justify-center" aria-hidden>
-          <QrCode className="h-24 w-24 text-primary" strokeWidth={2.5} />
+        {/* Smaller QR illustration */}
+        <div className="mx-auto h-20 w-20 rounded-2xl bg-primary/6 flex items-center justify-center" aria-hidden>
+          <QrCode className="h-14 w-14 text-primary" strokeWidth={2.5} />
         </div>
 
-        <h2 className="font-display font-extrabold text-2xl text-center mt-5">Ready to dine?</h2>
-        <p className="text-muted-foreground text-center text-sm mt-2 leading-relaxed">
-          Show the kitchen counter the camera so it can read the QR sticker.
+        <h2 className="font-display font-extrabold text-lg text-center mt-3">Ready to dine?</h2>
+        <p className="text-muted-foreground text-center text-[12px] mt-1.5 leading-snug">
+          Show the counter camera the QR sticker.
         </p>
 
         <Button
           onClick={startScanner}
-          className="mt-5 w-full h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-display font-extrabold text-base shadow-[0_6px_16px_-6px_rgba(220,38,38,0.5)]"
+          className="mt-3 w-full h-11 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-display font-extrabold text-sm shadow-[0_4px_12px_-4px_rgba(220,38,38,0.5)]"
           data-testid="self-start-scanner"
         >
-          <ScanLine className="h-5 w-5 mr-2" strokeWidth={2.25} /> Open scanner
+          <ScanLine className="h-4 w-4 mr-1.5" strokeWidth={2.25} /> Open scanner
         </Button>
 
         <button
           type="button"
           onClick={() => navigate("/dashboard")}
-          className="mt-3 w-full h-11 rounded-2xl text-primary hover:bg-primary/5 font-display font-extrabold text-sm inline-flex items-center justify-center gap-2 transition-colors"
+          className="mt-2 w-full h-9 rounded-xl text-primary hover:bg-primary/5 font-display font-extrabold text-xs inline-flex items-center justify-center gap-1.5 transition-colors"
           data-testid="view-emeal-pass-link"
         >
-          <CreditCard className="h-4 w-4" strokeWidth={2.25} /> View my e-meal pass QR
+          <CreditCard className="h-3.5 w-3.5" strokeWidth={2.25} /> View my e-meal pass QR
         </button>
       </div>
 
-      {/* Hindi tagline banner */}
+      {/* Hindi tagline banner — centred */}
       <div
-        className="mt-4 rounded-2xl bg-emerald-50 border border-emerald-200 px-4 py-3 flex items-start gap-2"
+        className="mt-3 mx-auto max-w-[280px] rounded-2xl bg-emerald-50 border border-emerald-200 px-3 py-2.5 flex flex-col items-center text-center gap-1"
         data-testid="scan-hindi-tagline"
       >
-        <Heart className="h-4 w-4 text-primary fill-current shrink-0 mt-0.5" />
-        <p className="text-[13px] leading-snug text-emerald-900 italic">
+        <Heart className="h-4 w-4 text-primary fill-current" />
+        <p className="text-[12px] leading-snug text-emerald-900 italic">
           हमारा खाना आपको पसंद आये ना आये आपके स्वास्थ्य (Health) को जरूर पसंद आयेगा
         </p>
       </div>

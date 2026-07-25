@@ -1,0 +1,35 @@
+{
+  "user": {
+    "user_id": "user_54f9acc2eb0a",
+    "email": null,
+    "phone": "9333333333",
+    "name": "User 3333",
+    "address": null,
+    "picture": null,
+    "role": "subscriber",
+    "qr_token": "qr_cd6a932c58674b408d3f33282326cffb",
+    "wallet_balance": -100.0,
+    "created_at": "2026-07-23T05:23:15.097970+00:00",
+    "mess_id": "efoodcare-amravati"
+  },
+  "sub": {
+    "status": "active",
+    "user_id": "user_54f9acc2eb0a",
+    "amount_paid": 2800,
+    "created_at": "2026-07-23 05:23:57.938000",
+    "end_date": "2026-08-20 05:23:57.938000",
+    "meals_total": 56,
+    "meals_used": 4,
+    "paused_days": 0,
+    "per_day_amount": 100,
+    "plan_id": "premium_60",
+    "plan_name": "Premium Dining",
+    "service_type": "dining",
+    "start_date": "2026-07-23 05:23:57.944000",
+    "sub_id": "sub_test_dining_tf6zhn5l",
+    "user_paused": false,
+    "wallet_balance": 2607.0,
+    "mess_id": "efoodcare-amravati",
+    "last_tick_date": "2026-07-25"
+  }
+}

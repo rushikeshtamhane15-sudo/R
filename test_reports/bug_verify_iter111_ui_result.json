@@ -1,0 +1,104 @@
+{
+  "checks": [
+    {
+      "name": "active subscriber bottom nav uses Dashboard (not Orders) and Scan exists",
+      "ok": true,
+      "details": {
+        "nav_text_fragments": [
+          "Restaurant",
+          "Dashboard",
+          "",
+          "Scan",
+          "Subscribe",
+          "Account"
+        ],
+        "scan_circle_box": {
+          "x": 152,
+          "y": 755.5,
+          "width": 56,
+          "height": 56
+        }
+      }
+    },
+    {
+      "name": "self-scan compact card/classes at 360w",
+      "ok": true,
+      "details": {
+        "card": {
+          "box": {
+            "x": 40,
+            "y": 259.375,
+            "width": 280,
+            "height": 274.5
+          },
+          "class": "mt-3 mx-auto max-w-[280px] rounded-2xl bg-white ring-1 ring-black/5 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.15)] p-4",
+          "text": "Ready to dine?\n\nShow the counter camera the QR sticker.\n\nOpen scanner\nView my e-meal pass QR"
+        },
+        "qr_wrapper_box": {
+          "x": 140,
+          "y": 275.375,
+          "width": 80,
+          "height": 80
+        },
+        "qr_svg_box": {
+          "x": 152,
+          "y": 287.375,
+          "width": 56,
+          "height": 56
+        }
+      }
+    },
+    {
+      "name": "self-scan heading moved upward with mt-4",
+      "ok": true,
+      "details": {
+        "heading": {
+          "box": {
+            "x": 16,
+            "y": 191.375,
+            "width": 328,
+            "height": 36
+          },
+          "class": "font-display font-extrabold text-3xl text-center mt-4",
+          "text": "Scan & eat"
+        }
+      }
+    },
+    {
+      "name": "Hindi tagline centered with heart above text",
+      "ok": true,
+      "details": {
+        "tagline": {
+          "box": {
+            "x": 40,
+            "y": 545.875,
+            "width": 280,
+            "height": 75
+          },
+          "class": "mt-3 mx-auto max-w-[280px] rounded-2xl bg-emerald-50 border border-emerald-200 px-3 py-2.5 flex flex-col items-center text-center gap-1",
+          "text": "\u0939\u092e\u093e\u0930\u093e \u0916\u093e\u0928\u093e \u0906\u092a\u0915\u094b \u092a\u0938\u0902\u0926 \u0906\u092f\u0947 \u0928\u093e \u0906\u092f\u0947 \u0906\u092a\u0915\u0947 \u0938\u094d\u0935\u093e\u0938\u094d\u0925\u094d\u092f (Health) \u0915\u094b \u091c\u0930\u0942\u0930 \u092a\u0938\u0902\u0926 \u0906\u092f\u0947\u0917\u093e"
+        },
+        "heart_box": {
+          "x": 172,
+          "y": 556.875,
+          "width": 16,
+          "height": 16
+        },
+        "text_box": {
+          "x": 53,
+          "y": 576.875,
+          "width": 254,
+          "height": 33
+        }
+      }
+    },
+    {
+      "name": "inactive subscriber bottom nav swaps Dashboard to Orders and keeps Scan",
+      "ok": true,
+      "details": {
+        "nav_text": "Restaurant\nOrders\nScan\nSubscribe\nAccount",
+        "orders_href": "/restaurant/orders"
+      }
+    }
+  ]
+}

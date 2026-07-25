@@ -187,13 +187,13 @@ export default function SubscriberDashboard() {
         );
       case "tiffin_tracker":
         return isTiffin ? (
-          <>
-            <div className="space-y-3 mb-3" data-testid="dashboard-payment-stack">
+          <div className="max-w-[280px] sm:max-w-none mx-auto sm:mx-0 space-y-3 mb-3" data-testid="tiffin-tracker-wrapper">
+            <div className="space-y-3" data-testid="dashboard-payment-stack">
               <PendingCashOtpFlash />
               <PendingDuesCard onRefreshUser={checkAuth} />
             </div>
             <PendingDeliveriesBanner />
-          </>
+          </div>
         ) : (
           <div className="space-y-3 mb-3" data-testid="dashboard-payment-stack">
             <PendingCashOtpFlash />

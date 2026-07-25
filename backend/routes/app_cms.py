@@ -21,11 +21,11 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 DEFAULT_BOTTOM_NAV: dict = {
     "subscriber": [
-        {"id": "home",       "label": "Home",       "icon": "Home",            "to": "/dashboard",         "visible": True},
         {"id": "restaurant", "label": "Restaurant", "icon": "ChefHat",         "to": "/restaurant",        "visible": True},
+        {"id": "dashboard",  "label": "Dashboard",  "icon": "LayoutDashboard", "to": "/dashboard",         "visible": True},
         {"id": "scan",       "label": "Scan",       "icon": "ScanLine",        "to": "/self-scan",         "visible": True},
         {"id": "subscribe",  "label": "Subscribe",  "icon": "Bell",            "to": "/plans",             "visible": True},
-        {"id": "profile",    "label": "Profile",    "icon": "User",            "to": "/profile",           "visible": True},
+        {"id": "account",    "label": "Account",    "icon": "User",            "to": "/profile",           "visible": True},
     ],
     "rider": [
         {"id": "dashboard",  "label": "Dashboard",    "icon": "Bike",            "to": "/rider",         "visible": True},
@@ -72,9 +72,27 @@ class BottomNavPatch(BaseModel):
 @router.get("/bottom-nav")
 async def get_bottom_nav():
     doc = await server.db.app_config.find_one({"_id": "bottom_nav"}, {"_id": 0}) or {}
+    # iter-131.26: auto-migrate legacy subscriber configs. If the persisted
+    # subscriber nav still contains the old "orders" tab or is missing the
+    # "scan" tab, reset it to the current DEFAULT so redeploys self-heal
+    # without requiring an admin to manually hit /admin/bottom-nav/reset.
+    persisted_sub = doc.get("subscriber") or []
+    ids = {i.get("id") for i in persisted_sub if isinstance(i, dict)}
+    if persisted_sub and ("orders" in ids or "scan" not in ids):
+        try:
+            await server.db.app_config.update_one(
+                {"_id": "bottom_nav"},
+                {"$unset": {"subscriber": ""}},
+            )
+        except Exception:
+            pass
+        persisted_sub = []
     out = {}
     for role in ("subscriber", "rider", "guest", "franchise"):
-        out[role] = doc.get(role) or DEFAULT_BOTTOM_NAV[role]
+        if role == "subscriber":
+            out[role] = persisted_sub or DEFAULT_BOTTOM_NAV[role]
+        else:
+            out[role] = doc.get(role) or DEFAULT_BOTTOM_NAV[role]
     return out
 
 

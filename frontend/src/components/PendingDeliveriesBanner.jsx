@@ -66,7 +66,7 @@ export default function PendingDeliveriesBanner() {
   // CASE A — pending tiffins right now
   if (items.length > 0) {
     return (
-      <div className="rounded-3xl bg-primary/5 border border-primary/30 p-5 md:p-6 mb-8" data-testid="pending-delivery-banner">
+      <div className="rounded-2xl bg-primary/5 border border-primary/30 p-4 mb-3" data-testid="pending-delivery-banner">
         <div className="flex items-start gap-3">
           <span className="inline-flex h-10 w-10 rounded-xl bg-primary/15 text-primary items-center justify-center shrink-0">
             <BellRing className="h-5 w-5" />
@@ -126,7 +126,7 @@ export default function PendingDeliveriesBanner() {
   // CASE B — no pending today; show always-on info + location pin CTA
   return (
     <div
-      className="relative rounded-2xl overflow-hidden mb-4"
+      className="relative rounded-2xl overflow-hidden mb-3"
       style={{
         background: "linear-gradient(135deg, #fef2f2 0%, #ffffff 55%, #f0fdf4 100%)",
         boxShadow: "0 12px 28px -18px rgba(15,23,42,0.18), 0 3px 8px -3px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.9)",

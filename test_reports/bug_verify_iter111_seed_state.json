@@ -1,0 +1,22 @@
+{
+  "9333333333": {
+    "user_id": "user_54f9acc2eb0a",
+    "role": "subscriber",
+    "subscriptions": [
+      {
+        "status": "active",
+        "end_date": "2026-08-20 05:23:57.938000",
+        "meals_total": 56,
+        "meals_used": 4,
+        "plan_name": "Premium Dining",
+        "service_type": "dining",
+        "sub_id": "sub_test_dining_tf6zhn5l"
+      }
+    ]
+  },
+  "9333333334": {
+    "user_id": "user_873073ca16aa",
+    "role": "subscriber",
+    "subscriptions": []
+  }
+}

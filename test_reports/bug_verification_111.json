@@ -1,0 +1,50 @@
+{
+  "verdict": "fixed",
+  "user_reported_bug": "4 tasks after production redeploy: (1) Bottom nav on production still shows old subscriber layout (Restaurant | Orders | Dashboard | Subscribe | Account) instead of new one — need to ensure the fix self-heals on redeploy. (2) Redesign /self-scan smaller: reduce Ready-to-dine card size, center the Hindi tagline, move 'Scan & eat' heading slightly upward. (3) Replace 'Orders' with 'Dashboard' in bottom nav for VALID subscription plan users only (subscribers with active plan). Non-active subs / guests keep Orders. (4) Realign tiffin tracking container (PendingDeliveriesBanner) to match all other container widths under 'Active Tiffin plan' on Tiffin user dashboard.",
+  "summary": "No relevant testing skill found. Focused backend + mobile UI verification passed: legacy subscriber bottom-nav config self-heals on GET /api/bottom-nav; /self-scan compact redesign matches requested 360px layout; active subscriber sees Dashboard while inactive subscriber sees Orders, both with center Scan CTA; tiffin tracking info container aligns to the 280px dashboard grid on mobile.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/tests/bug_verify_iter111_backend.py",
+    "/app/tests/bug_verify_iter111_ui_lib.py",
+    "/app/tests/bug_verify_iter111_tiffin_seed.py",
+    "/app/tests/bug_verify_iter111_tiffin_ui_lib.py",
+    "/app/test_reports/bug_verify_iter111_backend_result.json",
+    "/app/test_reports/bug_verify_iter111_ui_result.json",
+    "/app/test_reports/bug_verify_iter111_tiffin_ui_result.json",
+    "/app/test_reports/bug_verify_iter111_seed_state.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/tests/bug_verify_iter111_backend.py",
+    "/app/tests/bug_verify_iter111_ui.py",
+    "/app/tests/bug_verify_iter111_ui_lib.py",
+    "/app/tests/bug_verify_iter111_tiffin_seed.py",
+    "/app/tests/bug_verify_iter111_tiffin_ui.py",
+    "/app/tests/bug_verify_iter111_tiffin_ui_lib.py",
+    "/app/test_reports/bug_verify_iter111_backend_result.json",
+    "/app/test_reports/bug_verify_iter111_ui_result.json",
+    "/app/test_reports/bug_verify_iter111_tiffin_ui_result.json",
+    "/app/test_reports/bug_verify_iter111_seed_state.json",
+    "/app/test_reports/bug_verify_iter111_tiffin_snapshot.json",
+    "/app/test_reports/bug_verification_111.json",
+    "/app/test_reports/iteration_111.json"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "seed_data_creation": "Seeded legacy app_config.bottom_nav.subscriber for self-heal test; GET /api/bottom-nav removed it. Created/logged in OTP DEV MODE (MOCKED) subscriber 9333333334 with no active subscription for inactive-nav case. Temporarily changed 9333333333 active sub to service_type=tiffin for tiffin dashboard alignment, then restored it to dining.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Tested preview https://dining-pass-scan.preview.emergentagent.com at 360x844. Current post-test DB state: 9333333333 is subscriber with active dining sub sub_test_dining_tf6zhn5l; 9333333334 is subscriber with no subscriptions; app_config.bottom_nav has no subscriber field after self-heal. OTP auth is DEV MODE MOCKED per test credentials.",
+  "rca_of_the_issue": "Verification reproduced the production-risk condition by seeding legacy subscriber bottom-nav ids including orders and missing scan; the read path returned Restaurant|Dashboard|Scan|Subscribe|Account and unset the stale subscriber field, confirming redeploy self-heal behavior. UI tests verified the requested mobile layouts and active-subscription state syncing end to end."
+}

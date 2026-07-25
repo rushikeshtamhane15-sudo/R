@@ -1,0 +1,61 @@
+{
+  "api": "https://dining-pass-scan.preview.emergentagent.com/api",
+  "checks": [
+    {
+      "name": "seed legacy bottom nav subscriber field",
+      "ok": true,
+      "details": {
+        "subscriber": [
+          {
+            "id": "orders",
+            "label": "Orders",
+            "icon": "Receipt",
+            "to": "/restaurant/orders",
+            "visible": true
+          },
+          {
+            "id": "dashboard",
+            "label": "Dashboard",
+            "icon": "LayoutDashboard",
+            "to": "/dashboard",
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "GET /api/bottom-nav returns fresh subscriber default after legacy seed",
+      "ok": true,
+      "details": {
+        "status": 200,
+        "labels": [
+          "Restaurant",
+          "Dashboard",
+          "Scan",
+          "Subscribe",
+          "Account"
+        ],
+        "ids": [
+          "restaurant",
+          "dashboard",
+          "scan",
+          "subscribe",
+          "account"
+        ]
+      }
+    },
+    {
+      "name": "GET /api/bottom-nav unset persisted subscriber field",
+      "ok": true,
+      "details": {
+        "app_config_keys": [
+          "guest",
+          "rider",
+          "updated_at",
+          "updated_by"
+        ],
+        "subscriber": null
+      }
+    }
+  ]
+}
