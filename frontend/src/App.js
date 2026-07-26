@@ -117,6 +117,10 @@ function AppRoutes() {
   const { user } = useAuth();
   if (location.hash?.includes("session_id=")) return <AuthCallback />;
   const isKiosk = location.pathname.startsWith("/k/");
+  // iter-131.28: /kiosk is a clean fullscreen wall-kiosk experience — hide
+  // the consumer Header, AnnouncementBar and BottomNav so only the kiosk
+  // panels are visible on the wall display.
+  const isFullscreenKiosk = location.pathname === "/kiosk";
 
   if (isKiosk) {
     return (
@@ -133,9 +137,9 @@ function AppRoutes() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {!isFranchise && <Header />}
-      {!isFranchise && <AnnouncementBar />}
-      <main className="flex-1 pb-16 md:pb-0">
+      {!isFranchise && !isFullscreenKiosk && <Header />}
+      {!isFranchise && !isFullscreenKiosk && <AnnouncementBar />}
+      <main className={`flex-1 ${isFullscreenKiosk ? "" : "pb-16 md:pb-0"}`}>
         <Routes>
           <Route path="/" element={<HomeRoute />} />
           <Route path="/home" element={<Landing />} />
@@ -150,6 +154,8 @@ function AppRoutes() {
           <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
           <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
           <Route path="/wallet" element={<RequireAuth><WalletPage /></RequireAuth>} />
+          {/* iter-131.28: fullscreen kiosk mode — renders AdminKiosk outside the AdminLayout so no sidebar chrome. */}
+          <Route path="/kiosk" element={<RequireAuth roles={["admin", "staff", "franchise_owner"]}><AdminKiosk /></RequireAuth>} />
           <Route path="/plans" element={<Plans />} />
           <Route path="/checkout/:planId" element={<RequireAuth><Checkout /></RequireAuth>} />
           <Route path="/self-scan" element={<RequireAuth><SelfScan /></RequireAuth>} />
@@ -219,8 +225,8 @@ function AppRoutes() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
-      <Footer />
-      <BottomNav />
+      {!isFullscreenKiosk && <Footer />}
+      {!isFullscreenKiosk && <BottomNav />}
     </div>
   );
 }

@@ -12,10 +12,11 @@
  * orchestrator + 4 focused children under /components/admin-kiosk/.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { api } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
-import { ShoppingCart } from "lucide-react";
+import { ShoppingCart, Maximize2, Minimize2, X } from "lucide-react";
 import KioskReceiptModal from "../components/KioskReceiptModal";
 import { connectBluetoothPrinter, isBluetoothSupported } from "../lib/bluetoothPrinter";
 
@@ -27,6 +28,39 @@ import KioskPaymentModal from "../components/admin-kiosk/KioskPaymentModal";
 const LOCATION = "main";
 
 export default function AdminKiosk() {
+  // iter-131.28: fullscreen kiosk mode. When the URL contains ?fullscreen=1
+  // (or the route is /kiosk instead of /admin/kiosk) the sidebar chrome is
+  // hidden by the parent route wrapper (see App.js) and we render an inner
+  // "Exit" button + trigger the browser Fullscreen API for a true wall-kiosk
+  // experience.
+  const loc = useLocation();
+  const isFullscreenRoute = loc.pathname === "/kiosk";
+  const [browserFs, setBrowserFs] = useState(false);
+  const requestFs = async () => {
+    try {
+      await document.documentElement.requestFullscreen();
+      setBrowserFs(true);
+    } catch { /* user may deny */ }
+  };
+  const exitFs = async () => {
+    try { if (document.fullscreenElement) await document.exitFullscreen(); } catch { /* noop */ }
+    setBrowserFs(false);
+  };
+  useEffect(() => {
+    const onFsChange = () => setBrowserFs(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
+  // Auto-enter browser fullscreen the first time /kiosk is opened (only if the
+  // user gesture-navigated here — which is the case from the Open Kiosk button).
+  useEffect(() => {
+    if (isFullscreenRoute && !document.fullscreenElement) {
+      // requestFullscreen must run from a gesture; try once, ignore errors.
+      requestFs();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFullscreenRoute]);
+
   /* ---------------- TOP: Counter QR ---------------- */
   const [meal, setMeal] = useState("lunch");
   const [counter, setCounter] = useState(null);
@@ -297,6 +331,27 @@ export default function AdminKiosk() {
             <button type="button" onClick={() => setTab("today")} className={`px-4 h-10 rounded-full text-xs font-extrabold ${tab === "today" ? "bg-[hsl(40,25%,94%)] text-[hsl(140,8%,8%)]" : "text-[hsl(40,15%,70%)]"}`} data-testid="kiosk-day-today">Today</button>
             <button type="button" onClick={() => setTab("tomorrow")} className={`px-4 h-10 rounded-full text-xs font-extrabold ${tab === "tomorrow" ? "bg-[hsl(40,25%,94%)] text-[hsl(140,8%,8%)]" : "text-[hsl(40,15%,70%)]"}`} data-testid="kiosk-day-tomorrow">Tomorrow</button>
           </div>
+          {/* iter-131.28: fullscreen kiosk mode toggle */}
+          {isFullscreenRoute ? (
+            <div className="flex items-center gap-2 ml-2">
+              {browserFs ? (
+                <button type="button" onClick={exitFs} className="inline-flex items-center gap-1.5 h-10 px-3 rounded-full bg-[hsl(140,8%,18%)] text-[hsl(40,25%,94%)] hover:bg-[hsl(140,8%,22%)] text-xs font-extrabold" data-testid="kiosk-exit-browser-fs">
+                  <Minimize2 className="h-3.5 w-3.5" /> Exit fullscreen
+                </button>
+              ) : (
+                <button type="button" onClick={requestFs} className="inline-flex items-center gap-1.5 h-10 px-3 rounded-full bg-[hsl(140,8%,18%)] text-[hsl(40,25%,94%)] hover:bg-[hsl(140,8%,22%)] text-xs font-extrabold" data-testid="kiosk-enter-browser-fs">
+                  <Maximize2 className="h-3.5 w-3.5" /> Fullscreen
+                </button>
+              )}
+              <Link to="/admin/kiosk" className="inline-flex items-center gap-1.5 h-10 px-3 rounded-full bg-primary/85 text-primary-foreground hover:bg-primary text-xs font-extrabold" data-testid="kiosk-close-kiosk">
+                <X className="h-3.5 w-3.5" /> Close
+              </Link>
+            </div>
+          ) : (
+            <Link to="/kiosk" className="inline-flex items-center gap-1.5 h-10 px-3 ml-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-extrabold" data-testid="kiosk-open-fullscreen">
+              <Maximize2 className="h-3.5 w-3.5" /> Open kiosk mode
+            </Link>
+          )}
         </div>
 
         <div className="flex-1 p-4 grid sm:grid-cols-[3fr_2fr] gap-3 overflow-auto">

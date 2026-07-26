@@ -2857,3 +2857,22 @@ Certified via `bug_testing_agent` (bug_verification_112 — verdict: fixed, back
 ### Production note
 User must redeploy to push to `https://efoodcare.in`. The `/api/bottom-nav` self-heal will run automatically on first read post-deploy — no manual DB or admin steps needed.
 
+
+
+---
+
+## iter-131.28 — Wall Kiosk fullscreen mode + menu redesign (2026-02-26)
+
+Certified via code review + main-agent live self-test at 1400x900 (bug_testing_agent verdict was blocked by OTP rate-limit, not by any functional issue — all 9 required data-testids confirmed present, Tomorrow-tab flip verified live).
+
+### Frontend
+- **New `/kiosk` fullscreen route** (`App.js`): standalone route outside `AdminLayout`, guarded by `roles=[admin, staff, franchise_owner]`. `isFullscreenKiosk` flag suppresses the site Header, AnnouncementBar, Footer and BottomNav when `pathname === "/kiosk"` — the wall-display shows ONLY the two kiosk panels (Counter QR + Wall Kiosk order form).
+- **Kiosk shell controls** (`AdminKiosk.jsx`):
+  - Regular `/admin/kiosk` gains an "Open kiosk mode" pill (`data-testid=kiosk-open-fullscreen`) → `/kiosk`.
+  - `/kiosk` shows "Fullscreen" (`data-testid=kiosk-enter-browser-fs`) / "Exit fullscreen" (`data-testid=kiosk-exit-browser-fs`) toggling `document.documentElement.requestFullscreen()`, plus a "Close" pill (`data-testid=kiosk-close-kiosk`) that returns to `/admin/kiosk` with sidebar restored.
+  - Auto-request browser fullscreen on first `/kiosk` mount (best-effort, gated by browser gesture policy).
+- **KioskMenuCard redesign** (`components/admin-kiosk/KioskMenuCard.jsx`, full rewrite): mirrors the restaurant `TodayMessMenuFlash` design — emerald gradient bg with radial dot texture, ChefHat/Sunrise header + date + "TODAY'S SPECIAL" pill, LUNCH tile (amber-500/12 bg, sun icon, "12 – 3 pm" window, bulleted 2/3-col item grid via `splitMenuItems` helper), gold-diamond separator, DINNER tile (blue-500/12 bg, moon icon, "7 – 10 pm").
+
+### Production note
+Redeploy to push to `https://efoodcare.in`. `/kiosk` is a new frontend-only route — no backend migration or admin action needed post-deploy.
+
