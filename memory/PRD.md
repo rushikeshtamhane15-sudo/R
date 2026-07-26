@@ -2876,3 +2876,26 @@ Certified via code review + main-agent live self-test at 1400x900 (bug_testing_a
 ### Production note
 Redeploy to push to `https://efoodcare.in`. `/kiosk` is a new frontend-only route — no backend migration or admin action needed post-deploy.
 
+
+
+---
+
+## iter-131.29 — Kiosk & scan-based deduction (2026-02-26)
+
+Certified via `testing_agent` (iteration_113.json — 6/7 tests pass; 1 failing test = upstream Razorpay merchant-account issue, not our code).
+
+### Frontend
+- **Scan icon shrink** (`BottomNav.jsx`): floating center Scan icon `h-7 w-7` → `h-6 w-6`.
+- **Kiosk auto-select meal** (`AdminKiosk.jsx`): `activeMealNow` useMemo computes the correct meal based on IST clock (Lunch 12–15, Dinner 19–22, off-window → next slot). A 60s interval re-syncs the `meal` state as the clock crosses a slot boundary so the counter QR flips itself.
+
+### Backend
+- **Strict IST slot enforcement** (`server.py::_mark_attendance`): before recording attendance, computes `now_ist` and rejects with HTTP 403 `"<Meal> scans are open HH:MM–HH:MM IST only. Please come back during the slot."` when outside the meal window. Windows come from `db.admin_config.meal_slots` (override) with defaults 12:00–15:00 lunch / 19:00–22:00 dinner.
+- **DINING scan-based deduction** (`server.py::_mark_attendance`): for `service_type=='dining'` subscribers, each successful scan deducts `per_day_amount / 2` from `wallet_balance`, increments `meals_used` by 1, appends the (date, meal) to `scan_deducted_dates`, sets `last_tick_date = today` (so tick doesn't re-process today), and writes a `wallet_transactions` debit row with reason `Scan · <meal> · <date>`.
+- **catch_up_subscription no-double-charge** (`server.py`): at the top of the per-day loop, dining subs whose `scan_deducted_dates[current]` is non-empty skip the tick for that day.
+- **Razorpay QR `close_by`** (`routes/mess_menu_cal.py`): the QR create call now includes `close_by=now+3h` (single_use QRs require it). Live account currently returns HTTP 500 on `POST /v1/payments/qr_codes` — this is a merchant-account activation issue (Razorpay Dashboard → Products → QR Codes → Activate), NOT our code. The kiosk gracefully falls back to UPI intent QR when Razorpay upstream fails.
+
+### Production note
+Redeploy to push to `efoodcare.in`. For dynamic-QR Razorpay QRs to actually show on production kiosk, the user must:
+1. Log in to Razorpay Dashboard → Products → **QR Codes** → click **Activate** (feature flag on live account).
+2. No further code changes needed after activation — the kiosk already sends `close_by` and will succeed.
+
