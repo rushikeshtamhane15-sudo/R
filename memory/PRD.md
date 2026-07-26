@@ -2833,3 +2833,27 @@ Certified via `bug_testing_agent` (bug_verification_111 — verdict: fixed, 100%
 ### Production note
 User needs to redeploy to push these changes to `https://efoodcare.in`. The bottom-nav self-heal will kick in on the first `/api/bottom-nav` request post-redeploy — no manual DB reset required.
 
+
+
+---
+
+## iter-131.27 — 5-task polish (2026-02-26)
+
+Certified via `bug_testing_agent` (bug_verification_112 — verdict: fixed, backend 100% / frontend 100%).
+
+### Backend
+- **Scan icon default + self-heal** (`routes/app_cms.py`):
+  - `DEFAULT_BOTTOM_NAV.subscriber[2].icon` `ScanLine` → `QrCode` (matches user-provided reference).
+  - `GET /api/bottom-nav` auto-migrator now also unsets legacy persisted configs where `scan.icon === "ScanLine"`, so production self-heals on redeploy.
+
+### Frontend
+- **Bottom-nav floating Scan** (`BottomNav.jsx`): added `QrCode` to lucide import + ICON_MAP; floating center tile is now `bg-white` with icon `h-7 w-7 text-primary` and a `ring-[3px] ring-primary` red border — matches the target screenshot exactly.
+- **/self-scan compact-2** (`SelfScan.jsx`): outer `pt-4` → `pt-1`, trust badge `px-4 py-3` → `px-3 py-2`, heading `text-3xl mt-4` → `text-2xl mt-3` (smaller, moved up), badge icon shrunk to h-4 in h-9 wrapper.
+- **Amravati pill** (`MessSwitcher.jsx`): `max-w-[72px] text-[9px] px-1 h-6` → `max-w-[92px] text-[11px] px-1.5 h-6` — now matches WalletPill compact font size (both text-[11px]).
+- **Footer branding logo** (`Footer.jsx`): `h-16 w-16` square → `h-14 w-28` rectangle (~2:1) with `data-testid=footer-brand-logo`.
+- **DeliveryTimeCard** (`DeliveryTimeCard.jsx`): outer grid `grid-cols-2` → `grid-cols-1 sm:grid-cols-2` (Lunch stacks above Dinner on mobile); inputs `h-8 text-xs px-2` → `h-9 text-[13px] px-1.5 w-full`. Full "HH:MM" values now visible.
+- **TiffinPreferencesCard** (`TiffinPreferencesCard.jsx`): button now `relative pl-2 pr-6 py-2 gap-1.5`; label `text-sm truncate` → `text-[13px] leading-tight break-words` (long labels wrap gracefully); check badge absolutely positioned `top-1.5 right-1.5 h-4 w-4` — no more border overlap or misalignment for wrapping labels.
+
+### Production note
+User must redeploy to push to `https://efoodcare.in`. The `/api/bottom-nav` self-heal will run automatically on first read post-deploy — no manual DB or admin steps needed.
+
