@@ -822,6 +822,13 @@ async def catch_up_subscription(sub: dict) -> dict:
     current = last
     while current < today:
         current = current + timedelta(days=1)
+        # iter-131.29: skip tick for dining days already scan-deducted so the
+        # user isn't double-charged (per scan + tick).
+        if (sub.get("service_type") or "").lower() == "dining":
+            scan_map = sub.get("scan_deducted_dates") or {}
+            if scan_map.get(current.isoformat()):
+                days_processed += 1
+                continue
         # ---- USER-PAUSED branch (tiffin only) ----
         if sub.get("user_paused") and sub.get("service_type") == "tiffin":
             # Always deduct (matches eat-in deduction rate).
@@ -2251,6 +2258,27 @@ async def _mark_attendance(target_user: dict, meal_type: str, marked_by: str, me
             status_code=403,
             detail=f"This subscription is {window}-only. Scan rejected for {meal_type}.",
         )
+    # iter-131.29: strict IST time-slot enforcement. Lunch 12:00-15:00, Dinner
+    # 19:00-22:00. Overrides via admin_config.meal_slots (future admin UI).
+    slot_cfg = (await db.admin_config.find_one({"_id": "meal_slots"}, {"_id": 0})) or {}
+    _lunch = slot_cfg.get("lunch") or {"start": "12:00", "end": "15:00"}
+    _dinner = slot_cfg.get("dinner") or {"start": "19:00", "end": "22:00"}
+    slots = {"lunch": _lunch, "dinner": _dinner}
+    def _hm(s):
+        try:
+            h, m = s.split(":"); return int(h)*60 + int(m)
+        except Exception:
+            return None
+    now_ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+    now_min = now_ist.hour*60 + now_ist.minute
+    win = slots.get(meal_type)
+    if win:
+        start_m, end_m = _hm(win["start"]), _hm(win["end"])
+        if start_m is not None and end_m is not None and not (start_m <= now_min <= end_m):
+            raise HTTPException(
+                status_code=403,
+                detail=f"{meal_type.capitalize()} scans are open {win['start']}–{win['end']} IST only. Please come back during the slot."
+            )
     today = today_str()
     existing = await db.attendance.find_one({
         "user_id": target_user["user_id"],
@@ -2271,6 +2299,36 @@ async def _mark_attendance(target_user: dict, meal_type: str, marked_by: str, me
         "method": method,
     }
     await db.attendance.insert_one(record.copy())
+    # iter-131.29: DINING subs deduct wallet + 1 meal on every scan. We also
+    # track which (date, meal) were scan-deducted so `catch_up_subscription`
+    # can skip those days and avoid double-charging. Tiffin subs keep the
+    # legacy tick-based deduction (they don't scan — food is delivered).
+    if (sub.get("service_type") or "").lower() == "dining":
+        per_day = float(sub.get("per_day_amount") or 0)
+        per_meal = round(per_day / 2.0, 2)
+        old_bal = float(sub.get("wallet_balance") or 0)
+        new_bal = round(max(0.0, old_bal - per_meal), 2)
+        new_meals_used = min(int(sub.get("meals_total") or 0), int(sub.get("meals_used") or 0) + 1)
+        scan_map = sub.get("scan_deducted_dates") or {}
+        day_meals = list(scan_map.get(today) or [])
+        if meal_type not in day_meals:
+            day_meals.append(meal_type)
+        scan_map[today] = day_meals
+        await db.subscriptions.update_one(
+            {"sub_id": sub["sub_id"]},
+            {"$set": {
+                "wallet_balance": new_bal,
+                "meals_used": new_meals_used,
+                "scan_deducted_dates": scan_map,
+                # advance tick anchor so catch_up won't re-deduct today
+                "last_tick_date": today,
+            }},
+        )
+        await _log_wallet_txn(
+            target_user["user_id"], sub["sub_id"], "debit",
+            per_meal, new_bal,
+            f"Scan · {meal_type} · {today}",
+        )
     # NOTE: meals_used is tick-driven (2 meals per active day, decremented from balance after midnight).
     # Scans only record attendance — they don't double-deduct.
     return record

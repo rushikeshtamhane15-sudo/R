@@ -62,7 +62,36 @@ export default function AdminKiosk() {
   }, [isFullscreenRoute]);
 
   /* ---------------- TOP: Counter QR ---------------- */
-  const [meal, setMeal] = useState("lunch");
+  // iter-131.29: auto-select meal by IST clock. Lunch 12:00–15:00, Dinner
+  // 19:00–22:00; outside slots we default to whichever slot is next.
+  const activeMealNow = React.useMemo(() => {
+    const now = new Date();
+    const ist = new Date(now.getTime() + (330 - now.getTimezoneOffset()) * 60_000);
+    const m = ist.getHours() * 60 + ist.getMinutes();
+    if (m >= 12 * 60 && m <= 15 * 60) return "lunch";
+    if (m >= 19 * 60 && m <= 22 * 60) return "dinner";
+    // Off-window: pick the next upcoming slot
+    if (m < 12 * 60) return "lunch";
+    if (m < 19 * 60) return "dinner";
+    return "lunch"; // late night → tomorrow's lunch
+  }, []);
+  const [meal, setMeal] = useState(activeMealNow);
+  // Re-sync when the clock crosses a slot boundary (every 60 s).
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date();
+      const ist = new Date(now.getTime() + (330 - now.getTimezoneOffset()) * 60_000);
+      const m = ist.getHours() * 60 + ist.getMinutes();
+      let next = "lunch";
+      if (m >= 12 * 60 && m <= 15 * 60) next = "lunch";
+      else if (m >= 19 * 60 && m <= 22 * 60) next = "dinner";
+      else if (m < 12 * 60) next = "lunch";
+      else if (m < 19 * 60) next = "dinner";
+      setMeal((prev) => prev === next ? prev : next);
+    };
+    const id = setInterval(tick, 60_000);
+    return () => clearInterval(id);
+  }, []);
   const [counter, setCounter] = useState(null);
   const loadCounter = useCallback(async () => {
     try {

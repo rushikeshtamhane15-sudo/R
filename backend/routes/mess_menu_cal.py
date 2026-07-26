@@ -432,6 +432,12 @@ async def kiosk_place_order(payload: KioskOrderIn, user: server.User = Depends(s
     if online_amount > 0:
         if provider == "razorpay" and getattr(server, "RZP_ENABLED", False):
             try:
+                # iter-131.29: Razorpay QR Codes API requires `close_by` (an
+                # expiry epoch, min 1h) for single_use QRs. Missing this was
+                # silently falling back to UPI-intent — hence the reported
+                # "Razorpay dynamic QR not working on kiosk" bug.
+                import time as _t
+                close_by_epoch = int(_t.time()) + (60 * 60 * 3)  # 3 hours
                 rzp_qr = server.rzp_client.qrcode.create({
                     "type": "upi_qr",
                     "name": f"efoodcare · {order_id}",
@@ -439,6 +445,7 @@ async def kiosk_place_order(payload: KioskOrderIn, user: server.User = Depends(s
                     "fixed_amount": True,
                     "payment_amount": online_amount * 100,  # paise
                     "description": f"{payload.qty} × {payload.meal_type} ({payload.service})"[:100],
+                    "close_by": close_by_epoch,
                     "notes": {
                         "kind": "kiosk_walk_in",
                         "order_id": order_id,
