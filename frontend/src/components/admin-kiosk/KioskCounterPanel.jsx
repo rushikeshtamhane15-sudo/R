@@ -10,7 +10,7 @@ import {
 const LOCATION = "main";
 
 export default function KioskCounterPanel({
-  meal, setMeal, counter, activeSlot,
+  meal, setMeal, counter, activeSlot, kioskLogoUrl,
   qrProvider, onSetQrProvider,
   btCfg, btStatus, onSetBtEnabled, onPairPrinter,
 }) {
@@ -35,14 +35,14 @@ export default function KioskCounterPanel({
             onClick={() => canLunch && setMeal("lunch")}
             disabled={!canLunch}
             data-testid="kiosk-meal-lunch"
-            className={`rounded-full h-11 px-5 text-sm font-extrabold transition-opacity ${meal === "lunch" && canLunch ? "bg-amber-500 text-white" : canLunch ? "bg-white/20 text-white" : "bg-white/8 text-white/40 cursor-not-allowed"}`}>
+            className={`rounded-full h-11 px-5 text-sm font-extrabold transition-opacity ${meal === "lunch" && canLunch ? "bg-white text-emerald-700 ring-2 ring-emerald-500 shadow-lg" : canLunch ? "bg-white text-emerald-700 ring-1 ring-emerald-300 hover:ring-emerald-500" : "bg-white text-red-600 ring-1 ring-red-400 opacity-70 cursor-not-allowed"}`}>
             <Sun className="h-4 w-4 mr-1.5" /> Lunch
           </Button>
           <Button
             onClick={() => canDinner && setMeal("dinner")}
             disabled={!canDinner}
             data-testid="kiosk-meal-dinner"
-            className={`rounded-full h-11 px-5 text-sm font-extrabold transition-opacity ${meal === "dinner" && canDinner ? "bg-blue-500 text-white" : canDinner ? "bg-white/20 text-white" : "bg-white/8 text-white/40 cursor-not-allowed"}`}>
+            className={`rounded-full h-11 px-5 text-sm font-extrabold transition-opacity ${meal === "dinner" && canDinner ? "bg-white text-emerald-700 ring-2 ring-emerald-500 shadow-lg" : canDinner ? "bg-white text-emerald-700 ring-1 ring-emerald-300 hover:ring-emerald-500" : "bg-white text-red-600 ring-1 ring-red-400 opacity-70 cursor-not-allowed"}`}>
             <Moon className="h-4 w-4 mr-1.5" /> Dinner
           </Button>
         </div>
@@ -50,6 +50,20 @@ export default function KioskCounterPanel({
 
       <div className="flex-1 grid sm:grid-cols-[1.4fr_1fr] gap-4 p-5">
         <div className="rounded-2xl bg-white p-5 flex flex-col items-center justify-center" data-testid="kiosk-counter-qr">
+          {/* iter-131.32: efoodcare brand block above the QR — centered logo +
+              white text + tagline. Admin can (in a later iter) upload a custom
+              icon; we fall back to the built-in favicon path. */}
+          <div className="w-full max-w-[360px] rounded-2xl bg-primary flex flex-col items-center gap-1 py-3 mb-4 shadow-md" data-testid="kiosk-brand-block">
+            <img
+              src={kioskLogoUrl || "/favicon-96.png"}
+              alt="efoodcare"
+              onError={(e) => { e.currentTarget.src = "/favicon-96.png"; }}
+              className="h-12 w-12 object-contain rounded-md bg-white/10 ring-1 ring-white/20"
+              data-testid="kiosk-brand-logo"
+            />
+            <p className="font-display font-extrabold text-2xl leading-none text-white tracking-tight" data-testid="kiosk-brand-name">efoodcare</p>
+            <p className="text-[10px] tracking-[0.24em] uppercase font-bold text-white/85" data-testid="kiosk-brand-tagline">ghar se achha khana</p>
+          </div>
           {counter ? (
             <>
               <QRCodeSVG value={counter.counter_code} size={360} level="M" fgColor="hsl(142 45% 28%)" />
@@ -62,9 +76,9 @@ export default function KioskCounterPanel({
         </div>
 
         <div className="flex flex-col gap-3">
-          <div className="rounded-2xl bg-[hsl(140,8%,16%)] border border-[hsl(140,8%,22%)] p-5">
-            <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-[hsl(135,25%,72%)]">How it works</p>
-            <ol className="mt-2 space-y-2 text-sm text-[hsl(40,15%,82%)] list-decimal list-inside">
+          <div className="rounded-2xl bg-white border border-black/8 p-5 shadow-sm" data-testid="kiosk-how-it-works">
+            <p className="text-[11px] tracking-[0.18em] uppercase font-bold text-primary">How it works</p>
+            <ol className="mt-2 space-y-2 text-base text-foreground list-decimal list-inside font-medium">
               <li>Open your phone camera.</li>
               <li>Point it at the QR on the left.</li>
               <li>Tap the notification to check in for {meal}.</li>
@@ -72,22 +86,22 @@ export default function KioskCounterPanel({
             </ol>
           </div>
 
-          <div className="rounded-2xl bg-[hsl(140,8%,16%)] border border-[hsl(140,8%,22%)] p-4" data-testid="kiosk-qr-provider-card">
-            <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-[hsl(40,15%,70%)] mb-2">Online payment QR</p>
+          <div className="rounded-2xl bg-white border border-black/8 p-4 shadow-sm" data-testid="kiosk-qr-provider-card">
+            <p className="text-[11px] tracking-[0.18em] uppercase font-bold text-primary mb-2">Online payment QR</p>
             <div className="inline-flex bg-[hsl(220,55%,55%)] rounded-full h-9 px-4 items-center w-full justify-center" data-testid="kiosk-qr-provider-razorpay">
-              <span className="text-[11px] font-extrabold text-white">Razorpay Dynamic UPI QR</span>
+              <span className="text-[12px] font-extrabold text-white">Razorpay Dynamic UPI QR</span>
             </div>
-            <p className="text-[10px] text-[hsl(40,15%,65%)] mt-2 leading-relaxed">
-              Razorpay Dynamic QR — auto-confirms payment in ~4s. Uses live Razorpay creds. Paytm has been retired.
+            <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
+              Razorpay Dynamic QR — auto-confirms payment in ~4s. Paytm has been retired.
             </p>
           </div>
 
-          <div className="rounded-2xl bg-[hsl(140,8%,16%)] border border-[hsl(140,8%,22%)] p-4" data-testid="kiosk-bt-card">
+          <div className="rounded-2xl bg-white border border-black/8 p-4 shadow-sm" data-testid="kiosk-bt-card">
             <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 text-foreground">
                 {btCfg?.enabled
-                  ? (btStatus === "connected" ? <BluetoothConnected className="h-4 w-4 text-blue-400" /> : <Bluetooth className="h-4 w-4 text-blue-400" />)
-                  : <BluetoothOff className="h-4 w-4 text-[hsl(40,15%,60%)]" />}
+                  ? (btStatus === "connected" ? <BluetoothConnected className="h-4 w-4 text-blue-600" /> : <Bluetooth className="h-4 w-4 text-blue-600" />)
+                  : <BluetoothOff className="h-4 w-4 text-muted-foreground" />}
                 <p className="text-sm font-extrabold">Bluetooth printer</p>
               </div>
               <label className="inline-flex items-center cursor-pointer">
@@ -98,19 +112,19 @@ export default function KioskCounterPanel({
                   className="sr-only peer"
                   data-testid="kiosk-bt-toggle"
                 />
-                <span className="w-10 h-6 bg-[hsl(140,8%,22%)] peer-checked:bg-blue-600 rounded-full relative transition-colors">
+                <span className="w-10 h-6 bg-gray-300 peer-checked:bg-blue-600 rounded-full relative transition-colors">
                   <span className="absolute top-0.5 left-0.5 h-5 w-5 bg-white rounded-full transition-transform peer-checked:translate-x-4 shadow-md" />
                 </span>
               </label>
             </div>
             {btCfg?.enabled && (
               <>
-                <p className="text-[11px] text-[hsl(40,15%,70%)] mt-1.5">
+                <p className="text-[12px] text-muted-foreground mt-1.5">
                   {btStatus === "connected" ? "Paired — auto-print on every order." : "Pair once per kiosk session — receipts auto-print after."}
                 </p>
                 {btStatus !== "connected" && (
                   <Button onClick={onPairPrinter} disabled={btStatus === "connecting"}
-                    className="mt-2 rounded-full h-9 text-xs bg-blue-600 hover:bg-blue-700 w-full" data-testid="kiosk-bt-pair">
+                    className="mt-2 rounded-full h-9 text-xs bg-blue-600 hover:bg-blue-700 w-full text-white" data-testid="kiosk-bt-pair">
                     {btStatus === "connecting" ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Bluetooth className="h-3.5 w-3.5 mr-1.5" />}
                     {btStatus === "connecting" ? "Pairing…" : "Pair printer now"}
                   </Button>

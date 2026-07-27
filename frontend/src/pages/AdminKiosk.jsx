@@ -14,6 +14,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { api } from "../lib/api";
+import { useBranding } from "../context/BrandingContext";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
 import { ShoppingCart, Maximize2, Minimize2, X } from "lucide-react";
@@ -35,6 +36,8 @@ export default function AdminKiosk() {
   // experience.
   const loc = useLocation();
   const isFullscreenRoute = loc.pathname === "/kiosk";
+  const branding = useBranding();
+  const kioskLogoUrl = branding?.brandLogoUrl || branding?.headerLogoUrl || "";
   const [browserFs, setBrowserFs] = useState(false);
   const requestFs = async () => {
     try {
@@ -354,12 +357,12 @@ export default function AdminKiosk() {
 
   return (
     <div
-      className="min-h-screen text-white grid grid-rows-[3fr_2fr] gap-3 p-4 kiosk-lights-shell"
+      className="min-h-screen text-white grid grid-rows-[5fr_3fr] gap-3 p-4 kiosk-lights-shell"
       style={{ background: "hsl(0, 76%, 45%)" }}
       data-testid="admin-kiosk-page"
     >
       <KioskCounterPanel
-        meal={meal} setMeal={setMeal} counter={counter} activeSlot={activeSlot}
+        meal={meal} setMeal={setMeal} counter={counter} activeSlot={activeSlot} kioskLogoUrl={kioskLogoUrl}
         qrProvider={qrProvider} onSetQrProvider={setQrProvider}
         btCfg={btCfg} btStatus={btStatus}
         onSetBtEnabled={setBtEnabled} onPairPrinter={ensurePrinter}

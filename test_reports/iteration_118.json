@@ -1,0 +1,31 @@
+{
+  "summary": "iter-118 frontend-only kiosk polish verified at 1400x900 desktop wall-kiosk viewport. All 4 sub-tasks (2a brand block, 2b meal toggle recolor, 3 grid ratio + TV fonts, 4 white-bg cards) pass visual + data-testid class assertions. Screenshots captured; no functional or lint issues.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/browser_iter118/kiosk_desktop.jpeg",
+    "/app/test_reports/browser_iter118e/bottom.jpeg",
+    "/app/test_reports/browser_iter118e/full.jpeg"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "KioskMenuCard renders '[object Object]' when a menu.items array is present (seen while seeding lunch/dinner as {items:[...]}). Confirm that the app actually stores lunch/dinner as strings in production — if item arrays are also supported, KioskMenuCard should stringify them. Not caused by this iteration."
+  ],
+  "verified_features": [
+    "2a: [data-testid=kiosk-brand-block] rendered centered above [data-testid=kiosk-counter-qr] with logo (falls back to /favicon-96.png via BrandingContext), 'efoodcare' white text, and uppercase 'GHAR SE ACHHA KHANA' tagline in white/85.",
+    "2b: [data-testid=kiosk-meal-lunch] and [data-testid=kiosk-meal-dinner] use bg-white with emerald ring when their slot is active and bg-white text-red-600 ring-red-400 opacity-70 cursor-not-allowed when inactive (verified live during off-window — both rendered red/disabled correctly).",
+    "3: Root grid class contains 'grid-rows-[5fr_3fr]'. KioskOrderForm classes verified: order-meal toggles h-10/text-sm/px-5, svc tabs py-3/text-sm, pay tabs py-3/text-xs, qty +/- h-11 w-11, qty display text-2xl, total font-extrabold text-4xl text-primary, place-order h-14 text-lg.",
+    "4: kiosk-how-it-works, kiosk-qr-provider-card, kiosk-bt-card, and kiosk-order-form all contain 'bg-white'. Service/pay tabs use bg-muted/60 light-mode with primary red highlight on active tab. Confirmed visually — Cash tab shows primary-red bg while UPI QR/Cash+UPI show light muted bg."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "test_credentials": "Admin user_id=user_kiosk_admin (phone 9199990000). Seeded ephemeral session token sess_test_uq34e6q7qxt (cleaned up after test).",
+  "seed_data_creation": "Inserted temporary mess_menu docs for 2026-07-28 and 2026-07-29 so KioskOrderForm would render (removed after test). Also inserted+deleted user_sessions row for cookie-based admin auth.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "To render KioskOrderForm the /api/mess-menu/today endpoint needs a document in the 'mess_menu' collection (singular) keyed by date=today (IST). Backend session cookie name is 'session_token'; insert into user_sessions with user_id, session_token, expires_at (ISO). Meal toggle is hard-locked to IST 12–15 (lunch) / 19–22 (dinner) — outside those windows both buttons render red/disabled by design."
+}
