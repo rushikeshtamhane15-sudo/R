@@ -2899,3 +2899,30 @@ Redeploy to push to `efoodcare.in`. For dynamic-QR Razorpay QRs to actually show
 1. Log in to Razorpay Dashboard → Products → **QR Codes** → click **Activate** (feature flag on live account).
 2. No further code changes needed after activation — the kiosk already sends `close_by` and will succeed.
 
+
+
+---
+
+## iter-131.30 — Slot config UI + tiffin stock sync + kiosk redesign (2026-02-27)
+
+Certified via `testing_agent` (iteration_114.json — 5/5 backend pytest pass; frontend Playwright verified all layout + CSS changes).
+
+### Backend
+- **Slot config API** (`routes/app_cms.py`): public `GET /api/meal-slots` returns lunch/dinner windows (default 12:00–15:00 / 19:00–22:00); admin/staff `PUT /api/admin/meal-slots` persists to `db.admin_config.meal_slots` (403 for other roles, 400 for non-HH:MM values). `server._mark_attendance` already reads from this collection.
+- **Physical tiffin stock sync** (`routes/tiffin_stock.py`, `routes/rider.py`, `routes/app_cms.py`):
+  - New `increment_stock_db(...)` helper (inserts a `return` movement row).
+  - Rider delivery path now calls `decrement_stock_db(..., source="takeaway_delivered")` when the order carries a returnable tiffin.
+  - `collect_takeaway` (Mark collected) now calls `increment_stock_db(..., source="takeaway_collected")` so stock rebounds to full.
+  - Result: dashboard's "Physical tiffin stock" tile updates from 50 → 49 the moment a takeaway is delivered, and back to 50 when admin marks it collected.
+- **Admin sidebar**: added `/admin/meal-slots · Meal slot windows` entry.
+
+### Frontend
+- **New admin page** (`pages/AdminMealSlots.jsx`) with two slot cards (data-testid `slot-card-lunch`, `slot-card-dinner`) + Save button (`save-meal-slots`). Wired at `/admin/meal-slots`.
+- **Kiosk meal-tab slot lock** (`AdminKiosk.jsx`, `KioskCounterPanel.jsx`): parent computes `activeSlot` (lunch/dinner/off) every 60s and passes to the counter panel; off-slot tabs render disabled (`bg-white/8 text-white/40 cursor-not-allowed`). Off-hours → BOTH disabled.
+- **Kiosk layout re-ratio** (`AdminKiosk.jsx`): root grid `grid-rows-[1fr_1fr]` → `grid-rows-[3fr_2fr]` (Counter QR taller, self-order shorter). Order-panel header padding/buttons shrunk (py-3→py-2.5, h-10→h-9, text-lg→text-base).
+- **Kiosk mess-menu horizontal** (`components/admin-kiosk/KioskMenuCard.jsx`): LUNCH + DINNER tiles now in `grid grid-cols-2 gap-2` side-by-side (matches the restaurant TodayMessMenuFlash mobile card the user shared). Gold-diamond separator removed. Items list inside each tile is now a single-column `flex flex-col gap-0.5`.
+- **Brand-red kiosk + animated string lights** (`AdminKiosk.jsx`, `index.css`): root bg switched to `hsl(0, 76%, 45%)` with `.kiosk-lights-shell` class; new CSS paints radial-gradient warm-white/amber bulb dots on `::before` + `::after` around all 4 edges with drop-shadow glow and a `kioskLightsTwinkle` 1.6s alternate animation for a running-lights effect.
+
+### Production note
+User must **redeploy** to push to `efoodcare.in`. No manual admin steps post-deploy — the tiffin stock sync applies to future deliveries; existing pendency rows can be marked collected to bring stock back up.
+
