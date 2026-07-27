@@ -4,7 +4,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
-import { Phone, MapPin, RefreshCw, Package, CheckCircle2, Clock, Plus, X } from "lucide-react";
+import { Phone, MapPin, RefreshCw, Package, CheckCircle2, Clock, Plus, X, MessageCircle } from "lucide-react";
 
 export default function AdminRestaurantTakeaway() {
   const [rows, setRows] = useState([]);
@@ -167,9 +167,32 @@ export default function AdminRestaurantTakeaway() {
                   <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">Order {r.order_id} · delivered {new Date(r.delivered_at).toLocaleString("en-IN")}</p>
                 </div>
                 {!r.collected && (
-                  <Button size="sm" onClick={() => collect(r.pendency_id)} className="rounded-full bg-emerald-600 hover:bg-emerald-700" data-testid={`collect-${r.pendency_id}`}>
-                    <CheckCircle2 className="h-4 w-4 mr-1.5" /> Mark collected
-                  </Button>
+                  <div className="flex items-center gap-2 flex-wrap justify-end">
+                    {r.phone && (() => {
+                      const digits = String(r.phone).replace(/\D/g, "");
+                      const waPhone = digits.length === 10 ? `91${digits}` : digits;
+                      const nudge = encodeURIComponent(
+                        `Hi ${r.name || "there"}, this is efoodcare 👋. Our records show ${r.tiffin_count} steel tiffin${r.tiffin_count > 1 ? "s are" : " is"} still with you from your recent order. ` +
+                        `Please keep ${r.tiffin_count > 1 ? "them" : "it"} rinsed & ready — our delivery boy will pick up on the next round. ` +
+                        `Thanks for helping us stay green ♻️`,
+                      );
+                      return (
+                        <a
+                          href={`https://wa.me/${waPhone}?text=${nudge}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          data-testid={`whatsapp-${r.pendency_id}`}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold px-3 h-9"
+                          title={`WhatsApp ${r.name || "customer"} a gentle return reminder`}
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                        </a>
+                      );
+                    })()}
+                    <Button size="sm" onClick={() => collect(r.pendency_id)} className="rounded-full bg-emerald-600 hover:bg-emerald-700" data-testid={`collect-${r.pendency_id}`}>
+                      <CheckCircle2 className="h-4 w-4 mr-1.5" /> Mark collected
+                    </Button>
+                  </div>
                 )}
               </li>
             ))}

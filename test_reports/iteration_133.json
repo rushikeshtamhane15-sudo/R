@@ -1,0 +1,21 @@
+{
+  "summary": "iter-133 UI-only enhancements verified end-to-end via Playwright against the Emergent preview URL. (a) AdminRestaurantTakeaway (/admin/restaurant-takeaway) — pending rows now render a green WhatsApp anchor (data-testid whatsapp-<pendency_id>) as a sibling BEFORE the Mark-collected button; href starts with https://wa.me/91<10-digit>?text=<encoded reminder>, target=_blank, rel=noopener noreferrer, and the decoded message contains the customer name, tiffin count with pluralization (\"2 steel tiffins are\"), and the ♻️ recycling character. Collected filter rows correctly render NO WhatsApp anchor (0 anchors across 5 collected rows). Mark-collected button remains present on pending rows. (b) Wall Kiosk (/admin/kiosk) header now shows a live BT-printer status pill (data-testid kiosk-printer-status-pill) rendered inside kiosk-counter-panel next to the 'Counter QR' title. Verified 3 of 4 live states: OFF (label 'Printer off', bg-white/12), WAITING (BT enabled + no printer, label 'Printer waiting', amber ring), CONNECTED (window.__efcBtPrinter present at mount, label 'Printer paired', emerald ring). The 4th state ('Pairing…', blue, Loader2 spin) is a transient in-flight state during a live Web Bluetooth pair and could not be captured without a real device; source review of KioskCounterPanel.jsx L32-34 confirms the correct label/tone/icon mapping. No regressions: kiosk-bt-card, kiosk-counter-qr, kiosk-meal-toggle (lunch+dinner), and kiosk-brand-block still render.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Review-request stated the URL as /admin/restaurant/takeaway but the actual route registered in App.js is /admin/restaurant-takeaway (single hyphen). The request wording is misleading — a naive Playwright script following the request will land on /restaurant (customer page) and see no admin UI. Consider aligning the reference in future prompts.",
+    "AdminRestaurantTakeaway.jsx L172-178: WhatsApp phone normalization does `digits.length === 10 ? '91'+digits : digits` — if a user manually enters an already-91-prefixed 12-digit or an accidental 11-digit string, we skip the prefix and pass raw digits to wa.me which may 404. Consider a stricter regex `^\\d{10}$ -> 91XXXXXXXXXX` else if `^91\\d{10}$` keep as-is, else fallback to tel:.",
+    "KioskCounterPanel.jsx L49: pill uses `ring-1` with `bg-white/12` for the OFF state — the /12 opacity utility only works if tailwind's arbitrary opacity is enabled and `white` is in the palette; safer would be `bg-white/10` (which is a standard step). Visually fine in current build but worth verifying on Tailwind v3.4 config.",
+    "KioskCounterPanel.jsx L21-36: btPill computed on every render. Cheap, but for cleanliness could be memoized via useMemo keyed on [btCfg?.enabled, btStatus]."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only)", "frontend": "100% (7/7 assertions across takeaway + kiosk)"},
+  "test_credentials": "Seeded ephemeral admin user TEST_iter133_admin with session_token TEST_sess_iter133_f25d2af3 (role=admin). Cleaned up after tests.",
+  "seed_data_creation": "Inserted 1 restaurant_tiffin_pendency (rtp_manual_1fc307ae21, TEST_iter133 User, phone 9876543210, 2 tiffins) via POST /api/admin/restaurant/takeaway-pendency/manual and deleted directly from Mongo after verification. Also toggled /admin/kiosk/bt-config enabled during pill-state testing and reset to false at end.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Correct admin takeaway route is /admin/restaurant-takeaway (NOT /admin/restaurant/takeaway). To bypass Web-Bluetooth for the CONNECTED pill state, use page.add_init_script('window.__efcBtPrinter = {...}') BEFORE navigation — post-navigation assignment does not persist across reload. The bt-config admin endpoint accepts PUT with JSON {enabled: true/false} and immediately reflects on next kiosk page mount (React state seeded from GET /api/admin/kiosk/bt-config).",
+  "rca of the issue": "N/A — no bugs found."
+}

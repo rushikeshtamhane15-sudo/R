@@ -18,6 +18,22 @@ export default function KioskCounterPanel({
   // buttons render disabled + faded so staff can never mint the wrong QR.
   const canLunch = activeSlot === "lunch";
   const canDinner = activeSlot === "dinner";
+  // iter-132.b: compact live Bluetooth-printer status pill for the kiosk header.
+  // Three visible states: off (BT disabled), waiting (enabled but not paired),
+  // pairing (in-flight), and paired (green). Rendered next to the header title
+  // so staff spot a disconnect BEFORE the next print job.
+  const btPill = (() => {
+    if (!btCfg?.enabled) {
+      return { label: "Printer off", tone: "bg-white/12 text-white/80 ring-white/20", Icon: BluetoothOff };
+    }
+    if (btStatus === "connected") {
+      return { label: "Printer paired", tone: "bg-emerald-400/25 text-emerald-100 ring-emerald-300/40", Icon: BluetoothConnected };
+    }
+    if (btStatus === "connecting") {
+      return { label: "Pairing…", tone: "bg-blue-400/25 text-blue-100 ring-blue-300/40", Icon: Loader2 };
+    }
+    return { label: "Printer waiting", tone: "bg-amber-400/25 text-amber-100 ring-amber-300/40", Icon: Bluetooth };
+  })();
   return (
     <section className="rounded-3xl border border-white/25 bg-black/45 backdrop-blur-sm overflow-hidden flex flex-col" data-testid="kiosk-counter-panel">
       <div className="flex items-center justify-between px-5 py-3 border-b border-white/12">
@@ -29,6 +45,14 @@ export default function KioskCounterPanel({
             <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-white/80">Counter QR</p>
             <p className="font-display font-extrabold text-lg sm:text-xl">Scan with your phone to check in</p>
           </div>
+          <span
+            className={`ml-3 inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[10px] tracking-[0.16em] uppercase font-extrabold ring-1 ${btPill.tone}`}
+            data-testid="kiosk-printer-status-pill"
+            title={btPill.label}
+          >
+            <btPill.Icon className={`h-3.5 w-3.5 ${btStatus === "connecting" ? "animate-spin" : ""}`} />
+            <span>{btPill.label}</span>
+          </span>
         </div>
         <div className="flex gap-2" data-testid="kiosk-meal-toggle">
           <Button
