@@ -2979,3 +2979,33 @@ Certified via `testing_agent` (iteration_118.json — all 4 sub-tasks pass visua
 - (5) Tiffin stock engaged-count tile.
 - (6) Admin upload UI for kiosk brand logo AND splash-screen logo.
 
+
+---
+
+## iter-132 (Feb 2026) — deferred batch shipped ✅
+
+### 1) Kiosk Razorpay Autopoll UX + Auto-print
+- `KioskPaymentModal.jsx`: added translucent "Waiting for UPI…" overlay (Loader2 spinner + tagline) over the Razorpay QR while the parent 4-s poll is running.
+- Poll `data-testid="kiosk-razorpay-polling"` disappears when `order.online_paid` flips to true.
+- Auto-print on payment success was already wired in `AdminKiosk.jsx` (see the polling `useEffect` at line ~245–277): once `settled=true`, if the admin has BT printing enabled and a printer paired, `printReceipt()` fires and marks the order in `printedFor` so it never double-prints.
+
+### 2) Tiffin Engaged Count
+- Backend `GET /api/admin/tiffin-stock` now returns two new fields:
+  - `engaged`: sum of `tiffin_count` from `restaurant_tiffin_pendency` where `collected` is false/unset (branch-scoped via `_users_in_mess`).
+  - `total_with_engaged` = `quantity + engaged` (the *actual* physical inventory including tiffins currently out with customers).
+- Frontend `AdminTiffinStock.jsx` — renamed "In stock" tile to "Total inventory" (still `data-testid="stock-quantity"`); shows `total_with_engaged` with a `X in-hand + Y engaged` sub-line.
+
+### 3) Kiosk & Splash Logo Admin Uploader
+- Backend `routes/branding.py`:
+  - Added `kiosk` to `VALID_SLOTS` (splash was already supported).
+  - `_load()` + public `/branding` now expose `kiosk_logo_url` + `is_kiosk_custom` + `kiosk_updated_at`.
+  - Upload/reset routes updated with kiosk field/timestamp maps.
+- `BrandingContext.jsx` — exposes `kioskLogoUrl` + `isKioskCustom` + `kioskUpdatedAt`.
+- `AdminBranding.jsx` — extended `SLOT_META` to 4 uploader cards (brand, header, splash, kiosk). Each has independent Upload + Reset with slot-suffixed test IDs.
+- `AdminKiosk.jsx` — kiosk header logo now prefers `branding.kioskLogoUrl` before falling back to brand/header slots.
+
+### Verification
+- 11/11 pytest cases green (`test_iter132_branding_kiosk_tiffin_engaged.py`).
+- Frontend testing agent: 100% pass on the 4 uploader cards, tiffin tile sub-line, and Razorpay QR overlay code path.
+
+
