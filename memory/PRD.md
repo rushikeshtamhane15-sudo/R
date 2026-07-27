@@ -2953,3 +2953,29 @@ Certified via `testing_agent` (iteration_116: 5/6 pass + iteration_117 regressio
 ### Production note
 Redeploy to push to `efoodcare.in`. Legacy `db.app_config.kiosk_qr_v1.provider = "paytm"` in production will auto-heal to `razorpay` on the first `GET /api/admin/kiosk/qr-provider` call.
 
+
+
+---
+
+## iter-131.32 — Kiosk polish (2026-02-27)
+
+Split from 6-task batch per user (option a). This turn: tasks 2, 3, 4. Deferred: task 1 (autopoll animation), 5 (tiffin engaged count), 6 (splash/kiosk logo upload from admin).
+
+Certified via `testing_agent` (iteration_118.json — all 4 sub-tasks pass visual + testid class assertions at 1400x900).
+
+### Frontend
+- **Task 2 · Brand block + recolored meal toggle** (`components/admin-kiosk/KioskCounterPanel.jsx`):
+  - New `[data-testid=kiosk-brand-block]` above the QR: `[data-testid=kiosk-brand-logo]` (branding.brandLogoUrl with `/favicon-96.png` fallback), `[data-testid=kiosk-brand-name]` "efoodcare" (white), `[data-testid=kiosk-brand-tagline]` "GHAR SE ACHHA KHANA".
+  - Meal toggle (top-right): white bg with **emerald** ring/text when the slot is currently active, **red** ring/text + faded opacity when disabled (off-slot).
+- **Task 3 · Size rebalance + TV fonts** (`pages/AdminKiosk.jsx`, `components/admin-kiosk/KioskOrderForm.jsx`):
+  - Root grid `grid-rows-[3fr_2fr]` → `grid-rows-[5fr_3fr]` (bigger QR panel).
+  - Order form typography bumped for wall-TV readability: meal toggle `h-10 text-sm`, service tabs `py-3 text-sm h-5 w-5 icons`, qty `h-11 w-11 text-2xl`, payment tabs `py-3 text-xs h-4 w-4`, total `text-4xl`, Place order `h-14 text-lg`.
+- **Task 4 · White backgrounds** (`components/admin-kiosk/KioskCounterPanel.jsx`, `KioskOrderForm.jsx`):
+  - "How it works" (`kiosk-how-it-works`), "Online payment QR" (`kiosk-qr-provider-card`), "Bluetooth printer" (`kiosk-bt-card`) sub-panels: `bg-[hsl(140,8%,16%)]` → `bg-white` with primary-red heading + foreground text.
+  - Order-form root and its service/payment tabs, mixed-amount inputs, total row: all light-theme (bg-white / bg-muted with primary-red active state).
+
+### Deferred (next turn)
+- (1) "Waiting for UPI…" polling animation + auto-print-on-confirm.
+- (5) Tiffin stock engaged-count tile.
+- (6) Admin upload UI for kiosk brand logo AND splash-screen logo.
+
