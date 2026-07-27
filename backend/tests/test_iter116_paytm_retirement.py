@@ -79,10 +79,16 @@ class TestQrProviderRead:
             {"$set": {"key": KIOSK_QR_KEY, "provider": "paytm"}},
             upsert=True,
         )
+        # Verify seeded value is paytm before GET
+        pre = db.app_config.find_one({"key": KIOSK_QR_KEY})
+        assert pre and pre.get("provider") == "paytm"
         r = requests.get(f"{BASE_URL}/api/admin/kiosk/qr-provider", headers=_headers(admin_token), timeout=10)
         assert r.status_code == 200, r.text
         # Read path masks legacy value with default -> razorpay
         assert r.json().get("provider") == "razorpay"
+        # iter-117: GET must ALSO self-heal the persisted doc to razorpay
+        post = db.app_config.find_one({"key": KIOSK_QR_KEY})
+        assert post and post.get("provider") == "razorpay", f"Expected DB self-heal to razorpay, got {post}"
 
 
 class TestQrProviderWrite:

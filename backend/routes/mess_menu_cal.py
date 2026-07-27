@@ -661,10 +661,17 @@ class KioskQrProviderIn(BaseModel):
 async def admin_get_kiosk_qr_provider(user: server.User = Depends(server.get_current_user)):
     if user.role not in ("admin", "staff", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
+    # iter-131.31: force razorpay + self-heal legacy paytm rows on read.
     doc = await server.db.app_config.find_one({"key": KIOSK_QR_KEY}, {"_id": 0})
-    if not doc:
-        return dict(DEFAULT_QR_CFG)
-    return {**DEFAULT_QR_CFG, **{k: v for k, v in doc.items() if k != "key"}}
+    if doc and doc.get("provider") != "razorpay":
+        try:
+            await server.db.app_config.update_one(
+                {"key": KIOSK_QR_KEY},
+                {"$set": {"provider": "razorpay"}},
+            )
+        except Exception:
+            pass
+    return {"provider": "razorpay"}
 
 
 @router.put("/admin/kiosk/qr-provider")

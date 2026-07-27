@@ -1,0 +1,24 @@
+{
+  "summary": "iter-117 regression: GET /api/admin/kiosk/qr-provider self-heal for legacy 'paytm' persisted value. Fixed test asserts BOTH response body AND DB row are 'razorpay' post-GET. All 6/6 pytest cases pass on the preview URL. Backend fix at mess_menu_cal.py L660-674 confirmed working.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter116_paytm_retirement.py",
+    "/app/test_reports/pytest/iter117_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "mess_menu_cal.py L660-674 admin_get_kiosk_qr_provider now self-heals legacy paytm doc to razorpay on read — LGTM (mirrors PUT + _kiosk_qr_provider helper).",
+    "KioskQrProviderIn model description at L657 still says 'paytm | razorpay' — cosmetic; PUT coerces to razorpay regardless."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter116_paytm_retirement.py"
+  ],
+  "success_rate": {"backend": "100% (6/6 pytest)", "frontend": "n/a (skipped per request)"},
+  "test_credentials": "Admin phone 9199990000; session minted via db.user_sessions insertion.",
+  "seed_data_creation": "Seeded db.app_config.kiosk_qr_v1={provider:'paytm'} before GET; verified self-heal to razorpay post-GET. Test also POSTs a kiosk online order (cleaned up).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter-116 Paytm-retirement bug is fully closed. All backend paths (GET, PUT, internal _kiosk_qr_provider, order-create) now force 'razorpay' AND self-heal any legacy DB row on read/write. Regression test at /app/backend/tests/test_iter116_paytm_retirement.py covers all 4 paths (6 tests, all green).",
+  "rca of the issue": "Original bug in iter-116: admin_get_kiosk_qr_provider used {**DEFAULT_QR_CFG, **doc} merge, allowing legacy 'paytm' to override default. Fix (iter-117) mirrors the self-heal logic from _kiosk_qr_provider() into the GET endpoint: after reading the doc, if provider!='razorpay' it upserts back to razorpay, then returns razorpay unconditionally. Verified end-to-end: pre-GET mongo shows paytm → GET returns razorpay → post-GET mongo shows razorpay."
+}
