@@ -74,20 +74,11 @@ export default function KioskCounterPanel({
 
           <div className="rounded-2xl bg-[hsl(140,8%,16%)] border border-[hsl(140,8%,22%)] p-4" data-testid="kiosk-qr-provider-card">
             <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-[hsl(40,15%,70%)] mb-2">Online payment QR</p>
-            <div className="inline-flex bg-[hsl(140,8%,12%)] rounded-full p-1 gap-1 w-full">
-              <button type="button" onClick={() => onSetQrProvider("paytm")} data-testid="kiosk-qr-provider-paytm"
-                className={`flex-1 px-3 h-9 rounded-full text-[11px] font-extrabold ${qrProvider === "paytm" ? "bg-[hsl(40,25%,94%)] text-[hsl(140,8%,8%)]" : "text-[hsl(40,15%,70%)]"}`}>
-                Paytm UPI
-              </button>
-              <button type="button" onClick={() => onSetQrProvider("razorpay")} data-testid="kiosk-qr-provider-razorpay"
-                className={`flex-1 px-3 h-9 rounded-full text-[11px] font-extrabold ${qrProvider === "razorpay" ? "bg-[hsl(220,55%,55%)] text-white" : "text-[hsl(40,15%,70%)]"}`}>
-                Razorpay
-              </button>
+            <div className="inline-flex bg-[hsl(220,55%,55%)] rounded-full h-9 px-4 items-center w-full justify-center" data-testid="kiosk-qr-provider-razorpay">
+              <span className="text-[11px] font-extrabold text-white">Razorpay Dynamic UPI QR</span>
             </div>
             <p className="text-[10px] text-[hsl(40,15%,65%)] mt-2 leading-relaxed">
-              {qrProvider === "razorpay"
-                ? "Razorpay Dynamic QR — auto-confirms payment in ~4s. Uses live Razorpay creds."
-                : "Paytm UPI intent QR — works with any UPI app. Staff taps Mark paid after scan."}
+              Razorpay Dynamic QR — auto-confirms payment in ~4s. Uses live Razorpay creds. Paytm has been retired.
             </p>
           </div>
 

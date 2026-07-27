@@ -1,0 +1,45 @@
+{
+  "summary": "iter-116 Paytm retirement verification. Backend pytest 5/6 pass. Frontend (AdminKiosk /admin/kiosk) verified via Playwright: 'UPI QR' label rendered (no Paytm), Razorpay locked pill present, no Paytm toggle, helper text mentions 'Paytm has been retired'. One backend bug found: GET /api/admin/kiosk/qr-provider does NOT self-heal a legacy 'paytm' persisted value — it returns 'paytm' verbatim.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "GET /api/admin/kiosk/qr-provider",
+        "issue": "Read path does not self-heal legacy 'paytm' persisted value. When db.app_config.kiosk_qr_v1.provider='paytm', GET returns {provider:'paytm'} instead of 'razorpay'. Review-request feature (2) explicitly requires this. Root cause in /app/backend/routes/mess_menu_cal.py L660-667: admin_get_kiosk_qr_provider merges DEFAULT_QR_CFG with the DB doc so 'paytm' overrides the default. The self-heal logic only lives in the internal helper _kiosk_qr_provider() (L685-697) which is used by the order flow but NOT by the GET endpoint. Suggested fix: force `provider='razorpay'` in the GET response and also update the DB doc when a non-razorpay value is read (mirror _kiosk_qr_provider).",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter116_paytm_retirement.py",
+    "/app/test_reports/pytest/iter116_results.xml",
+    "/app/test_reports/iter116_kiosk.jpg"
+  ],
+  "action_items": [
+    "Fix GET /api/admin/kiosk/qr-provider to always return provider='razorpay' regardless of persisted legacy value, and self-heal the DB doc (mirror the _kiosk_qr_provider() helper). Currently only the order-placement path self-heals; the admin GET returns raw 'paytm' when persisted."
+  ],
+  "critical_code_review_comments": [
+    "mess_menu_cal.py L660-667 GET endpoint uses `{**DEFAULT_QR_CFG, **doc}` merge — this makes the DB value override the default. Given the migration goal, the GET should COERCE to razorpay just like the PUT does.",
+    "mess_menu_cal.py L676 PUT correctly forces 'razorpay' irrespective of payload — LGTM.",
+    "KioskOrderForm.jsx L16 label now reads 'UPI QR' — LGTM (verified in DOM).",
+    "KioskCounterPanel.jsx L75-88 removed Paytm toggle; single locked Razorpay pill + 'Paytm has been retired' helper — LGTM (verified in DOM).",
+    "AdminKiosk.jsx L190-202 qrProvider is locked to 'razorpay' in state; loadQrProvider silently migrates legacy paytm via PUT; setQrProvider is a no-op — LGTM.",
+    "AdminKiosk.jsx L335 fallback `r.data?.qr_provider || 'paytm'` — dead default (backend now always returns 'razorpay'), safe to change to 'razorpay' for consistency but not a functional bug.",
+    "KioskQrProviderIn Pydantic model still describes `provider: paytm | razorpay` in Field description (L657) — cosmetic only; PUT accepts anything and coerces."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter116_paytm_retirement.py"
+  ],
+  "success_rate": {"backend": "83% (5/6 pytest)", "frontend": "100% (4/4 UI checks)"},
+  "test_credentials": "Admin phone 9199990000 (user_kiosk_admin). Session minted directly via db.user_sessions insertion; cookie name 'session_token'.",
+  "seed_data_creation": "Temporarily seeded db.app_config.kiosk_qr_v1.provider='paytm' to exercise the self-heal path (cleanup restored 'razorpay'). Also created + deleted one kiosk mess-menu order for the online-order provider assertion.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "The only remaining bug is the GET /admin/kiosk/qr-provider not self-healing. Fix is a 2-line change in mess_menu_cal.py::admin_get_kiosk_qr_provider — always return 'razorpay' and update the DB doc when non-razorpay. Re-run /app/backend/tests/test_iter116_paytm_retirement.py after fix; test_legacy_paytm_is_migrated should turn green. All frontend Paytm-retirement UI is already correct and needs no further work.",
+  "rca of the issue": "The migration was applied to two of the three code paths (PUT endpoint, internal _kiosk_qr_provider helper used by order-create), but the admin GET endpoint (used by AdminKiosk.jsx::loadQrProvider on mount) still uses the pre-migration merge pattern which lets a legacy 'paytm' DB value override the default. Because the front-end AdminKiosk.jsx defensively coerces any non-razorpay response to razorpay in state (L194-198) and silently PUTs the migration, this bug is masked in the UI — but the API contract is still wrong and any other consumer (or automated migration verification) would see the stale 'paytm' value."
+}

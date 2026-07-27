@@ -13,7 +13,7 @@ const SERVICE_TABS = [
 ];
 const PAY_TABS = [
   { id: "cash",   label: "Cash",        icon: Banknote },
-  { id: "online", label: "Paytm QR",    icon: ScanLine },
+  { id: "online", label: "UPI QR",    icon: ScanLine },
   { id: "mixed",  label: "Cash + UPI",  icon: WalletIcon },
 ];
 

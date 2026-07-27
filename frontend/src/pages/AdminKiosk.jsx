@@ -184,20 +184,22 @@ export default function AdminKiosk() {
   }, []);
   useEffect(() => { loadBtCfg(); }, [loadBtCfg]);
 
-  /* iter-74 #1: kiosk QR provider toggle (Paytm UPI intent vs Razorpay) */
-  const [qrProvider, setQrProviderState] = useState("paytm");
+  /* iter-131.31: Paytm retired — kiosk now uses Razorpay Dynamic UPI QR only.
+     We lock the provider to "razorpay" and try to persist it once on mount so
+     any legacy DB value migrates. The toggle UI is gone; users see one option. */
+  const [qrProvider, setQrProviderState] = useState("razorpay");
   const loadQrProvider = useCallback(async () => {
-    try { const r = await api.get("/admin/kiosk/qr-provider"); setQrProviderState(r.data?.provider || "paytm"); }
-    catch (e) { setQrProviderState("paytm"); console.warn("[AdminKiosk] qr-provider fetch failed", e); }
+    try {
+      const r = await api.get("/admin/kiosk/qr-provider");
+      if (r.data?.provider && r.data.provider !== "razorpay") {
+        // Migrate legacy paytm setting to razorpay silently.
+        try { await api.put("/admin/kiosk/qr-provider", { provider: "razorpay" }); } catch { /* ignore */ }
+      }
+      setQrProviderState("razorpay");
+    } catch (e) { setQrProviderState("razorpay"); console.warn("[AdminKiosk] qr-provider fetch failed", e); }
   }, []);
   useEffect(() => { loadQrProvider(); }, [loadQrProvider]);
-  const setQrProvider = async (provider) => {
-    try {
-      const r = await api.put("/admin/kiosk/qr-provider", { provider });
-      setQrProviderState(r.data.provider);
-      toast.success(`Kiosk QR provider · ${r.data.provider === "razorpay" ? "Razorpay (auto-confirm)" : "Paytm UPI intent"}`);
-    } catch { toast.error("Could not switch provider"); }
-  };
+  const setQrProvider = async () => { /* no-op — provider locked to razorpay */ };
 
   const setBtEnabled = async (enabled) => {
     try {

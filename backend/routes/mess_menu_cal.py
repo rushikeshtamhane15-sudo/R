@@ -650,7 +650,7 @@ async def admin_put_kiosk_bt(payload: KioskBtConfigIn, user: server.User = Depen
 
 # -------- iter-74 #1: kiosk QR provider toggle (Paytm UPI intent | Razorpay QR) --------
 KIOSK_QR_KEY = "kiosk_qr_v1"
-DEFAULT_QR_CFG = {"provider": "paytm"}  # paytm = upi:// intent (no creds), razorpay = QR codes API
+DEFAULT_QR_CFG = {"provider": "razorpay"}  # iter-131.31: Paytm retired. Razorpay Dynamic UPI QR only.
 
 
 class KioskQrProviderIn(BaseModel):
@@ -671,19 +671,30 @@ async def admin_get_kiosk_qr_provider(user: server.User = Depends(server.get_cur
 async def admin_put_kiosk_qr_provider(payload: KioskQrProviderIn, user: server.User = Depends(server.get_current_user)):
     if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
-    if payload.provider not in {"paytm", "razorpay"}:
-        raise HTTPException(status_code=400, detail="provider must be paytm | razorpay")
+    # iter-131.31: Paytm retired. Any incoming provider value is coerced to
+    # razorpay so legacy admin UIs / persisted configs migrate silently.
+    forced = "razorpay"
     await server.db.app_config.update_one(
         {"key": KIOSK_QR_KEY},
-        {"$set": {"key": KIOSK_QR_KEY, "provider": payload.provider}},
+        {"$set": {"key": KIOSK_QR_KEY, "provider": forced}},
         upsert=True,
     )
-    return {"provider": payload.provider}
+    return {"provider": forced}
 
 
 async def _kiosk_qr_provider() -> str:
+    # iter-131.31: always Razorpay. Backwards-compat: also self-heal any legacy
+    # paytm value in the DB so subsequent reads never resurrect it.
     doc = await server.db.app_config.find_one({"key": KIOSK_QR_KEY}, {"_id": 0})
-    return (doc or {}).get("provider") or DEFAULT_QR_CFG["provider"]
+    if doc and (doc.get("provider") != "razorpay"):
+        try:
+            await server.db.app_config.update_one(
+                {"key": KIOSK_QR_KEY},
+                {"$set": {"provider": "razorpay"}},
+            )
+        except Exception:
+            pass
+    return "razorpay"
 
 
 @router.get("/admin/kiosk/order/{order_id}/payment-status")
