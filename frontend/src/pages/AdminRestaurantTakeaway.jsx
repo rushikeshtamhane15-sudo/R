@@ -170,7 +170,12 @@ export default function AdminRestaurantTakeaway() {
                   <div className="flex items-center gap-2 flex-wrap justify-end">
                     {r.phone && (() => {
                       const digits = String(r.phone).replace(/\D/g, "");
-                      const waPhone = digits.length === 10 ? `91${digits}` : digits;
+                      // Normalise to E.164-ish for wa.me: strip leading 0, prefix 91 for 10-digit
+                      // Indian mobiles, keep 91xxxxxxxxxx as-is, otherwise pass-through.
+                      const trimmed = digits.replace(/^0+/, "");
+                      const waPhone = /^\d{10}$/.test(trimmed)
+                        ? `91${trimmed}`
+                        : (/^91\d{10}$/.test(trimmed) ? trimmed : trimmed);
                       const nudge = encodeURIComponent(
                         `Hi ${r.name || "there"}, this is efoodcare 👋. Our records show ${r.tiffin_count} steel tiffin${r.tiffin_count > 1 ? "s are" : " is"} still with you from your recent order. ` +
                         `Please keep ${r.tiffin_count > 1 ? "them" : "it"} rinsed & ready — our delivery boy will pick up on the next round. ` +

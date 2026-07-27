@@ -3009,3 +3009,23 @@ Certified via `testing_agent` (iteration_118.json — all 4 sub-tasks pass visua
 - Frontend testing agent: 100% pass on the 4 uploader cards, tiffin tile sub-line, and Razorpay QR overlay code path.
 
 
+
+---
+
+## iter-133 (Feb 2026) — engagement follow-up + kiosk printer visibility ✅
+
+### 1) One-tap WhatsApp nudge on pending returns
+- `AdminRestaurantTakeaway.jsx`: each pending-return row now renders a green **WhatsApp** anchor beside "Mark collected" with `data-testid="whatsapp-<pendency_id>"`.
+- Phone normalised for `wa.me` (strip leading `0`, prefix `91` for 10-digit Indian mobiles; keep `91XXXXXXXXXX` as-is).
+- Templated reminder mentions the customer's name, exact tiffin count with pluralization, and a friendly ♻️ note.
+- Collected rows and rows without a phone gracefully hide the button; the "Mark collected" flow is unchanged.
+
+### 2) Live Bluetooth-printer status pill in kiosk header
+- `KioskCounterPanel.jsx`: added a compact pill next to the "Counter QR" title with `data-testid="kiosk-printer-status-pill"`.
+- Four states surfaced in real time: `Printer off` (white/muted), `Printer waiting` (amber), `Pairing…` (blue + spinner), `Printer paired` (emerald).
+- Reads existing `btCfg.enabled` + `btStatus` props already threaded through the kiosk orchestrator — zero new state or fetch.
+
+### Verification
+- Playwright frontend agent: 7/7 assertions pass across takeaway + all reachable kiosk pill states. No regressions.
+
+
