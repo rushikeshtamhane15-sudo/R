@@ -2926,3 +2926,30 @@ Certified via `testing_agent` (iteration_114.json — 5/5 backend pytest pass; f
 ### Production note
 User must **redeploy** to push to `efoodcare.in`. No manual admin steps post-deploy — the tiffin stock sync applies to future deliveries; existing pendency rows can be marked collected to bring stock back up.
 
+
+
+---
+
+## iter-131.31 — Paytm retirement (2026-02-27)
+
+Certified via `testing_agent` (iteration_116: 5/6 pass + iteration_117 regression: 6/6 pass).
+
+### Frontend
+- **KioskOrderForm** (`components/admin-kiosk/KioskOrderForm.jsx`): payment-mode "Paytm QR" label → **"UPI QR"**.
+- **KioskCounterPanel** (`components/admin-kiosk/KioskCounterPanel.jsx`): removed the two-way Paytm/Razorpay toggle. Replaced with a single locked pill "Razorpay Dynamic UPI QR" (`data-testid=kiosk-qr-provider-razorpay`). Helper text updated with "Paytm has been retired".
+- **AdminKiosk** (`pages/AdminKiosk.jsx`): `qrProvider` state hardcoded to `"razorpay"`; loadQrProvider silently migrates any legacy `paytm` DB value on mount; setQrProvider is now a no-op (provider is locked).
+
+### Backend
+- **`routes/mess_menu_cal.py`**:
+  - `DEFAULT_QR_CFG` `{"provider": "paytm"}` → `{"provider": "razorpay"}`.
+  - `GET /api/admin/kiosk/qr-provider` (admin/staff): reads persisted config, if provider != razorpay it updates the DB row to razorpay in place, then always returns `{"provider": "razorpay"}` — self-healing on read.
+  - `PUT /api/admin/kiosk/qr-provider` (admin only): accepts any payload but coerces to `"razorpay"` before persisting. Non-admin still returns 403.
+  - `_kiosk_qr_provider()` (internal helper used by order-create): same self-healing + always returns `"razorpay"`.
+- Effect: every kiosk order created after this iter uses Razorpay Dynamic QR. Paytm UPI intent is no longer offered anywhere in the admin UI or via any API path.
+
+### Notes
+- The Razorpay QR code create call still requires the merchant to activate **QR Codes** on their Razorpay Dashboard (Products → QR Codes → Activate). Until then, the backend logs a warning and gracefully falls back to a UPI-intent string so cash-counter workflow keeps working.
+
+### Production note
+Redeploy to push to `efoodcare.in`. Legacy `db.app_config.kiosk_qr_v1.provider = "paytm"` in production will auto-heal to `razorpay` on the first `GET /api/admin/kiosk/qr-provider` call.
+
