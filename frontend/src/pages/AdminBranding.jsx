@@ -5,22 +5,21 @@ import { useBranding } from "../context/BrandingContext";
 import { Upload, RotateCcw, Loader2 } from "lucide-react";
 
 /**
- * /admin/branding — swap the app-wide brand logo AND the site-header logo
- * without a redeploy. Each slot is independently uploadable and resettable.
+ * /admin/branding — swap the app-wide brand logo, site-header logo, splash
+ * screen logo AND kiosk logo without a redeploy. Each slot is independently
+ * uploadable and resettable.
  *
- * Storage: both slots persist as base64 data URLs in Mongo
+ * Storage: all slots persist as base64 data URLs in Mongo
  * (`app_settings["branding_settings_v1"]`).
  *
  * Excluded from these swaps:
  *   · The green Pure-Veg / FSSAI certification badge (hand-drawn SVG).
- *   · The splash screen logo (keeps its own bundled asset for animation
- *     isolation — swap that via `frontend/public/brand-logo.jpg`).
  */
 const SLOT_META = [
   {
     slot: "brand",
     title: "Brand logo (app icon)",
-    subtitle: "Shows in Footer, Restaurant hero, Kiosk, and admin surfaces.",
+    subtitle: "Shows in Footer, Restaurant hero, and other in-app surfaces.",
     urlKey: "brandLogoUrl",
     customKey: "isCustom",
     updatedKey: "brandUpdatedAt",
@@ -32,6 +31,22 @@ const SLOT_META = [
     urlKey: "headerLogoUrl",
     customKey: "isHeaderCustom",
     updatedKey: "headerUpdatedAt",
+  },
+  {
+    slot: "splash",
+    title: "Splash screen logo",
+    subtitle: "Shows on the red brand splash on cold app / PWA launch.",
+    urlKey: "splashLogoUrl",
+    customKey: "isSplashCustom",
+    updatedKey: "splashUpdatedAt",
+  },
+  {
+    slot: "kiosk",
+    title: "Wall kiosk logo",
+    subtitle: "Shows on the counter QR panel of the wall kiosk screen.",
+    urlKey: "kioskLogoUrl",
+    customKey: "isKioskCustom",
+    updatedKey: "kioskUpdatedAt",
   },
 ];
 
@@ -164,9 +179,9 @@ export default function AdminBranding() {
   return (
     <div className="max-w-3xl mx-auto space-y-6" data-testid="admin-branding-page">
       <div>
-        <h1 className="text-2xl font-display font-extrabold" data-testid="admin-branding-heading">Brand · Header · Splash logos</h1>
+        <h1 className="text-2xl font-display font-extrabold" data-testid="admin-branding-heading">Brand · Header · Splash · Kiosk logos</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Three independent slots. Upload once — the change is instant across every page.
+          Four independent slots. Upload once — the change is instant across every page.
         </p>
       </div>
 

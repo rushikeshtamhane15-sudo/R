@@ -153,8 +153,26 @@ async def get_state(mess_id: Optional[str] = None, user: server.User = Depends(s
         active_tiffin_subs = await server.db.subscriptions.count_documents(q)
     except Exception:
         active_tiffin_subs = 0
+    # iter-131.32: engaged = takeaway steel tiffins currently OUT with customers
+    # (delivered but not yet returned/collected). Sourced from the
+    # `restaurant_tiffin_pendency` collection where `collected` is falsy.
+    engaged = 0
+    try:
+        eq: dict = {"$or": [{"collected": False}, {"collected": {"$exists": False}}]}
+        if target:
+            # branch-scope engaged tiffins via users-in-mess helper
+            user_ids = await server._users_in_mess(target)
+            if user_ids is not None:
+                eq["user_id"] = {"$in": user_ids}
+        cursor = server.db.restaurant_tiffin_pendency.find(eq, {"_id": 0, "tiffin_count": 1})
+        async for row in cursor:
+            engaged += int(row.get("tiffin_count") or 0)
+    except Exception:
+        engaged = 0
     st["active_tiffin_subs"] = active_tiffin_subs
     st["expected_daily_use"] = active_tiffin_subs * 2  # 2 meals/day
+    st["engaged"] = engaged
+    st["total_with_engaged"] = int(st["quantity"]) + engaged
     st["low_stock"] = st["quantity"] <= st["low_threshold"]
     return st
 

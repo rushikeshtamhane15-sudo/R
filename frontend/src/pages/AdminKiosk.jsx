@@ -37,7 +37,7 @@ export default function AdminKiosk() {
   const loc = useLocation();
   const isFullscreenRoute = loc.pathname === "/kiosk";
   const branding = useBranding();
-  const kioskLogoUrl = branding?.brandLogoUrl || branding?.headerLogoUrl || "";
+  const kioskLogoUrl = branding?.kioskLogoUrl || branding?.brandLogoUrl || branding?.headerLogoUrl || "";
   const [browserFs, setBrowserFs] = useState(false);
   const requestFs = async () => {
     try {

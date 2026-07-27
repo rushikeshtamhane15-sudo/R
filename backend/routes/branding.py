@@ -33,8 +33,9 @@ MAX_UPLOAD_BYTES = 2 * 1024 * 1024   # 2 MB — logos should be small
 DEFAULT_BRAND_URL = "/brand-logo.jpg"    # bundled fallback for the app-wide brand mark
 DEFAULT_HEADER_URL = "/brand-logo.jpg"   # bundled fallback for the header icon
 DEFAULT_SPLASH_URL = "/brand-logo.jpg"   # bundled fallback for the splash screen icon
+DEFAULT_KIOSK_URL = "/brand-logo.jpg"    # bundled fallback for the wall-kiosk header logo
 
-VALID_SLOTS = ("brand", "header", "splash")
+VALID_SLOTS = ("brand", "header", "splash", "kiosk")
 
 _EXT_BY_MIME = {
     "image/jpeg": ".jpg",
@@ -54,9 +55,11 @@ async def _load() -> dict:
         "brand_logo_url":  doc.get("brand_logo_url", "") or "",
         "header_logo_url": doc.get("header_logo_url", "") or "",
         "splash_logo_url": doc.get("splash_logo_url", "") or "",
+        "kiosk_logo_url":  doc.get("kiosk_logo_url", "") or "",
         "brand_updated_at":  doc.get("brand_updated_at"),
         "header_updated_at": doc.get("header_updated_at"),
         "splash_updated_at": doc.get("splash_updated_at"),
+        "kiosk_updated_at":  doc.get("kiosk_updated_at"),
         "updated_at": doc.get("updated_at"),
     }
 
@@ -90,12 +93,15 @@ async def public_branding():
         "brand_logo_url":  cur["brand_logo_url"] or DEFAULT_BRAND_URL,
         "header_logo_url": cur["header_logo_url"] or DEFAULT_HEADER_URL,
         "splash_logo_url": cur["splash_logo_url"] or DEFAULT_SPLASH_URL,
+        "kiosk_logo_url":  cur["kiosk_logo_url"]  or DEFAULT_KIOSK_URL,
         "is_custom":        bool(cur["brand_logo_url"]),
         "is_header_custom": bool(cur["header_logo_url"]),
         "is_splash_custom": bool(cur["splash_logo_url"]),
+        "is_kiosk_custom":  bool(cur["kiosk_logo_url"]),
         "brand_updated_at":  cur["brand_updated_at"],
         "header_updated_at": cur["header_updated_at"],
         "splash_updated_at": cur["splash_updated_at"],
+        "kiosk_updated_at":  cur["kiosk_updated_at"],
         "updated_at": cur["updated_at"],
     }
 
@@ -135,8 +141,8 @@ async def admin_upload_logo(
         payload = data
         mime = (file.content_type or "image/jpeg").lower()
     data_url = f"data:{mime};base64," + base64.b64encode(payload).decode("ascii")
-    field    = {"brand": "brand_logo_url", "header": "header_logo_url", "splash": "splash_logo_url"}[s]
-    ts_field = {"brand": "brand_updated_at", "header": "header_updated_at", "splash": "splash_updated_at"}[s]
+    field    = {"brand": "brand_logo_url", "header": "header_logo_url", "splash": "splash_logo_url", "kiosk": "kiosk_logo_url"}[s]
+    ts_field = {"brand": "brand_updated_at", "header": "header_updated_at", "splash": "splash_updated_at", "kiosk": "kiosk_updated_at"}[s]
     saved = await _save_patch({field: data_url, ts_field: _iso_now()})
     return {
         "slot": s,
@@ -153,9 +159,9 @@ async def admin_reset(
 ):
     _admin(user)
     s = _validate_slot(slot)
-    field    = {"brand": "brand_logo_url", "header": "header_logo_url", "splash": "splash_logo_url"}[s]
-    ts_field = {"brand": "brand_updated_at", "header": "header_updated_at", "splash": "splash_updated_at"}[s]
-    default  = {"brand": DEFAULT_BRAND_URL, "header": DEFAULT_HEADER_URL, "splash": DEFAULT_SPLASH_URL}[s]
+    field    = {"brand": "brand_logo_url", "header": "header_logo_url", "splash": "splash_logo_url", "kiosk": "kiosk_logo_url"}[s]
+    ts_field = {"brand": "brand_updated_at", "header": "header_updated_at", "splash": "splash_updated_at", "kiosk": "kiosk_updated_at"}[s]
+    default  = {"brand": DEFAULT_BRAND_URL, "header": DEFAULT_HEADER_URL, "splash": DEFAULT_SPLASH_URL, "kiosk": DEFAULT_KIOSK_URL}[s]
     saved = await _save_patch({field: "", ts_field: _iso_now()})
     return {
         "slot": s,

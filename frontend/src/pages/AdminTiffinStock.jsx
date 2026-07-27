@@ -76,7 +76,14 @@ export default function AdminTiffinStock() {
 
       {/* Top stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Stat label="In stock" value={state?.quantity ?? 0} icon={Package} tone={state?.low_stock ? "warn" : "ok"} testid="stock-quantity" />
+        <Stat
+          label="Total inventory"
+          value={state?.total_with_engaged ?? state?.quantity ?? 0}
+          sub={`${state?.quantity ?? 0} in-hand + ${state?.engaged ?? 0} engaged`}
+          icon={Package}
+          tone={state?.low_stock ? "warn" : "ok"}
+          testid="stock-quantity"
+        />
         <Stat label="Active tiffin subs" value={state?.active_tiffin_subs ?? 0} icon={Package} />
         <Stat label="Daily expected use" value={state?.expected_daily_use ?? 0} icon={Package} />
         <Stat label="Last top-up" value={state?.last_topup_qty ? `+${state.last_topup_qty}` : "—"} sub={state?.last_topup_at?.slice(0, 10) || ""} icon={History} />

@@ -2,11 +2,15 @@
 import React from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "../ui/button";
-import { CheckCircle2, X as XIcon } from "lucide-react";
+import { CheckCircle2, Loader2, X as XIcon } from "lucide-react";
 
 export default function KioskPaymentModal({ pendingOrder, onConfirm, onCancel }) {
   if (!pendingOrder || !pendingOrder.order || pendingOrder.order.payment_method === "cash") return null;
-  const { order, provider, upiQrText, upiVpa, razorpayQrImageUrl } = pendingOrder;
+  const { order, provider, upiQrText, upiVpa, razorpayQrImageUrl, razorpayQrId } = pendingOrder;
+  // iter-131.32: while the parent 4-s poll runs against Razorpay we show a
+  // translucent "Waiting for UPI…" affordance over the QR so users know the
+  // kiosk is actively watching for the payment (not a static image).
+  const isPolling = provider === "razorpay" && !!razorpayQrId && !order.online_paid;
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" data-testid="kiosk-paytm-modal">
       <div className="bg-white text-[hsl(140,8%,8%)] rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto p-5">
@@ -27,8 +31,18 @@ export default function KioskPaymentModal({ pendingOrder, onConfirm, onCancel })
 
         {provider === "razorpay" && razorpayQrImageUrl ? (
           <div className="mt-4 flex flex-col items-center">
-            <div className="rounded-2xl bg-white p-4 border-2 border-[hsl(220,55%,55%)]" data-testid="kiosk-razorpay-qr">
+            <div className="relative rounded-2xl bg-white p-4 border-2 border-[hsl(220,55%,55%)]" data-testid="kiosk-razorpay-qr">
               <img src={razorpayQrImageUrl} alt="Scan to pay via Razorpay UPI" className="w-[240px] h-[240px] object-contain" />
+              {isPolling && (
+                <div
+                  className="pointer-events-none absolute inset-0 rounded-2xl flex flex-col items-center justify-center gap-2 bg-white/72 backdrop-blur-[1.5px] animate-in fade-in"
+                  data-testid="kiosk-razorpay-polling"
+                >
+                  <Loader2 className="h-10 w-10 animate-spin text-[hsl(220,55%,45%)]" strokeWidth={2.5} />
+                  <p className="text-[13px] font-extrabold tracking-wide text-[hsl(220,55%,25%)]">Waiting for UPI…</p>
+                  <p className="text-[10px] font-semibold text-[hsl(220,10%,40%)] tracking-[0.14em] uppercase">Auto-prints on confirmation</p>
+                </div>
+              )}
             </div>
             <p className="text-[11px] mt-2 text-muted-foreground text-center">Razorpay Dynamic QR · auto-confirms on payment</p>
           </div>
