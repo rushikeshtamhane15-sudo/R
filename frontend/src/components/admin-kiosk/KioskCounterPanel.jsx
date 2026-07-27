@@ -10,29 +10,39 @@ import {
 const LOCATION = "main";
 
 export default function KioskCounterPanel({
-  meal, setMeal, counter,
+  meal, setMeal, counter, activeSlot,
   qrProvider, onSetQrProvider,
   btCfg, btStatus, onSetBtEnabled, onPairPrinter,
 }) {
+  // iter-131.30: hard-lock the meal toggle to the currently-active slot. Off-slot
+  // buttons render disabled + faded so staff can never mint the wrong QR.
+  const canLunch = activeSlot === "lunch";
+  const canDinner = activeSlot === "dinner";
   return (
-    <section className="rounded-3xl border border-[hsl(140,8%,22%)] bg-[hsl(140,8%,12%)] overflow-hidden flex flex-col" data-testid="kiosk-counter-panel">
-      <div className="flex items-center justify-between px-5 py-3 border-b border-[hsl(140,8%,20%)]">
+    <section className="rounded-3xl border border-white/25 bg-black/45 backdrop-blur-sm overflow-hidden flex flex-col" data-testid="kiosk-counter-panel">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-white/12">
         <div className="flex items-center gap-2">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[hsl(135,25%,55%)] text-[hsl(140,8%,8%)]">
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 text-white">
             <ScanLine className="h-5 w-5" />
           </span>
           <div>
-            <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-[hsl(135,25%,72%)]">Counter QR</p>
+            <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-white/80">Counter QR</p>
             <p className="font-display font-extrabold text-lg sm:text-xl">Scan with your phone to check in</p>
           </div>
         </div>
         <div className="flex gap-2" data-testid="kiosk-meal-toggle">
-          <Button onClick={() => setMeal("lunch")} data-testid="kiosk-meal-lunch"
-            className={`rounded-full h-11 px-5 text-sm font-extrabold ${meal === "lunch" ? "bg-[hsl(26,43%,57%)] text-white" : "bg-[hsl(140,8%,18%)] text-[hsl(40,25%,92%)]"}`}>
+          <Button
+            onClick={() => canLunch && setMeal("lunch")}
+            disabled={!canLunch}
+            data-testid="kiosk-meal-lunch"
+            className={`rounded-full h-11 px-5 text-sm font-extrabold transition-opacity ${meal === "lunch" && canLunch ? "bg-amber-500 text-white" : canLunch ? "bg-white/20 text-white" : "bg-white/8 text-white/40 cursor-not-allowed"}`}>
             <Sun className="h-4 w-4 mr-1.5" /> Lunch
           </Button>
-          <Button onClick={() => setMeal("dinner")} data-testid="kiosk-meal-dinner"
-            className={`rounded-full h-11 px-5 text-sm font-extrabold ${meal === "dinner" ? "bg-[hsl(220,55%,55%)] text-white" : "bg-[hsl(140,8%,18%)] text-[hsl(40,25%,92%)]"}`}>
+          <Button
+            onClick={() => canDinner && setMeal("dinner")}
+            disabled={!canDinner}
+            data-testid="kiosk-meal-dinner"
+            className={`rounded-full h-11 px-5 text-sm font-extrabold transition-opacity ${meal === "dinner" && canDinner ? "bg-blue-500 text-white" : canDinner ? "bg-white/20 text-white" : "bg-white/8 text-white/40 cursor-not-allowed"}`}>
             <Moon className="h-4 w-4 mr-1.5" /> Dinner
           </Button>
         </div>

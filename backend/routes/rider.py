@@ -281,6 +281,21 @@ async def rider_deliver(order_id: str, payload: DeliverPayload, user: server.Use
                 "delivered_at": _now_iso(),
                 "collected": False,
             })
+            # iter-131.30: physical steel-tiffin stock sync — the tiffin has
+            # left the branch, so decrement the physical inventory. It comes
+            # back on `mark_collected` via app_cms.collect_takeaway.
+            try:
+                from routes.tiffin_stock import decrement_stock_db
+                await decrement_stock_db(
+                    server.db,
+                    count=returnable_count,
+                    reason=f"Take-away · order {order_id}",
+                    source="takeaway_delivered",
+                    user_id=order["user_id"],
+                    mess_id=(cust or {}).get("mess_id"),
+                )
+            except Exception as e:  # noqa: BLE001
+                server.logger.warning(f"[RIDER] tiffin_stock decrement failed for {order_id} · {e}")
     except Exception as e:  # noqa: BLE001
         server.logger.warning(f"[RIDER] take-away tiffin pendency failed for {order_id} · {e}")
 

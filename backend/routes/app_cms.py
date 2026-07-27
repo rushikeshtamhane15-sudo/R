@@ -261,6 +261,22 @@ async def collect_takeaway(payload: CollectTakeaway, user: server.User = Depends
             {"user_id": rec["user_id"], "tiffin_balance": {"$gte": n}},
             {"$inc": {"tiffin_balance": -n}},
         )
+    # iter-131.30: physical steel-tiffin stock sync — customer just returned
+    # the tiffin, add back to the branch's physical inventory.
+    if n > 0:
+        try:
+            from routes.tiffin_stock import increment_stock_db
+            u = await server.db.users.find_one({"user_id": rec.get("user_id")}, {"_id": 0, "mess_id": 1}) or {}
+            await increment_stock_db(
+                server.db,
+                count=n,
+                reason=f"Take-away return · pendency {payload.pendency_id}",
+                source="takeaway_collected",
+                user_id=rec.get("user_id"),
+                mess_id=u.get("mess_id"),
+            )
+        except Exception as e:  # noqa: BLE001
+            server.logger.warning(f"[collect_takeaway] tiffin_stock increment failed · {e}")
     return {"ok": True}
 
 
@@ -500,3 +516,50 @@ async def add_manual_takeaway(payload: ManualTakeaway, user: server.User = Depen
     }
     await server.db.restaurant_tiffin_pendency.insert_one(doc)
     return {"ok": True, "pendency_id": pid}
+
+
+# ---------------------------------------------------------------------------
+# iter-131.30 · Meal-slot config UI. Admins can edit lunch/dinner windows
+# used to gate kiosk scans (see server._mark_attendance).
+# ---------------------------------------------------------------------------
+DEFAULT_MEAL_SLOTS = {
+    "lunch": {"start": "12:00", "end": "15:00"},
+    "dinner": {"start": "19:00", "end": "22:00"},
+}
+
+
+class SlotWin(BaseModel):
+    start: str = Field(..., description="HH:MM 24h")
+    end: str = Field(..., description="HH:MM 24h")
+
+
+class MealSlotsIn(BaseModel):
+    lunch: SlotWin
+    dinner: SlotWin
+
+
+@router.get("/meal-slots")
+async def get_meal_slots():
+    """Public — kiosk/mobile clients need slot info to gate scans client-side."""
+    doc = await server.db.admin_config.find_one({"_id": "meal_slots"}, {"_id": 0}) or {}
+    lunch = doc.get("lunch") or DEFAULT_MEAL_SLOTS["lunch"]
+    dinner = doc.get("dinner") or DEFAULT_MEAL_SLOTS["dinner"]
+    return {"lunch": lunch, "dinner": dinner}
+
+
+@router.put("/admin/meal-slots")
+async def set_meal_slots(payload: MealSlotsIn, user: server.User = Depends(server.get_current_user)):
+    if user.role not in ("admin", "staff"):
+        raise HTTPException(403, "Admin or staff only")
+    import re
+    def valid(t):
+        return bool(re.match(r"^([01]?\d|2[0-3]):[0-5]\d$", t or ""))
+    for w in (payload.lunch, payload.dinner):
+        if not (valid(w.start) and valid(w.end)):
+            raise HTTPException(400, "Time must be HH:MM 24-hour")
+    await server.db.admin_config.update_one(
+        {"_id": "meal_slots"},
+        {"$set": {"lunch": payload.lunch.dict(), "dinner": payload.dinner.dict()}},
+        upsert=True,
+    )
+    return {"ok": True, "lunch": payload.lunch.dict(), "dinner": payload.dinner.dict()}

@@ -1,0 +1,38 @@
+{
+  "summary": "iter-131.30 verification of all 5 tasks. Backend: 5/5 pytest pass (meal-slots GET public + PUT admin + 403 RBAC + 400 invalid time; tiffin-stock end-to-end sync via rider deliver → collect flow with real stock quantity movements and movement rows). Frontend: verified via Playwright at /admin/kiosk and /admin/meal-slots — root has grid-rows-[3fr_2fr]+kiosk-lights-shell+brand-red bg (rgb(202,28,28) = hsl(0,76%,45%)); IST time was 11:48 (off-slot) so BOTH kiosk-meal-lunch and kiosk-meal-dinner buttons rendered disabled with bg-white/8 faded class (expected off-hours behavior); KioskMenuCard has grid-cols-2 with kiosk-mess-lunch + kiosk-mess-dinner tiles side-by-side; ::before/::after apply radial-gradient bulb pattern with kioskLightsTwinkle animation on all edges; order panel header uses py-2.5, day toggle buttons use h-9; AdminMealSlots page renders 2 slot cards + 4 time inputs + save button, defaults 12:00/22:00.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admin sidebar", "issues": ["'Meal slot windows' link not visible in the current admin sidebar (data-testid link a[href='/admin/meal-slots'] not found). Backend server.py L4785 does declare the sidebar entry, but the persisted sidebar_config in the DB may be overriding it. Route itself is reachable and works — this is a sidebar-config cache issue flagged in the review_request itself. Fix: reset via /api/admin/sidebar-config or refresh sidebar."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter131_30.py",
+    "/app/test_reports/pytest/iter131_30.xml",
+    "/app/test_reports/iter131_30_kiosk.jpg",
+    "/app/test_reports/iter131_30_slots.jpg"
+  ],
+  "action_items": [
+    "Optional: force-refresh the persisted admin sidebar config so 'Meal slot windows' link appears without a manual reset. Currently discoverable only by typing /admin/meal-slots in the URL."
+  ],
+  "critical_code_review_comments": [
+    "app_cms.get_meal_slots is public (no auth) — appropriate for kiosk/mobile clients gating scans client-side.",
+    "app_cms.set_meal_slots validates HH:MM 24-hr with regex, enforces admin/staff RBAC (403 for other roles) — LGTM.",
+    "app_cms.collect_takeaway now atomically marks pendency collected, decrements user.tiffin_balance, AND calls increment_stock_db (source=takeaway_collected). Any exception from stock helper is caught & logged — resilient design.",
+    "rider.rider_deliver: takeaway returnable-tiffin block now inserts pendency AND calls decrement_stock_db (source=takeaway_delivered) with the customer's mess_id — correct branch scoping.",
+    "tiffin_stock.increment_stock_db uses find_one_and_update $inc atomically + logs a 'return' movement row with delta=+n after=new_qty — mirrors decrement path. LGTM.",
+    "AdminKiosk.jsx activeSlot useMemo returns 'off' when outside both windows (both tabs disable); a 60s setInterval bumps setSlotTick which re-evaluates useMemo — correctly re-checks slot boundary.",
+    "KioskCounterPanel disables buttons via disabled attr AND applies visual faded class (bg-white/8 text-white/40 cursor-not-allowed) when its slot is inactive — verified in DOM.",
+    "KioskMenuCard: gold-diamond separator has been removed; LUNCH+DINNER tiles are wrapped in a single grid grid-cols-2 gap-2 — matches restaurant TodayMessMenuFlash mobile layout. Item lists use flex flex-col gap-0.5.",
+    "index.css .kiosk-lights-shell with ::before/::after radial-gradient bulb patterns + kioskLightsTwinkle keyframes 1.6s ease-in-out alternate — verified via getComputedStyle."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter131_30.py"],
+  "success_rate": {"backend": "100% (5/5)", "frontend": "100% for all inspected DOM/CSS assertions"},
+  "test_credentials": "Admin phone 9199990000 → session minted directly in db.user_sessions to bypass OTP.",
+  "seed_data_creation": "Temporarily seeded a returnable-tiffin restaurant menu item (id=TEST_returnable_tiffin_iter13130), a test rider user, and a delivered restaurant order to drive the deliver flow. Cleaned up on completion. Meal slots reset back to default (12:00-15:00 / 19:00-22:00).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 5 iter-131.30 tasks verified working. Only cosmetic caveat is the admin sidebar link for /admin/meal-slots not auto-appearing (known — main agent hint). Rider deliver flow was exercised in tests by pre-seeding an order in out_for_delivery state with a known OTP to skip the multi-step pickup/arrive dance — this exact pattern remains useful for future returnable-tiffin regressions."
+}

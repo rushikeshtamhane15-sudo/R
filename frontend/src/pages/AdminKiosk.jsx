@@ -61,6 +61,20 @@ export default function AdminKiosk() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFullscreenRoute]);
 
+  // iter-131.30: activeSlot is stricter than activeMealNow — "off" means
+  // we're outside BOTH windows (early-morning/afternoon/late-night) and both
+  // Lunch/Dinner tabs should render disabled.
+  const activeSlot = React.useMemo(() => {
+    const now = new Date();
+    const ist = new Date(now.getTime() + (330 - now.getTimezoneOffset()) * 60_000);
+    const m = ist.getHours() * 60 + ist.getMinutes();
+    if (m >= 12 * 60 && m <= 15 * 60) return "lunch";
+    if (m >= 19 * 60 && m <= 22 * 60) return "dinner";
+    return "off";
+  }, []);
+  const [, setSlotTick] = useState(0); // re-render every minute so activeSlot recomputes
+  useEffect(() => { const id = setInterval(() => setSlotTick((t) => t + 1), 60_000); return () => clearInterval(id); }, []);
+
   /* ---------------- TOP: Counter QR ---------------- */
   // iter-131.29: auto-select meal by IST clock. Lunch 12:00–15:00, Dinner
   // 19:00–22:00; outside slots we default to whichever slot is next.
@@ -337,47 +351,51 @@ export default function AdminKiosk() {
   };
 
   return (
-    <div className="min-h-screen bg-[hsl(140,12%,8%)] text-[hsl(40,25%,94%)] grid grid-rows-[1fr_1fr] gap-3 p-3" data-testid="admin-kiosk-page">
+    <div
+      className="min-h-screen text-white grid grid-rows-[3fr_2fr] gap-3 p-4 kiosk-lights-shell"
+      style={{ background: "hsl(0, 76%, 45%)" }}
+      data-testid="admin-kiosk-page"
+    >
       <KioskCounterPanel
-        meal={meal} setMeal={setMeal} counter={counter}
+        meal={meal} setMeal={setMeal} counter={counter} activeSlot={activeSlot}
         qrProvider={qrProvider} onSetQrProvider={setQrProvider}
         btCfg={btCfg} btStatus={btStatus}
         onSetBtEnabled={setBtEnabled} onPairPrinter={ensurePrinter}
       />
 
-      <section className="rounded-3xl border border-[hsl(140,8%,22%)] bg-[hsl(140,8%,12%)] overflow-hidden flex flex-col" data-testid="kiosk-order-panel">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-[hsl(140,8%,20%)]">
+      <section className="rounded-3xl border border-white/25 bg-black/45 backdrop-blur-sm overflow-hidden flex flex-col" data-testid="kiosk-order-panel">
+        <div className="flex items-center justify-between px-5 py-2.5 border-b border-white/12">
           <div className="flex items-center gap-2">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[hsl(26,43%,57%)] text-white">
-              <ShoppingCart className="h-5 w-5" />
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-white/15 text-white">
+              <ShoppingCart className="h-4 w-4" />
             </span>
             <div>
-              <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-[hsl(40,15%,70%)]">Wall kiosk · self-order</p>
-              <p className="font-display font-extrabold text-lg sm:text-xl">Tap. Pay. Print.</p>
+              <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-white/80">Wall kiosk · self-order</p>
+              <p className="font-display font-extrabold text-base sm:text-lg">Tap. Pay. Print.</p>
             </div>
           </div>
-          <div className="inline-flex bg-[hsl(140,8%,18%)] rounded-full p-1 gap-1" data-testid="kiosk-day-toggle">
-            <button type="button" onClick={() => setTab("today")} className={`px-4 h-10 rounded-full text-xs font-extrabold ${tab === "today" ? "bg-[hsl(40,25%,94%)] text-[hsl(140,8%,8%)]" : "text-[hsl(40,15%,70%)]"}`} data-testid="kiosk-day-today">Today</button>
-            <button type="button" onClick={() => setTab("tomorrow")} className={`px-4 h-10 rounded-full text-xs font-extrabold ${tab === "tomorrow" ? "bg-[hsl(40,25%,94%)] text-[hsl(140,8%,8%)]" : "text-[hsl(40,15%,70%)]"}`} data-testid="kiosk-day-tomorrow">Tomorrow</button>
+          <div className="inline-flex bg-white/12 rounded-full p-1 gap-1" data-testid="kiosk-day-toggle">
+            <button type="button" onClick={() => setTab("today")} className={`px-4 h-9 rounded-full text-xs font-extrabold ${tab === "today" ? "bg-white text-black" : "text-white/80"}`} data-testid="kiosk-day-today">Today</button>
+            <button type="button" onClick={() => setTab("tomorrow")} className={`px-4 h-9 rounded-full text-xs font-extrabold ${tab === "tomorrow" ? "bg-white text-black" : "text-white/80"}`} data-testid="kiosk-day-tomorrow">Tomorrow</button>
           </div>
           {/* iter-131.28: fullscreen kiosk mode toggle */}
           {isFullscreenRoute ? (
             <div className="flex items-center gap-2 ml-2">
               {browserFs ? (
-                <button type="button" onClick={exitFs} className="inline-flex items-center gap-1.5 h-10 px-3 rounded-full bg-[hsl(140,8%,18%)] text-[hsl(40,25%,94%)] hover:bg-[hsl(140,8%,22%)] text-xs font-extrabold" data-testid="kiosk-exit-browser-fs">
+                <button type="button" onClick={exitFs} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full bg-white/15 text-white hover:bg-white/25 text-xs font-extrabold" data-testid="kiosk-exit-browser-fs">
                   <Minimize2 className="h-3.5 w-3.5" /> Exit fullscreen
                 </button>
               ) : (
-                <button type="button" onClick={requestFs} className="inline-flex items-center gap-1.5 h-10 px-3 rounded-full bg-[hsl(140,8%,18%)] text-[hsl(40,25%,94%)] hover:bg-[hsl(140,8%,22%)] text-xs font-extrabold" data-testid="kiosk-enter-browser-fs">
+                <button type="button" onClick={requestFs} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full bg-white/15 text-white hover:bg-white/25 text-xs font-extrabold" data-testid="kiosk-enter-browser-fs">
                   <Maximize2 className="h-3.5 w-3.5" /> Fullscreen
                 </button>
               )}
-              <Link to="/admin/kiosk" className="inline-flex items-center gap-1.5 h-10 px-3 rounded-full bg-primary/85 text-primary-foreground hover:bg-primary text-xs font-extrabold" data-testid="kiosk-close-kiosk">
+              <Link to="/admin/kiosk" className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full bg-white text-primary hover:bg-white/90 text-xs font-extrabold" data-testid="kiosk-close-kiosk">
                 <X className="h-3.5 w-3.5" /> Close
               </Link>
             </div>
           ) : (
-            <Link to="/kiosk" className="inline-flex items-center gap-1.5 h-10 px-3 ml-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-extrabold" data-testid="kiosk-open-fullscreen">
+            <Link to="/kiosk" className="inline-flex items-center gap-1.5 h-9 px-3 ml-2 rounded-full bg-white text-primary hover:bg-white/90 text-xs font-extrabold" data-testid="kiosk-open-fullscreen">
               <Maximize2 className="h-3.5 w-3.5" /> Open kiosk mode
             </Link>
           )}

@@ -88,6 +88,26 @@ async def decrement_stock_db(db, *, count: int = 1, reason: str = "Tiffin delive
     return after
 
 
+async def increment_stock_db(db, *, count: int = 1, reason: str = "Tiffin returned", source: str = "takeaway_collected", user_id: Optional[str] = None, mess_id: Optional[str] = None) -> int:
+    """Atomically add `count` tiffins back to the branch's stock. Used when the
+    customer returns a take-away steel tiffin (admin taps Mark collected).
+    Returns new total. iter-131.30."""
+    cnt = max(0, int(count))
+    if cnt == 0:
+        return (await _load_state(db, mess_id))["quantity"]
+    sid = _stock_id(mess_id)
+    res = await db.tiffin_stock.find_one_and_update(
+        {"_id": sid},
+        {"$inc": {"quantity": cnt}},
+        upsert=True,
+        return_document=True,
+        projection={"_id": 0},
+    )
+    after = int((res or {}).get("quantity") or cnt)
+    await _log_movement(db, kind="return", delta=cnt, reason=reason, source=source, user_id=user_id, after=after, mess_id=mess_id)
+    return after
+
+
 # === Schemas =================================================================
 class TopupIn(BaseModel):
     qty: int = Field(..., ge=1, le=10000)

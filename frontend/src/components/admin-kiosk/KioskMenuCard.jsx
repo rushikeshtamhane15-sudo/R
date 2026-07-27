@@ -66,81 +66,78 @@ export default function KioskMenuCard({ active, activeDate, tab }) {
         </span>
       </div>
 
-      {/* LUNCH tile (amber) */}
-      <div
-        className="mt-2.5 rounded-xl bg-amber-500/12 ring-1 ring-amber-300/25 px-3 py-2 relative z-10"
-        data-testid="kiosk-mess-lunch"
-      >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-400/25 ring-1 ring-amber-300/45 flex-shrink-0">
-              <Sun className="h-3 w-3 text-amber-200" />
-            </span>
-            <span className="text-[10px] tracking-[0.22em] uppercase font-extrabold text-amber-200 truncate">
-              Lunch
-            </span>
-          </div>
-          <span className="text-[9px] uppercase tracking-[0.12em] text-amber-100/70 font-bold whitespace-nowrap">
-            12 – 3 pm
-          </span>
-        </div>
-        {active.lunch ? (
-          <ul className="mt-1.5 grid grid-cols-2 sm:grid-cols-3 gap-x-2 gap-y-0.5">
-            {splitMenuItems(active.lunch).map((it, i) => (
-              <li
-                key={`lunch-${it}-${i}`}
-                className="flex items-center gap-1.5 text-[13px] leading-tight font-semibold min-w-0"
-              >
-                <span aria-hidden className="inline-block h-1 w-1 rounded-full bg-amber-300/80 shrink-0" />
-                <span className="truncate">{it}</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <span className="text-[11px] opacity-70 italic block mt-0.5">Off today</span>
-        )}
-      </div>
-
-      {/* Mid seam — gold diamond separator */}
-      <div className="flex items-center gap-2 opacity-55 my-1.5 relative z-10" aria-hidden>
-        <span className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-300/60 to-amber-300/60" />
-        <span className="w-1 h-1 rotate-45 bg-amber-300/70" />
-        <span className="flex-1 h-px bg-gradient-to-l from-transparent via-amber-300/60 to-amber-300/60" />
-      </div>
-
-      {/* DINNER tile (blue) */}
-      <div
-        className="rounded-xl bg-blue-500/12 ring-1 ring-blue-300/25 px-3 py-2 relative z-10"
-        data-testid="kiosk-mess-dinner"
-      >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-400/25 ring-1 ring-blue-300/45 flex-shrink-0">
-              <Moon className="h-3 w-3 text-blue-200" />
-            </span>
-            <span className="text-[10px] tracking-[0.22em] uppercase font-extrabold text-blue-200 truncate">
-              Dinner
+      {/* iter-131.30: side-by-side LUNCH + DINNER tiles — mirrors the
+          restaurant TodayMessMenuFlash mobile layout the user showed. */}
+      <div className="mt-2.5 grid grid-cols-2 gap-2 relative z-10">
+        {/* LUNCH tile (amber) */}
+        <div
+          className="rounded-xl bg-amber-500/12 ring-1 ring-amber-300/25 px-3 py-2"
+          data-testid="kiosk-mess-lunch"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-400/25 ring-1 ring-amber-300/45 flex-shrink-0">
+                <Sun className="h-3 w-3 text-amber-200" />
+              </span>
+              <span className="text-[10px] tracking-[0.22em] uppercase font-extrabold text-amber-200 truncate">
+                Lunch
+              </span>
+            </div>
+            <span className="text-[9px] uppercase tracking-[0.12em] text-amber-100/70 font-bold whitespace-nowrap">
+              12 – 3 pm
             </span>
           </div>
-          <span className="text-[9px] uppercase tracking-[0.12em] text-blue-100/70 font-bold whitespace-nowrap">
-            7 – 10 pm
-          </span>
+          {active.lunch ? (
+            <ul className="mt-1.5 flex flex-col gap-0.5">
+              {splitMenuItems(active.lunch).map((it, i) => (
+                <li
+                  key={`lunch-${it}-${i}`}
+                  className="flex items-center gap-1.5 text-[13px] leading-tight font-semibold min-w-0"
+                >
+                  <span aria-hidden className="inline-block h-1 w-1 rounded-full bg-amber-300/80 shrink-0" />
+                  <span className="truncate">{it}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <span className="text-[11px] opacity-70 italic block mt-0.5">Off today</span>
+          )}
         </div>
-        {active.dinner ? (
-          <ul className="mt-1.5 grid grid-cols-2 sm:grid-cols-3 gap-x-2 gap-y-0.5">
-            {splitMenuItems(active.dinner).map((it, i) => (
-              <li
-                key={`dinner-${it}-${i}`}
-                className="flex items-center gap-1.5 text-[13px] leading-tight font-semibold min-w-0"
-              >
-                <span aria-hidden className="inline-block h-1 w-1 rounded-full bg-blue-300/80 shrink-0" />
-                <span className="truncate">{it}</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <span className="text-[11px] opacity-70 italic block mt-0.5">Off today</span>
-        )}
+
+        {/* DINNER tile (blue) */}
+        <div
+          className="rounded-xl bg-blue-500/12 ring-1 ring-blue-300/25 px-3 py-2"
+          data-testid="kiosk-mess-dinner"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-400/25 ring-1 ring-blue-300/45 flex-shrink-0">
+                <Moon className="h-3 w-3 text-blue-200" />
+              </span>
+              <span className="text-[10px] tracking-[0.22em] uppercase font-extrabold text-blue-200 truncate">
+                Dinner
+              </span>
+            </div>
+            <span className="text-[9px] uppercase tracking-[0.12em] text-blue-100/70 font-bold whitespace-nowrap">
+              7 – 10 pm
+            </span>
+          </div>
+          {active.dinner ? (
+            <ul className="mt-1.5 flex flex-col gap-0.5">
+              {splitMenuItems(active.dinner).map((it, i) => (
+                <li
+                  key={`dinner-${it}-${i}`}
+                  className="flex items-center gap-1.5 text-[13px] leading-tight font-semibold min-w-0"
+                >
+                  <span aria-hidden className="inline-block h-1 w-1 rounded-full bg-blue-300/80 shrink-0" />
+                  <span className="truncate">{it}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <span className="text-[11px] opacity-70 italic block mt-0.5">Off today</span>
+          )}
+        </div>
       </div>
 
       {active.note && (

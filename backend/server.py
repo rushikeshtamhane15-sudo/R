@@ -4782,6 +4782,7 @@ FRANCHISE_PAGES = [
     {"key": "/admin/deliveries-today",      "label": "Today's deliveries"},
     {"key": "/admin/raw-materials",         "label": "Raw materials"},
     {"key": "/admin/tiffin-stock",          "label": "Tiffin stock"},
+    {"key": "/admin/meal-slots",            "label": "Meal slot windows"},
     {"key": "/admin/cash-collections",      "label": "Cash collections"},
     {"key": "/admin/cash-analytics",        "label": "Cash analytics"},
     {"key": "/admin/partial-payments",      "label": "Partial payments"},
