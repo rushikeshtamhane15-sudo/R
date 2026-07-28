@@ -3029,3 +3029,24 @@ Certified via `testing_agent` (iteration_118.json — all 4 sub-tasks pass visua
 - Playwright frontend agent: 7/7 assertions pass across takeaway + all reachable kiosk pill states. No regressions.
 
 
+
+
+---
+
+## iter-133c (Feb 2026) — wall-kiosk portrait tablet legibility fix ✅
+
+### Problem
+Production user on 27" portrait tablet reported the self-ordering container was **not visible** and fonts were **too small to read from ~5 ft**.
+
+### Fix (on `/kiosk` fullscreen route only)
+- Outer grid: `grid-rows-[5fr_3fr]` → `grid-rows-[3fr_4fr]` (more space for order panel).
+- Inner grid: `sm:grid-cols-[3fr_2fr]` → `grid-cols-[2fr_3fr]` (always side-by-side; form gets bigger share).
+- New `isFullscreen` prop threaded to `KioskOrderForm` + `KioskMenuCard` → conditionally scales fonts/controls **1.6–2×** larger (Total = `text-6xl`, place-order button `h-20`, qty digit `text-5xl`).
+- Menu items now **wrap** instead of truncating ("Farali Chiwda" renders fully).
+- Header ("Tap. Pay. Print."), Today/Tomorrow toggle, Fullscreen/Close controls all scaled up.
+- No regression on `/admin/kiosk` — compact sizing preserved via prop default (`isFullscreen=false`).
+
+### Files
+- `/app/frontend/src/pages/AdminKiosk.jsx`
+- `/app/frontend/src/components/admin-kiosk/KioskOrderForm.jsx`
+- `/app/frontend/src/components/admin-kiosk/KioskMenuCard.jsx`

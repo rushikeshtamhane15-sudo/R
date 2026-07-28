@@ -15,7 +15,7 @@ function splitMenuItems(str) {
     .filter(Boolean);
 }
 
-export default function KioskMenuCard({ active, activeDate, tab }) {
+export default function KioskMenuCard({ active, activeDate, tab, isFullscreen = false }) {
   const dateLabel = activeDate
     ? new Date(activeDate).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "short" })
     : "";
@@ -35,7 +35,7 @@ export default function KioskMenuCard({ active, activeDate, tab }) {
 
   return (
     <div
-      className="relative rounded-2xl px-3 py-2.5 overflow-hidden bg-gradient-to-br from-emerald-700 via-emerald-600 to-emerald-800 text-white"
+      className={`relative rounded-2xl overflow-hidden bg-gradient-to-br from-emerald-700 via-emerald-600 to-emerald-800 text-white self-start ${isFullscreen ? "px-5 py-4" : "px-3 py-2.5"}`}
       style={{
         boxShadow:
           "0 12px 24px -10px rgba(5,95,70,0.5), inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -1px 2px rgba(0,0,0,0.2)",
@@ -49,99 +49,99 @@ export default function KioskMenuCard({ active, activeDate, tab }) {
       />
 
       {/* Header row: chef-hat + date */}
-      <div className="flex items-center gap-2 z-10 relative">
-        <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-white/22 shrink-0">
-          {tab === "today" ? <ChefHat className="h-3.5 w-3.5" /> : <Sunrise className="h-3.5 w-3.5" />}
+      <div className={`flex items-center gap-2 z-10 relative ${isFullscreen ? "gap-3" : ""}`}>
+        <span className={`inline-flex items-center justify-center rounded-lg bg-white/22 shrink-0 ${isFullscreen ? "h-10 w-10" : "h-6 w-6"}`}>
+          {tab === "today" ? <ChefHat className={isFullscreen ? "h-5 w-5" : "h-3.5 w-3.5"} /> : <Sunrise className={isFullscreen ? "h-5 w-5" : "h-3.5 w-3.5"} />}
         </span>
         <div className="min-w-0 flex-1">
           <p
-            className="font-display font-extrabold text-[13px] sm:text-[15px] leading-tight tracking-tight"
+            className={`font-display font-extrabold leading-tight tracking-tight ${isFullscreen ? "text-lg sm:text-xl" : "text-[13px] sm:text-[15px]"}`}
             data-testid="kiosk-mess-card-heading"
           >
             {cardLabel}
           </p>
         </div>
-        <span className="hidden sm:inline-flex items-center gap-1 text-[9px] tracking-[0.18em] uppercase font-bold opacity-80 bg-white/15 rounded-full px-2 py-0.5">
+        <span className={`hidden sm:inline-flex items-center gap-1 tracking-[0.18em] uppercase font-bold opacity-80 bg-white/15 rounded-full ${isFullscreen ? "text-xs px-3 py-1" : "text-[9px] px-2 py-0.5"}`}>
           Today’s Special
         </span>
       </div>
 
       {/* iter-131.30: side-by-side LUNCH + DINNER tiles — mirrors the
           restaurant TodayMessMenuFlash mobile layout the user showed. */}
-      <div className="mt-2.5 grid grid-cols-2 gap-2 relative z-10">
+      <div className={`grid grid-cols-2 relative z-10 ${isFullscreen ? "mt-4 gap-4" : "mt-2.5 gap-2"}`}>
         {/* LUNCH tile (amber) */}
         <div
-          className="rounded-xl bg-amber-500/12 ring-1 ring-amber-300/25 px-3 py-2"
+          className={`rounded-xl bg-amber-500/12 ring-1 ring-amber-300/25 ${isFullscreen ? "px-5 py-4" : "px-3 py-2"}`}
           data-testid="kiosk-mess-lunch"
         >
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 min-w-0">
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-400/25 ring-1 ring-amber-300/45 flex-shrink-0">
-                <Sun className="h-3 w-3 text-amber-200" />
+              <span className={`inline-flex items-center justify-center rounded-full bg-amber-400/25 ring-1 ring-amber-300/45 flex-shrink-0 ${isFullscreen ? "h-9 w-9" : "h-5 w-5"}`}>
+                <Sun className={`${isFullscreen ? "h-5 w-5" : "h-3 w-3"} text-amber-200`} />
               </span>
-              <span className="text-[10px] tracking-[0.22em] uppercase font-extrabold text-amber-200 truncate">
+              <span className={`tracking-[0.22em] uppercase font-extrabold text-amber-200 truncate ${isFullscreen ? "text-base" : "text-[10px]"}`}>
                 Lunch
               </span>
             </div>
-            <span className="text-[9px] uppercase tracking-[0.12em] text-amber-100/70 font-bold whitespace-nowrap">
+            <span className={`uppercase tracking-[0.12em] text-amber-100/70 font-bold whitespace-nowrap ${isFullscreen ? "text-xs" : "text-[9px]"}`}>
               12 – 3 pm
             </span>
           </div>
           {active.lunch ? (
-            <ul className="mt-1.5 flex flex-col gap-0.5">
+            <ul className={`flex flex-col ${isFullscreen ? "mt-3 gap-1.5" : "mt-1.5 gap-0.5"}`}>
               {splitMenuItems(active.lunch).map((it, i) => (
                 <li
                   key={`lunch-${it}-${i}`}
-                  className="flex items-center gap-1.5 text-[13px] leading-tight font-semibold min-w-0"
+                  className={`flex items-start gap-2 leading-tight font-semibold min-w-0 ${isFullscreen ? "text-xl" : "text-[13px]"}`}
                 >
-                  <span aria-hidden className="inline-block h-1 w-1 rounded-full bg-amber-300/80 shrink-0" />
-                  <span className="truncate">{it}</span>
+                  <span aria-hidden className={`inline-block rounded-full bg-amber-300/80 shrink-0 ${isFullscreen ? "h-2 w-2 mt-2" : "h-1 w-1 mt-1.5"}`} />
+                  <span className={isFullscreen ? "break-words" : "truncate"}>{it}</span>
                 </li>
               ))}
             </ul>
           ) : (
-            <span className="text-[11px] opacity-70 italic block mt-0.5">Off today</span>
+            <span className={`italic block opacity-70 ${isFullscreen ? "text-base mt-1.5" : "text-[11px] mt-0.5"}`}>Off today</span>
           )}
         </div>
 
         {/* DINNER tile (blue) */}
         <div
-          className="rounded-xl bg-blue-500/12 ring-1 ring-blue-300/25 px-3 py-2"
+          className={`rounded-xl bg-blue-500/12 ring-1 ring-blue-300/25 ${isFullscreen ? "px-5 py-4" : "px-3 py-2"}`}
           data-testid="kiosk-mess-dinner"
         >
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 min-w-0">
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-400/25 ring-1 ring-blue-300/45 flex-shrink-0">
-                <Moon className="h-3 w-3 text-blue-200" />
+              <span className={`inline-flex items-center justify-center rounded-full bg-blue-400/25 ring-1 ring-blue-300/45 flex-shrink-0 ${isFullscreen ? "h-9 w-9" : "h-5 w-5"}`}>
+                <Moon className={`${isFullscreen ? "h-5 w-5" : "h-3 w-3"} text-blue-200`} />
               </span>
-              <span className="text-[10px] tracking-[0.22em] uppercase font-extrabold text-blue-200 truncate">
+              <span className={`tracking-[0.22em] uppercase font-extrabold text-blue-200 truncate ${isFullscreen ? "text-base" : "text-[10px]"}`}>
                 Dinner
               </span>
             </div>
-            <span className="text-[9px] uppercase tracking-[0.12em] text-blue-100/70 font-bold whitespace-nowrap">
+            <span className={`uppercase tracking-[0.12em] text-blue-100/70 font-bold whitespace-nowrap ${isFullscreen ? "text-xs" : "text-[9px]"}`}>
               7 – 10 pm
             </span>
           </div>
           {active.dinner ? (
-            <ul className="mt-1.5 flex flex-col gap-0.5">
+            <ul className={`flex flex-col ${isFullscreen ? "mt-3 gap-1.5" : "mt-1.5 gap-0.5"}`}>
               {splitMenuItems(active.dinner).map((it, i) => (
                 <li
                   key={`dinner-${it}-${i}`}
-                  className="flex items-center gap-1.5 text-[13px] leading-tight font-semibold min-w-0"
+                  className={`flex items-start gap-2 leading-tight font-semibold min-w-0 ${isFullscreen ? "text-xl" : "text-[13px]"}`}
                 >
-                  <span aria-hidden className="inline-block h-1 w-1 rounded-full bg-blue-300/80 shrink-0" />
-                  <span className="truncate">{it}</span>
+                  <span aria-hidden className={`inline-block rounded-full bg-blue-300/80 shrink-0 ${isFullscreen ? "h-2 w-2 mt-2" : "h-1 w-1 mt-1.5"}`} />
+                  <span className={isFullscreen ? "break-words" : "truncate"}>{it}</span>
                 </li>
               ))}
             </ul>
           ) : (
-            <span className="text-[11px] opacity-70 italic block mt-0.5">Off today</span>
+            <span className={`italic block opacity-70 ${isFullscreen ? "text-base mt-1.5" : "text-[11px] mt-0.5"}`}>Off today</span>
           )}
         </div>
       </div>
 
       {active.note && (
-        <p className="mt-2 text-[11px] italic opacity-90 relative z-10">★ {active.note}</p>
+        <p className={`italic opacity-90 relative z-10 ${isFullscreen ? "mt-3 text-base" : "mt-2 text-[11px]"}`}>★ {active.note}</p>
       )}
     </div>
   );
