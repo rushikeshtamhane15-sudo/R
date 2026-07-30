@@ -3050,3 +3050,31 @@ Production user on 27" portrait tablet reported the self-ordering container was 
 - `/app/frontend/src/pages/AdminKiosk.jsx`
 - `/app/frontend/src/components/admin-kiosk/KioskOrderForm.jsx`
 - `/app/frontend/src/components/admin-kiosk/KioskMenuCard.jsx`
+
+---
+
+## iter-134 (Feb 2026) — tiffin stock 3-tile split + kiosk container fill ✅
+
+### Task 1 — Tiffin Stock 3 headline tiles
+- `AdminTiffinStock.jsx`: split the combined "Total inventory" tile into 3 headline tiles on top row:
+  - **Total inventory** (`total_with_engaged`) — "Physical + out with customers"
+  - **Tiffin in-hand** (`quantity`) — "Sitting in your kitchen" · testid `stock-inhand`
+  - **Tiffin engaged** (`engaged`) — "Delivered · awaiting return" · testid `stock-engaged`
+- Secondary row keeps Active subs, Daily expected use, and Last top-up.
+
+### Task 2 — Wall kiosk containers fill the 27" vertical viewport
+- Counter panel QR upsized: **500px** (from 360px) — visible from 5-6 ft away.
+- Brand block scaled: 440×80 (from 360×72), logo 64×64 (from 48×48).
+- Side column (How it works + Razorpay + Bluetooth cards) now uses `flex-1 min-h-0` on the "How it works" panel so the whole stack **fills the column height** — no empty maroon gaps.
+- Order panel inner grid dropped `items-start` on the fullscreen route → both `KioskMenuCard` and `KioskOrderForm` now stretch with `h-full` to fill the row height.
+- Menu items list uses `flex-1` so the Lunch/Dinner tiles grow to fill available height gracefully.
+- All typography inside How-it-works / Razorpay / BT cards scaled up for readability on the 27" display.
+- **No color changes** — red theme + emerald menu + blue/red accents preserved as requested.
+
+### Files
+- `/app/frontend/src/pages/AdminTiffinStock.jsx`
+- `/app/frontend/src/pages/AdminKiosk.jsx`
+- `/app/frontend/src/components/admin-kiosk/KioskCounterPanel.jsx`
+- `/app/frontend/src/components/admin-kiosk/KioskMenuCard.jsx`
+- `/app/frontend/src/components/admin-kiosk/KioskOrderForm.jsx`
+

@@ -367,6 +367,7 @@ export default function AdminKiosk() {
         qrProvider={qrProvider} onSetQrProvider={setQrProvider}
         btCfg={btCfg} btStatus={btStatus}
         onSetBtEnabled={setBtEnabled} onPairPrinter={ensurePrinter}
+        isFullscreen={isFullscreenRoute}
       />
 
       <section className="rounded-3xl border border-white/25 bg-black/45 backdrop-blur-sm overflow-hidden flex flex-col" data-testid="kiosk-order-panel">
@@ -407,7 +408,7 @@ export default function AdminKiosk() {
           )}
         </div>
 
-        <div className={`flex-1 p-4 grid gap-3 overflow-auto items-start ${isFullscreenRoute ? "grid-cols-[2fr_3fr]" : "sm:grid-cols-[3fr_2fr]"}`}>
+        <div className={`flex-1 p-4 grid gap-3 overflow-auto min-h-0 ${isFullscreenRoute ? "grid-cols-[2fr_3fr]" : "sm:grid-cols-[3fr_2fr] items-start"}`}>
           <KioskMenuCard active={active} activeDate={activeDate} tab={tab} cfg={cfg} isFullscreen={isFullscreenRoute} />
           <KioskOrderForm
             active={active}

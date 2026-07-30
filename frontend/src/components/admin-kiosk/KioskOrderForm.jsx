@@ -36,7 +36,7 @@ export default function KioskOrderForm({
   // the wall-kiosk fullscreen route where everything must be readable at ~5ft.
   const S = isFullscreen
     ? {
-        wrap: "rounded-3xl bg-white border border-black/8 p-6 flex flex-col gap-4 shadow-md text-foreground",
+        wrap: "rounded-3xl bg-white border border-black/8 p-6 flex flex-col gap-4 shadow-md text-foreground h-full",
         mealBtn: "px-8 h-14 rounded-full text-xl font-extrabold",
         svcBtn: "rounded-2xl px-3 py-5 text-2xl font-extrabold border-2 gap-2",
         svcIcon: "h-8 w-8",

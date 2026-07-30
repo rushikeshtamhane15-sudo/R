@@ -74,16 +74,35 @@ export default function AdminTiffinStock() {
         <p className="text-sm text-muted-foreground mt-1">Track raw tiffin inventory. Auto-decrements on each delivery; top up when stock arrives.</p>
       </div>
 
-      {/* Top stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {/* Top stats — headline row: Total / In-hand / Engaged */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Stat
           label="Total inventory"
           value={state?.total_with_engaged ?? state?.quantity ?? 0}
-          sub={`${state?.quantity ?? 0} in-hand + ${state?.engaged ?? 0} engaged`}
+          sub="Physical + out with customers"
           icon={Package}
           tone={state?.low_stock ? "warn" : "ok"}
           testid="stock-quantity"
         />
+        <Stat
+          label="Tiffin in-hand"
+          value={state?.quantity ?? 0}
+          sub="Sitting in your kitchen"
+          icon={Package}
+          tone={state?.low_stock ? "warn" : "ok"}
+          testid="stock-inhand"
+        />
+        <Stat
+          label="Tiffin engaged"
+          value={state?.engaged ?? 0}
+          sub="Delivered · awaiting return"
+          icon={Package}
+          testid="stock-engaged"
+        />
+      </div>
+
+      {/* Secondary row — context stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Stat label="Active tiffin subs" value={state?.active_tiffin_subs ?? 0} icon={Package} />
         <Stat label="Daily expected use" value={state?.expected_daily_use ?? 0} icon={Package} />
         <Stat label="Last top-up" value={state?.last_topup_qty ? `+${state.last_topup_qty}` : "—"} sub={state?.last_topup_at?.slice(0, 10) || ""} icon={History} />

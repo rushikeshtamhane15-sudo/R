@@ -35,7 +35,7 @@ export default function KioskMenuCard({ active, activeDate, tab, isFullscreen = 
 
   return (
     <div
-      className={`relative rounded-2xl overflow-hidden bg-gradient-to-br from-emerald-700 via-emerald-600 to-emerald-800 text-white self-start ${isFullscreen ? "px-5 py-4" : "px-3 py-2.5"}`}
+      className={`relative rounded-2xl overflow-hidden bg-gradient-to-br from-emerald-700 via-emerald-600 to-emerald-800 text-white flex flex-col ${isFullscreen ? "h-full px-6 py-5" : "self-start px-3 py-2.5"}`}
       style={{
         boxShadow:
           "0 12px 24px -10px rgba(5,95,70,0.5), inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -1px 2px rgba(0,0,0,0.2)",
@@ -68,7 +68,7 @@ export default function KioskMenuCard({ active, activeDate, tab, isFullscreen = 
 
       {/* iter-131.30: side-by-side LUNCH + DINNER tiles — mirrors the
           restaurant TodayMessMenuFlash mobile layout the user showed. */}
-      <div className={`grid grid-cols-2 relative z-10 ${isFullscreen ? "mt-4 gap-4" : "mt-2.5 gap-2"}`}>
+      <div className={`grid grid-cols-2 relative z-10 flex-1 min-h-0 ${isFullscreen ? "mt-4 gap-4" : "mt-2.5 gap-2"}`}>
         {/* LUNCH tile (amber) */}
         <div
           className={`rounded-xl bg-amber-500/12 ring-1 ring-amber-300/25 ${isFullscreen ? "px-5 py-4" : "px-3 py-2"}`}
