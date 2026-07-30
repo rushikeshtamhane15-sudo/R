@@ -87,7 +87,7 @@ export default function KioskOrderForm({
   return (
     <div className={S.wrap} data-testid="kiosk-order-form">
       {active.lunch && active.dinner && (
-        <div className={`inline-flex rounded-full bg-white ring-1 ring-primary/25 p-1 gap-1 self-start shadow-sm`} data-testid="kiosk-order-meal-toggle">
+        <div className={`inline-flex rounded-full bg-white ring-1 ring-primary/25 p-1 gap-1 shadow-sm ${isFullscreen ? "self-center" : "self-start"}`} data-testid="kiosk-order-meal-toggle">
           <button type="button" onClick={() => setOrderMeal("lunch")} data-testid="kiosk-order-meal-lunch"
             className={`${S.mealBtn} transition-all ${orderMeal === "lunch" ? "bg-white text-primary ring-2 ring-emerald-500 shadow" : "bg-white text-primary/70 hover:text-primary"}`}>Lunch</button>
           <button type="button" onClick={() => setOrderMeal("dinner")} data-testid="kiosk-order-meal-dinner"

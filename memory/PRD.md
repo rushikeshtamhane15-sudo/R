@@ -3113,3 +3113,34 @@ Production user on 27" portrait tablet reported the self-ordering container was 
 - `/app/frontend/src/components/admin-kiosk/KioskMenuCard.jsx` (removed vertical stretch)
 - `/app/frontend/src/components/admin-kiosk/KioskOrderForm.jsx` (2-col fullscreen layout + tab meal toggle)
 
+
+---
+
+## iter-134.c (Feb 2026) — Kiosk header + QR container polish ✅
+
+### Task 1 — QR container: brand block → "Scan Me" pill
+- Removed the large `kiosk-brand-block` (logo + "efoodcare" + tagline) above the QR.
+- Added a compact red pill under the QR: `Scan Me And Get Ghar Se Accha Khana` with a `ScanLine` icon (`data-testid="kiosk-scan-info-tag"`).
+
+### Task 2 — Kiosk top header: brand identity + printer status relocation
+- Removed "Counter QR" label and "Scan with your phone to check in" subtitle from the header.
+- Header now uses a `grid-cols-[auto_1fr_auto]` layout:
+  - LEFT: brand logo icon (rounded, white/15 bg) — `kiosk-header-brand-logo`.
+  - CENTER: "efoodcare" (`kiosk-header-brand-name`) with "GHAR SE ACCHA KHANA" tagline under it (`kiosk-header-brand-tagline`).
+  - RIGHT: Lunch/Dinner toggle (unchanged, still green-ring highlight).
+- Printer status pill moved OUT of the header and INTO the "How it works" card (below the ordered list) — visible but no longer clutters the top bar.
+
+### Task 3 — Bigger menu fonts inside mess-menu container
+- Menu items (Lunch + Dinner lists): `text-xl` → `text-3xl` on fullscreen.
+- Meal-label headings ("LUNCH" / "DINNER"): `text-base` → `text-2xl`.
+- Slot-time badges ("12 – 3 PM"): `text-xs` → `text-base`.
+- Card heading ("Today's mess menu · …") bumped to `text-2xl sm:text-3xl`.
+
+### Task 4 — Center Lunch/Dinner toggle in self-order form
+- Toggle wrap: `self-start` → `self-center` in fullscreen mode (keeps `self-start` in the admin/compact view).
+
+### Files
+- `/app/frontend/src/components/admin-kiosk/KioskCounterPanel.jsx`
+- `/app/frontend/src/components/admin-kiosk/KioskMenuCard.jsx`
+- `/app/frontend/src/components/admin-kiosk/KioskOrderForm.jsx`
+

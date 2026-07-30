@@ -37,24 +37,24 @@ export default function KioskCounterPanel({
   })();
   return (
     <section className="rounded-3xl border border-white/25 bg-black/45 backdrop-blur-sm overflow-hidden flex flex-col" data-testid="kiosk-counter-panel">
-      <div className="flex items-center justify-between px-5 py-3 border-b border-white/12">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 text-white">
-            <ScanLine className="h-5 w-5" />
-          </span>
-          <div>
-            <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-white/80">Counter QR</p>
-            <p className="font-display font-extrabold text-lg sm:text-xl">Scan with your phone to check in</p>
-          </div>
-          <span
-            className={`ml-3 inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[10px] tracking-[0.16em] uppercase font-extrabold ring-1 ${btPill.tone}`}
-            data-testid="kiosk-printer-status-pill"
-            title={btPill.label}
-          >
-            <btPill.Icon className={`h-3.5 w-3.5 ${btStatus === "connecting" ? "animate-spin" : ""}`} />
-            <span>{btPill.label}</span>
-          </span>
+      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-4 px-5 py-3 border-b border-white/12">
+        {/* LEFT — brand logo icon corner */}
+        <div className="flex items-center" data-testid="kiosk-header-brand-logo">
+          <img
+            src={kioskLogoUrl || "/favicon-96.png"}
+            alt="efoodcare"
+            onError={(e) => { e.currentTarget.src = "/favicon-96.png"; }}
+            className={`object-contain rounded-xl bg-white/15 ring-1 ring-white/20 ${isFullscreen ? "h-14 w-14 p-1" : "h-10 w-10 p-0.5"}`}
+          />
         </div>
+
+        {/* CENTER — efoodcare brand name + tagline */}
+        <div className="flex flex-col items-center justify-center text-center leading-tight" data-testid="kiosk-header-brand">
+          <p className={`font-display font-extrabold text-white tracking-tight ${isFullscreen ? "text-4xl" : "text-2xl"}`} data-testid="kiosk-header-brand-name">efoodcare</p>
+          <p className={`uppercase font-bold text-white/80 tracking-[0.28em] ${isFullscreen ? "text-sm mt-0.5" : "text-[10px]"}`} data-testid="kiosk-header-brand-tagline">ghar se accha khana</p>
+        </div>
+
+        {/* RIGHT — Lunch / Dinner toggle (unchanged) */}
         <div className={`inline-flex bg-white rounded-full p-1 gap-1 shadow-md ring-1 ring-primary/25 ${isFullscreen ? "" : ""}`} data-testid="kiosk-meal-toggle">
           <button
             type="button"
@@ -87,24 +87,19 @@ export default function KioskCounterPanel({
 
       <div className="flex-1 grid sm:grid-cols-[1.4fr_1fr] gap-4 p-5 min-h-0">
         <div className="rounded-2xl bg-white p-5 flex flex-col items-center justify-center h-full" data-testid="kiosk-counter-qr">
-          {/* iter-131.32: efoodcare brand block above the QR — centered logo +
-              white text + tagline. Admin can (in a later iter) upload a custom
-              icon; we fall back to the built-in favicon path. */}
-          <div className={`w-full rounded-2xl bg-primary flex flex-col items-center gap-1 shadow-md ${isFullscreen ? "max-w-[440px] py-4 mb-5" : "max-w-[360px] py-3 mb-4"}`} data-testid="kiosk-brand-block">
-            <img
-              src={kioskLogoUrl || "/favicon-96.png"}
-              alt="efoodcare"
-              onError={(e) => { e.currentTarget.src = "/favicon-96.png"; }}
-              className={`object-contain rounded-md bg-white/10 ring-1 ring-white/20 ${isFullscreen ? "h-16 w-16" : "h-12 w-12"}`}
-              data-testid="kiosk-brand-logo"
-            />
-            <p className={`font-display font-extrabold leading-none text-white tracking-tight ${isFullscreen ? "text-3xl" : "text-2xl"}`} data-testid="kiosk-brand-name">efoodcare</p>
-            <p className={`tracking-[0.24em] uppercase font-bold text-white/85 ${isFullscreen ? "text-xs" : "text-[10px]"}`} data-testid="kiosk-brand-tagline">ghar se achha khana</p>
-          </div>
           {counter ? (
             <>
               <QRCodeSVG value={counter.counter_code} size={isFullscreen ? 500 : 360} level="M" fgColor="hsl(142 45% 28%)" />
-              <p className={`font-mono text-muted-foreground mt-3 break-all max-w-md text-center ${isFullscreen ? "text-xs" : "text-[10px]"}`}>{counter.counter_code}</p>
+              {/* iter-134.c: compact "scan me" info tag replaces the earlier
+                  brand/tagline block — cleaner + on-brand for the QR square. */}
+              <div
+                className={`inline-flex items-center gap-2 rounded-full bg-primary text-white shadow ring-1 ring-primary/20 ${isFullscreen ? "mt-4 px-5 h-11 text-base" : "mt-3 px-4 h-9 text-xs"} font-extrabold tracking-tight`}
+                data-testid="kiosk-scan-info-tag"
+              >
+                <ScanLine className={isFullscreen ? "h-5 w-5" : "h-3.5 w-3.5"} />
+                Scan Me And Get Ghar Se Accha Khana
+              </div>
+              <p className={`font-mono text-muted-foreground mt-2 break-all max-w-md text-center ${isFullscreen ? "text-xs" : "text-[10px]"}`}>{counter.counter_code}</p>
               <p className={`font-semibold text-foreground mt-1 ${isFullscreen ? "text-base" : "text-xs"}`}>{meal.toUpperCase()} · {LOCATION}</p>
             </>
           ) : (
@@ -121,6 +116,19 @@ export default function KioskCounterPanel({
               <li>Tap the notification to check in for {meal}.</li>
               <li>Walk-in? Scan the QR on your printed receipt instead.</li>
             </ol>
+            {/* iter-134.c: printer status pill relocated below the how-it-works
+                copy so staff/customers see the health line without cluttering
+                the top header (which now only carries the brand + meal toggle). */}
+            <div className="mt-3">
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full uppercase font-extrabold ring-1 ${isFullscreen ? "text-xs px-3 h-8 tracking-[0.16em]" : "text-[10px] px-2.5 h-7 tracking-[0.16em]"} ${btPill.tone.replace("text-white/80", "text-foreground/80").replace("bg-white/12", "bg-muted").replace("ring-white/20", "ring-black/10")}`}
+                data-testid="kiosk-printer-status-pill"
+                title={btPill.label}
+              >
+                <btPill.Icon className={`${isFullscreen ? "h-3.5 w-3.5" : "h-3 w-3"} ${btStatus === "connecting" ? "animate-spin" : ""}`} />
+                <span>{btPill.label}</span>
+              </span>
+            </div>
           </div>
 
           <div className={`rounded-2xl bg-white border border-black/8 shadow-sm ${isFullscreen ? "p-5" : "p-4"}`} data-testid="kiosk-qr-provider-card">
