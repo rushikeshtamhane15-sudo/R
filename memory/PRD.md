@@ -3144,3 +3144,44 @@ Production user on 27" portrait tablet reported the self-ordering container was 
 - `/app/frontend/src/components/admin-kiosk/KioskMenuCard.jsx`
 - `/app/frontend/src/components/admin-kiosk/KioskOrderForm.jsx`
 
+
+---
+
+## iter-134.d (Feb 2026) — Stock semantics, holder drill-down, meal-slot single source of truth ✅
+
+### Task 1 — Correct Tiffin Stock semantics
+- Backend `GET /admin/tiffin-stock` now returns `lifetime_purchases` (sum of ALL top-up movements ever, branch-scoped).
+- Frontend "Total inventory" tile shows **lifetime_purchases** — the raw count purchased over time (no longer decreases when tiffins go out).
+- Semantics: `Total inventory` (lifetime) ≠ `In-hand` (physical kitchen count) ≠ `Engaged` (out with customers).
+
+### Task 2 — Engaged tile drill-down
+- The "Tiffin engaged" stat is now a **clickable button** (`data-testid="stock-engaged-tile"`) with a chevron.
+- Clicking expands an inline holder list: name · phone (tel-linkable) · address · tiffin count · one-tap **WhatsApp** nudge per row.
+- Data sourced from `GET /admin/restaurant/takeaway-pendency` (filtered where `collected=false`).
+
+### Task 3 — Bigger brand identity in kiosk header
+- Brand logo icon: `h-14 w-14` → `h-24 w-24`.
+- Brand name: `text-4xl` → `text-6xl`.
+- Tagline: `text-sm` → `text-lg` with wider tracking `[0.32em]`.
+- Lunch/Dinner tabs shrunk to `h-10 px-4 text-sm` so the brand block gets center stage.
+- Icons in the tabs reduced from `h-5 w-5` → `h-4 w-4`.
+
+### Task 4 — One source of truth for meal-slot windows
+- `AdminMealSlots` page already existed (`/admin/meal-slots`).
+- Frontend: `messMenuHelpers.js` gains `setAdminMealSlots()` + `activeMealForNow()`. `isMealWindowOpen()` now reads a mutable module-state that mirrors the admin config.
+- `App.js` fetches `/api/meal-slots` on mount + every 5 min and pushes the response through `setAdminMealSlots(...)` so the wall kiosk, the restaurant order form, and any other consumer are always in lock-step with the admin config.
+- Backend `_meal_window_open` in `routes/mess_menu_cal.py` also reads `admin_config.meal_slots` (with the same defaults as fallback) so server-side gating cannot drift from the client.
+- Result: lunch slot → only lunch QR shown; dinner slot → only dinner QR shown; wrong-slot scans rejected by both client and server.
+
+### Task 5 — Printer status pill re-skinned
+- White background · **blue text** · **green border (ring-emerald-500)** when paired · **red border (ring-red-500)** when off/unpaired/pairing.
+- Ring bumped from `ring-1` → `ring-2` for higher visibility.
+
+### Files
+- `/app/backend/routes/tiffin_stock.py`
+- `/app/backend/routes/mess_menu_cal.py`
+- `/app/frontend/src/App.js`
+- `/app/frontend/src/pages/AdminTiffinStock.jsx`
+- `/app/frontend/src/components/messMenuHelpers.js`
+- `/app/frontend/src/components/admin-kiosk/KioskCounterPanel.jsx`
+

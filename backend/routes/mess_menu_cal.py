@@ -193,8 +193,30 @@ MEAL_WINDOWS_IST = {
 }
 
 
-def _meal_window_open(meal: str) -> bool:
-    start, end = MEAL_WINDOWS_IST.get(meal, (0, 24))
+def _hhmm_to_hour(t: str, default: int) -> int:
+    """Parse `HH:MM` → integer hour; falls back on the default on malformed input."""
+    try:
+        h, _m = str(t).split(":", 1)
+        return max(0, min(23, int(h)))
+    except Exception:
+        return default
+
+
+async def _meal_window_open(meal: str) -> bool:
+    """Return True if `meal` is inside its currently-open window in IST.
+    iter-134.d: honour the admin-configured `meal_slots` in `admin_config`
+    when present; fall back to the module defaults otherwise.
+    """
+    try:
+        doc = await server.db.admin_config.find_one({"_id": "meal_slots"}, {"_id": 0}) or {}
+        m = doc.get(meal) or {}
+        if m.get("start") and m.get("end"):
+            start = _hhmm_to_hour(m["start"], MEAL_WINDOWS_IST[meal][0])
+            end   = _hhmm_to_hour(m["end"],   MEAL_WINDOWS_IST[meal][1])
+        else:
+            start, end = MEAL_WINDOWS_IST.get(meal, (0, 24))
+    except Exception:
+        start, end = MEAL_WINDOWS_IST.get(meal, (0, 24))
     hour = _now_ist().hour
     return start <= hour < end
 
@@ -274,7 +296,7 @@ async def place_mess_order(payload: MessMenuOrderIn, user: server.User = Depends
     # iter-131: enforce meal-time window for SAME-day orders. Pre-orders
     # (tomorrow) are always allowed. Keeps kitchen from having to accept a
     # lunch order at 8 pm when the batch cook is already sealed.
-    if payload.date == _today_ist() and not _meal_window_open(payload.meal_type):
+    if payload.date == _today_ist() and not await _meal_window_open(payload.meal_type):
         start, end = MEAL_WINDOWS_IST[payload.meal_type]
         raise HTTPException(
             status_code=400,

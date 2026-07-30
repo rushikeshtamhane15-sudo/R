@@ -25,62 +25,66 @@ export default function KioskCounterPanel({
   // so staff spot a disconnect BEFORE the next print job.
   const btPill = (() => {
     if (!btCfg?.enabled) {
-      return { label: "Printer off", tone: "bg-white/12 text-white/80 ring-white/20", Icon: BluetoothOff };
+      // OFF: red border to catch attention
+      return { label: "Printer off", tone: "bg-white text-blue-700 ring-red-500", Icon: BluetoothOff };
     }
     if (btStatus === "connected") {
-      return { label: "Printer paired", tone: "bg-emerald-400/25 text-emerald-100 ring-emerald-300/40", Icon: BluetoothConnected };
+      // PAIRED: green border
+      return { label: "Printer paired", tone: "bg-white text-blue-700 ring-emerald-500", Icon: BluetoothConnected };
     }
     if (btStatus === "connecting") {
-      return { label: "Pairing…", tone: "bg-blue-400/25 text-blue-100 ring-blue-300/40", Icon: Loader2 };
+      // Pairing in flight: keep red until success
+      return { label: "Pairing…", tone: "bg-white text-blue-700 ring-red-500", Icon: Loader2 };
     }
-    return { label: "Printer waiting", tone: "bg-amber-400/25 text-amber-100 ring-amber-300/40", Icon: Bluetooth };
+    // UNPAIRED but enabled: red border
+    return { label: "Printer waiting", tone: "bg-white text-blue-700 ring-red-500", Icon: Bluetooth };
   })();
   return (
     <section className="rounded-3xl border border-white/25 bg-black/45 backdrop-blur-sm overflow-hidden flex flex-col" data-testid="kiosk-counter-panel">
-      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-4 px-5 py-3 border-b border-white/12">
-        {/* LEFT — brand logo icon corner */}
+      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-4 px-5 py-4 border-b border-white/12">
+        {/* LEFT — brand logo icon corner (bigger for readability from distance) */}
         <div className="flex items-center" data-testid="kiosk-header-brand-logo">
           <img
             src={kioskLogoUrl || "/favicon-96.png"}
             alt="efoodcare"
             onError={(e) => { e.currentTarget.src = "/favicon-96.png"; }}
-            className={`object-contain rounded-xl bg-white/15 ring-1 ring-white/20 ${isFullscreen ? "h-14 w-14 p-1" : "h-10 w-10 p-0.5"}`}
+            className={`object-contain rounded-2xl bg-white/15 ring-1 ring-white/20 ${isFullscreen ? "h-24 w-24 p-1.5" : "h-10 w-10 p-0.5"}`}
           />
         </div>
 
         {/* CENTER — efoodcare brand name + tagline */}
         <div className="flex flex-col items-center justify-center text-center leading-tight" data-testid="kiosk-header-brand">
-          <p className={`font-display font-extrabold text-white tracking-tight ${isFullscreen ? "text-4xl" : "text-2xl"}`} data-testid="kiosk-header-brand-name">efoodcare</p>
-          <p className={`uppercase font-bold text-white/80 tracking-[0.28em] ${isFullscreen ? "text-sm mt-0.5" : "text-[10px]"}`} data-testid="kiosk-header-brand-tagline">ghar se accha khana</p>
+          <p className={`font-display font-extrabold text-white tracking-tight ${isFullscreen ? "text-6xl" : "text-2xl"}`} data-testid="kiosk-header-brand-name">efoodcare</p>
+          <p className={`uppercase font-bold text-white/85 tracking-[0.32em] ${isFullscreen ? "text-lg mt-2" : "text-[10px]"}`} data-testid="kiosk-header-brand-tagline">ghar se accha khana</p>
         </div>
 
-        {/* RIGHT — Lunch / Dinner toggle (unchanged) */}
-        <div className={`inline-flex bg-white rounded-full p-1 gap-1 shadow-md ring-1 ring-primary/25 ${isFullscreen ? "" : ""}`} data-testid="kiosk-meal-toggle">
+        {/* RIGHT — Lunch / Dinner toggle (compact so brand block gets center-stage) */}
+        <div className={`inline-flex bg-white rounded-full p-1 gap-1 shadow-md ring-1 ring-primary/25`} data-testid="kiosk-meal-toggle">
           <button
             type="button"
             onClick={() => canLunch && setMeal("lunch")}
             disabled={!canLunch}
             data-testid="kiosk-meal-lunch"
-            className={`rounded-full font-extrabold inline-flex items-center transition-all ${isFullscreen ? "h-12 px-6 text-base gap-2" : "h-11 px-5 text-sm gap-1.5"} ${meal === "lunch" && canLunch
+            className={`rounded-full font-extrabold inline-flex items-center transition-all ${isFullscreen ? "h-10 px-4 text-sm gap-1.5" : "h-11 px-5 text-sm gap-1.5"} ${meal === "lunch" && canLunch
               ? "bg-white text-primary ring-2 ring-emerald-500 shadow"
               : canLunch
                 ? "bg-white text-primary/80 hover:text-primary hover:ring-1 hover:ring-emerald-300"
                 : "bg-white text-primary/40 opacity-70 cursor-not-allowed"}`}
           >
-            <Sun className={isFullscreen ? "h-5 w-5" : "h-4 w-4"} /> Lunch
+            <Sun className={isFullscreen ? "h-4 w-4" : "h-4 w-4"} /> Lunch
           </button>
           <button
             type="button"
             onClick={() => canDinner && setMeal("dinner")}
             disabled={!canDinner}
             data-testid="kiosk-meal-dinner"
-            className={`rounded-full font-extrabold inline-flex items-center transition-all ${isFullscreen ? "h-12 px-6 text-base gap-2" : "h-11 px-5 text-sm gap-1.5"} ${meal === "dinner" && canDinner
+            className={`rounded-full font-extrabold inline-flex items-center transition-all ${isFullscreen ? "h-10 px-4 text-sm gap-1.5" : "h-11 px-5 text-sm gap-1.5"} ${meal === "dinner" && canDinner
               ? "bg-white text-primary ring-2 ring-emerald-500 shadow"
               : canDinner
                 ? "bg-white text-primary/80 hover:text-primary hover:ring-1 hover:ring-emerald-300"
                 : "bg-white text-primary/40 opacity-70 cursor-not-allowed"}`}
           >
-            <Moon className={isFullscreen ? "h-5 w-5" : "h-4 w-4"} /> Dinner
+            <Moon className={isFullscreen ? "h-4 w-4" : "h-4 w-4"} /> Dinner
           </button>
         </div>
       </div>
@@ -121,7 +125,7 @@ export default function KioskCounterPanel({
                 the top header (which now only carries the brand + meal toggle). */}
             <div className="mt-3">
               <span
-                className={`inline-flex items-center gap-1.5 rounded-full uppercase font-extrabold ring-1 ${isFullscreen ? "text-xs px-3 h-8 tracking-[0.16em]" : "text-[10px] px-2.5 h-7 tracking-[0.16em]"} ${btPill.tone.replace("text-white/80", "text-foreground/80").replace("bg-white/12", "bg-muted").replace("ring-white/20", "ring-black/10")}`}
+                className={`inline-flex items-center gap-1.5 rounded-full uppercase font-extrabold ring-2 ${isFullscreen ? "text-xs px-3 h-9 tracking-[0.16em]" : "text-[10px] px-2.5 h-7 tracking-[0.16em]"} ${btPill.tone} shadow-sm`}
                 data-testid="kiosk-printer-status-pill"
                 title={btPill.label}
               >

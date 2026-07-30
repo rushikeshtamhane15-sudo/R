@@ -6,6 +6,8 @@ import { GoogleOAuthProvider } from "@react-oauth/google";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { BrandingProvider } from "./context/BrandingContext";
+import { setAdminMealSlots } from "./components/messMenuHelpers";
+import { api } from "./lib/api";
 import { Toaster } from "sonner";
 import PWAInstallPrompt from "./components/PWAInstallPrompt";
 import SplashScreen from "./components/SplashScreen";
@@ -238,6 +240,21 @@ export default function App() {
   // missing we still render the app but the Google sign-in button will hide
   // itself (see Login.jsx fallback to OTP-only flow).
   const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || "";
+  // iter-134.d — fetch admin-configured meal-slot windows once at boot and
+  // every 5 min so isMealWindowOpen(), the wall kiosk toggle, and the
+  // restaurant order form all strictly gate on the SAME source of truth.
+  React.useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const r = await api.get("/meal-slots");
+        if (!cancelled && r?.data) setAdminMealSlots(r.data);
+      } catch { /* ignore — defaults stay */ }
+    };
+    load();
+    const id = setInterval(load, 5 * 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
   return (
     <HelmetProvider>
       <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>

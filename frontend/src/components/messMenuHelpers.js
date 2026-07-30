@@ -75,11 +75,52 @@ export const PENDING_KEY = "efc_pending_mess_order_v1";
  * (~3 pm IST). Once 3 pm crosses, TODAY's lunch is closed; `dinner` opens.
  * After 10 pm both are closed for today — pre-orders for tomorrow are
  * always allowed regardless of window.
+ *
+ * iter-134.d: admin-configurable via /api/meal-slots. The App root fetches
+ * the config on mount and calls `setAdminMealSlots(...)`; every consumer
+ * (`isMealWindowOpen`, kiosk toggle, restaurant order form) then reads the
+ * runtime value. Defaults below act as fallback for cold-start.
  */
 export const MEAL_WINDOWS_IST = {
   lunch:  { start: 0,  end: 15, label: "12 – 3 pm" },
   dinner: { start: 15, end: 22, label: "7 – 10 pm" },
 };
+
+// Runtime, mutable copy — updated by setAdminMealSlots().
+let _runtimeSlots = {
+  lunch:  { startMin: 0,       endMin: 15 * 60 },
+  dinner: { startMin: 15 * 60, endMin: 22 * 60 },
+};
+
+function _hhmmToMin(t) {
+  if (!t) return 0;
+  const [h, m] = String(t).split(":").map((s) => parseInt(s, 10) || 0);
+  return h * 60 + m;
+}
+
+/**
+ * Called by the App root once the /api/meal-slots response lands.
+ * Accepts the exact response shape:
+ * `{ lunch:{start:"12:00",end:"15:00"}, dinner:{start:"19:00",end:"22:00"} }`
+ * Silently no-ops on malformed payloads.
+ */
+export function setAdminMealSlots(slots) {
+  try {
+    if (!slots || typeof slots !== "object") return;
+    if (slots.lunch?.start && slots.lunch?.end) {
+      _runtimeSlots.lunch = {
+        startMin: _hhmmToMin(slots.lunch.start),
+        endMin:   _hhmmToMin(slots.lunch.end),
+      };
+    }
+    if (slots.dinner?.start && slots.dinner?.end) {
+      _runtimeSlots.dinner = {
+        startMin: _hhmmToMin(slots.dinner.start),
+        endMin:   _hhmmToMin(slots.dinner.end),
+      };
+    }
+  } catch { /* ignore */ }
+}
 
 /** Current IST hour (0-23). */
 export function currentISTHour() {
@@ -89,10 +130,30 @@ export function currentISTHour() {
   return new Date(utcMs + 5.5 * 3600000).getHours();
 }
 
-/** True if the meal-window for `meal` is currently open in IST. */
+/** Current IST time in minutes-since-midnight. */
+function _currentISTMin() {
+  const now = new Date();
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+  const ist = new Date(utcMs + 5.5 * 3600000);
+  return ist.getHours() * 60 + ist.getMinutes();
+}
+
+/** True if the meal-window for `meal` is currently open in IST (admin-configurable). */
 export function isMealWindowOpen(meal) {
-  const w = MEAL_WINDOWS_IST[meal];
+  const w = _runtimeSlots[meal];
   if (!w) return true;
-  const h = currentISTHour();
-  return h >= w.start && h < w.end;
+  const m = _currentISTMin();
+  return m >= w.startMin && m <= w.endMin;
+}
+
+/**
+ * Returns "lunch" | "dinner" | null based on the ADMIN-configured slot
+ * windows in IST. Used by the restaurant order form + wall-kiosk to
+ * strictly gate which meal's QR/menu is being scanned.
+ */
+export function activeMealForNow() {
+  const m = _currentISTMin();
+  if (m >= _runtimeSlots.lunch.startMin  && m <= _runtimeSlots.lunch.endMin)  return "lunch";
+  if (m >= _runtimeSlots.dinner.startMin && m <= _runtimeSlots.dinner.endMin) return "dinner";
+  return null;
 }

@@ -172,7 +172,25 @@ async def get_state(mess_id: Optional[str] = None, user: server.User = Depends(s
     st["active_tiffin_subs"] = active_tiffin_subs
     st["expected_daily_use"] = active_tiffin_subs * 2  # 2 meals/day
     st["engaged"] = engaged
-    st["total_with_engaged"] = int(st["quantity"]) + engaged
+    # iter-134.d: `lifetime_purchases` = sum of ALL top-up movements ever for
+    # this branch. Represents the "total raw tiffins purchased over the branch
+    # lifetime". Fallback: quantity + engaged if the movements log is missing.
+    lifetime_purchases = 0
+    try:
+        mq: dict = {"kind": "topup"}
+        if target:
+            mq["mess_id"] = target
+        else:
+            # Legacy singleton store: include docs without mess_id.
+            mq["$or"] = [{"mess_id": None}, {"mess_id": {"$exists": False}}]
+        cursor = server.db.tiffin_stock_movements.find(mq, {"_id": 0, "delta": 1})
+        async for row in cursor:
+            lifetime_purchases += int(row.get("delta") or 0)
+    except Exception:
+        lifetime_purchases = 0
+    fallback_total = int(st["quantity"]) + engaged
+    st["lifetime_purchases"] = max(lifetime_purchases, fallback_total)
+    st["total_with_engaged"] = fallback_total  # legacy field, keep for backwards compat
     st["low_stock"] = st["quantity"] <= st["low_threshold"]
     return st
 

@@ -3,7 +3,7 @@ import { api } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
-import { Loader2, Package, Plus, AlertTriangle, History, Settings as SettingsIcon } from "lucide-react";
+import { Loader2, Package, Plus, AlertTriangle, History, Settings as SettingsIcon, ChevronDown, ChevronUp, Phone, MessageCircle } from "lucide-react";
 
 export default function AdminTiffinStock() {
   const [state, setState] = useState(null);
@@ -15,6 +15,10 @@ export default function AdminTiffinStock() {
   const [threshold, setThreshold] = useState(20);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  // iter-134.d — expandable "who is holding tiffins" list under the engaged tile.
+  const [engagedOpen, setEngagedOpen] = useState(false);
+  const [engagedRows, setEngagedRows] = useState([]);
+  const [engagedLoading, setEngagedLoading] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -30,6 +34,24 @@ export default function AdminTiffinStock() {
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
+
+  const loadEngaged = async () => {
+    setEngagedLoading(true);
+    try {
+      const r = await api.get("/admin/restaurant/takeaway-pendency");
+      const rows = (r.data?.rows || []).filter((x) => !x.collected);
+      setEngagedRows(rows);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Failed to load holders");
+    } finally {
+      setEngagedLoading(false);
+    }
+  };
+  const toggleEngaged = async () => {
+    const next = !engagedOpen;
+    setEngagedOpen(next);
+    if (next && engagedRows.length === 0) await loadEngaged();
+  };
 
   const topup = async () => {
     if (!topupQty || topupQty < 1) { toast.error("Quantity must be >= 1"); return; }
@@ -74,14 +96,13 @@ export default function AdminTiffinStock() {
         <p className="text-sm text-muted-foreground mt-1">Track raw tiffin inventory. Auto-decrements on each delivery; top up when stock arrives.</p>
       </div>
 
-      {/* Top stats — headline row: Total / In-hand / Engaged */}
+      {/* Top stats — headline row: Total / In-hand / Engaged (click for holder list) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Stat
           label="Total inventory"
-          value={state?.total_with_engaged ?? state?.quantity ?? 0}
-          sub="Physical + out with customers"
+          value={state?.lifetime_purchases ?? state?.total_with_engaged ?? state?.quantity ?? 0}
+          sub="Lifetime purchased (all top-ups)"
           icon={Package}
-          tone={state?.low_stock ? "warn" : "ok"}
           testid="stock-quantity"
         />
         <Stat
@@ -92,14 +113,75 @@ export default function AdminTiffinStock() {
           tone={state?.low_stock ? "warn" : "ok"}
           testid="stock-inhand"
         />
-        <Stat
-          label="Tiffin engaged"
-          value={state?.engaged ?? 0}
-          sub="Delivered · awaiting return"
-          icon={Package}
-          testid="stock-engaged"
-        />
+        <button
+          type="button"
+          onClick={toggleEngaged}
+          data-testid="stock-engaged-tile"
+          className="text-left rounded-xl border border-border bg-card p-4 hover:border-primary/50 hover:shadow-md transition-all group"
+        >
+          <div className="flex items-center justify-between">
+            <div className="inline-flex items-center gap-2 text-primary group-hover:scale-105 transition-transform">
+              <Package className="h-4 w-4" />
+              <span className="text-[10px] tracking-[0.18em] uppercase font-bold">Tiffin engaged</span>
+            </div>
+            {engagedOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          </div>
+          <p className="mt-2 text-3xl font-extrabold tabular-nums text-foreground" data-testid="stock-engaged">{state?.engaged ?? 0}</p>
+          <p className="text-xs text-muted-foreground mt-1">Delivered · awaiting return · click to view holders</p>
+        </button>
       </div>
+
+      {engagedOpen && (
+        <div className="rounded-2xl border border-border bg-card p-4 space-y-2 animate-in fade-in slide-in-from-top-2" data-testid="stock-engaged-holders">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-extrabold text-foreground">Customers currently holding tiffins</p>
+            <Button size="sm" variant="ghost" onClick={loadEngaged} disabled={engagedLoading} data-testid="stock-engaged-refresh">
+              {engagedLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <History className="h-4 w-4" />}
+            </Button>
+          </div>
+          {engagedLoading ? (
+            <p className="text-sm text-muted-foreground text-center py-6">Loading…</p>
+          ) : engagedRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">No tiffins are out with customers right now.</p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {engagedRows.map((r) => {
+                const digits = String(r.phone || "").replace(/\D/g, "").replace(/^0+/, "");
+                const waPhone = /^\d{10}$/.test(digits) ? `91${digits}` : digits;
+                const nudge = encodeURIComponent(
+                  `Hi ${r.name || "there"}, this is efoodcare 👋. ${r.tiffin_count} steel tiffin${r.tiffin_count > 1 ? "s are" : " is"} still with you. Please keep them ready — we'll pick up on the next round. Thanks ♻️`
+                );
+                return (
+                  <li key={r.pendency_id} className="py-3 flex items-center gap-3 flex-wrap" data-testid={`engaged-row-${r.pendency_id}`}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-extrabold text-foreground truncate">{r.name || "Unknown"}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {r.phone ? (<a href={`tel:${digits}`} className="inline-flex items-center gap-1 hover:text-primary"><Phone className="h-3 w-3" />{r.phone}</a>) : "No phone"}
+                        {r.address ? <span> · {r.address}</span> : null}
+                      </p>
+                    </div>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-900 px-2.5 h-7 text-xs font-extrabold">
+                      <Package className="h-3.5 w-3.5" />
+                      {r.tiffin_count} tiffin{r.tiffin_count > 1 ? "s" : ""}
+                    </span>
+                    {r.phone && (
+                      <a
+                        href={`https://wa.me/${waPhone}?text=${nudge}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold px-3 h-8"
+                        data-testid={`engaged-wa-${r.pendency_id}`}
+                      >
+                        <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                      </a>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* Secondary row — context stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
