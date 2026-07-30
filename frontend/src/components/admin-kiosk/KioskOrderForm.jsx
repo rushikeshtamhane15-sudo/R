@@ -87,100 +87,121 @@ export default function KioskOrderForm({
   return (
     <div className={S.wrap} data-testid="kiosk-order-form">
       {active.lunch && active.dinner && (
-        <div className="inline-flex rounded-full bg-muted p-1 gap-1 self-start">
+        <div className={`inline-flex rounded-full bg-white ring-1 ring-primary/25 p-1 gap-1 self-start shadow-sm`} data-testid="kiosk-order-meal-toggle">
           <button type="button" onClick={() => setOrderMeal("lunch")} data-testid="kiosk-order-meal-lunch"
-            className={`${S.mealBtn} ${orderMeal === "lunch" ? "bg-amber-500 text-white" : "text-muted-foreground"}`}>Lunch</button>
+            className={`${S.mealBtn} transition-all ${orderMeal === "lunch" ? "bg-white text-primary ring-2 ring-emerald-500 shadow" : "bg-white text-primary/70 hover:text-primary"}`}>Lunch</button>
           <button type="button" onClick={() => setOrderMeal("dinner")} data-testid="kiosk-order-meal-dinner"
-            className={`${S.mealBtn} ${orderMeal === "dinner" ? "bg-blue-600 text-white" : "text-muted-foreground"}`}>Dinner</button>
+            className={`${S.mealBtn} transition-all ${orderMeal === "dinner" ? "bg-white text-primary ring-2 ring-emerald-500 shadow" : "bg-white text-primary/70 hover:text-primary"}`}>Dinner</button>
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-2">
-        {SERVICE_TABS.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            onClick={() => setServiceSafe(s.id)}
-            data-testid={`kiosk-svc-${s.id}`}
-            className={`${S.svcBtn} inline-flex flex-col items-center tracking-wide transition-colors ${service === s.id ? "bg-primary text-white border-primary" : "bg-muted/60 border-black/10 text-foreground hover:border-primary/40"}`}
-          >
-            <s.icon className={S.svcIcon} />
-            {s.label}
-            <span className={`tabular-nums opacity-90 ${S.svcPrice}`}>₹{priceFor(s.id)}</span>
-          </button>
-        ))}
-      </div>
+      <div className={isFullscreen ? "grid grid-cols-2 gap-6 flex-1 min-h-0" : "flex flex-col gap-3"}>
+        {/* LEFT COL — Service + Quantity */}
+        <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-2 gap-2">
+            {SERVICE_TABS.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setServiceSafe(s.id)}
+                data-testid={`kiosk-svc-${s.id}`}
+                className={`${S.svcBtn} inline-flex flex-col items-center tracking-wide transition-colors ${service === s.id ? "bg-primary text-white border-primary" : "bg-muted/60 border-black/10 text-foreground hover:border-primary/40"}`}
+              >
+                <s.icon className={S.svcIcon} />
+                {s.label}
+                <span className={`tabular-nums opacity-90 ${S.svcPrice}`}>₹{priceFor(s.id)}</span>
+              </button>
+            ))}
+          </div>
 
-      <div className="flex items-center justify-between gap-2 rounded-2xl bg-muted/60 px-4 py-3">
-        <span className={S.qtyLabel}>Quantity</span>
-        <div className="inline-flex items-center rounded-full bg-white ring-1 ring-black/10">
-          <button type="button" onClick={() => setQtySafe((q) => Math.max(1, q - 1))} className={`${S.qtyBtn} inline-flex items-center justify-center text-foreground`} data-testid="kiosk-qty-dec"><Minus className={S.qtyIcon} /></button>
-          <span className={S.qtyNum} data-testid="kiosk-qty">{qty}</span>
-          <button type="button" onClick={() => setQtySafe((q) => Math.min(20, q + 1))} className={`${S.qtyBtn} inline-flex items-center justify-center text-foreground`} data-testid="kiosk-qty-inc"><Plus className={S.qtyIcon} /></button>
+          <div className="flex items-center justify-between gap-2 rounded-2xl bg-muted/60 px-4 py-3">
+            <span className={S.qtyLabel}>Quantity</span>
+            <div className="inline-flex items-center rounded-full bg-white ring-1 ring-black/10">
+              <button type="button" onClick={() => setQtySafe((q) => Math.max(1, q - 1))} className={`${S.qtyBtn} inline-flex items-center justify-center text-foreground`} data-testid="kiosk-qty-dec"><Minus className={S.qtyIcon} /></button>
+              <span className={S.qtyNum} data-testid="kiosk-qty">{qty}</span>
+              <button type="button" onClick={() => setQtySafe((q) => Math.min(20, q + 1))} className={`${S.qtyBtn} inline-flex items-center justify-center text-foreground`} data-testid="kiosk-qty-inc"><Plus className={S.qtyIcon} /></button>
+            </div>
+          </div>
+
+          {lastOrder && !pendingOrder && isFullscreen && (
+            <div className="rounded-xl border border-emerald-500 bg-emerald-50 px-4 py-3 text-emerald-900 mt-auto" data-testid="kiosk-last-order">
+              <p className="text-xs tracking-[0.18em] uppercase font-bold">Last order</p>
+              <p className="text-sm mt-0.5 font-mono break-all">{lastOrder.order_id}</p>
+              <p className="text-base">{lastOrder.qty} × {lastOrder.menu_text?.slice(0, 60)}{lastOrder.menu_text?.length > 60 ? "…" : ""} · ₹{lastOrder.total}</p>
+              {receipt && (
+                <button type="button" onClick={onReopenReceipt}
+                  className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-600 text-white px-4 h-9 text-sm font-extrabold hover:bg-emerald-500"
+                  data-testid="kiosk-reprint">Re-open receipt</button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT COL — Payment + Total + Place order */}
+        <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-3 gap-2">
+            {PAY_TABS.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setPaymentMethod(p.id)}
+                data-testid={`kiosk-pay-${p.id}`}
+                className={`${S.payBtn} inline-flex flex-col items-center justify-center tracking-wide transition-colors ${paymentMethod === p.id ? "bg-primary text-white border-primary" : "bg-muted/60 border-black/10 text-foreground hover:border-primary/40"}`}
+              >
+                <p.icon className={S.payIcon} /> {p.label}
+              </button>
+            ))}
+          </div>
+
+          {paymentMethod === "mixed" && (
+            <div className="grid grid-cols-2 gap-2" data-testid="kiosk-mixed-amounts">
+              <label className="flex flex-col gap-0.5">
+                <span className={S.mixedLbl}>Cash ₹</span>
+                <Input
+                  type="number" min={0} max={total} value={cashAmount}
+                  onChange={(e) => setCash(e.target.value)}
+                  data-testid="kiosk-mixed-cash"
+                  className={S.mixedInput}
+                />
+              </label>
+              <label className="flex flex-col gap-0.5">
+                <span className={S.mixedLbl}>Online ₹</span>
+                <Input
+                  type="number" readOnly value={onlineAmount}
+                  data-testid="kiosk-mixed-online"
+                  className={S.mixedInput}
+                />
+              </label>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between gap-2 mt-1">
+            <span className={S.totalLbl}>Total</span>
+            <span className={S.totalVal} data-testid="kiosk-total">₹{total}</span>
+          </div>
+          <Button
+            onClick={onPlaceOrder}
+            disabled={placing || !!pendingOrder}
+            className={S.placeBtn}
+            data-testid="kiosk-place-order"
+          >
+            {placing ? <Loader2 className={`${S.placeIcon} animate-spin`} /> : <ShoppingCart className={S.placeIcon} />}
+            Place order
+          </Button>
+          <Button onClick={onResetForm} variant="ghost" className={S.resetBtn} data-testid="kiosk-order-reset">
+            <RotateCcw className={`${isFullscreen ? "h-5 w-5 mr-2" : "h-4 w-4 mr-1.5"}`} /> Reset
+          </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
-        {PAY_TABS.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            onClick={() => setPaymentMethod(p.id)}
-            data-testid={`kiosk-pay-${p.id}`}
-            className={`${S.payBtn} inline-flex flex-col items-center justify-center tracking-wide transition-colors ${paymentMethod === p.id ? "bg-primary text-white border-primary" : "bg-muted/60 border-black/10 text-foreground hover:border-primary/40"}`}
-          >
-            <p.icon className={S.payIcon} /> {p.label}
-          </button>
-        ))}
-      </div>
-
-      {paymentMethod === "mixed" && (
-        <div className="grid grid-cols-2 gap-2" data-testid="kiosk-mixed-amounts">
-          <label className="flex flex-col gap-0.5">
-            <span className={S.mixedLbl}>Cash ₹</span>
-            <Input
-              type="number" min={0} max={total} value={cashAmount}
-              onChange={(e) => setCash(e.target.value)}
-              data-testid="kiosk-mixed-cash"
-              className={S.mixedInput}
-            />
-          </label>
-          <label className="flex flex-col gap-0.5">
-            <span className={S.mixedLbl}>Online ₹</span>
-            <Input
-              type="number" readOnly value={onlineAmount}
-              data-testid="kiosk-mixed-online"
-              className={S.mixedInput}
-            />
-          </label>
-        </div>
-      )}
-
-      <div className="flex items-center justify-between gap-2 mt-1">
-        <span className={S.totalLbl}>Total</span>
-        <span className={S.totalVal} data-testid="kiosk-total">₹{total}</span>
-      </div>
-      <Button
-        onClick={onPlaceOrder}
-        disabled={placing || !!pendingOrder}
-        className={S.placeBtn}
-        data-testid="kiosk-place-order"
-      >
-        {placing ? <Loader2 className={`${S.placeIcon} animate-spin`} /> : <ShoppingCart className={S.placeIcon} />}
-        Place order
-      </Button>
-      <Button onClick={onResetForm} variant="ghost" className={S.resetBtn} data-testid="kiosk-order-reset">
-        <RotateCcw className={`${isFullscreen ? "h-5 w-5 mr-2" : "h-4 w-4 mr-1.5"}`} /> Reset
-      </Button>
-
-      {lastOrder && !pendingOrder && (
+      {lastOrder && !pendingOrder && !isFullscreen && (
         <div className="rounded-xl border border-emerald-500 bg-emerald-50 px-3 py-2 text-emerald-900" data-testid="kiosk-last-order">
-          <p className={isFullscreen ? "text-xs tracking-[0.18em] uppercase font-bold" : "text-[10px] tracking-[0.18em] uppercase font-bold"}>Last order</p>
-          <p className={`${isFullscreen ? "text-sm" : "text-xs"} mt-0.5 font-mono break-all`}>{lastOrder.order_id}</p>
-          <p className={isFullscreen ? "text-base" : "text-sm"}>{lastOrder.qty} × {lastOrder.menu_text?.slice(0, 60)}{lastOrder.menu_text?.length > 60 ? "…" : ""} · ₹{lastOrder.total}</p>
+          <p className="text-[10px] tracking-[0.18em] uppercase font-bold">Last order</p>
+          <p className="text-xs mt-0.5 font-mono break-all">{lastOrder.order_id}</p>
+          <p className="text-sm">{lastOrder.qty} × {lastOrder.menu_text?.slice(0, 60)}{lastOrder.menu_text?.length > 60 ? "…" : ""} · ₹{lastOrder.total}</p>
           {receipt && (
             <button type="button" onClick={onReopenReceipt}
-              className={`mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-600 text-white ${isFullscreen ? "px-4 h-9 text-sm" : "px-3 h-7 text-[11px]"} font-extrabold hover:bg-emerald-500`}
+              className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-600 text-white px-3 h-7 text-[11px] font-extrabold hover:bg-emerald-500"
               data-testid="kiosk-reprint">Re-open receipt</button>
           )}
         </div>

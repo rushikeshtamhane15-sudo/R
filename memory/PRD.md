@@ -3078,3 +3078,38 @@ Production user on 27" portrait tablet reported the self-ordering container was 
 - `/app/frontend/src/components/admin-kiosk/KioskMenuCard.jsx`
 - `/app/frontend/src/components/admin-kiosk/KioskOrderForm.jsx`
 
+
+---
+
+## iter-134.b (Feb 2026) — Kiosk vertical restructure + tab-style meal toggle ✅
+
+### Task 1 — Kiosk containers restructure
+- Outer grid changed to `grid-rows-[5fr_5fr]` on fullscreen so the **QR container is taller** (was 3fr:4fr).
+- Bottom order panel inner grid is now **vertically stacked** (`grid-cols-1 grid-rows-[auto_1fr]`):
+  - Row 1: `KioskMenuCard` — full-bleed horizontal, only content height (removed `flex-1`), so **no green empty gap**.
+  - Row 2: `KioskOrderForm` — fills remaining height, uses an internal `grid-cols-2` on fullscreen:
+    - Left col: Meal toggle · Service tabs · Quantity picker · (optional Last-order card)
+    - Right col: Payment mode tabs · Total · Place order · Reset
+- No color changes — red / emerald / white palette preserved as requested.
+
+### Task 2 — Tab-style Lunch/Dinner meal toggle
+- `KioskCounterPanel` header pill: replaced the shadcn `Button` variants with `button` tabs.
+  - **White background, red (primary) text.**
+  - Active tab: **green ring (ring-2 ring-emerald-500) + shadow**.
+  - Inactive tab: faded red text.
+  - Disabled tab (outside slot window): opacity 0.7, `cursor-not-allowed`.
+- Same tab styling propagated into `KioskOrderForm` meal toggle for consistency.
+
+### Task 2b — Sync active tab + QR splash to admin-configured slot windows
+- `AdminKiosk.jsx` now fetches `/api/meal-slots` on mount + every 5 min (was hardcoded 12–15 / 19–22).
+- `activeSlot` and `activeMealNow` recomputed from the fetched `lunch.start/end`, `dinner.start/end`.
+- Counter-QR `meal` state auto-syncs to whichever slot is currently active — the wrong-slot QR is **never splashed**.
+- Inside a slot window: only that meal's tab is enabled; the opposite meal shows disabled/faded and cannot be clicked.
+- Backend `_mark_attendance` already gates scan acceptance against `meal_slots`, so the frontend UX and backend policy are aligned.
+
+### Files
+- `/app/frontend/src/pages/AdminKiosk.jsx` (meal-slots fetch + auto-sync + new grid layout)
+- `/app/frontend/src/components/admin-kiosk/KioskCounterPanel.jsx` (tab-style toggle)
+- `/app/frontend/src/components/admin-kiosk/KioskMenuCard.jsx` (removed vertical stretch)
+- `/app/frontend/src/components/admin-kiosk/KioskOrderForm.jsx` (2-col fullscreen layout + tab meal toggle)
+

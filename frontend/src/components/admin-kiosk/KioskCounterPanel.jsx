@@ -55,21 +55,33 @@ export default function KioskCounterPanel({
             <span>{btPill.label}</span>
           </span>
         </div>
-        <div className="flex gap-2" data-testid="kiosk-meal-toggle">
-          <Button
+        <div className={`inline-flex bg-white rounded-full p-1 gap-1 shadow-md ring-1 ring-primary/25 ${isFullscreen ? "" : ""}`} data-testid="kiosk-meal-toggle">
+          <button
+            type="button"
             onClick={() => canLunch && setMeal("lunch")}
             disabled={!canLunch}
             data-testid="kiosk-meal-lunch"
-            className={`rounded-full h-11 px-5 text-sm font-extrabold transition-opacity ${meal === "lunch" && canLunch ? "bg-white text-emerald-700 ring-2 ring-emerald-500 shadow-lg" : canLunch ? "bg-white text-emerald-700 ring-1 ring-emerald-300 hover:ring-emerald-500" : "bg-white text-red-600 ring-1 ring-red-400 opacity-70 cursor-not-allowed"}`}>
-            <Sun className="h-4 w-4 mr-1.5" /> Lunch
-          </Button>
-          <Button
+            className={`rounded-full font-extrabold inline-flex items-center transition-all ${isFullscreen ? "h-12 px-6 text-base gap-2" : "h-11 px-5 text-sm gap-1.5"} ${meal === "lunch" && canLunch
+              ? "bg-white text-primary ring-2 ring-emerald-500 shadow"
+              : canLunch
+                ? "bg-white text-primary/80 hover:text-primary hover:ring-1 hover:ring-emerald-300"
+                : "bg-white text-primary/40 opacity-70 cursor-not-allowed"}`}
+          >
+            <Sun className={isFullscreen ? "h-5 w-5" : "h-4 w-4"} /> Lunch
+          </button>
+          <button
+            type="button"
             onClick={() => canDinner && setMeal("dinner")}
             disabled={!canDinner}
             data-testid="kiosk-meal-dinner"
-            className={`rounded-full h-11 px-5 text-sm font-extrabold transition-opacity ${meal === "dinner" && canDinner ? "bg-white text-emerald-700 ring-2 ring-emerald-500 shadow-lg" : canDinner ? "bg-white text-emerald-700 ring-1 ring-emerald-300 hover:ring-emerald-500" : "bg-white text-red-600 ring-1 ring-red-400 opacity-70 cursor-not-allowed"}`}>
-            <Moon className="h-4 w-4 mr-1.5" /> Dinner
-          </Button>
+            className={`rounded-full font-extrabold inline-flex items-center transition-all ${isFullscreen ? "h-12 px-6 text-base gap-2" : "h-11 px-5 text-sm gap-1.5"} ${meal === "dinner" && canDinner
+              ? "bg-white text-primary ring-2 ring-emerald-500 shadow"
+              : canDinner
+                ? "bg-white text-primary/80 hover:text-primary hover:ring-1 hover:ring-emerald-300"
+                : "bg-white text-primary/40 opacity-70 cursor-not-allowed"}`}
+          >
+            <Moon className={isFullscreen ? "h-5 w-5" : "h-4 w-4"} /> Dinner
+          </button>
         </div>
       </div>
 

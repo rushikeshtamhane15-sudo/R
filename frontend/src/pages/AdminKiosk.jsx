@@ -64,51 +64,75 @@ export default function AdminKiosk() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFullscreenRoute]);
 
+  // iter-134.b: fetch admin-configured meal-slot windows from the public
+  // /api/meal-slots endpoint. Falls back to sensible defaults (12–15, 19–22)
+  // until the response lands. Kept in state so both activeSlot + counter QR
+  // stay in sync with the admin's configuration and re-poll every 5 min.
+  const [mealSlots, setMealSlots] = useState({
+    lunch:  { start: "12:00", end: "15:00" },
+    dinner: { start: "19:00", end: "22:00" },
+  });
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const r = await api.get("/meal-slots");
+        if (!cancelled && r.data) setMealSlots(r.data);
+      } catch (e) { console.warn("[AdminKiosk] /meal-slots fetch failed", e); }
+    };
+    load();
+    const id = setInterval(load, 5 * 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  // Convert "HH:MM" → minutes-since-midnight (used to gate the kiosk slot).
+  const parseMin = (t) => {
+    if (!t) return 0;
+    const [h, m] = String(t).split(":").map((s) => parseInt(s, 10) || 0);
+    return h * 60 + m;
+  };
+  const slotWin = React.useMemo(() => ({
+    lunch:  { s: parseMin(mealSlots.lunch?.start),  e: parseMin(mealSlots.lunch?.end)  },
+    dinner: { s: parseMin(mealSlots.dinner?.start), e: parseMin(mealSlots.dinner?.end) },
+  }), [mealSlots]);
+
   // iter-131.30: activeSlot is stricter than activeMealNow — "off" means
   // we're outside BOTH windows (early-morning/afternoon/late-night) and both
   // Lunch/Dinner tabs should render disabled.
+  const [nowTick, setNowTick] = useState(0);
+  useEffect(() => { const id = setInterval(() => setNowTick((t) => t + 1), 30_000); return () => clearInterval(id); }, []);
   const activeSlot = React.useMemo(() => {
     const now = new Date();
     const ist = new Date(now.getTime() + (330 - now.getTimezoneOffset()) * 60_000);
     const m = ist.getHours() * 60 + ist.getMinutes();
-    if (m >= 12 * 60 && m <= 15 * 60) return "lunch";
-    if (m >= 19 * 60 && m <= 22 * 60) return "dinner";
+    if (m >= slotWin.lunch.s  && m <= slotWin.lunch.e)  return "lunch";
+    if (m >= slotWin.dinner.s && m <= slotWin.dinner.e) return "dinner";
     return "off";
-  }, []);
-  const [, setSlotTick] = useState(0); // re-render every minute so activeSlot recomputes
-  useEffect(() => { const id = setInterval(() => setSlotTick((t) => t + 1), 60_000); return () => clearInterval(id); }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slotWin, nowTick]);
 
   /* ---------------- TOP: Counter QR ---------------- */
-  // iter-131.29: auto-select meal by IST clock. Lunch 12:00–15:00, Dinner
-  // 19:00–22:00; outside slots we default to whichever slot is next.
+  // iter-131.29: auto-select meal by IST clock via admin-configured windows.
+  // When outside a slot, we still pick the next upcoming slot so the QR shows
+  // something sensible — but activeSlot="off" gates actual scan acceptance.
   const activeMealNow = React.useMemo(() => {
     const now = new Date();
     const ist = new Date(now.getTime() + (330 - now.getTimezoneOffset()) * 60_000);
     const m = ist.getHours() * 60 + ist.getMinutes();
-    if (m >= 12 * 60 && m <= 15 * 60) return "lunch";
-    if (m >= 19 * 60 && m <= 22 * 60) return "dinner";
-    // Off-window: pick the next upcoming slot
-    if (m < 12 * 60) return "lunch";
-    if (m < 19 * 60) return "dinner";
+    if (m >= slotWin.lunch.s  && m <= slotWin.lunch.e)  return "lunch";
+    if (m >= slotWin.dinner.s && m <= slotWin.dinner.e) return "dinner";
+    if (m < slotWin.lunch.s)  return "lunch";
+    if (m < slotWin.dinner.s) return "dinner";
     return "lunch"; // late night → tomorrow's lunch
-  }, []);
-  const [meal, setMeal] = useState(activeMealNow);
-  // Re-sync when the clock crosses a slot boundary (every 60 s).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slotWin, nowTick]);
+  const [meal, setMeal] = useState("lunch");
+  // Auto-sync meal to whatever slot is currently active (or upcoming) — the
+  // user cannot scan the wrong QR during the opposite slot. If the admin
+  // changes the windows, this re-runs and updates the QR splash.
   useEffect(() => {
-    const tick = () => {
-      const now = new Date();
-      const ist = new Date(now.getTime() + (330 - now.getTimezoneOffset()) * 60_000);
-      const m = ist.getHours() * 60 + ist.getMinutes();
-      let next = "lunch";
-      if (m >= 12 * 60 && m <= 15 * 60) next = "lunch";
-      else if (m >= 19 * 60 && m <= 22 * 60) next = "dinner";
-      else if (m < 12 * 60) next = "lunch";
-      else if (m < 19 * 60) next = "dinner";
-      setMeal((prev) => prev === next ? prev : next);
-    };
-    const id = setInterval(tick, 60_000);
-    return () => clearInterval(id);
-  }, []);
+    setMeal((prev) => prev === activeMealNow ? prev : activeMealNow);
+  }, [activeMealNow]);
   const [counter, setCounter] = useState(null);
   const loadCounter = useCallback(async () => {
     try {
@@ -357,7 +381,7 @@ export default function AdminKiosk() {
 
   return (
     <div
-      className={`min-h-screen text-white grid gap-3 p-4 kiosk-lights-shell ${isFullscreenRoute ? "grid-rows-[3fr_4fr]" : "grid-rows-[5fr_3fr]"}`}
+      className={`min-h-screen text-white grid gap-3 p-4 kiosk-lights-shell ${isFullscreenRoute ? "grid-rows-[5fr_5fr]" : "grid-rows-[5fr_3fr]"}`}
       style={{ background: "hsl(0, 76%, 45%)" }}
       data-testid="admin-kiosk-page"
       data-kiosk-fs={isFullscreenRoute ? "1" : "0"}
@@ -408,7 +432,7 @@ export default function AdminKiosk() {
           )}
         </div>
 
-        <div className={`flex-1 p-4 grid gap-3 overflow-auto min-h-0 ${isFullscreenRoute ? "grid-cols-[2fr_3fr]" : "sm:grid-cols-[3fr_2fr] items-start"}`}>
+        <div className={`flex-1 p-4 grid gap-3 overflow-auto min-h-0 ${isFullscreenRoute ? "grid-cols-1 grid-rows-[auto_1fr]" : "sm:grid-cols-[3fr_2fr] items-start"}`}>
           <KioskMenuCard active={active} activeDate={activeDate} tab={tab} cfg={cfg} isFullscreen={isFullscreenRoute} />
           <KioskOrderForm
             active={active}
