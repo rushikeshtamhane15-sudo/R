@@ -3393,3 +3393,34 @@ Node simulation of an IST device:
 - `/app/frontend/src/pages/AdminTiffinStock.jsx`
 - `/app/backend/routes/tiffin_stock.py`
 
+
+---
+
+## iter-134.m/n (Feb 2026) — Order meal auto-sync · Staff kiosk cash pendency · Razorpay QR sharpness ✅
+
+### Task 1 — Self-order meal toggle auto-syncs to admin slots
+- `orderMeal` in `AdminKiosk.jsx` now re-syncs to `activeMealNow` on every slot change.
+- `KioskOrderForm` renders the non-active meal tab as `disabled` (opacity 0.7, `cursor-not-allowed`, tooltip "slot closed — set by admin windows"). Manual override is prevented.
+
+### Task 2 — Staff wall-kiosk access + cash pendency tracking
+- Staff role already has `/admin/kiosk` and `/kiosk` access (FRANCHISE_VIEW allowlist). Backend order endpoint already accepts staff and stamps `placed_by_admin_id`.
+- New `GET /api/admin/kiosk/staff-cash-pendency` (admin+franchise_owner only) aggregates pending kiosk cash by staff — returns per-staff row + `total_pending`.
+- New `POST /api/admin/kiosk/staff-cash-mark-deposited` — flips `kiosk_cash_deposited=true` on all pending kiosk orders for a given staff, records `deposited_by / at / bank_ref`.
+- New admin section on `/admin/cash-collections`: "Wall-kiosk cash held by staff" card with per-staff rows + "Mark deposited" button + total pill. Hidden for non-admin roles.
+
+### Task 3 — Razorpay QR sharpness
+- Backend now exposes `razorpay_qr_short_url` on the payment response.
+- Frontend `KioskPaymentModal` renders a sharp `QRCodeSVG` (size 320, level M) from `short_url` (or a `rzp.io/i/<id>` fallback). If neither is available, falls back to `<img>` at 320×320 with `image-rendering: crisp-edges`.
+
+### Verified
+Testing agent iter-134 report: 8/8 backend pytests + full frontend flow — zero blocking issues.
+
+### Files
+- `/app/frontend/src/pages/AdminKiosk.jsx`
+- `/app/frontend/src/components/admin-kiosk/KioskOrderForm.jsx`
+- `/app/frontend/src/components/admin-kiosk/KioskPaymentModal.jsx`
+- `/app/frontend/src/pages/AdminCashCollections.jsx`
+- `/app/backend/routes/cash_analytics.py`
+- `/app/backend/routes/mess_menu_cal.py`
+- `/app/backend/tests/test_iter134_kiosk_staff_cash.py`
+
