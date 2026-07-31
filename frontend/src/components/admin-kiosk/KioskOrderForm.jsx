@@ -89,9 +89,13 @@ export default function KioskOrderForm({
       {active.lunch && active.dinner && (
         <div className={`inline-flex rounded-full bg-white ring-1 ring-primary/25 p-1 gap-1 shadow-sm ${isFullscreen ? "self-center" : "self-start"}`} data-testid="kiosk-order-meal-toggle">
           <button type="button" onClick={() => setOrderMeal("lunch")} data-testid="kiosk-order-meal-lunch"
-            className={`${S.mealBtn} transition-all ${orderMeal === "lunch" ? "bg-white text-primary ring-2 ring-emerald-500 shadow" : "bg-white text-primary/70 hover:text-primary"}`}>Lunch</button>
+            className={`${S.mealBtn} transition-all ${orderMeal === "lunch" ? "bg-white text-primary ring-2 ring-emerald-500 shadow" : "bg-white text-primary/50 opacity-70 cursor-not-allowed"}`}
+            disabled={orderMeal !== "lunch"}
+            title={orderMeal === "lunch" ? "Currently serving Lunch" : "Lunch slot closed — set by admin windows"}>Lunch</button>
           <button type="button" onClick={() => setOrderMeal("dinner")} data-testid="kiosk-order-meal-dinner"
-            className={`${S.mealBtn} transition-all ${orderMeal === "dinner" ? "bg-white text-primary ring-2 ring-emerald-500 shadow" : "bg-white text-primary/70 hover:text-primary"}`}>Dinner</button>
+            className={`${S.mealBtn} transition-all ${orderMeal === "dinner" ? "bg-white text-primary ring-2 ring-emerald-500 shadow" : "bg-white text-primary/50 opacity-70 cursor-not-allowed"}`}
+            disabled={orderMeal !== "dinner"}
+            title={orderMeal === "dinner" ? "Currently serving Dinner" : "Dinner slot closed — set by admin windows"}>Dinner</button>
         </div>
       )}
 

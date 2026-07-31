@@ -102,6 +102,67 @@ class MarkDepositIn(BaseModel):
     bank_ref: str | None = None
 
 
+@router.get("/admin/kiosk/staff-cash-pendency")
+async def kiosk_staff_cash_pendency(user: server.User = Depends(server.get_current_user)):
+    """iter-134.n — aggregate kiosk-collected cash per staff member that
+    has NOT been deposited yet. Result is shown in the admin cash collections
+    surface so admin can see how much cash each staff owes to the till at
+    end of day. Sources from `mess_menu_orders` where `kind == "walk_in_kiosk"`
+    and `cash_amount > 0`."""
+    if user.role not in ("admin", "franchise_owner"):
+        raise HTTPException(status_code=403, detail="Admin only")
+    pipe = [
+        {"$match": {"kind": "walk_in_kiosk", "cash_amount": {"$gt": 0}, "kiosk_cash_deposited": {"$ne": True}}},
+        {"$group": {
+            "_id": "$placed_by_admin_id",
+            "pending_amount": {"$sum": "$cash_amount"},
+            "order_count": {"$sum": 1},
+            "oldest_at": {"$min": "$created_at"},
+            "latest_at": {"$max": "$created_at"},
+        }},
+        {"$sort": {"pending_amount": -1}},
+    ]
+    rows = []
+    async for r in server.db.mess_menu_orders.aggregate(pipe):
+        sid = r.get("_id")
+        staff = await server.db.users.find_one({"user_id": sid}, {"_id": 0, "name": 1, "phone": 1, "role": 1}) if sid else None
+        rows.append({
+            "staff_user_id": sid,
+            "staff_name": (staff or {}).get("name") or "Unknown",
+            "staff_phone": (staff or {}).get("phone") or "",
+            "staff_role": (staff or {}).get("role") or "",
+            "pending_amount": int(r.get("pending_amount") or 0),
+            "order_count": int(r.get("order_count") or 0),
+            "oldest_at": r.get("oldest_at"),
+            "latest_at": r.get("latest_at"),
+        })
+    total = sum(r["pending_amount"] for r in rows)
+    return {"rows": rows, "count": len(rows), "total_pending": total}
+
+
+class KioskDepositIn(BaseModel):
+    staff_user_id: str
+    bank_ref: str | None = None
+
+
+@router.post("/admin/kiosk/staff-cash-mark-deposited")
+async def kiosk_mark_deposited(payload: KioskDepositIn, user: server.User = Depends(server.get_current_user)):
+    """Mark all pending kiosk cash orders placed by `staff_user_id` as deposited."""
+    if user.role not in ("admin", "franchise_owner"):
+        raise HTTPException(status_code=403, detail="Admin only")
+    r = await server.db.mess_menu_orders.update_many(
+        {"kind": "walk_in_kiosk", "placed_by_admin_id": payload.staff_user_id,
+         "cash_amount": {"$gt": 0}, "kiosk_cash_deposited": {"$ne": True}},
+        {"$set": {
+            "kiosk_cash_deposited": True,
+            "kiosk_cash_deposited_at": server.iso(server.now_utc()),
+            "kiosk_cash_deposited_by": user.user_id,
+            "kiosk_cash_bank_ref": (payload.bank_ref or "")[:80],
+        }},
+    )
+    return {"updated": r.modified_count}
+
+
 @router.post("/admin/payments/mark-deposited")
 async def mark_deposited(payload: MarkDepositIn, user: server.User = Depends(server.get_current_user), as_mess_id: str | None = None):
     """Mark a batch of cash orders as deposited in the company's bank account.

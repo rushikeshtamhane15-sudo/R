@@ -225,6 +225,13 @@ export default function AdminKiosk() {
   const [cfg, setCfg] = useState(null);
   const [tab, setTab] = useState("today");
   const [orderMeal, setOrderMeal] = useState("lunch");
+  // iter-134.m — orderMeal auto-syncs with the currently-active meal window
+  // so staff can't accidentally book a lunch order during dinner slot. The
+  // header/QR toggle already syncs; this brings the self-order toggle in
+  // lock-step too.
+  useEffect(() => {
+    setOrderMeal((prev) => prev === activeMealNow ? prev : activeMealNow);
+  }, [activeMealNow]);
   const [service, setService] = useState("takeaway");
   const [qty, setQty] = useState(1);
   const [paymentMethod, setPaymentMethodRaw] = useState("cash");
@@ -440,6 +447,7 @@ export default function AdminKiosk() {
         provider: r.data?.qr_provider || "paytm",
         razorpayQrImageUrl: r.data?.razorpay_qr_image_url || "",
         razorpayQrId: r.data?.razorpay_qr_id || "",
+        razorpayShortUrl: r.data?.razorpay_qr_short_url || "",
       });
       if (paymentMethod === "cash") {
         await confirmPayment(

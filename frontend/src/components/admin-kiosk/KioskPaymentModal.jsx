@@ -6,11 +6,13 @@ import { CheckCircle2, Loader2, X as XIcon } from "lucide-react";
 
 export default function KioskPaymentModal({ pendingOrder, onConfirm, onCancel }) {
   if (!pendingOrder || !pendingOrder.order || pendingOrder.order.payment_method === "cash") return null;
-  const { order, provider, upiQrText, upiVpa, razorpayQrImageUrl, razorpayQrId } = pendingOrder;
-  // iter-131.32: while the parent 4-s poll runs against Razorpay we show a
-  // translucent "Waiting for UPI…" affordance over the QR so users know the
-  // kiosk is actively watching for the payment (not a static image).
+  const { order, provider, upiQrText, upiVpa, razorpayQrImageUrl, razorpayQrId, razorpayShortUrl } = pendingOrder;
   const isPolling = provider === "razorpay" && !!razorpayQrId && !order.online_paid;
+  // iter-134.m — for Razorpay we render a sharp local QRCodeSVG from the
+  // short URL (crisp at any size). If backend didn't expose short_url we
+  // fall back to the upstream img — but display it at 320×320 with
+  // crisp-edges to reduce the "blurry" perception on portrait tablets.
+  const rzpText = razorpayShortUrl || (razorpayQrId ? `https://rzp.io/i/${razorpayQrId}` : "");
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" data-testid="kiosk-paytm-modal">
       <div className="bg-white text-[hsl(140,8%,8%)] rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto p-5">
@@ -29,10 +31,20 @@ export default function KioskPaymentModal({ pendingOrder, onConfirm, onCancel })
           </button>
         </div>
 
-        {provider === "razorpay" && razorpayQrImageUrl ? (
+        {provider === "razorpay" && (razorpayQrImageUrl || rzpText) ? (
           <div className="mt-4 flex flex-col items-center">
             <div className="relative rounded-2xl bg-white p-4 border-2 border-[hsl(220,55%,55%)]" data-testid="kiosk-razorpay-qr">
-              <img src={razorpayQrImageUrl} alt="Scan to pay via Razorpay UPI" className="w-[240px] h-[240px] object-contain" />
+              {rzpText ? (
+                // Sharp vector-rendered QR from Razorpay short URL — no blur on any tablet.
+                <QRCodeSVG value={rzpText} size={320} level="M" includeMargin={false} />
+              ) : (
+                <img
+                  src={razorpayQrImageUrl}
+                  alt="Scan to pay via Razorpay UPI"
+                  className="w-[320px] h-[320px] object-contain"
+                  style={{ imageRendering: "crisp-edges" }}
+                />
+              )}
               {isPolling && (
                 <div
                   className="pointer-events-none absolute inset-0 rounded-2xl flex flex-col items-center justify-center gap-2 bg-white/72 backdrop-blur-[1.5px] animate-in fade-in"

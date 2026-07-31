@@ -517,6 +517,7 @@ async def kiosk_place_order(payload: KioskOrderIn, user: server.User = Depends(s
         "qr_provider": provider if online_amount > 0 else None,
         "razorpay_qr_id": rzp_qr.get("id") if rzp_qr else None,
         "razorpay_qr_image_url": rzp_qr.get("image_url") if rzp_qr else None,
+        "razorpay_qr_short_url": rzp_qr.get("short_url") if rzp_qr else None,
         "razorpay_qr_status": rzp_qr.get("status") if rzp_qr else None,
         "created_at": server.iso(server.now_utc()),
     }
@@ -543,6 +544,7 @@ async def kiosk_place_order(payload: KioskOrderIn, user: server.User = Depends(s
         "qr_provider": provider if online_amount > 0 else None,
         "razorpay_qr_id": rzp_qr.get("id") if rzp_qr else None,
         "razorpay_qr_image_url": rzp_qr.get("image_url") if rzp_qr else None,
+        "razorpay_qr_short_url": rzp_qr.get("short_url") if rzp_qr else None,
     }
 
 

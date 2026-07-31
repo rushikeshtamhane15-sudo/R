@@ -20,6 +20,10 @@ export default function AdminCashCollections() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [me, setMe] = useState(null);
+  // iter-134.n — kiosk-cash pendency per staff member (admin-only surface).
+  const [kioskStaffRows, setKioskStaffRows] = useState([]);
+  const [kioskStaffTotal, setKioskStaffTotal] = useState(0);
+  const [kioskLoading, setKioskLoading] = useState(false);
 
   // Per-row UI state
   const [otpInputs, setOtpInputs] = useState({});  // {order_id: "1234"}
@@ -38,6 +42,16 @@ export default function AdminCashCollections() {
       setTotal(list.data.total_amount || 0);
       setStaff(staffR.data.staff || []);
       setMe(meR.data);
+      // iter-134.n — kiosk-staff cash pendency (admin only)
+      if (meR.data?.role === "admin" || meR.data?.role === "franchise_owner") {
+        try {
+          setKioskLoading(true);
+          const kR = await api.get("/admin/kiosk/staff-cash-pendency");
+          setKioskStaffRows(kR.data?.rows || []);
+          setKioskStaffTotal(kR.data?.total_pending || 0);
+        } catch { /* silent */ }
+        finally { setKioskLoading(false); }
+      }
     } catch (e) { toast.error("Load failed"); }
     setLoading(false);
   };
@@ -112,6 +126,62 @@ export default function AdminCashCollections() {
           <p className="font-display font-extrabold text-3xl tabular-nums mt-1">₹{(total || 0).toFixed(0)}</p>
         </div>
       </div>
+
+      {/* iter-134.n — kiosk cash pendency per staff (admin only) */}
+      {isAdmin && (
+        <div className="rounded-2xl border border-emerald-300 bg-emerald-50/50 p-5 space-y-3" data-testid="kiosk-staff-cash-card">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <h2 className="font-display font-bold text-lg flex items-center gap-2 text-emerald-900">
+                <Banknote className="h-5 w-5" /> Wall-kiosk cash held by staff
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Cash collected via `/kiosk` orders that hasn't been deposited to the till yet.</p>
+            </div>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 text-white font-extrabold h-9 px-4 text-base tabular-nums" data-testid="kiosk-staff-cash-total">
+              ₹{kioskStaffTotal.toFixed(0)}
+            </span>
+          </div>
+          {kioskLoading ? (
+            <p className="text-xs text-muted-foreground text-center py-3">Loading…</p>
+          ) : kioskStaffRows.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-3" data-testid="kiosk-staff-cash-empty">No pending kiosk cash — all deposited.</p>
+          ) : (
+            <ul className="divide-y divide-emerald-200">
+              {kioskStaffRows.map((r) => (
+                <li key={r.staff_user_id} className="py-3 flex items-center gap-3 flex-wrap" data-testid={`kiosk-staff-row-${r.staff_user_id}`}>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-extrabold text-foreground">
+                      {r.staff_name} <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">· {r.staff_role || "staff"}</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {r.order_count} order{r.order_count > 1 ? "s" : ""} · oldest {r.oldest_at?.slice(0, 10) || "—"}
+                      {r.staff_phone ? <> · <a href={`tel:${r.staff_phone}`} className="hover:text-primary">{r.staff_phone}</a></> : null}
+                    </p>
+                  </div>
+                  <span className="font-display font-extrabold text-xl tabular-nums text-primary">₹{r.pending_amount.toFixed(0)}</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      const ok = window.confirm(`Mark ₹${r.pending_amount} from ${r.staff_name} as deposited to till?`);
+                      if (!ok) return;
+                      try {
+                        await api.post("/admin/kiosk/staff-cash-mark-deposited", { staff_user_id: r.staff_user_id });
+                        toast.success("Deposited");
+                        load();
+                      } catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
+                    }}
+                    className="rounded-full border-emerald-500 text-emerald-800 hover:bg-emerald-100 font-bold text-xs h-8"
+                    data-testid={`kiosk-staff-deposit-${r.staff_user_id}`}
+                  >
+                    Mark deposited
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {rows.length === 0 ? (
         <div className="text-center text-muted-foreground py-10" data-testid="empty">No pending cash orders.</div>
