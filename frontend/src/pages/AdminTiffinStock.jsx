@@ -12,6 +12,8 @@ export default function AdminTiffinStock() {
   const [topupNote, setTopupNote] = useState("");
   const [adjustDelta, setAdjustDelta] = useState(0);
   const [adjustReason, setAdjustReason] = useState("");
+  const [brokenCount, setBrokenCount] = useState(1);
+  const [brokenReason, setBrokenReason] = useState("");
   const [threshold, setThreshold] = useState(20);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -75,6 +77,20 @@ export default function AdminTiffinStock() {
       setAdjustDelta(0); setAdjustReason("");
       load();
     } catch (e) { toast.error(e?.response?.data?.detail || "Adjust failed"); }
+    finally { setSubmitting(false); }
+  };
+
+  const markBroken = async () => {
+    const n = Number(brokenCount);
+    if (!Number.isFinite(n) || n < 1) { toast.error("Enter a positive count"); return; }
+    if (!brokenReason.trim()) { toast.error("Reason required for the audit trail"); return; }
+    setSubmitting(true);
+    try {
+      await api.post("/admin/tiffin-stock/broken", { count: n, reason: brokenReason });
+      toast.success(`Marked ${n} tiffin${n > 1 ? "s" : ""} as broken`);
+      setBrokenCount(1); setBrokenReason("");
+      load();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Failed to mark broken"); }
     finally { setSubmitting(false); }
   };
 
@@ -184,11 +200,31 @@ export default function AdminTiffinStock() {
       )}
 
       {/* Secondary row — context stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Stat label="Active tiffin subs" value={state?.active_tiffin_subs ?? 0} icon={Package} />
         <Stat label="Daily expected use" value={state?.expected_daily_use ?? 0} icon={Package} />
         <Stat label="Last top-up" value={state?.last_topup_qty ? `+${state.last_topup_qty}` : "—"} sub={state?.last_topup_at?.slice(0, 10) || ""} icon={History} />
+        <Stat
+          label="Broken / lost"
+          value={state?.broken_total ?? 0}
+          sub="Written off · lifetime"
+          icon={AlertTriangle}
+          tone={(state?.broken_total ?? 0) > 0 ? "warn" : "ok"}
+          testid="stock-broken"
+        />
       </div>
+
+      {/* iter-134.e — reconciliation hint */}
+      {state && (
+        <p className="text-[11px] text-muted-foreground -mt-2" data-testid="stock-reconcile-hint">
+          Reconciliation: <span className="font-mono">{state.lifetime_purchases ?? 0}</span> lifetime
+          {' '}−{' '}<span className="font-mono">{state.engaged ?? 0}</span> engaged
+          {' '}−{' '}<span className="font-mono">{state.broken_total ?? 0}</span> broken
+          {' '}={' '}<span className="font-mono font-extrabold text-foreground">{state.expected_in_hand ?? 0}</span> expected in-hand
+          {' '}(actual <span className="font-mono">{state.quantity ?? 0}</span>){' '}
+          {state.expected_in_hand === state.quantity ? <span className="text-emerald-600 font-bold">✓ matches</span> : <span className="text-amber-700 font-bold">⚠ drift — adjust to reconcile</span>}
+        </p>
+      )}
 
       {state?.low_stock && (
         <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 flex items-center gap-3" data-testid="low-stock-banner">
@@ -197,7 +233,7 @@ export default function AdminTiffinStock() {
         </div>
       )}
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid md:grid-cols-3 gap-6">
         {/* Topup */}
         <div className="rounded-2xl border border-border bg-card p-6 space-y-3">
           <h2 className="font-display font-bold text-lg flex items-center gap-2"><Plus className="h-4 w-4" /> Add stock</h2>
@@ -208,13 +244,28 @@ export default function AdminTiffinStock() {
           <Button onClick={topup} disabled={submitting} className="w-full rounded-full" data-testid="topup-submit">{submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add stock"}</Button>
         </div>
 
+        {/* Broken / lost */}
+        <div className="rounded-2xl border border-red-200 bg-red-50/40 p-6 space-y-3" data-testid="broken-form">
+          <h2 className="font-display font-bold text-lg flex items-center gap-2 text-red-800"><AlertTriangle className="h-4 w-4" /> Mark broken / lost</h2>
+          <label className="block text-xs tracking-overline uppercase font-bold text-muted-foreground">Quantity</label>
+          <Input type="number" min={1} value={brokenCount} onChange={(e) => setBrokenCount(e.target.value)} className="rounded-xl" data-testid="broken-count" />
+          <label className="block text-xs tracking-overline uppercase font-bold text-muted-foreground">Reason</label>
+          <Input value={brokenReason} onChange={(e) => setBrokenReason(e.target.value)} className="rounded-xl" placeholder="e.g. 3 dents, 2 lost on route" data-testid="broken-reason" />
+          <Button onClick={markBroken} disabled={submitting} variant="outline" className="w-full rounded-full border-red-300 text-red-800 hover:bg-red-100" data-testid="broken-submit">
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Mark broken"}
+          </Button>
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            Written-off tiffins are subtracted from your in-hand count and stay in the "Broken / lost" ledger so the reconciliation math holds.
+          </p>
+        </div>
+
         {/* Adjust */}
         <div className="rounded-2xl border border-border bg-card p-6 space-y-3">
           <h2 className="font-display font-bold text-lg flex items-center gap-2"><SettingsIcon className="h-4 w-4" /> Manual adjust</h2>
           <label className="block text-xs tracking-overline uppercase font-bold text-muted-foreground">Delta (negative = remove)</label>
           <Input type="number" value={adjustDelta} onChange={(e) => setAdjustDelta(e.target.value)} className="rounded-xl" data-testid="adjust-delta" />
           <label className="block text-xs tracking-overline uppercase font-bold text-muted-foreground">Reason</label>
-          <Input value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} className="rounded-xl" placeholder="e.g. 3 broken in transit" data-testid="adjust-reason" />
+          <Input value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} className="rounded-xl" placeholder="e.g. count-off after audit" data-testid="adjust-reason" />
           <Button onClick={adjust} disabled={submitting} variant="outline" className="w-full rounded-full" data-testid="adjust-submit">{submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Adjust"}</Button>
 
           <div className="border-t border-border pt-3 mt-3 flex items-center gap-2">

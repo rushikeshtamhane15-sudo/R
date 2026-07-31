@@ -111,6 +111,43 @@ export default function AdminKiosk() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slotWin, nowTick]);
 
+  // iter-134.e: slot-close countdown text for the active tab pill + slot-flip
+  // toast for the kiosk when the window changes over. Recomputes on `nowTick`.
+  const slotCountdownLabel = React.useMemo(() => {
+    if (activeSlot === "off") return "";
+    const now = new Date();
+    const ist = new Date(now.getTime() + (330 - now.getTimezoneOffset()) * 60_000);
+    const m = ist.getHours() * 60 + ist.getMinutes();
+    const endMin = activeSlot === "lunch" ? slotWin.lunch.e : slotWin.dinner.e;
+    const left = endMin - m;
+    if (left <= 0) return "";
+    if (left >= 60) return `Ends in ${Math.floor(left / 60)}h ${left % 60}m`;
+    return `Ends in ${left}m`;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSlot, slotWin, nowTick]);
+  const slotCountdownEndsAt = React.useMemo(() => {
+    if (activeSlot === "off") return "";
+    const endMin = activeSlot === "lunch" ? slotWin.lunch.e : slotWin.dinner.e;
+    const h = Math.floor(endMin / 60), mm = endMin % 60;
+    return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")} IST`;
+  }, [activeSlot, slotWin]);
+
+  // Toast when the slot flips over (lunch → off → dinner, or vice versa).
+  const prevSlotRef = React.useRef(activeSlot);
+  useEffect(() => {
+    if (prevSlotRef.current === activeSlot) return;
+    const prev = prevSlotRef.current;
+    const next = activeSlot;
+    prevSlotRef.current = next;
+    if (prev === "off" && next !== "off") {
+      toast.message(`${next === "lunch" ? "🌞 Lunch" : "🌙 Dinner"} slot is now active`, { duration: 6000 });
+    } else if (prev !== "off" && next === "off") {
+      toast.message(`${prev === "lunch" ? "Lunch" : "Dinner"} slot ended · counter is between meals`, { duration: 6000 });
+    } else if (prev !== next) {
+      toast.message(`${prev === "lunch" ? "Lunch" : "Dinner"} slot ended · ${next === "lunch" ? "Lunch" : "Dinner"} active`, { duration: 6000 });
+    }
+  }, [activeSlot]);
+
   /* ---------------- TOP: Counter QR ---------------- */
   // iter-131.29: auto-select meal by IST clock via admin-configured windows.
   // When outside a slot, we still pick the next upcoming slot so the QR shows
@@ -141,6 +178,15 @@ export default function AdminKiosk() {
     } catch (e) { console.warn("[AdminKiosk] /counter/qr fetch failed", e); }
   }, [meal]);
   useEffect(() => { loadCounter(); const id = setInterval(loadCounter, 25_000); return () => clearInterval(id); }, [loadCounter]);
+  // iter-134.e: 1-Hz local tick to power the "Refreshes in Ns" QR countdown pill.
+  const [qrTick, setQrTick] = useState(0);
+  useEffect(() => { const id = setInterval(() => setQrTick((t) => t + 1), 1000); return () => clearInterval(id); }, []);
+  const qrRotateSeconds = React.useMemo(() => {
+    if (!counter?.rotates_at) return 0;
+    const nowSec = Math.floor(Date.now() / 1000);
+    return Math.max(0, Number(counter.rotates_at) - nowSec);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [counter, qrTick]);
 
   /* ---------------- Mess-menu order state ---------------- */
   const [data, setData] = useState(null);
@@ -392,6 +438,9 @@ export default function AdminKiosk() {
         btCfg={btCfg} btStatus={btStatus}
         onSetBtEnabled={setBtEnabled} onPairPrinter={ensurePrinter}
         isFullscreen={isFullscreenRoute}
+        slotCountdownLabel={slotCountdownLabel}
+        slotCountdownEndsAt={slotCountdownEndsAt}
+        qrRotateSeconds={qrRotateSeconds}
       />
 
       <section className="rounded-3xl border border-white/25 bg-black/45 backdrop-blur-sm overflow-hidden flex flex-col" data-testid="kiosk-order-panel">

@@ -119,6 +119,13 @@ class AdjustIn(BaseModel):
     reason: str
 
 
+class BrokenIn(BaseModel):
+    """iter-134.e — mark tiffins as broken / lost. Positive `count` = new
+    write-offs to add to the broken ledger. `reason` becomes the audit trail."""
+    count: int = Field(..., gt=0, description="How many tiffins to mark broken/lost")
+    reason: str = Field(default="Broken/lost")
+
+
 # === Public-admin endpoints ===================================================
 def _admin_or_staff(user):
     # iter-85: franchise owners get full operational control over their own
@@ -181,16 +188,31 @@ async def get_state(mess_id: Optional[str] = None, user: server.User = Depends(s
         if target:
             mq["mess_id"] = target
         else:
-            # Legacy singleton store: include docs without mess_id.
             mq["$or"] = [{"mess_id": None}, {"mess_id": {"$exists": False}}]
         cursor = server.db.tiffin_stock_movements.find(mq, {"_id": 0, "delta": 1})
         async for row in cursor:
             lifetime_purchases += int(row.get("delta") or 0)
     except Exception:
         lifetime_purchases = 0
-    fallback_total = int(st["quantity"]) + engaged
+    # iter-134.e: broken/lost ledger — sum of all `broken` movements.
+    broken_total = 0
+    try:
+        bq: dict = {"kind": "broken"}
+        if target:
+            bq["mess_id"] = target
+        else:
+            bq["$or"] = [{"mess_id": None}, {"mess_id": {"$exists": False}}]
+        cursor = server.db.tiffin_stock_movements.find(bq, {"_id": 0, "delta": 1})
+        async for row in cursor:
+            broken_total += abs(int(row.get("delta") or 0))
+    except Exception:
+        broken_total = 0
+    fallback_total = int(st["quantity"]) + engaged + broken_total
     st["lifetime_purchases"] = max(lifetime_purchases, fallback_total)
-    st["total_with_engaged"] = fallback_total  # legacy field, keep for backwards compat
+    st["broken_total"] = broken_total
+    # Reconciliation: expected in-hand = lifetime − engaged − broken.
+    st["expected_in_hand"] = max(0, int(st["lifetime_purchases"]) - engaged - broken_total)
+    st["total_with_engaged"] = int(st["quantity"]) + engaged  # legacy field, keep for backwards compat
     st["low_stock"] = st["quantity"] <= st["low_threshold"]
     return st
 
@@ -250,6 +272,36 @@ async def adjust(payload: AdjustIn, mess_id: Optional[str] = None, user: server.
         user_id=user.user_id, after=after, mess_id=target,
     )
     return {"ok": True, "quantity": after, "mess_id": target}
+
+
+@router.post("/admin/tiffin-stock/broken")
+async def mark_broken(payload: BrokenIn, mess_id: Optional[str] = None, user: server.User = Depends(server.get_current_user)):
+    """iter-134.e — record broken/lost tiffins. Decrements the in-hand
+    quantity (never below zero) and logs a `broken` movement so the
+    reconciliation math (`lifetime − engaged − broken == in_hand`) holds."""
+    _admin_or_staff(user)
+    target = await _resolve_target_mess(user, mess_id)
+    cnt = int(payload.count)
+    sid = _stock_id(target)
+    res = await server.db.tiffin_stock.find_one_and_update(
+        {"_id": sid},
+        {"$inc": {"quantity": -cnt}, "$set": {"mess_id": target}},
+        upsert=True,
+        return_document=True,
+        projection={"_id": 0},
+    )
+    after = max(0, int((res or {}).get("quantity") or 0))
+    if (res or {}).get("quantity", 0) < 0:
+        await server.db.tiffin_stock.update_one({"_id": sid}, {"$set": {"quantity": 0}})
+        after = 0
+    await _log_movement(
+        server.db,
+        kind="broken", delta=-cnt,
+        reason=payload.reason or "Broken/lost",
+        source=f"admin:{user.user_id}",
+        user_id=user.user_id, after=after, mess_id=target,
+    )
+    return {"ok": True, "quantity": after, "broken_added": cnt, "mess_id": target}
 
 
 @router.get("/admin/tiffin-stock/history")

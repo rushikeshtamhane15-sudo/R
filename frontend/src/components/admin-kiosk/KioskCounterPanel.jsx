@@ -3,7 +3,7 @@ import React from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "../ui/button";
 import {
-  Sun, Moon, ScanLine, Loader2,
+  Sun, Moon, ScanLine, Loader2, Clock, RefreshCw,
   Bluetooth, BluetoothConnected, BluetoothOff,
 } from "lucide-react";
 
@@ -14,6 +14,8 @@ export default function KioskCounterPanel({
   qrProvider, onSetQrProvider,
   btCfg, btStatus, onSetBtEnabled, onPairPrinter,
   isFullscreen = false,
+  slotCountdownLabel = "", slotCountdownEndsAt = "",
+  qrRotateSeconds = 0,
 }) {
   // iter-131.30: hard-lock the meal toggle to the currently-active slot. Off-slot
   // buttons render disabled + faded so staff can never mint the wrong QR.
@@ -41,32 +43,48 @@ export default function KioskCounterPanel({
   })();
   return (
     <section className="rounded-3xl border border-white/25 bg-black/45 backdrop-blur-sm overflow-hidden flex flex-col" data-testid="kiosk-counter-panel">
-      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-4 px-5 py-4 border-b border-white/12">
-        {/* LEFT — brand logo icon corner (bigger for readability from distance) */}
-        <div className="flex items-center" data-testid="kiosk-header-brand-logo">
-          <img
-            src={kioskLogoUrl || "/favicon-96.png"}
-            alt="efoodcare"
-            onError={(e) => { e.currentTarget.src = "/favicon-96.png"; }}
-            className={`object-contain rounded-2xl bg-white/15 ring-1 ring-white/20 ${isFullscreen ? "h-24 w-24 p-1.5" : "h-10 w-10 p-0.5"}`}
-          />
+      {/* Header — logo LEFT, brand ABSOLUTELY-centered, toggle RIGHT, so the
+          brand block sits at the exact optical centre regardless of the
+          left/right widths (iter-134.e). */}
+      <div className="relative border-b border-white/12 px-5 py-4">
+        {/* Brand centered over the whole header */}
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center leading-tight" data-testid="kiosk-header-brand">
+          <p className={`font-display font-extrabold text-white tracking-tight ${isFullscreen ? "text-5xl" : "text-2xl"}`} data-testid="kiosk-header-brand-name">efoodcare</p>
+          <p className={`uppercase font-bold text-white/85 tracking-[0.32em] ${isFullscreen ? "text-base mt-1.5" : "text-[10px]"}`} data-testid="kiosk-header-brand-tagline">ghar se accha khana</p>
         </div>
 
-        {/* CENTER — efoodcare brand name + tagline */}
-        <div className="flex flex-col items-center justify-center text-center leading-tight" data-testid="kiosk-header-brand">
-          <p className={`font-display font-extrabold text-white tracking-tight ${isFullscreen ? "text-6xl" : "text-2xl"}`} data-testid="kiosk-header-brand-name">efoodcare</p>
-          <p className={`uppercase font-bold text-white/85 tracking-[0.32em] ${isFullscreen ? "text-lg mt-2" : "text-[10px]"}`} data-testid="kiosk-header-brand-tagline">ghar se accha khana</p>
-        </div>
+        {/* Foreground row: logo + toggle sit above the absolutely-centered brand */}
+        <div className="relative flex items-center justify-between gap-4">
+          {/* LEFT — brand logo icon corner */}
+          <div className="flex items-center" data-testid="kiosk-header-brand-logo">
+            <img
+              src={kioskLogoUrl || "/favicon-96.png"}
+              alt="efoodcare"
+              onError={(e) => { e.currentTarget.src = "/favicon-96.png"; }}
+              className={`object-contain rounded-2xl bg-white/15 ring-1 ring-white/20 ${isFullscreen ? "h-24 w-24 p-1.5" : "h-10 w-10 p-0.5"}`}
+            />
+          </div>
 
-        {/* RIGHT — Lunch / Dinner toggle (compact so brand block gets center-stage) */}
-        <div className={`inline-flex bg-white rounded-full p-1 gap-1 shadow-md ring-1 ring-primary/25`} data-testid="kiosk-meal-toggle">
+          {/* RIGHT — Lunch / Dinner toggle + slot-close countdown pill */}
+          <div className="flex items-center gap-2">
+            {slotCountdownLabel && (
+              <span
+                className={`inline-flex items-center gap-1 rounded-full bg-white/90 text-primary font-extrabold shadow-sm ring-2 ring-emerald-500 ${isFullscreen ? "h-10 px-3 text-sm" : "h-8 px-2.5 text-[11px]"}`}
+                data-testid="kiosk-slot-countdown"
+                title={`${activeSlot === "lunch" ? "Lunch" : "Dinner"} window closes at ${slotCountdownEndsAt}`}
+              >
+                <Clock className={isFullscreen ? "h-4 w-4" : "h-3.5 w-3.5"} />
+                {slotCountdownLabel}
+              </span>
+            )}
+            <div className="inline-flex bg-white rounded-full p-1 gap-1 shadow-md ring-1 ring-primary/25" data-testid="kiosk-meal-toggle">
           <button
             type="button"
             onClick={() => canLunch && setMeal("lunch")}
             disabled={!canLunch}
             data-testid="kiosk-meal-lunch"
             className={`rounded-full font-extrabold inline-flex items-center transition-all ${isFullscreen ? "h-10 px-4 text-sm gap-1.5" : "h-11 px-5 text-sm gap-1.5"} ${meal === "lunch" && canLunch
-              ? "bg-white text-primary ring-2 ring-emerald-500 shadow"
+              ? "bg-white text-primary ring-[3px] ring-emerald-500 shadow"
               : canLunch
                 ? "bg-white text-primary/80 hover:text-primary hover:ring-1 hover:ring-emerald-300"
                 : "bg-white text-primary/40 opacity-70 cursor-not-allowed"}`}
@@ -79,13 +97,15 @@ export default function KioskCounterPanel({
             disabled={!canDinner}
             data-testid="kiosk-meal-dinner"
             className={`rounded-full font-extrabold inline-flex items-center transition-all ${isFullscreen ? "h-10 px-4 text-sm gap-1.5" : "h-11 px-5 text-sm gap-1.5"} ${meal === "dinner" && canDinner
-              ? "bg-white text-primary ring-2 ring-emerald-500 shadow"
+              ? "bg-white text-primary ring-[3px] ring-emerald-500 shadow"
               : canDinner
                 ? "bg-white text-primary/80 hover:text-primary hover:ring-1 hover:ring-emerald-300"
                 : "bg-white text-primary/40 opacity-70 cursor-not-allowed"}`}
           >
             <Moon className={isFullscreen ? "h-4 w-4" : "h-4 w-4"} /> Dinner
           </button>
+        </div>
+          </div>
         </div>
       </div>
 
@@ -103,6 +123,18 @@ export default function KioskCounterPanel({
                 <ScanLine className={isFullscreen ? "h-5 w-5" : "h-3.5 w-3.5"} />
                 Scan Me And Get Ghar Se Accha Khana
               </div>
+              {/* iter-134.e: live QR-rotation countdown so staff/customers know
+                  the QR auto-refreshes and roughly when. */}
+              {qrRotateSeconds > 0 && (
+                <div
+                  className={`inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-800 ring-1 ring-emerald-300 ${isFullscreen ? "mt-2 px-3 h-8 text-xs" : "mt-2 px-2.5 h-7 text-[10px]"} font-extrabold uppercase tracking-[0.16em]`}
+                  data-testid="kiosk-qr-rotate-countdown"
+                  title="This QR rotates every 5 minutes for security"
+                >
+                  <RefreshCw className={`${isFullscreen ? "h-3.5 w-3.5" : "h-3 w-3"} ${qrRotateSeconds <= 10 ? "animate-spin" : ""}`} />
+                  Refreshes in {qrRotateSeconds >= 60 ? `${Math.floor(qrRotateSeconds / 60)}m ${String(qrRotateSeconds % 60).padStart(2, "0")}s` : `${qrRotateSeconds}s`}
+                </div>
+              )}
               <p className={`font-mono text-muted-foreground mt-2 break-all max-w-md text-center ${isFullscreen ? "text-xs" : "text-[10px]"}`}>{counter.counter_code}</p>
               <p className={`font-semibold text-foreground mt-1 ${isFullscreen ? "text-base" : "text-xs"}`}>{meal.toUpperCase()} · {LOCATION}</p>
             </>

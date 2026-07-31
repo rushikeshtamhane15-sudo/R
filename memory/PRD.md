@@ -3185,3 +3185,37 @@ Production user on 27" portrait tablet reported the self-ordering container was 
 - `/app/frontend/src/components/messMenuHelpers.js`
 - `/app/frontend/src/components/admin-kiosk/KioskCounterPanel.jsx`
 
+
+---
+
+## iter-134.e (Feb 2026) — Countdown pill · Broken ledger · Slot toast · Header centering · QR auto-rotate countdown ✅
+
+### Task 1 — Slot-close countdown pill
+- Next to the active meal tab: pill with `Clock` icon and "Ends in Xh Ym" (or "Xm" if <1h).
+- Recomputes every 30 s from `nowTick`; disappears when slot ends.
+- Bordered emerald ring for visibility. Testid `kiosk-slot-countdown`.
+
+### Task 2 — Broken Tiffin Ledger
+- Backend `POST /api/admin/tiffin-stock/broken` (`{count, reason}`) — decrements in-hand quantity, logs a `broken` movement.
+- `GET /admin/tiffin-stock` now returns `broken_total` (sum of all broken movements) and `expected_in_hand = lifetime − engaged − broken`.
+- Frontend: new red-tinted "Mark broken / lost" form beside Topup + Adjust; new "Broken / lost" secondary tile; reconciliation hint line under the stats showing `lifetime − engaged − broken = expected in-hand (actual X)` with a ✓/⚠ badge.
+
+### Task 3 — Slot change toast on the kiosk
+- `AdminKiosk` watches `activeSlot`. On transition:
+  - `off → lunch/dinner`: toast "🌞 Lunch slot is now active" (or dinner).
+  - `lunch/dinner → off`: toast "Lunch slot ended · counter is between meals".
+  - `lunch ↔ dinner`: toast "Lunch slot ended · Dinner active".
+- Uses sonner's `toast.message` with 6-second duration.
+
+### Task 4 — Header centering fix + green ring + QR auto-rotate countdown
+- Header now uses `relative` container with an **absolutely-centered brand block** (`pointer-events-none inset-0 flex items-center justify-center`), so left logo + right toggle can be any width without pushing the brand off-center.
+- Brand sized `text-5xl` (down from text-6xl) to leave room for the countdown pill without overlapping "efoodcare" text.
+- Active meal tab ring bumped from `ring-2` → `ring-[3px]` for more visible green highlight.
+- New QR-rotation countdown pill under the "Scan Me…" tag: "REFRESHES IN 2m 59s" (mm:ss when > 60s). Icon spins in the final 10s. Data source: `counter.rotates_at` + 1-Hz local tick.
+
+### Files
+- `/app/backend/routes/tiffin_stock.py` (broken model, endpoint, get_state enrichments)
+- `/app/frontend/src/pages/AdminKiosk.jsx` (countdown label, slot-change toast, QR-tick, prop wiring)
+- `/app/frontend/src/pages/AdminTiffinStock.jsx` (broken form + tile + reconciliation hint)
+- `/app/frontend/src/components/admin-kiosk/KioskCounterPanel.jsx` (absolute-centered brand, ring-[3px], QR countdown pill)
+
