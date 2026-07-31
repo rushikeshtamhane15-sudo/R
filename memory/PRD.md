@@ -3219,3 +3219,26 @@ Production user on 27" portrait tablet reported the self-ordering container was 
 - `/app/frontend/src/pages/AdminTiffinStock.jsx` (broken form + tile + reconciliation hint)
 - `/app/frontend/src/components/admin-kiosk/KioskCounterPanel.jsx` (absolute-centered brand, ring-[3px], QR countdown pill)
 
+
+---
+
+## iter-134.f (Feb 2026) — Kiosk header enlargement + meal-toggle relocation + pure-veg mark ✅
+
+### Task 1 — Remove counter-code text, add slot-close timer inside QR container
+- Removed the raw `main.lunch.<bucket>.<sig>` string and the `LUNCH · main` caption from beneath the QR (both were noise for end users).
+- Added an inline slot-close timer pill inside the QR card: `⏱ LUNCH CLOSES IN 2H 27M` (white bg + red text + green ring). Uses the same `slotCountdownLabel` computed in AdminKiosk but rephrased as "closes in".
+
+### Task 2 — Meal toggle relocation + pure-veg header mark
+- Meal toggle moved OUT of the header and placed **above + centered on the QR** inside the counter-QR card. Buttons scaled up (`h-14 px-8 text-xl` in fullscreen) for touch on the 27" screen. Active tab still shows `ring-[3px] ring-emerald-500`.
+- Header right slot now hosts a Pure-Veg certification mark (green filled dot inside a green outlined square on a white tile) — universal FSSAI-style vegetarian indicator. Matches the left logo's tile size for perfect symmetry.
+
+### Task 3 — Enlarge header & interior
+- Brand logo tile: `h-24 → h-32` (33% bigger).
+- Brand name: `text-5xl → text-7xl`.
+- Tagline: `text-base → text-xl` with tighter tracking.
+- Header padding: `px-5 py-4 → px-6 py-6`.
+- Counter-QR panel inner padding: `p-5 → p-6` on fullscreen for balanced whitespace around the taller content.
+
+### Files
+- `/app/frontend/src/components/admin-kiosk/KioskCounterPanel.jsx`
+
