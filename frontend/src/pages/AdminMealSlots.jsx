@@ -45,9 +45,15 @@ export default function AdminMealSlots() {
     setSaving(true);
     try {
       await api.put("/admin/meal-slots", slots);
-      // Hot-push into the shared runtime so the wall kiosk / restaurant page
-      // reflect the change on their next tick without a full reload.
+      // Hot-push into the shared runtime + broadcast so the wall kiosk /
+      // restaurant page reflect the change within a second (even on other
+      // browser tabs). Same-tab uses the CustomEvent, cross-tab uses the
+      // localStorage `storage` event.
       setAdminMealSlots(slots);
+      try {
+        window.dispatchEvent(new CustomEvent("efc:meal-slots-updated", { detail: slots }));
+        localStorage.setItem("efc_meal_slots_updated_at", String(Date.now()));
+      } catch { /* ignore */ }
       toast.success("Slot windows updated · kiosk and ordering page will sync within seconds");
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Failed to save");

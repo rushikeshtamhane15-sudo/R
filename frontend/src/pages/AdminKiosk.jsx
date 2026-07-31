@@ -81,8 +81,22 @@ export default function AdminKiosk() {
       } catch (e) { console.warn("[AdminKiosk] /meal-slots fetch failed", e); }
     };
     load();
-    const id = setInterval(load, 5 * 60_000);
-    return () => { cancelled = true; clearInterval(id); };
+    // iter-134.i — poll every 60 s (was 5 min) so admin changes appear
+    // quickly even without a manual reload.
+    const id = setInterval(load, 60_000);
+    // Cross-tab / same-tab instant refresh: listen for the "efc:meal-slots-updated"
+    // custom event dispatched by AdminMealSlots.save(), plus the localStorage
+    // `storage` event so a save on ANY tab hot-refreshes ALL open kiosks.
+    const onLocal = () => load();
+    const onStorage = (e) => { if (e.key === "efc_meal_slots_updated_at") load(); };
+    window.addEventListener("efc:meal-slots-updated", onLocal);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+      window.removeEventListener("efc:meal-slots-updated", onLocal);
+      window.removeEventListener("storage", onStorage);
+    };
   }, []);
 
   // Convert "HH:MM" → minutes-since-midnight (used to gate the kiosk slot).

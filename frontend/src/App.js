@@ -252,8 +252,19 @@ export default function App() {
       } catch { /* ignore — defaults stay */ }
     };
     load();
-    const id = setInterval(load, 5 * 60_000);
-    return () => { cancelled = true; clearInterval(id); };
+    // iter-134.i — poll every 60 s and listen for instant broadcasts from
+    // AdminMealSlots.save() so the wall kiosk, restaurant order form, and
+    // isMealWindowOpen() consumers reflect admin edits within a second.
+    const id = setInterval(load, 60_000);
+    const onLocal = () => load();
+    const onStorage = (e) => { if (e.key === "efc_meal_slots_updated_at") load(); };
+    window.addEventListener("efc:meal-slots-updated", onLocal);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      cancelled = true; clearInterval(id);
+      window.removeEventListener("efc:meal-slots-updated", onLocal);
+      window.removeEventListener("storage", onStorage);
+    };
   }, []);
   return (
     <HelmetProvider>

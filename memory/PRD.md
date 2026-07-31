@@ -3281,3 +3281,23 @@ Between slots (e.g., IST 15:00–19:00 on default config) both meal tabs rendere
 - `/app/frontend/src/pages/AdminMealSlots.jsx`
 - `/app/frontend/src/components/AdminLayout.jsx`
 
+
+---
+
+## iter-134.i (Feb 2026) — Instant meal-slot broadcast across tabs ✅
+
+### Bug reported
+User saved lunch=09:00–15:00 / dinner=15:00–22:00 in `/admin/meal-slots` but the wall kiosk (open in another window / device) kept showing stale windows. Poll interval was 5 minutes so the kiosk didn't reflect the change fast enough.
+
+### Fix
+- `AdminMealSlots.save()` now:
+  - Dispatches `window.dispatchEvent(new CustomEvent("efc:meal-slots-updated", { detail: slots }))` (same-tab notification).
+  - Writes a `localStorage.setItem("efc_meal_slots_updated_at", Date.now())` (cross-tab notification — fires the `storage` event in every other open tab).
+- `AdminKiosk` and `App.js` each subscribe to both events → refetch `/api/meal-slots` instantly on change.
+- Fallback polling interval reduced from **5 min → 60 s** on both, so even without the broadcast every kiosk catches up within a minute.
+
+### Files
+- `/app/frontend/src/pages/AdminMealSlots.jsx` (broadcast on save)
+- `/app/frontend/src/pages/AdminKiosk.jsx` (event listener + 60 s poll)
+- `/app/frontend/src/App.js` (event listener + 60 s poll for the shared runtime)
+
