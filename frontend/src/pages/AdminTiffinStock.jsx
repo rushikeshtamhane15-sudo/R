@@ -3,7 +3,7 @@ import { api } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
-import { Loader2, Package, Plus, AlertTriangle, History, Settings as SettingsIcon, ChevronDown, ChevronUp, Phone, MessageCircle } from "lucide-react";
+import { Loader2, Package, Plus, AlertTriangle, History, Settings as SettingsIcon, ChevronDown, ChevronUp, Phone, MessageCircle, RotateCcw } from "lucide-react";
 
 export default function AdminTiffinStock() {
   const [state, setState] = useState(null);
@@ -91,6 +91,25 @@ export default function AdminTiffinStock() {
       setBrokenCount(1); setBrokenReason("");
       load();
     } catch (e) { toast.error(e?.response?.data?.detail || "Failed to mark broken"); }
+    finally { setSubmitting(false); }
+  };
+
+  const resetData = async () => {
+    const ok = window.confirm(
+      "⚠️ Reset ALL tiffin-stock data for this branch?\n\n" +
+      "This will:\n" +
+      "  • Zero the in-hand count\n" +
+      "  • Wipe the top-up / broken / adjust movement log\n" +
+      "  • Preserve engaged (already-delivered) pendencies\n\n" +
+      "This cannot be undone. Continue?"
+    );
+    if (!ok) return;
+    setSubmitting(true);
+    try {
+      await api.post("/admin/tiffin-stock/reset");
+      toast.success("Tiffin stock reset");
+      load();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Reset failed"); }
     finally { setSubmitting(false); }
   };
 
@@ -273,6 +292,28 @@ export default function AdminTiffinStock() {
             <Input type="number" min={0} value={threshold} onChange={(e) => setThreshold(e.target.value)} className="rounded-xl w-24 h-9" data-testid="threshold-input" />
             <Button size="sm" variant="ghost" onClick={saveThreshold} data-testid="threshold-save">Save</Button>
           </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-red-300 bg-red-50/40 p-5" data-testid="stock-reset-card">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            <h2 className="font-display font-bold text-lg flex items-center gap-2 text-red-800">
+              <AlertTriangle className="h-5 w-5" /> Reset tiffin-stock data
+            </h2>
+            <p className="text-xs text-muted-foreground mt-1 max-w-lg">
+              Zeros the in-hand count and wipes the top-up / broken / adjust movement log for this branch. Engaged tiffins (already-delivered pendencies) are preserved so nothing is lost from customer records. This action is logged and cannot be undone.
+            </p>
+          </div>
+          <Button
+            onClick={resetData}
+            disabled={submitting}
+            variant="outline"
+            className="rounded-full border-red-400 text-red-800 hover:bg-red-100 font-bold h-11 px-5"
+            data-testid="stock-reset-btn"
+          >
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <><RotateCcw className="h-4 w-4 mr-1.5" /> Reset all data</>}
+          </Button>
         </div>
       </div>
 

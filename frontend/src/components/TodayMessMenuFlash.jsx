@@ -15,6 +15,15 @@ import {
   MEAL_WINDOWS_IST, isMealWindowOpen,
 } from "./messMenuHelpers";
 
+// iter-134.l — format HH:MM (24h) → h/hh:mm am/pm for the mess-menu time badges.
+function fmt12(hhmm) {
+  if (!hhmm || !/^\d{2}:\d{2}$/.test(hhmm)) return "";
+  const [h, m] = hhmm.split(":").map(Number);
+  const ampm = h >= 12 ? "pm" : "am";
+  const hh = ((h + 11) % 12) + 1;
+  return m === 0 ? `${hh}${ampm}` : `${hh}:${String(m).padStart(2, "0")}${ampm}`;
+}
+
 /**
  * TodayMessMenuFlash — iter-62 → iter-122.
  *
@@ -32,6 +41,32 @@ export default function TodayMessMenuFlash({ compact = false }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [data, setData] = useState(null);
+  // iter-134.l — fetch admin-configured meal-slot windows so the mess-menu
+  // container's time badges and "closed for today" messages stay in sync
+  // with what the admin has set (falls back to defaults on cold start).
+  const [mealSlots, setMealSlots] = useState({ lunch: { start: "12:00", end: "15:00" }, dinner: { start: "19:00", end: "22:00" } });
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const r = await api.get("/meal-slots");
+        if (!cancelled && r?.data) setMealSlots(r.data);
+      } catch { /* keep defaults */ }
+    };
+    load();
+    const id = setInterval(load, 60_000);
+    const onLocal = () => load();
+    const onStorage = (e) => { if (e.key === "efc_meal_slots_updated_at") load(); };
+    window.addEventListener("efc:meal-slots-updated", onLocal);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      cancelled = true; clearInterval(id);
+      window.removeEventListener("efc:meal-slots-updated", onLocal);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
+  const lunchLabel = `${fmt12(mealSlots.lunch?.start)} – ${fmt12(mealSlots.lunch?.end)}`;
+  const dinnerLabel = `${fmt12(mealSlots.dinner?.start)} – ${fmt12(mealSlots.dinner?.end)}`;
   const [tab, setTab] = useState("today"); // today | tomorrow
   const [orderOpen, setOrderOpen] = useState(false);
   const [orderMeal, setOrderMeal] = useState("lunch");
@@ -369,7 +404,7 @@ export default function TodayMessMenuFlash({ compact = false }) {
                   </span>
                   <span className="text-[10px] tracking-[0.22em] uppercase font-extrabold text-amber-200 truncate">Lunch</span>
                 </div>
-                <span className="text-[9px] uppercase tracking-[0.12em] text-amber-100/70 font-bold whitespace-nowrap flex-shrink-0">12 – 3 pm</span>
+                <span className="text-[9px] uppercase tracking-[0.12em] text-amber-100/70 font-bold whitespace-nowrap flex-shrink-0">{lunchLabel}</span>
               </div>
               {active.lunch ? (
                 <ul className={itemLayoutClass}>
@@ -407,7 +442,7 @@ export default function TodayMessMenuFlash({ compact = false }) {
                 </div>
                 {/* iter-131.7: force the time to render on a single line —
                     "PM" was wrapping onto a second row on narrow tiles. */}
-                <span className="text-[9px] uppercase tracking-[0.12em] text-white/80 font-bold whitespace-nowrap flex-shrink-0">7 – 10 pm</span>
+                <span className="text-[9px] uppercase tracking-[0.12em] text-white/80 font-bold whitespace-nowrap flex-shrink-0">{dinnerLabel}</span>
               </div>
               {active.dinner ? (
                 <ul className={itemLayoutClass}>
@@ -652,8 +687,8 @@ export default function TodayMessMenuFlash({ compact = false }) {
                       type="button"
                       onClick={() => {
                         if (mealBlocked) {
-                          const w = MEAL_WINDOWS_IST[orderMeal];
-                          toast.error(`${orderMeal[0].toUpperCase() + orderMeal.slice(1)} closed for today (open ${w.label} IST). Pre-order via Tomorrow's menu.`);
+                          const label = orderMeal === "lunch" ? lunchLabel : dinnerLabel;
+                          toast.error(`${orderMeal[0].toUpperCase() + orderMeal.slice(1)} closed for today (open ${label} IST). Pre-order via Tomorrow's menu.`);
                           return;
                         }
                         placeOrder();

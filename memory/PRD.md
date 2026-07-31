@@ -3335,3 +3335,61 @@ Node simulation of an IST device:
 ### Files
 - `/app/frontend/src/pages/AdminKiosk.jsx` (added `istNowMin()` helper, replaced 3 usages).
 
+
+---
+
+## iter-134.k (Feb 2026) — Kiosk vertical trim + mess-menu time labels wired to admin slots ✅
+
+### Task 1 — Trim kiosk header vertically
+- Padding: `px-6 py-6 → px-6 py-3`.
+- Logo tile: `h-32 w-32 → h-20 w-20`.
+- Pure-veg mark tile: matched to `h-20 w-20` (dot inside `h-6 w-6`).
+- Brand name: `text-7xl → text-5xl`.
+- Tagline: `text-xl → text-sm mt-1`.
+
+### Task 2 — Space between QR and meal toggle + smaller toggle buttons
+- Meal toggle `mb-4 → mb-8` in fullscreen for clearer gap between the toggle and the QR.
+- Button size: `h-14 px-8 text-xl` → `h-10 px-5 text-base` (icons `h-4 w-4`).
+
+### Task 3 — Shrink bottom container
+- Outer grid `[5fr_5fr] → [6fr_4fr]` so the counter panel takes 60% and the order panel takes 40%.
+- Order form typography scaled down ~15–20%: Total `text-6xl → text-5xl`, Place-order `h-20 text-3xl → h-16 text-2xl`, service buttons `py-5 text-2xl → py-4 text-lg`, qty digit `text-5xl → text-4xl`, qty +/- `h-16 w-16 → h-12 w-12`, wrap padding `p-6 → p-5`.
+
+### Task 4 — Menu card time badges reflect admin slot windows
+- `KioskMenuCard` now accepts a `mealSlots` prop and computes `lunchLabel` / `dinnerLabel` via a small `fmt12()` HH:MM → 12h converter.
+- Falls back to defaults ("12 – 3 pm", "7 – 10 pm") if the fetch hasn't landed yet.
+- Wired from `AdminKiosk` alongside the other kiosk-panel props.
+- Result: after saving lunch = 09:00–15:00 / dinner = 15:00–22:00, the menu tiles show `9AM – 3PM` and `3PM – 10PM` instantly.
+
+### Files
+- `/app/frontend/src/pages/AdminKiosk.jsx`
+- `/app/frontend/src/components/admin-kiosk/KioskCounterPanel.jsx`
+- `/app/frontend/src/components/admin-kiosk/KioskMenuCard.jsx`
+- `/app/frontend/src/components/admin-kiosk/KioskOrderForm.jsx`
+
+
+---
+
+## iter-134.l (Feb 2026) — QR whitespace fix · Restaurant slot sync · Tiffin-stock reset ✅
+
+### Task 1 — Remove QR container whitespace + un-clip the order form
+- QR panel switched from `justify-center` to `justify-start` in fullscreen and re-padded to `pt-4 pb-3` so the meal toggle, QR, and pills pack at the top with no wasted white space.
+- Meal-toggle `mb-8 → mb-4` — tighter to the QR.
+- Outer grid `[6fr_4fr] → [5fr_5fr]` so the bottom self-order container has enough room to render TOTAL + Place-order without being clipped by the viewport.
+
+### Task 2 — Restaurant ordering page mess-menu tiles sync with admin slots
+- `TodayMessMenuFlash.jsx` now fetches `/api/meal-slots` on mount + polls every 60 s + listens to the same `efc:meal-slots-updated` custom event and `storage` broadcast used by the kiosk.
+- Time badges on Lunch/Dinner tiles use `fmt12(HH:MM)` to render "9AM – 3PM" / "3PM – 10PM" from the admin config.
+- Closed-window error toast now cites the current admin window (was `MEAL_WINDOWS_IST.label`).
+
+### Task 3 — Tiffin stock: "Reset all data" admin action
+- Backend `POST /api/admin/tiffin-stock/reset` — zeros quantity, resets threshold, wipes movement log (branch-scoped), preserves `restaurant_tiffin_pendency` (engaged customers), writes a `reset` audit-log movement.
+- Frontend: new red-tinted card at the bottom of `/admin/tiffin-stock` with "Reset all data" button behind a confirm dialog that spells out what will be zeroed vs preserved.
+
+### Files
+- `/app/frontend/src/pages/AdminKiosk.jsx`
+- `/app/frontend/src/components/admin-kiosk/KioskCounterPanel.jsx`
+- `/app/frontend/src/components/TodayMessMenuFlash.jsx`
+- `/app/frontend/src/pages/AdminTiffinStock.jsx`
+- `/app/backend/routes/tiffin_stock.py`
+

@@ -514,7 +514,7 @@ export default function AdminKiosk() {
         </div>
 
         <div className={`flex-1 p-4 grid gap-3 overflow-auto min-h-0 ${isFullscreenRoute ? "grid-cols-1 grid-rows-[auto_1fr]" : "sm:grid-cols-[3fr_2fr] items-start"}`}>
-          <KioskMenuCard active={active} activeDate={activeDate} tab={tab} cfg={cfg} isFullscreen={isFullscreenRoute} />
+          <KioskMenuCard active={active} activeDate={activeDate} tab={tab} cfg={cfg} isFullscreen={isFullscreenRoute} mealSlots={mealSlots} />
           <KioskOrderForm
             active={active}
             orderMeal={orderMeal} setOrderMeal={setOrderMeal}

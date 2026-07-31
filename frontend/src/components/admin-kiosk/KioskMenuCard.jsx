@@ -15,11 +15,22 @@ function splitMenuItems(str) {
     .filter(Boolean);
 }
 
-export default function KioskMenuCard({ active, activeDate, tab, isFullscreen = false }) {
+export default function KioskMenuCard({ active, activeDate, tab, isFullscreen = false, mealSlots }) {
   const dateLabel = activeDate
     ? new Date(activeDate).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "short" })
     : "";
   const cardLabel = `${tab === "today" ? "Today’s mess menu" : "Tomorrow’s preview"} · ${dateLabel}`;
+  // iter-134.k: display the admin-configured meal windows in the tile pill.
+  // Falls back to sensible defaults if the fetch hasn't landed yet.
+  const fmt12 = (hhmm) => {
+    if (!hhmm || !/^\d{2}:\d{2}$/.test(hhmm)) return "";
+    const [h, m] = hhmm.split(":").map(Number);
+    const ampm = h >= 12 ? "pm" : "am";
+    const hh = ((h + 11) % 12) + 1;
+    return m === 0 ? `${hh}${ampm}` : `${hh}:${String(m).padStart(2, "0")}${ampm}`;
+  };
+  const lunchLabel = mealSlots?.lunch ? `${fmt12(mealSlots.lunch.start)} – ${fmt12(mealSlots.lunch.end)}` : "12 – 3 pm";
+  const dinnerLabel = mealSlots?.dinner ? `${fmt12(mealSlots.dinner.start)} – ${fmt12(mealSlots.dinner.end)}` : "7 – 10 pm";
 
   if (!active) {
     return (
@@ -84,7 +95,7 @@ export default function KioskMenuCard({ active, activeDate, tab, isFullscreen = 
               </span>
             </div>
             <span className={`uppercase tracking-[0.12em] text-amber-100/70 font-bold whitespace-nowrap ${isFullscreen ? "text-base" : "text-[9px]"}`}>
-              12 – 3 pm
+              {lunchLabel}
             </span>
           </div>
           {active.lunch ? (
@@ -119,7 +130,7 @@ export default function KioskMenuCard({ active, activeDate, tab, isFullscreen = 
               </span>
             </div>
             <span className={`uppercase tracking-[0.12em] text-blue-100/70 font-bold whitespace-nowrap ${isFullscreen ? "text-base" : "text-[9px]"}`}>
-              7 – 10 pm
+              {dinnerLabel}
             </span>
           </div>
           {active.dinner ? (

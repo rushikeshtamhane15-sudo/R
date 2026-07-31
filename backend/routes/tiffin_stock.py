@@ -274,6 +274,32 @@ async def adjust(payload: AdjustIn, mess_id: Optional[str] = None, user: server.
     return {"ok": True, "quantity": after, "mess_id": target}
 
 
+@router.post("/admin/tiffin-stock/reset")
+async def reset_state(mess_id: Optional[str] = None, user: server.User = Depends(server.get_current_user)):
+    """iter-134.l — DANGER: full reset of the tiffin-stock ledger for the
+    current branch. Zeros quantity, clears the low-threshold override, and
+    logs an audit trail movement so the reset itself is discoverable. Does
+    NOT delete `restaurant_tiffin_pendency` rows — engaged tiffins remain
+    accounted for and can be reconciled manually."""
+    _admin_or_staff(user)
+    target = await _resolve_target_mess(user, mess_id)
+    sid = _stock_id(target)
+    await server.db.tiffin_stock.update_one(
+        {"_id": sid},
+        {"$set": {"quantity": 0, "low_threshold": 20, "last_topup_qty": 0, "last_topup_at": None, "mess_id": target}},
+        upsert=True,
+    )
+    await server.db.tiffin_stock_movements.delete_many({"mess_id": target} if target else {"$or": [{"mess_id": None}, {"mess_id": {"$exists": False}}]})
+    await _log_movement(
+        server.db,
+        kind="reset", delta=0,
+        reason="Admin data reset",
+        source=f"admin:{user.user_id}",
+        user_id=user.user_id, after=0, mess_id=target,
+    )
+    return {"ok": True, "quantity": 0, "mess_id": target}
+
+
 @router.post("/admin/tiffin-stock/broken")
 async def mark_broken(payload: BrokenIn, mess_id: Optional[str] = None, user: server.User = Depends(server.get_current_user)):
     """iter-134.e — record broken/lost tiffins. Decrements the in-hand
