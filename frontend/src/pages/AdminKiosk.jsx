@@ -111,18 +111,34 @@ export default function AdminKiosk() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slotWin, nowTick]);
 
-  // iter-134.e: slot-close countdown text for the active tab pill + slot-flip
-  // toast for the kiosk when the window changes over. Recomputes on `nowTick`.
+  // iter-134.e/g: slot-close countdown text for the active tab pill + slot-flip
+  // toast for the kiosk when the window changes over. During "off" windows we
+  // instead surface "Next: <meal> opens in Xh Ym" so operators always see WHY
+  // both tabs are faded and roughly when service resumes.
   const slotCountdownLabel = React.useMemo(() => {
-    if (activeSlot === "off") return "";
     const now = new Date();
     const ist = new Date(now.getTime() + (330 - now.getTimezoneOffset()) * 60_000);
     const m = ist.getHours() * 60 + ist.getMinutes();
-    const endMin = activeSlot === "lunch" ? slotWin.lunch.e : slotWin.dinner.e;
-    const left = endMin - m;
-    if (left <= 0) return "";
-    if (left >= 60) return `Ends in ${Math.floor(left / 60)}h ${left % 60}m`;
-    return `Ends in ${left}m`;
+    const fmt = (mins) => (mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`);
+    if (activeSlot !== "off") {
+      const endMin = activeSlot === "lunch" ? slotWin.lunch.e : slotWin.dinner.e;
+      const left = endMin - m;
+      if (left <= 0) return "";
+      return `${activeSlot === "lunch" ? "Lunch" : "Dinner"} closes in ${fmt(left)}`;
+    }
+    // "off" — figure out which meal opens next (today or tomorrow-lunch).
+    const nextCandidates = [
+      { meal: "lunch",  startMin: slotWin.lunch.s },
+      { meal: "dinner", startMin: slotWin.dinner.s },
+    ].filter((c) => c.startMin > m).sort((a, b) => a.startMin - b.startMin);
+    if (nextCandidates.length === 0) {
+      // Both slots have already passed for today — next is tomorrow's lunch.
+      const wait = (24 * 60 - m) + slotWin.lunch.s;
+      return `Lunch opens in ${fmt(wait)}`;
+    }
+    const nxt = nextCandidates[0];
+    const wait = nxt.startMin - m;
+    return `${nxt.meal === "lunch" ? "Lunch" : "Dinner"} opens in ${fmt(wait)}`;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSlot, slotWin, nowTick]);
   const slotCountdownEndsAt = React.useMemo(() => {

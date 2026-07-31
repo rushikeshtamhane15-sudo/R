@@ -3242,3 +3242,22 @@ Production user on 27" portrait tablet reported the self-ordering container was 
 ### Files
 - `/app/frontend/src/components/admin-kiosk/KioskCounterPanel.jsx`
 
+
+---
+
+## iter-134.g (Feb 2026) — Off-window UX: "opens in" timer + soft ring on upcoming meal ✅
+
+### Bug reported
+Between slots (e.g., IST 15:00–19:00 on default config) both meal tabs rendered fully faded with no visible ring, and the countdown pill was hidden. Users couldn't tell WHY nothing looked active or when service resumes.
+
+### Fix
+- `slotCountdownLabel` in `AdminKiosk.jsx` now returns a phrase for BOTH cases:
+  - In-slot: `Lunch closes in Xh Ym` / `Dinner closes in Xh Ym`
+  - Out-of-slot: `Lunch opens in Xh Ym` / `Dinner opens in Xh Ym` — computes the next upcoming slot (today or tomorrow's lunch after 22:00).
+- The kiosk QR container pill now renders this full sentence directly (no more "Ends in" stripping).
+- Meal tab styling gains a third state: currently-selected meal (matches `activeMealNow`) that is OUTSIDE its window gets a **soft ring-2 ring-emerald-300** so the user sees which meal the QR is splashing for even during off-hours. In-slot tabs still get the stronger `ring-[3px] ring-emerald-500`.
+
+### Files
+- `/app/frontend/src/pages/AdminKiosk.jsx` (slotCountdownLabel rewrite)
+- `/app/frontend/src/components/admin-kiosk/KioskCounterPanel.jsx` (label passthrough + soft-ring third state)
+

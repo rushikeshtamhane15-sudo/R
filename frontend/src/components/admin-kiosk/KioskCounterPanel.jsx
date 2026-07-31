@@ -80,7 +80,10 @@ export default function KioskCounterPanel({
         <div className={`rounded-2xl bg-white flex flex-col items-center justify-center h-full ${isFullscreen ? "p-6" : "p-5"}`} data-testid="kiosk-counter-qr">
           {/* iter-134.f — meal toggle moved from the header into the top of
               the QR container so customers see the "currently serving" and
-              can (staff-only) toggle on demand right above the QR. */}
+              can (staff-only) toggle on demand right above the QR.
+              iter-134.g — during "off" hours we still show a soft ring on the
+              currently-splashed meal (activeMealNow feeds the QR), so users
+              don't see two fully-faded tabs and wonder why. */}
           <div className="inline-flex bg-primary/5 rounded-full p-1 gap-1 shadow-sm ring-2 ring-primary/20 mb-4" data-testid="kiosk-meal-toggle">
             <button
               type="button"
@@ -89,9 +92,11 @@ export default function KioskCounterPanel({
               data-testid="kiosk-meal-lunch"
               className={`rounded-full font-extrabold inline-flex items-center transition-all ${isFullscreen ? "h-14 px-8 text-xl gap-2" : "h-11 px-5 text-sm gap-1.5"} ${meal === "lunch" && canLunch
                 ? "bg-white text-primary ring-[3px] ring-emerald-500 shadow"
-                : canLunch
-                  ? "bg-transparent text-primary/70 hover:text-primary"
-                  : "bg-transparent text-primary/40 opacity-70 cursor-not-allowed"}`}
+                : meal === "lunch"
+                  ? "bg-white text-primary ring-2 ring-emerald-300 shadow-sm"
+                  : canLunch
+                    ? "bg-transparent text-primary/70 hover:text-primary"
+                    : "bg-transparent text-primary/40 opacity-70 cursor-not-allowed"}`}
             >
               <Sun className={isFullscreen ? "h-5 w-5" : "h-4 w-4"} /> Lunch
             </button>
@@ -102,9 +107,11 @@ export default function KioskCounterPanel({
               data-testid="kiosk-meal-dinner"
               className={`rounded-full font-extrabold inline-flex items-center transition-all ${isFullscreen ? "h-14 px-8 text-xl gap-2" : "h-11 px-5 text-sm gap-1.5"} ${meal === "dinner" && canDinner
                 ? "bg-white text-primary ring-[3px] ring-emerald-500 shadow"
-                : canDinner
-                  ? "bg-transparent text-primary/70 hover:text-primary"
-                  : "bg-transparent text-primary/40 opacity-70 cursor-not-allowed"}`}
+                : meal === "dinner"
+                  ? "bg-white text-primary ring-2 ring-emerald-300 shadow-sm"
+                  : canDinner
+                    ? "bg-transparent text-primary/70 hover:text-primary"
+                    : "bg-transparent text-primary/40 opacity-70 cursor-not-allowed"}`}
             >
               <Moon className={isFullscreen ? "h-5 w-5" : "h-4 w-4"} /> Dinner
             </button>
@@ -126,10 +133,10 @@ export default function KioskCounterPanel({
                 <div
                   className={`inline-flex items-center gap-1.5 rounded-full bg-white text-primary shadow-sm ring-2 ring-emerald-500 ${isFullscreen ? "mt-3 px-4 h-10 text-sm" : "mt-2 px-3 h-8 text-xs"} font-extrabold uppercase tracking-[0.14em]`}
                   data-testid="kiosk-slot-countdown"
-                  title={`${activeSlot === "lunch" ? "Lunch" : "Dinner"} closes at ${slotCountdownEndsAt}`}
+                  title={`${activeSlot === "lunch" ? "Lunch" : activeSlot === "dinner" ? "Dinner" : "Next meal"} timing (IST)`}
                 >
                   <Clock className={isFullscreen ? "h-4 w-4" : "h-3.5 w-3.5"} />
-                  {activeSlot === "lunch" ? "Lunch" : activeSlot === "dinner" ? "Dinner" : ""} closes in {slotCountdownLabel.replace("Ends in ", "")}
+                  {slotCountdownLabel}
                 </div>
               )}
               {qrRotateSeconds > 0 && (
