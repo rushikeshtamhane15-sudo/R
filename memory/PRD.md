@@ -3301,3 +3301,37 @@ User saved lunch=09:00–15:00 / dinner=15:00–22:00 in `/admin/meal-slots` but
 - `/app/frontend/src/pages/AdminKiosk.jsx` (event listener + 60 s poll)
 - `/app/frontend/src/App.js` (event listener + 60 s poll for the shared runtime)
 
+
+---
+
+## iter-134.j (Feb 2026) — CRITICAL: kiosk timezone math bug for IST devices ✅
+
+### Bug
+User's production kiosk (Indian device, IST) showed `LUNCH OPENS IN 5H 39M` at 04:22 IST even though admin had saved lunch=09:00–15:00. The math was double-shifting by 5.5h → treating the current time as 5.5h ahead of reality, so all activeSlot / countdown / QR meal-splash decisions were wrong.
+
+### Root cause
+In `AdminKiosk.jsx` the "convert now → IST minutes" helper used:
+```
+const ist = new Date(now.getTime() + (330 - now.getTimezoneOffset()) * 60_000);
+const m = ist.getHours() * 60 + ist.getMinutes();
+```
+`getTimezoneOffset()` in IST returns **-330** (JS convention: UTC minus local). The formula `(330 - offset)` becomes `(330 - (-330)) = 660`, adding 11h. Then `.getHours()` in the local IST zone gives another +5.5h shift. Net: on an IST device the code sat +11h off truth.
+
+### Fix
+Replaced the three call sites in `AdminKiosk.jsx` with a timezone-safe helper:
+```js
+const istNowMin = () => {
+  const ist = new Date(Date.now() + 330 * 60_000);
+  return ist.getUTCHours() * 60 + ist.getUTCMinutes();
+};
+```
+This works on ANY device timezone because it never relies on `getTimezoneOffset()` — it takes UTC epoch, shifts by exactly +5:30, then reads UTC hours/minutes.
+
+### Verification
+Node simulation of an IST device:
+- Old formula returned `21:58` for a real IST time of `16:28` (5.5h ahead — matches the symptom).
+- New formula returns `16:28` — correct.
+
+### Files
+- `/app/frontend/src/pages/AdminKiosk.jsx` (added `istNowMin()` helper, replaced 3 usages).
+

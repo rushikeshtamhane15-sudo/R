@@ -99,6 +99,14 @@ export default function AdminKiosk() {
     };
   }, []);
 
+  // Convert `now` → minutes-since-midnight in IST, safe on any device timezone.
+  // Uses UTC ms + explicit +5:30 shift, then reads UTC hours/minutes to avoid
+  // double-shifting when the device is already in IST (iter-134.j fix).
+  const istNowMin = () => {
+    const nowMs = Date.now();
+    const ist = new Date(nowMs + 330 * 60_000);
+    return ist.getUTCHours() * 60 + ist.getUTCMinutes();
+  };
   // Convert "HH:MM" → minutes-since-midnight (used to gate the kiosk slot).
   const parseMin = (t) => {
     if (!t) return 0;
@@ -116,9 +124,7 @@ export default function AdminKiosk() {
   const [nowTick, setNowTick] = useState(0);
   useEffect(() => { const id = setInterval(() => setNowTick((t) => t + 1), 30_000); return () => clearInterval(id); }, []);
   const activeSlot = React.useMemo(() => {
-    const now = new Date();
-    const ist = new Date(now.getTime() + (330 - now.getTimezoneOffset()) * 60_000);
-    const m = ist.getHours() * 60 + ist.getMinutes();
+    const m = istNowMin();
     if (m >= slotWin.lunch.s  && m <= slotWin.lunch.e)  return "lunch";
     if (m >= slotWin.dinner.s && m <= slotWin.dinner.e) return "dinner";
     return "off";
@@ -130,9 +136,7 @@ export default function AdminKiosk() {
   // instead surface "Next: <meal> opens in Xh Ym" so operators always see WHY
   // both tabs are faded and roughly when service resumes.
   const slotCountdownLabel = React.useMemo(() => {
-    const now = new Date();
-    const ist = new Date(now.getTime() + (330 - now.getTimezoneOffset()) * 60_000);
-    const m = ist.getHours() * 60 + ist.getMinutes();
+    const m = istNowMin();
     const fmt = (mins) => (mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`);
     if (activeSlot !== "off") {
       const endMin = activeSlot === "lunch" ? slotWin.lunch.e : slotWin.dinner.e;
@@ -183,9 +187,7 @@ export default function AdminKiosk() {
   // When outside a slot, we still pick the next upcoming slot so the QR shows
   // something sensible — but activeSlot="off" gates actual scan acceptance.
   const activeMealNow = React.useMemo(() => {
-    const now = new Date();
-    const ist = new Date(now.getTime() + (330 - now.getTimezoneOffset()) * 60_000);
-    const m = ist.getHours() * 60 + ist.getMinutes();
+    const m = istNowMin();
     if (m >= slotWin.lunch.s  && m <= slotWin.lunch.e)  return "lunch";
     if (m >= slotWin.dinner.s && m <= slotWin.dinner.e) return "dinner";
     if (m < slotWin.lunch.s)  return "lunch";
