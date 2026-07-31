@@ -7,10 +7,13 @@ import { api } from "../lib/api";
 import { toast } from "sonner";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { Clock, Save, Sun, Moon } from "lucide-react";
+import { Clock, Save, Sun, Moon, RotateCcw } from "lucide-react";
+import { setAdminMealSlots } from "../components/messMenuHelpers";
+
+const DEFAULTS = { lunch: { start: "12:00", end: "15:00" }, dinner: { start: "19:00", end: "22:00" } };
 
 export default function AdminMealSlots() {
-  const [slots, setSlots] = useState({ lunch: { start: "12:00", end: "15:00" }, dinner: { start: "19:00", end: "22:00" } });
+  const [slots, setSlots] = useState(DEFAULTS);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -20,15 +23,38 @@ export default function AdminMealSlots() {
 
   const update = (meal, field, value) => setSlots((s) => ({ ...s, [meal]: { ...s[meal], [field]: value } }));
 
+  const validate = () => {
+    for (const key of ["lunch", "dinner"]) {
+      const s = slots[key]?.start, e = slots[key]?.end;
+      if (!/^\d{2}:\d{2}$/.test(s) || !/^\d{2}:\d{2}$/.test(e)) {
+        toast.error(`${key} times must be in HH:MM format`);
+        return false;
+      }
+      const [sh, sm] = s.split(":").map(Number);
+      const [eh, em] = e.split(":").map(Number);
+      if (sh * 60 + sm >= eh * 60 + em) {
+        toast.error(`${key}: end time must be after start time`);
+        return false;
+      }
+    }
+    return true;
+  };
+
   const save = async () => {
+    if (!validate()) return;
     setSaving(true);
     try {
       await api.put("/admin/meal-slots", slots);
-      toast.success("Slot windows updated");
+      // Hot-push into the shared runtime so the wall kiosk / restaurant page
+      // reflect the change on their next tick without a full reload.
+      setAdminMealSlots(slots);
+      toast.success("Slot windows updated · kiosk and ordering page will sync within seconds");
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Failed to save");
     } finally { setSaving(false); }
   };
+
+  const resetDefaults = () => setSlots(DEFAULTS);
 
   if (loading) return <div className="p-8 text-sm text-muted-foreground">Loading…</div>;
 
@@ -77,17 +103,30 @@ export default function AdminMealSlots() {
         ))}
       </div>
 
-      <Button
-        onClick={save}
-        disabled={saving}
-        className="w-full h-12 rounded-full bg-primary hover:bg-primary/90 font-bold text-base"
-        data-testid="save-meal-slots"
-      >
-        <Save className="h-4 w-4 mr-2" /> {saving ? "Saving…" : "Save slot windows"}
-      </Button>
+      <div className="flex gap-2">
+        <Button
+          onClick={save}
+          disabled={saving}
+          className="flex-1 h-12 rounded-full bg-primary hover:bg-primary/90 font-bold text-base"
+          data-testid="save-meal-slots"
+        >
+          <Save className="h-4 w-4 mr-2" /> {saving ? "Saving…" : "Save slot windows"}
+        </Button>
+        <Button
+          onClick={resetDefaults}
+          variant="outline"
+          disabled={saving}
+          className="h-12 rounded-full font-bold text-base"
+          data-testid="reset-meal-slots"
+          title="Reset to 12:00–15:00 · 19:00–22:00"
+        >
+          <RotateCcw className="h-4 w-4 mr-1.5" /> Reset defaults
+        </Button>
+      </div>
 
       <p className="text-xs text-muted-foreground text-center">
-        These windows also drive kiosk QR auto-switching — the wall kiosk shows only the currently-active meal.
+        These windows drive kiosk QR auto-switching, the wall-kiosk meal toggle, and the restaurant ordering page —
+        all in lock-step. Changes reflect within seconds.
       </p>
     </div>
   );

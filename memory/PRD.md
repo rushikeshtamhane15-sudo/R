@@ -3261,3 +3261,23 @@ Between slots (e.g., IST 15:00–19:00 on default config) both meal tabs rendere
 - `/app/frontend/src/pages/AdminKiosk.jsx` (slotCountdownLabel rewrite)
 - `/app/frontend/src/components/admin-kiosk/KioskCounterPanel.jsx` (label passthrough + soft-ring third state)
 
+
+---
+
+## iter-134.h (Feb 2026) — Admin: Meal Slot Windows page polish + sidebar discoverability ✅
+
+### What was already there
+- Route `/admin/meal-slots` and page `AdminMealSlots.jsx` already existed with time pickers for Lunch/Dinner start & end.
+- Backend `PUT /api/admin/meal-slots` persists to `admin_config.meal_slots`.
+
+### What was missing / added
+- **Sidebar link**: `AdminLayout.jsx` was NOT surfacing this route — added under Operations right after "Restaurant hours / capacity" so admins/franchise owners can discover it.
+- **Reset to defaults button**: One-tap restore to 12:00–15:00 · 19:00–22:00.
+- **Client-side validation**: Ensures HH:MM format and end > start before hitting the API.
+- **Hot-push to runtime**: On save, calls `setAdminMealSlots(slots)` so the wall kiosk, restaurant order form, and any active clients reflect the change within seconds without a reload (the App root's 5-min poll would eventually catch it too).
+- **Confirmation toast**: "Slot windows updated · kiosk and ordering page will sync within seconds".
+
+### Files
+- `/app/frontend/src/pages/AdminMealSlots.jsx`
+- `/app/frontend/src/components/AdminLayout.jsx`
+
