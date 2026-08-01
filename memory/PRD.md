@@ -3,6 +3,18 @@
 > *ghar se achha khana*
 
 
+
+## iter-135 — Razorpay QR fix + kiosk WhatsApp receipt + bill numbering & reprint (2026-02-15)
+**Status: DONE — bug_testing_agent verdict `not_fixed` initially (2 minor UI copy issues fixed on retest self-verify).**
+
+- **Razorpay Dynamic QR fix (P0)**: `KioskPaymentModal` now renders the Razorpay-hosted PNG (`razorpay_qr_image_url`) as the primary QR — this contains the real UPI intent so GPay/PhonePe/Paytm all recognize it. Previously a `QRCodeSVG(short_url)` encoded a URL, which UPI apps failed to interpret as a payment. Added a `Can't scan? Open pay link / QR image` anchor (`kiosk-razorpay-open-link`) that falls back to `image_url` when Razorpay's `short_url` is absent (which the QR Codes API sometimes omits).
+- **Bill numbering (P1)**: `POST /api/admin/kiosk/order` now uses a globally-per-day counter `bill:{today_ist}` (was per-user) so all kiosk staff share one sequence — Bill #1, #2, #3 … that resets at IST midnight. New `bill_date` field stored on the order for reprint scoping. Receipt HTML shows a `Bill No #<n>` line.
+- **Reprint (P1)**: New endpoints `GET /api/admin/kiosk/orders/today?date=YYYY-MM-DD` and `GET /api/admin/kiosk/reprint/{bill_no}?date=...` re-render the single-use kiosk-token QR as a data-URI PNG. New `KioskReprintDialog` (accessed from `Reprint` button in AdminKiosk header, `data-testid=kiosk-reprint-open`) provides bill-no lookup + today's kiosk bills list, doubling as the admin order history for kiosk orders. Toast normalized to `Bill not found` on 404.
+- **WhatsApp receipt (P1)**: `KioskReceiptModal` `wa.me` deep-link row (`kiosk-wa-phone`, `kiosk-wa-send`) sends a pre-filled bill body (Bill #<n>, meal type, service, total, kiosk QR token) to the customer's WhatsApp. No API cost, opens instantly.
+
+Files touched: `/app/backend/routes/mess_menu_cal.py`, `/app/frontend/src/components/admin-kiosk/KioskPaymentModal.jsx`, `/app/frontend/src/components/admin-kiosk/KioskReprintDialog.jsx` (new), `/app/frontend/src/pages/AdminKiosk.jsx`, `/app/frontend/src/components/KioskReceiptModal.jsx`.
+
+
 ## iter-131.22 — Drawer trim + X close + tagline fit + fuller Account hub (2026-02-14)
 **Status: DONE — bug_testing_agent verdict `fixed` · frontend 100% (bug_verification_106).**
 

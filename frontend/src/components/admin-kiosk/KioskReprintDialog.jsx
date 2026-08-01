@@ -45,7 +45,8 @@ export default function KioskReprintDialog({ open, onClose, onReprint }) {
         onClose();
       }
     } catch (e) {
-      toast.error(e?.response?.data?.detail || "Bill not found");
+      const status = e?.response?.status;
+      toast.error(status === 404 ? "Bill not found" : (e?.response?.data?.detail || "Reprint failed"));
     } finally { setFetching(false); }
   };
 

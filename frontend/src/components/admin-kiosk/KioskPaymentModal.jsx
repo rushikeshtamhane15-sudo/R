@@ -66,15 +66,15 @@ export default function KioskPaymentModal({ pendingOrder, onConfirm, onCancel })
               )}
             </div>
             <p className="text-[11px] mt-2 text-muted-foreground text-center">Razorpay Dynamic UPI QR · auto-confirms on payment</p>
-            {razorpayShortUrl && (
+            {(razorpayShortUrl || razorpayQrImageUrl) && (
               <a
-                href={razorpayShortUrl}
+                href={razorpayShortUrl || razorpayQrImageUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-extrabold text-[hsl(220,55%,45%)] hover:underline"
                 data-testid="kiosk-razorpay-open-link"
               >
-                <ExternalLink className="h-3.5 w-3.5" /> Can't scan? Open pay link
+                <ExternalLink className="h-3.5 w-3.5" /> Can't scan? {razorpayShortUrl ? "Open pay link" : "Open QR image"}
               </a>
             )}
           </div>
