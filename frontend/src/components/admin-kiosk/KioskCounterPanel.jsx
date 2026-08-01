@@ -83,7 +83,9 @@ export default function KioskCounterPanel({
               iter-134.g — during "off" hours we still show a soft ring on the
               currently-splashed meal (activeMealNow feeds the QR), so users
               don't see two fully-faded tabs and wonder why. */}
-          <div className={`inline-flex bg-primary/5 rounded-full p-1 gap-1 shadow-sm ring-2 ring-primary/20 ${isFullscreen ? "mb-4" : "mb-4"}`} data-testid="kiosk-meal-toggle">
+          {/* iter-137.a — extra breathing room between the Lunch/Dinner toggle
+              and the counter QR so the toggle doesn't visually crowd the QR. */}
+          <div className={`inline-flex bg-primary/5 rounded-full p-1 gap-1 shadow-sm ring-2 ring-primary/20 ${isFullscreen ? "mb-8" : "mb-8"}`} data-testid="kiosk-meal-toggle">
             <button
               type="button"
               onClick={() => canLunch && setMeal("lunch")}

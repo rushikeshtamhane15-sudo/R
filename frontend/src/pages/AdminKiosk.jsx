@@ -17,7 +17,7 @@ import { api } from "../lib/api";
 import { useBranding } from "../context/BrandingContext";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
-import { ShoppingCart, Maximize2, Minimize2, Receipt, X } from "lucide-react";
+import { ShoppingCart, Maximize2, Minimize2, Receipt, FileText, X } from "lucide-react";
 import KioskReceiptModal from "../components/KioskReceiptModal";
 import { connectBluetoothPrinter, isBluetoothSupported } from "../lib/bluetoothPrinter";
 
@@ -26,6 +26,7 @@ import KioskMenuCard from "../components/admin-kiosk/KioskMenuCard";
 import KioskOrderForm from "../components/admin-kiosk/KioskOrderForm";
 import KioskPaymentModal from "../components/admin-kiosk/KioskPaymentModal";
 import KioskReprintDialog from "../components/admin-kiosk/KioskReprintDialog";
+import KioskDailyReportDialog from "../components/admin-kiosk/KioskDailyReportDialog";
 
 const LOCATION = "main";
 
@@ -243,6 +244,8 @@ export default function AdminKiosk() {
   const [lastOrder, setLastOrder] = useState(null);
   const [receipt, setReceipt] = useState(null);
   const [reprintOpen, setReprintOpen] = useState(false);
+  const [customerName, setCustomerName] = useState("");
+  const [dailyReportOpen, setDailyReportOpen] = useState(false);
   const printedFor = useRef(new Set());
 
   const loadMenu = useCallback(async () => {
@@ -390,6 +393,7 @@ export default function AdminKiosk() {
   const resetOrderForm = () => {
     setQty(1); setService("takeaway"); setPaymentMethod("cash");
     setCashAmount(0); setOnlineAmount(0); setPendingOrder(null);
+    setCustomerName("");
   };
 
   const confirmPayment = useCallback(async (target, flags) => {
@@ -436,6 +440,7 @@ export default function AdminKiosk() {
         payment_method: paymentMethod,
         cash_amount: cashAmount,
         online_amount: onlineAmount,
+        customer_name: (customerName || "").trim() || undefined,
       });
       const order = r.data?.order;
       toast.success(`Order placed · ₹${order?.total || total} · ${paymentMethod.toUpperCase()}`);
@@ -469,7 +474,7 @@ export default function AdminKiosk() {
 
   return (
     <div
-      className={`min-h-screen text-white grid gap-3 p-4 kiosk-lights-shell ${isFullscreenRoute ? "grid-rows-[5fr_5fr]" : "grid-rows-[5fr_3fr]"}`}
+      className={`min-h-screen text-white grid gap-3 p-4 kiosk-lights-shell ${isFullscreenRoute ? "grid-rows-[5fr_5fr_auto]" : "grid-rows-[5fr_3fr_auto]"}`}
       style={{ background: "hsl(0, 76%, 45%)" }}
       data-testid="admin-kiosk-page"
       data-kiosk-fs={isFullscreenRoute ? "1" : "0"}
@@ -508,6 +513,14 @@ export default function AdminKiosk() {
           >
             <Receipt className={isFullscreenRoute ? "h-4 w-4" : "h-3.5 w-3.5"} /> Reprint
           </button>
+          <button
+            type="button"
+            onClick={() => setDailyReportOpen(true)}
+            className={`inline-flex items-center gap-1.5 rounded-full font-extrabold bg-white/15 hover:bg-white/25 text-white ${isFullscreenRoute ? "h-12 px-5 text-sm" : "h-9 px-3 text-xs"}`}
+            data-testid="kiosk-daily-report-open"
+          >
+            <FileText className={isFullscreenRoute ? "h-4 w-4" : "h-3.5 w-3.5"} /> Day report
+          </button>
           {/* iter-131.28: fullscreen kiosk mode toggle */}
           {isFullscreenRoute ? (
             <div className="flex items-center gap-2 ml-2">
@@ -545,6 +558,7 @@ export default function AdminKiosk() {
             onPlaceOrder={placeOrder} onResetForm={resetOrderForm}
             lastOrder={lastOrder} receipt={receipt}
             onReopenReceipt={() => setReceipt(receipt ? { ...receipt } : null)}
+            customerName={customerName} setCustomerName={setCustomerName}
             isFullscreen={isFullscreenRoute}
           />
         </div>
@@ -570,6 +584,32 @@ export default function AdminKiosk() {
         onClose={() => setReprintOpen(false)}
         onReprint={(rcpt) => setReceipt(rcpt)}
       />
+
+      <KioskDailyReportDialog
+        open={dailyReportOpen}
+        onClose={() => setDailyReportOpen(false)}
+      />
+
+      {/* iter-137.a — permanent bottom tag: efoodcare's zero-adulteration promise.
+          Sits below the two grid rows on both admin and fullscreen kiosk views. */}
+      <div
+        className={`flex items-center justify-center gap-2 flex-wrap ${isFullscreenRoute ? "py-2" : "py-1"}`}
+        data-testid="kiosk-purity-strip"
+      >
+        {[
+          "0% Ajinomoto",
+          "0% Maida",
+          "0% Palm / Refined Oil",
+          "100% Pure Veg Meal",
+        ].map((t) => (
+          <span
+            key={t}
+            className={`inline-flex items-center gap-1 rounded-full bg-white text-primary font-extrabold uppercase tracking-[0.14em] shadow-sm ring-1 ring-white/60 ${isFullscreenRoute ? "text-sm px-4 h-9" : "text-[10px] px-2.5 h-7"}`}
+          >
+            {t}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

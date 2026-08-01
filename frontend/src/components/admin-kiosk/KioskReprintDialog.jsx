@@ -6,7 +6,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { Button } from "../ui/button";
-import { Loader2, Printer, Receipt, RotateCcw, Search, X as XIcon } from "lucide-react";
+import { Loader2, MessageCircle, Printer, Receipt, RotateCcw, Search, X as XIcon } from "lucide-react";
 import { toast } from "sonner";
 
 function todayIST() {
@@ -122,37 +122,97 @@ export default function KioskReprintDialog({ open, onClose, onReprint }) {
           ) : (
             <ul className="grid gap-1.5" data-testid="kiosk-reprint-list">
               {orders.map((o) => (
-                <li
+                <ReprintRow
                   key={o.order_id}
-                  className="flex items-center gap-2 rounded-xl border border-[hsl(140,8%,90%)] px-3 py-2 hover:bg-[hsl(140,20%,96%)]"
-                  data-testid={`kiosk-reprint-row-${o.bill_no}`}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline gap-2">
-                      <span className="font-extrabold text-base">#{o.bill_no || "—"}</span>
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
-                        {(o.meal_type || "").toUpperCase()} · {(o.service || "").toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {o.qty}× · ₹{o.total} · {o.payment_method?.toUpperCase()} · {o.status}
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={() => reprint(o.bill_no)}
-                    disabled={!o.bill_no || fetching}
-                    className="rounded-full bg-[hsl(140,40%,40%)] hover:bg-[hsl(140,40%,32%)] text-white text-xs font-extrabold"
-                    data-testid={`kiosk-reprint-btn-${o.bill_no}`}
-                  >
-                    <Printer className="h-3.5 w-3.5 mr-1" /> Reprint
-                  </Button>
-                </li>
+                  order={o}
+                  onReprint={() => reprint(o.bill_no)}
+                  reprinting={fetching}
+                />
               ))}
             </ul>
           )}
         </div>
       </div>
     </div>
+  );
+}
+
+function ReprintRow({ order: o, onReprint, reprinting }) {
+  const [phone, setPhone] = React.useState(o.phone || "");
+  const [sending, setSending] = React.useState(false);
+  const [sent, setSent] = React.useState(false);
+  const digits = String(phone || "").replace(/\D/g, "").replace(/^0+/, "");
+  const validPhone = digits.length >= 10;
+  const sendWa = async () => {
+    if (!validPhone) { toast.error("Enter a valid 10-digit mobile"); return; }
+    setSending(true);
+    try {
+      const r = await api.post("/admin/kiosk/whatsapp/send-receipt", {
+        order_id: o.order_id,
+        phone: digits,
+        name: o.customer_name || "",
+      });
+      if (r.data?.status === "stub_mode") {
+        toast.warning("WhatsApp is in stub mode — enable Meta creds to actually send", { duration: 6000 });
+      } else {
+        toast.success(`Bill #${o.bill_no} sent to +91${digits.slice(-10)}`);
+      }
+      setSent(true);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "WhatsApp send failed");
+    } finally { setSending(false); }
+  };
+  return (
+    <li
+      className="rounded-xl border border-[hsl(140,8%,90%)] px-3 py-2 hover:bg-[hsl(140,20%,96%)] space-y-1.5"
+      data-testid={`kiosk-reprint-row-${o.bill_no}`}
+    >
+      <div className="flex items-center gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-2">
+            <span className="font-extrabold text-base">#{o.bill_no || "—"}</span>
+            {o.customer_name && <span className="text-xs font-bold text-primary truncate">{o.customer_name}</span>}
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
+              {(o.meal_type || "").toUpperCase()} · {(o.service || "").toUpperCase()}
+            </span>
+          </div>
+          <div className="text-xs text-muted-foreground truncate">
+            {o.qty}× · ₹{o.total} · {o.payment_method?.toUpperCase()} · {o.status}
+          </div>
+        </div>
+        <Button
+          size="sm"
+          onClick={onReprint}
+          disabled={!o.bill_no || reprinting}
+          className="rounded-full bg-[hsl(140,40%,40%)] hover:bg-[hsl(140,40%,32%)] text-white text-xs font-extrabold"
+          data-testid={`kiosk-reprint-btn-${o.bill_no}`}
+        >
+          <Printer className="h-3.5 w-3.5 mr-1" /> Reprint
+        </Button>
+      </div>
+      <div className="flex items-center gap-2" data-testid={`kiosk-wa-row-${o.bill_no}`}>
+        <input
+          type="tel"
+          inputMode="numeric"
+          maxLength={13}
+          placeholder="WhatsApp mobile (10-digit)"
+          value={phone}
+          onChange={(e) => { setPhone(e.target.value); setSent(false); }}
+          disabled={sending}
+          className="flex-1 min-w-0 h-9 rounded-full bg-white border border-emerald-300 px-3 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-60"
+          data-testid={`kiosk-wa-phone-${o.bill_no}`}
+        />
+        <Button
+          size="sm"
+          onClick={sendWa}
+          disabled={!validPhone || sending}
+          className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold h-9 px-3"
+          data-testid={`kiosk-wa-send-${o.bill_no}`}
+        >
+          {sending ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <MessageCircle className="h-3.5 w-3.5 mr-1" />}
+          {sent ? "Resend" : "WhatsApp"}
+        </Button>
+      </div>
+    </li>
   );
 }

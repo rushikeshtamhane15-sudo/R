@@ -178,7 +178,15 @@ async def get_state(mess_id: Optional[str] = None, user: server.User = Depends(s
         engaged = 0
     st["active_tiffin_subs"] = active_tiffin_subs
     st["expected_daily_use"] = active_tiffin_subs * 2  # 2 meals/day
-    st["engaged"] = engaged
+    # iter-137.b — engaged, per user's re-explained mental model:
+    #   engaged = tiffins currently OUT (with subs on delivery + takeaway pending
+    #             + any awaiting empty-return collection). Auto-derived so we
+    #             never drift from the physical inventory.
+    #
+    # We keep the old takeaway-only counter as `takeaway_pending` so the tile
+    # can show a sub-line breakdown (on-delivery vs takeaway).
+    takeaway_pending = engaged  # (already computed above from restaurant_tiffin_pendency)
+    st["takeaway_pending"] = takeaway_pending
     # iter-134.d: `lifetime_purchases` = sum of ALL top-up movements ever for
     # this branch. Represents the "total raw tiffins purchased over the branch
     # lifetime". Fallback: quantity + engaged if the movements log is missing.
@@ -210,9 +218,61 @@ async def get_state(mess_id: Optional[str] = None, user: server.User = Depends(s
     fallback_total = int(st["quantity"]) + engaged + broken_total
     st["lifetime_purchases"] = max(lifetime_purchases, fallback_total)
     st["broken_total"] = broken_total
+    # iter-137.b — user's four-tile mental model:
+    #   raw_tiffins   = total physical inventory currently owned
+    #                 = lifetime_purchases − broken_total
+    #   in_hand       = kitchen count (stored `quantity`)
+    #   engaged       = raw − in_hand  (subs on delivery + takeaway pending)
+    #   shortage      = max(0, next_slot_required − in_hand)
+    raw_tiffins = max(0, int(st["lifetime_purchases"]) - int(broken_total))
+    st["raw_tiffins"] = raw_tiffins
+    st["engaged"] = max(0, raw_tiffins - int(st["quantity"]))
+    st["on_delivery"] = max(0, st["engaged"] - int(takeaway_pending))
+    # Compute the NEXT meal slot in IST + how many tiffin subs need a tiffin
+    # then, so the shortage tile is auto-derived.
+    try:
+        from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+        ist_now = _dt.now(_tz(_td(hours=5, minutes=30)))
+        ist_min = ist_now.hour * 60 + ist_now.minute
+        # Read active meal-slot windows (same doc kiosk uses)
+        slot_cfg = await server.db.app_config.find_one({"key": "meal_slots_v1"}, {"_id": 0}) or {}
+        def _min(t, dflt):
+            try:
+                h, m = [int(x) for x in str(t).split(":")]
+                return h * 60 + m
+            except Exception:
+                return dflt
+        lunch_s = _min((slot_cfg.get("lunch") or {}).get("start"), 12 * 60)
+        dinner_s = _min((slot_cfg.get("dinner") or {}).get("start"), 19 * 60)
+        # Next slot = the earliest window whose start_time > now (IST).
+        # Late-night → tomorrow's lunch.
+        if ist_min < lunch_s:
+            next_slot = "lunch"
+        elif ist_min < dinner_s:
+            next_slot = "dinner"
+        else:
+            next_slot = "lunch"
+    except Exception:
+        next_slot = "lunch"
+    # Count of active tiffin subs whose meal_window includes the next slot.
+    try:
+        nq: dict = {
+            "status": "active",
+            "$or": [{"service_type": "tiffin"}, {"category": "tiffin"}],
+            "meal_window": {"$in": [next_slot, "both", None]},
+        }
+        if target:
+            nq["mess_id"] = target
+        next_slot_required = await server.db.subscriptions.count_documents(nq)
+    except Exception:
+        # Fallback — every active tiffin sub gets one tiffin per slot
+        next_slot_required = int(active_tiffin_subs)
+    st["next_slot"] = next_slot
+    st["next_slot_required"] = int(next_slot_required)
+    st["shortage_for_next_run"] = max(0, int(next_slot_required) - int(st["quantity"]))
     # Reconciliation: expected in-hand = lifetime − engaged − broken.
-    st["expected_in_hand"] = max(0, int(st["lifetime_purchases"]) - engaged - broken_total)
-    st["total_with_engaged"] = int(st["quantity"]) + engaged  # legacy field, keep for backwards compat
+    st["expected_in_hand"] = max(0, int(st["lifetime_purchases"]) - int(st["engaged"]) - int(broken_total))
+    st["total_with_engaged"] = int(st["quantity"]) + int(st["engaged"])  # legacy field, keep for backwards compat
     st["low_stock"] = st["quantity"] <= st["low_threshold"]
     return st
 
@@ -351,3 +411,37 @@ async def set_threshold(threshold: int = Body(..., embed=True), mess_id: Optiona
         {"_id": _stock_id(target)}, {"$set": {"low_threshold": t, "mess_id": target}}, upsert=True,
     )
     return {"ok": True, "low_threshold": t, "mess_id": target}
+
+
+class CollectEmptiesIn(BaseModel):
+    """iter-137.b — log empty tiffins collected during / after a delivery run.
+    Positive `count` = number of empties returned to the kitchen. Increments
+    in-hand and drops the engaged count automatically (engaged = raw − in_hand).
+    """
+    count: int = Field(..., gt=0, description="How many empty tiffins came back to kitchen")
+    slot: Optional[str] = Field(default=None, description="Optional 'lunch'|'dinner' label for audit")
+    note: Optional[str] = None
+
+
+@router.post("/admin/tiffin-stock/collect-empties")
+async def collect_empties(
+    payload: CollectEmptiesIn,
+    mess_id: Optional[str] = None,
+    user: server.User = Depends(server.get_current_user),
+):
+    _admin_or_staff(user)
+    target = await _resolve_target_mess(user, mess_id)
+    cnt = int(payload.count)
+    slot_label = (payload.slot or "").strip().lower()
+    slot_prefix = f"{slot_label.capitalize()} · " if slot_label in {"lunch", "dinner"} else ""
+    reason = payload.note.strip() if payload.note else f"{slot_prefix}Empty tiffins collected"
+    after = await increment_stock_db(
+        server.db,
+        count=cnt,
+        reason=reason,
+        source=f"admin:{user.user_id}",
+        user_id=user.user_id,
+        mess_id=target,
+    )
+    return {"ok": True, "quantity": after, "collected": cnt, "mess_id": target}
+

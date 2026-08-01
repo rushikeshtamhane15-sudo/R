@@ -278,6 +278,7 @@ function buildReceiptHtml({ order, qrDataUrl, qrText }) {
     <div class="tagline">GHAR SE ACHHA KHANA</div>
   </div>
   <div class="sep"></div>
+  ${o.customer_name ? `<div class="line"><span>Name</span><b>${safe(o.customer_name)}</b></div>` : ""}
   ${o.bill_no ? `<div class="line"><span>Bill No</span><b>#${safe(o.bill_no)}</b></div>` : ""}
   <div class="line"><span>Order</span><b>${safe(o.order_id)}</b></div>
   <div class="line"><span>Date</span><span>${safe(o.date)}</span></div>

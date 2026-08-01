@@ -30,6 +30,7 @@ export default function KioskOrderForm({
   total, placing, pendingOrder,
   onPlaceOrder, onResetForm,
   lastOrder, receipt, onReopenReceipt,
+  customerName, setCustomerName,
   isFullscreen = false,
 }) {
   // Size-scale utility bundles — one for the phone-sized admin view, one for
@@ -183,6 +184,19 @@ export default function KioskOrderForm({
             <span className={S.totalLbl}>Total</span>
             <span className={S.totalVal} data-testid="kiosk-total">₹{total}</span>
           </div>
+          {/* iter-137.a — optional customer name printed on the receipt. */}
+          <label className="flex flex-col gap-1" data-testid="kiosk-customer-name-wrap">
+            <span className={S.mixedLbl}>Customer name <span className="normal-case tracking-normal text-[10px] opacity-70">(optional · shows on receipt)</span></span>
+            <Input
+              type="text"
+              value={customerName || ""}
+              onChange={(e) => setCustomerName && setCustomerName(e.target.value)}
+              placeholder="e.g. Rushikesh"
+              maxLength={40}
+              className={S.mixedInput}
+              data-testid="kiosk-customer-name"
+            />
+          </label>
           <Button
             onClick={onPlaceOrder}
             disabled={placing || !!pendingOrder}

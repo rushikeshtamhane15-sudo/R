@@ -1,0 +1,27 @@
+{
+  "summary": "iter-137 batch verified end-to-end. Backend: 6/6 pytest tests pass covering (a) POST /api/admin/kiosk/order with optional customer_name persisted+returned (null when omitted), (b) GET /api/admin/kiosk/daily-report returns full contract (bill_count, settled_count, cash_total, upi_total, cash_pending, upi_pending, grand_total, lunch_count, dinner_count, takeaway_count, dining_count, staff_breakdown[], top_bills[]), (c) POST /api/admin/kiosk/whatsapp/send-receipt in stub_mode returns ok, (d) GET /api/admin/tiffin-stock exposes raw_tiffins, engaged, on_delivery, takeaway_pending, next_slot, next_slot_required, shortage_for_next_run, expected_in_hand — and raw==in_hand+engaged invariant holds, (e) POST /api/admin/tiffin-stock/collect-empties increments in-hand by N, keeps raw stable, decrements engaged by N, (f) collect-empties rejects count<=0 with 422. Frontend UI: /admin/kiosk shows purity strip with 4 pills ['0% AJINOMOTO','0% MAIDA','0% PALM / REFINED OIL','100% PURE VEG MEAL'], Day report button opens KioskDailyReportDialog with date/refresh/print/body/dr-grand-total tiles, Reprint dialog renders per-row Reprint + WhatsApp phone input + send button (bill_no #1/#2), sending in stub mode surfaces the 'stub mode' warning toast as expected, meal toggle has mb-8 class, customer-name input renders and is fillable. /admin/tiffin-stock shows all 4 tiles (raw/in-hand/engaged/shortage), engaged sub-line reads 'X on delivery · Y takeaway', reconcile hint reads 'Reconciliation: RAW − ENGAGED = expected in-hand (actual N) ✓ matches', and collect-empties form + broken/adjust/reset cards are present.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter137_kiosk_tiffin.py",
+    "/app/test_reports/pytest/iter137_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "AdminKiosk purity strip renders '0% Palm / Refined Oil' (with slash) whereas the user's ask #5 wording was '0% Palm or Refined Oil Meal'. Both convey the same claim; only flag if the user wants the exact literal string.",
+    "tiffin_stock.py engaged is DERIVED (raw − in_hand) but there is no server-side clamp against topup happening AFTER a stale broken_total; today's live data reports raw=561, engaged=496, on_delivery=493, takeaway=3 which matches the model, so no drift observed.",
+    "collect-empties uses increment_stock_db (same movement kind as topup 'admin' source) — this correctly bumps in-hand but also adds to lifetime_purchases via topup movement history. Consider recording a distinct movement kind ('collect_empty') so historical audits can separate real purchases from returns. Right now raw_tiffins would grow if a fresh mess ever collected empties without seeding lifetime — verified in test it did not grow because raw is capped at max(lifetime, fallback) — but the semantic is subtle."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter137_kiosk_tiffin.py",
+    "/app/test_reports/iteration_137.json",
+    "/app/test_reports/pytest/iter137_results.xml"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "OTP dev-mode; admin phone 9970705391 (from ADMIN_PHONES in /app/backend/.env). dev_otp is returned in send-otp response.",
+  "seed_data_creation": "Auto-seeded today's mess_menu (lunch/dinner text) via POST /admin/mess-menu/upsert to allow kiosk order test. Placed 2 TEST_ walk-in kiosk cash orders (bill #1 with customer_name='TEST_JohnDoe', bill #2 without). collect-empties test added 3 empties then adjusted -3 to restore in-hand.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "test_iter137_kiosk_tiffin.py can be re-run any day (self-seeds menu + auto-cleans stock adjust). WhatsApp cloud API is still in STUB mode; toast copy in KioskReprintDialog uses 'WhatsApp is in stub mode — enable Meta creds to actually send' — matches spec. Daily report tested against today's IST date; if run on a fresh day with no kiosk orders, staff_breakdown[] and top_bills[] will be empty arrays (still returned).",
+  "rca_of_the_issue": "N/A — no regressions surfaced this iteration."
+}

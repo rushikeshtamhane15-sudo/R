@@ -396,6 +396,7 @@ class KioskOrderIn(BaseModel):
     date: str
     meal_type: str
     phone: Optional[str] = None
+    customer_name: Optional[str] = Field(default=None, description="Optional customer name printed on receipt")
     payment_method: str = Field(default="cash", description="cash | online | mixed")
     cash_amount: int = Field(default=0, ge=0, description="Cash portion (mixed payments)")
     online_amount: int = Field(default=0, ge=0, description="Online portion (mixed payments)")
@@ -509,6 +510,7 @@ async def kiosk_place_order(payload: KioskOrderIn, user: server.User = Depends(s
         "online_paid": False,
         "cash_received": False,
         "note": (payload.note or "").strip(),
+        "customer_name": (payload.customer_name or "").strip() or None,
         "kiosk_token": kiosk_token,
         "kiosk_consumed_at": None,
         "kiosk_consumed_by": None,
@@ -897,3 +899,113 @@ async def admin_kiosk_send_whatsapp_receipt(
     if not result.get("ok"):
         raise HTTPException(status_code=502, detail=result.get("detail") or "WhatsApp send failed")
     return result
+
+
+# -------- iter-137 · Kiosk end-of-day cash + UPI report -----------------------
+@router.get("/admin/kiosk/daily-report")
+async def admin_kiosk_daily_report(
+    date: Optional[str] = Query(None, description="IST day (YYYY-MM-DD). Defaults to today IST."),
+    user: server.User = Depends(server.get_current_user),
+):
+    """iter-137 — End-of-day kiosk close-out. Aggregates settled+unsettled
+    walk-in orders for a given IST day into totals + per-staff breakdown so
+    the admin can print or WhatsApp a summary to the owner.
+    """
+    if user.role not in ("admin", "staff", "franchise_owner"):
+        raise HTTPException(status_code=403, detail="Admin/staff only")
+    day = (date or _today_ist()).strip()
+
+    q = {"kind": "walk_in_kiosk", "bill_date": day}
+    orders_cur = server.db.mess_menu_orders.find(q, {"_id": 0}).sort("bill_no", 1)
+    orders = [doc async for doc in orders_cur]
+
+    bill_count = len(orders)
+    settled_count = sum(1 for o in orders if o.get("status") == "pending_collection" or o.get("paid_at"))
+    cash_total = 0
+    upi_total = 0
+    cash_pending = 0  # cash portion not yet marked received
+    upi_pending = 0
+    takeaway_count = 0
+    dining_count = 0
+    lunch_count = 0
+    dinner_count = 0
+    staff_map: dict = {}
+    top_bills = []
+
+    for o in orders:
+        cash_amt = int(o.get("cash_amount") or 0)
+        upi_amt = int(o.get("online_amount") or 0)
+        cash_received = bool(o.get("cash_received"))
+        online_paid = bool(o.get("online_paid"))
+        # Consider a bill "cash collected" once cash_received flag flips true
+        # (auto-set on cash + settled flow). Otherwise it remains pending.
+        if cash_received:
+            cash_total += cash_amt
+        else:
+            cash_pending += cash_amt
+        if online_paid:
+            upi_total += upi_amt
+        else:
+            upi_pending += upi_amt
+        if o.get("service") == "takeaway":
+            takeaway_count += 1
+        elif o.get("service") == "dining":
+            dining_count += 1
+        if o.get("meal_type") == "lunch":
+            lunch_count += 1
+        elif o.get("meal_type") == "dinner":
+            dinner_count += 1
+
+        staff_id = o.get("placed_by_admin_id") or "unknown"
+        if staff_id not in staff_map:
+            staff_map[staff_id] = {
+                "staff_id": staff_id,
+                "name": "",
+                "bill_count": 0,
+                "cash_collected": 0,
+                "upi_collected": 0,
+                "cash_pending": 0,
+            }
+        row = staff_map[staff_id]
+        row["bill_count"] += 1
+        row["cash_collected"] += cash_amt if cash_received else 0
+        row["upi_collected"] += upi_amt if online_paid else 0
+        row["cash_pending"] += cash_amt if not cash_received else 0
+
+    # Resolve staff names in one round-trip
+    if staff_map:
+        ids = list(staff_map.keys())
+        names = {u["user_id"]: (u.get("name") or "") async for u in server.db.users.find({"user_id": {"$in": ids}}, {"_id": 0, "user_id": 1, "name": 1})}
+        for sid, row in staff_map.items():
+            row["name"] = names.get(sid) or sid[:12]
+
+    # Top 5 bills by total for the sanity strip on the report
+    for o in sorted(orders, key=lambda x: int(x.get("total") or 0), reverse=True)[:5]:
+        top_bills.append({
+            "bill_no": o.get("bill_no"),
+            "meal_type": o.get("meal_type"),
+            "service": o.get("service"),
+            "qty": int(o.get("qty") or 0),
+            "total": int(o.get("total") or 0),
+            "payment_method": o.get("payment_method"),
+        })
+
+    return {
+        "ok": True,
+        "date": day,
+        "bill_count": bill_count,
+        "settled_count": settled_count,
+        "cash_total": cash_total,
+        "upi_total": upi_total,
+        "cash_pending": cash_pending,
+        "upi_pending": upi_pending,
+        "grand_total": cash_total + upi_total,
+        "grand_expected": sum(int(o.get("total") or 0) for o in orders),
+        "takeaway_count": takeaway_count,
+        "dining_count": dining_count,
+        "lunch_count": lunch_count,
+        "dinner_count": dinner_count,
+        "staff_breakdown": sorted(staff_map.values(), key=lambda r: r["bill_count"], reverse=True),
+        "top_bills": top_bills,
+    }
+

@@ -3,7 +3,7 @@ import { api } from "../lib/api";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
-import { Loader2, Package, Plus, AlertTriangle, History, Settings as SettingsIcon, ChevronDown, ChevronUp, Phone, MessageCircle, RotateCcw } from "lucide-react";
+import { Loader2, Package, Plus, AlertTriangle, History, Settings as SettingsIcon, ChevronDown, ChevronUp, Phone, MessageCircle, RotateCcw, RefreshCcw } from "lucide-react";
 
 export default function AdminTiffinStock() {
   const [state, setState] = useState(null);
@@ -14,6 +14,9 @@ export default function AdminTiffinStock() {
   const [adjustReason, setAdjustReason] = useState("");
   const [brokenCount, setBrokenCount] = useState(1);
   const [brokenReason, setBrokenReason] = useState("");
+  const [collectCount, setCollectCount] = useState(0);
+  const [collectSlot, setCollectSlot] = useState("lunch");
+  const [collectNote, setCollectNote] = useState("");
   const [threshold, setThreshold] = useState(20);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -94,6 +97,24 @@ export default function AdminTiffinStock() {
     finally { setSubmitting(false); }
   };
 
+  const collectEmpties = async () => {
+    const n = Number(collectCount);
+    if (!Number.isFinite(n) || n < 1) { toast.error("Enter a positive count"); return; }
+    setSubmitting(true);
+    try {
+      await api.post("/admin/tiffin-stock/collect-empties", {
+        count: n,
+        slot: collectSlot || undefined,
+        note: (collectNote || "").trim() || undefined,
+      });
+      toast.success(`Logged ${n} empty tiffin${n > 1 ? "s" : ""} returned to kitchen`);
+      setCollectCount(0); setCollectNote("");
+      load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Failed to log return");
+    } finally { setSubmitting(false); }
+  };
+
   const resetData = async () => {
     const ok = window.confirm(
       "⚠️ Reset ALL tiffin-stock data for this branch?\n\n" +
@@ -128,22 +149,22 @@ export default function AdminTiffinStock() {
       <div>
         <p className="text-xs tracking-overline uppercase font-bold text-secondary">Operations</p>
         <h1 className="font-display font-extrabold text-3xl mt-1">Physical tiffin stock</h1>
-        <p className="text-sm text-muted-foreground mt-1">Track raw tiffin inventory. Auto-decrements on each delivery; top up when stock arrives.</p>
+        <p className="text-sm text-muted-foreground mt-1">Raw = total owned. Engaged = out with customers (subs on delivery + takeaway pending). In-hand = clean tiffins at kitchen. Shortage = what you'll need to buy before the next slot.</p>
       </div>
 
-      {/* Top stats — headline row: Total / In-hand / Engaged (click for holder list) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {/* iter-137.b — four tiles matching the operator's mental model. */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
         <Stat
-          label="Total inventory"
-          value={state?.lifetime_purchases ?? state?.total_with_engaged ?? state?.quantity ?? 0}
-          sub="Lifetime purchased (all top-ups)"
+          label="Raw tiffins"
+          value={state?.raw_tiffins ?? (state?.lifetime_purchases ?? 0)}
+          sub="Total inventory owned"
           icon={Package}
-          testid="stock-quantity"
+          testid="stock-raw"
         />
         <Stat
-          label="Tiffin in-hand"
+          label="In-hand (kitchen)"
           value={state?.quantity ?? 0}
-          sub="Sitting in your kitchen"
+          sub="Clean · ready to fill"
           icon={Package}
           tone={state?.low_stock ? "warn" : "ok"}
           testid="stock-inhand"
@@ -152,18 +173,29 @@ export default function AdminTiffinStock() {
           type="button"
           onClick={toggleEngaged}
           data-testid="stock-engaged-tile"
-          className="text-left rounded-xl border border-border bg-card p-4 hover:border-primary/50 hover:shadow-md transition-all group"
+          className="text-left rounded-2xl border border-border bg-card p-4 hover:border-primary/50 hover:shadow-md transition-all group"
         >
           <div className="flex items-center justify-between">
             <div className="inline-flex items-center gap-2 text-primary group-hover:scale-105 transition-transform">
               <Package className="h-4 w-4" />
-              <span className="text-[10px] tracking-[0.18em] uppercase font-bold">Tiffin engaged</span>
+              <span className="text-[10px] tracking-[0.18em] uppercase font-bold">Engaged</span>
             </div>
             {engagedOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
           </div>
           <p className="mt-2 text-3xl font-extrabold tabular-nums text-foreground" data-testid="stock-engaged">{state?.engaged ?? 0}</p>
-          <p className="text-xs text-muted-foreground mt-1">Delivered · awaiting return · click to view holders</p>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            <span className="font-mono">{state?.on_delivery ?? 0}</span> on delivery
+            {' '}·{' '}<span className="font-mono">{state?.takeaway_pending ?? 0}</span> takeaway
+          </p>
         </button>
+        <Stat
+          label={`Shortage · next ${state?.next_slot || "run"}`}
+          value={state?.shortage_for_next_run ?? 0}
+          sub={`Need ${state?.next_slot_required ?? 0} · have ${state?.quantity ?? 0}`}
+          icon={AlertTriangle}
+          tone={(state?.shortage_for_next_run ?? 0) > 0 ? "warn" : "ok"}
+          testid="stock-shortage"
+        />
       </div>
 
       {engagedOpen && (
@@ -221,7 +253,7 @@ export default function AdminTiffinStock() {
       {/* Secondary row — context stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Stat label="Active tiffin subs" value={state?.active_tiffin_subs ?? 0} icon={Package} />
-        <Stat label="Daily expected use" value={state?.expected_daily_use ?? 0} icon={Package} />
+        <Stat label={`Need for ${state?.next_slot || "next"}`} value={state?.next_slot_required ?? 0} sub="Active subs · that meal" icon={Package} />
         <Stat label="Last top-up" value={state?.last_topup_qty ? `+${state.last_topup_qty}` : "—"} sub={state?.last_topup_at?.slice(0, 10) || ""} icon={History} />
         <Stat
           label="Broken / lost"
@@ -233,12 +265,11 @@ export default function AdminTiffinStock() {
         />
       </div>
 
-      {/* iter-134.e — reconciliation hint */}
+      {/* iter-137.b — reconciliation hint */}
       {state && (
         <p className="text-[11px] text-muted-foreground -mt-2" data-testid="stock-reconcile-hint">
-          Reconciliation: <span className="font-mono">{state.lifetime_purchases ?? 0}</span> lifetime
+          Reconciliation: <span className="font-mono">{state.raw_tiffins ?? 0}</span> raw
           {' '}−{' '}<span className="font-mono">{state.engaged ?? 0}</span> engaged
-          {' '}−{' '}<span className="font-mono">{state.broken_total ?? 0}</span> broken
           {' '}={' '}<span className="font-mono font-extrabold text-foreground">{state.expected_in_hand ?? 0}</span> expected in-hand
           {' '}(actual <span className="font-mono">{state.quantity ?? 0}</span>){' '}
           {state.expected_in_hand === state.quantity ? <span className="text-emerald-600 font-bold">✓ matches</span> : <span className="text-amber-700 font-bold">⚠ drift — adjust to reconcile</span>}
@@ -252,15 +283,41 @@ export default function AdminTiffinStock() {
         </div>
       )}
 
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Topup */}
         <div className="rounded-2xl border border-border bg-card p-6 space-y-3">
-          <h2 className="font-display font-bold text-lg flex items-center gap-2"><Plus className="h-4 w-4" /> Add stock</h2>
+          <h2 className="font-display font-bold text-lg flex items-center gap-2"><Plus className="h-4 w-4" /> Add raw stock</h2>
           <label className="block text-xs tracking-overline uppercase font-bold text-muted-foreground">Quantity</label>
           <Input type="number" min={1} value={topupQty} onChange={(e) => setTopupQty(e.target.value)} className="rounded-xl" data-testid="topup-qty" />
           <label className="block text-xs tracking-overline uppercase font-bold text-muted-foreground">Note (optional)</label>
           <Input value={topupNote} onChange={(e) => setTopupNote(e.target.value)} className="rounded-xl" placeholder="e.g. Mehta supplier · 50 new" data-testid="topup-note" />
           <Button onClick={topup} disabled={submitting} className="w-full rounded-full" data-testid="topup-submit">{submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add stock"}</Button>
+        </div>
+
+        {/* iter-137.b — Collect empties (post-delivery empty returns) */}
+        <div className="rounded-2xl border border-emerald-300 bg-emerald-50/50 p-6 space-y-3" data-testid="collect-empties-form">
+          <h2 className="font-display font-bold text-lg flex items-center gap-2 text-emerald-900"><RefreshCcw className="h-4 w-4" /> Log empty return</h2>
+          <label className="block text-xs tracking-overline uppercase font-bold text-muted-foreground">Empties collected</label>
+          <Input type="number" min={1} value={collectCount} onChange={(e) => setCollectCount(e.target.value)} className="rounded-xl" data-testid="collect-count" />
+          <label className="block text-xs tracking-overline uppercase font-bold text-muted-foreground">Slot</label>
+          <div className="inline-flex bg-white rounded-full p-1 gap-1 ring-1 ring-emerald-300 w-full" data-testid="collect-slot">
+            {["lunch", "dinner"].map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setCollectSlot(s)}
+                className={`flex-1 h-9 rounded-full text-xs font-extrabold uppercase tracking-wide ${collectSlot === s ? "bg-emerald-600 text-white" : "text-emerald-800"}`}
+                data-testid={`collect-slot-${s}`}
+              >{s}</button>
+            ))}
+          </div>
+          <Input value={collectNote} onChange={(e) => setCollectNote(e.target.value)} className="rounded-xl" placeholder="Optional note" data-testid="collect-note" />
+          <Button onClick={collectEmpties} disabled={submitting} className="w-full rounded-full bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="collect-submit">
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Log empties returned"}
+          </Button>
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            Adds to in-hand, drops engaged. Log this once your delivery driver returns with empty tiffins.
+          </p>
         </div>
 
         {/* Broken / lost */}
@@ -274,7 +331,7 @@ export default function AdminTiffinStock() {
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Mark broken"}
           </Button>
           <p className="text-[11px] text-muted-foreground leading-relaxed">
-            Written-off tiffins are subtracted from your in-hand count and stay in the "Broken / lost" ledger so the reconciliation math holds.
+            Reduces in-hand + raw. Broken tiffins stay in the ledger so the reconciliation math holds.
           </p>
         </div>
 
