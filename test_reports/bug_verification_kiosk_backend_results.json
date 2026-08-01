@@ -1,0 +1,44 @@
+{
+  "base_url": "https://dining-pass-scan.preview.emergentagent.com",
+  "date_ist": "2026-08-01",
+  "checks": [
+    "admin OTP login works and role=admin",
+    "subscriber OTP login works and role is non-admin",
+    "seeded today's mess menu"
+  ],
+  "failures": [
+    "{\"assertion\": \"order 1 missing valid razorpay_qr_short_url\", \"evidence\": {\"ok\": true, \"order\": {\"order_id\": \"kio_ab10079f0b4c\", \"kind\": \"walk_in_kiosk\", \"user_id\": null, \"placed_by_admin_id\": \"user_bf9cf3602ea9\", \"phone\": null, \"service\": \"dining\", \"qty\": 1, \"date\": \"2026-08-01\", \"meal_type\": \"lunch\", \"menu_text\": \"Bug verification thali\", \"unit_price\": 100, \"total\": 100, \"currency\": \"INR\", \"status\": \"awaiting_payment\", \"payment_method\": \"online\", \"cash_amount\": 0, \"online_amount\": 100, \"online_paid\": false, \"cash_received\": false, \"note\": \"\", \"kiosk_token\": \"46e53a85c3954efea5bf8748822eef24\", \"kiosk_consumed_at\": null, \"kiosk_consumed_by\": null, \"upi_qr_text\": \"\", \"upi_vpa\": null, \"qr_provider\": \"razorpay\", \"razorpay_qr_id\": \"qr_TKTtCGoRfEPuof\", \"razorpay_qr_image_url\": \"https://rzp.io/rzp/NAW7QjT\", \"razorpay_qr_short_url\": null, \"razorpay_qr_status\": \"active\", \"created_at\": \"2026-08-01T10:59:34.933692+00:00\", \"bill_no\": 1, \"bill_date\": \"2026-08-01\"}, \"qr_data_url\": \"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAXIAAAFyAQAAAADAX2ykAAACnklEQVR4nO2bTYrjMBCFvxobslQgB8hR5Jv1meYG1lFygAFrGVB4s5DlSbqZ9DS4TTxULYIdfYsHL/qpKsXEVyL9+BIOzjvvvPPOO+/833ibo4dkZqTjzSCb2ZDb2LChHudX5qMkaZqfbMg9pGMnoJMk6ZH/bj3Or8zneYbakM00hoK9TfNYndjb6nF+Hb5//0U6C4uXHtK5bK/H+XX5D/6SDQiqTyJvq8f57+GDpBEgqgDcjHSWbAAklff8d+txfh1+nr/JAOiAfJKRT7J46Qtwsy31OL8uX/29K1KmY1dX5fmDxwLmq+l3/l/4lub21CSJcDWzI9SDtZ+fd88Hqbo6hKuZ2UEaF5PjBDZsqsf5dXhq9WKEaqNGuvoqTZ0glHmgcq+m3/lPohan4kQrYqlQp3OcuruBOur+7oyfz1fp2BUjn4oRJln8aSgdO5TOpVeyriVIr6bf+efxUN8IBaWhLxCERd2MeDnICL9akvRq+p3/JKS2KtcNN07d3SKtMbSl2fffPfKLv4uXE7Rdt9Dsdn93ys/nK8L9/CWqtJN0KLTCpfu7P345P7dVea4/zyZXu2uS5P7ukG/+tv7+n/y3ZkXA/SLt/u6Uzz021K7+zeqEJfezyelcsGFTPc6vw7f8KBRUm0ih9BYvfc1/a2Mp/lx6SK+m3/nncd8/ioLZyCCMMEEcwdK5tN/Bq+l3/nlU39r07IqSgeDWq97kyKcCdH6/btf8cr6yNxUgH5qhtb9w8/rVPvmH/kLLhdqFnGXW4ufn/4bPPZAPrbRRi5RXv9++T/7j/Um6AuFqihdD8WJAWK7pvJp+55/Hkh8J5gtXYISp+mlxLL3gtpUe59flW/25Rusfje21jfr+u1Pe/P/dzjvvvPPOO785/xuq4ro/MKeMPwAAAABJRU5ErkJggg==\", \"qr_text\": \"kio:46e53a85c3954efea5bf8748822eef24\", \"upi_qr_text\": \"\", \"upi_vpa\": null, \"qr_provider\": \"razorpay\", \"razorpay_qr_id\": \"qr_TKTtCGoRfEPuof\", \"razorpay_qr_image_url\": \"https://rzp.io/rzp/NAW7QjT\", \"razorpay_qr_short_url\": null}}"
+  ],
+  "created_order_ids": [
+    "kio_ab10079f0b4c",
+    "kio_aaccb5e6a6e2"
+  ],
+  "cleanup": "reset today's kiosk bill counter and deleted today's walk_in_kiosk orders before test",
+  "deleted_existing_today_kiosk_orders": 0,
+  "admin_user": {
+    "user_id": "user_bf9cf3602ea9",
+    "email": null,
+    "phone": "9970705391",
+    "name": "Admin",
+    "address": null,
+    "picture": null,
+    "role": "admin",
+    "qr_token": "qr_dea975d5fdce4cf58e8a5248dae039bc",
+    "wallet_balance": 0.0,
+    "created_at": "2026-05-09T20:52:51.499514+00:00",
+    "mess_id": "efoodcare-amravati"
+  },
+  "subscriber_user": {
+    "user_id": "user_11439164a29f",
+    "email": null,
+    "phone": "9123456789",
+    "name": "Bug Verify 6789",
+    "address": null,
+    "picture": null,
+    "role": "subscriber",
+    "qr_token": "qr_2ca5c1538dd4425284b0ad9fd8fbba8d",
+    "wallet_balance": 0.0,
+    "created_at": "2026-08-01T10:59:33.413329+00:00"
+  },
+  "ok": false
+}

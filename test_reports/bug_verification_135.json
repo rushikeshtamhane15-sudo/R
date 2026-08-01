@@ -1,0 +1,92 @@
+{
+  "verdict": "not_fixed",
+  "user_reported_bug": "Razorpay dynamic QR on the Admin Wall Kiosk is not scanning / redirects to the wrong place. Users cannot complete UPI payments from the kiosk. Also, please add: WhatsApp receipt option on kiosk, and Bill numbering + Reprint functionality.",
+  "summary": "Focused backend + UI verification found the Razorpay QR image rendering fix works and bill numbering/receipt/WhatsApp/reprint mostly work, but the required razorpay_qr_short_url is null from live kiosk orders, so the fallback Open pay link is absent in the payment modal. Invalid reprint also shows backend detail instead of the requested 'Bill not found' toast. No relevant testing skill found. OTP auth was MOCKED dev-mode; Razorpay QR creation used live keys, but no real payment was attempted.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/admin/kiosk/order",
+        "issue": "Live online kiosk orders returned valid razorpay_qr_id and razorpay_qr_image_url, but razorpay_qr_short_url was null/empty (example bill #1 qr_TKTtCGoRfEPuof image https://rzp.io/rzp/NAW7QjT, short_url null). This violates the endpoint contract and removes the manual fallback pay link.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "GET /api/admin/kiosk/reprint/{bill_no}",
+        "issue": "Missing bill correctly returns 404, but the detail is 'No kiosk bill #9999 for YYYY-MM-DD'; frontend currently surfaces that instead of normalizing to the requested 'Bill not found' toast."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "KioskPaymentModal",
+        "issue": "data-testid='kiosk-razorpay-qr-img' correctly uses the Razorpay image_url and no QRCodeSVG is rendered, but data-testid='kiosk-razorpay-open-link' is not visible because backend short_url is empty/null.",
+        "selector": "[data-testid='kiosk-razorpay-open-link']",
+        "priority": "HIGH"
+      },
+      {
+        "component": "KioskReprintDialog",
+        "issue": "Invalid bill lookup displays 'No kiosk bill #9999 for 2026-08-01' instead of exact requested 'Bill not found' toast.",
+        "selector": "[data-testid='kiosk-reprint-lookup']",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Admin Wall Kiosk online UPI order -> KioskPaymentModal fallback link",
+        "issue": "Backend returns razorpay_qr_short_url null, so the UI cannot render the fallback Open pay link below the Razorpay QR.",
+        "affected_selectors": [
+          "[data-testid='kiosk-paytm-modal']",
+          "[data-testid='kiosk-razorpay-open-link']"
+        ]
+      },
+      {
+        "flow": "Admin order history reprint access",
+        "issue": "Code search found reprint wiring only in AdminKiosk/KioskReprintDialog, not in a separate admin order history screen. If the original requirement still means order-history page access in addition to kiosk header, that part is not implemented.",
+        "affected_selectors": []
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/tests/bug_verification_razorpay_kiosk_backend.py",
+    "/app/tests/bug_verification_razorpay_kiosk_backend_followup.py",
+    "/app/tests/bug_verification_create_admin_session.py",
+    "/app/test_reports/bug_verification_kiosk_backend_results.json",
+    "/app/test_reports/bug_verification_kiosk_backend_followup_results.json",
+    "/app/test_reports/bug_verification_kiosk_ui_results.json",
+    "/app/test_reports/bug_verification_browser_session.json"
+  ],
+  "action_items": [
+    "Fix POST /api/admin/kiosk/order so every Razorpay QR response includes a real Razorpay-provided/openable razorpay_qr_short_url (starts https://rzp.io/) or update the contract/UI with an equivalent real fallback link; do not fabricate rzp.io/i/{qr_id}.",
+    "After short_url is populated, verify KioskPaymentModal shows data-testid='kiosk-razorpay-open-link' below the PNG QR with href equal to that short URL.",
+    "Normalize invalid reprint 404 handling in KioskReprintDialog to show 'Bill not found' as requested.",
+    "If still required, add/access reprint from the admin order history screen, not only from AdminKiosk's header dialog."
+  ],
+  "critical_code_review_comments": [
+    "mess_menu_cal.py currently stores `razorpay_qr_short_url = rzp_qr.get('short_url')`; observed live Razorpay QR Code API responses did not include `short_url`, so the API contract fails despite image_url being valid.",
+    "KioskReprintDialog.jsx uses `toast.error(e?.response?.data?.detail || 'Bill not found')`, which exposes backend detail for 404s instead of the requested exact toast.",
+    "Grep for reprint/kiosk-reprint found the new reprint dialog mounted only from /app/frontend/src/pages/AdminKiosk.jsx; no separate admin order history integration was found."
+  ],
+  "updated_files": [
+    "/app/tests/bug_verification_razorpay_kiosk_backend.py",
+    "/app/tests/bug_verification_razorpay_kiosk_backend_followup.py",
+    "/app/tests/bug_verification_create_admin_session.py",
+    "/app/test_reports/bug_verification_kiosk_backend_results.json",
+    "/app/test_reports/bug_verification_kiosk_backend_followup_results.json",
+    "/app/test_reports/bug_verification_kiosk_ui_results.json",
+    "/app/test_reports/bug_verification_browser_session.json",
+    "/app/test_reports/bug_verification_135.json",
+    "/app/test_reports/iteration_135.json"
+  ],
+  "success_rate": {
+    "backend": "75%",
+    "frontend": "70%"
+  },
+  "seed_data_creation": "Reset today's IST kiosk bill counter and deleted today's walk_in_kiosk orders in the preview DB to deterministically test bill #1/#2; seeded mess menu for 2026-08-01; created live Razorpay QR kiosk orders (bills #1-#5) without making any payment; manually marked bills #2 and #5 paid through staff confirm flow; inserted a short-lived admin session token for browser testing. OTP login was MOCKED dev-mode.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Use /app/test_reports/bug_verification_kiosk_backend_results.json and /app/test_reports/bug_verification_kiosk_ui_results.json. Current failing evidence: POST /api/admin/kiosk/order returns razorpay_qr_short_url null and UI lacks kiosk-razorpay-open-link; invalid reprint toast is backend detail, not 'Bill not found'. Bill numbering (#1/#2), orders/today sorting, reprint endpoint, receipt Bill No, WhatsApp deep link, and QR image_url rendering passed. No real Razorpay payment was made.",
+  "rca_of_the_issue": "The scan/redirect fix partially works because the modal now renders Razorpay's image_url PNG instead of generating QRCodeSVG from a URL. However the backend assumes Razorpay QR create returns `short_url`; in live responses it was absent, so the API contract and fallback open-link UI fail. Reprint 404 copy mismatch comes from directly displaying backend `detail`."
+}

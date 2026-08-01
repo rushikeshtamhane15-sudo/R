@@ -522,6 +522,29 @@ async def kiosk_place_order(payload: KioskOrderIn, user: server.User = Depends(s
         "created_at": server.iso(server.now_utc()),
     }
     await server.db.mess_menu_orders.insert_one(order)
+    # iter-134.p — assign a simple daily-sequential bill_no (globally per
+    # kiosk-day, not per user) for walk-in kiosk orders so receipts read
+    # "Bill #1", "Bill #2" and reset every IST midnight. Uses a
+    # `daily_bill_counter` sequence keyed by date only so reprint-by-bill-no
+    # is unambiguous within a day.
+    try:
+        today_ist = _today_ist()
+        seq_id = f"bill:{today_ist}"
+        seq = await server.db.daily_bill_counter.find_one_and_update(
+            {"_id": seq_id},
+            {"$inc": {"n": 1}, "$setOnInsert": {"date": today_ist}},
+            upsert=True,
+            return_document=True,
+        )
+        bill_no = int((seq or {}).get("n") or 1)
+        await server.db.mess_menu_orders.update_one(
+            {"order_id": order["order_id"]},
+            {"$set": {"bill_no": bill_no, "bill_date": today_ist}},
+        )
+        order["bill_no"] = bill_no
+        order["bill_date"] = today_ist
+    except Exception as e:  # noqa: BLE001
+        server.logger.warning(f"[kiosk] bill_no assign failed: {e}")
     # Render kiosk-token QR PNG for the printed receipt (anti-fraud check-in).
     qr_data_url = ""
     try:
@@ -764,3 +787,70 @@ async def kiosk_poll_payment_status(order_id: str, user: server.User = Depends(s
         server.logger.warning(f"[kiosk] Razorpay QR poll failed: {e}")
         return {"ok": True, "polled": False, "error": str(e), "online_paid": bool(doc.get("online_paid"))}
 
+
+
+# -------- iter-135 · Reprint & today's kiosk orders --------------------------
+def _render_kiosk_qr_datauri(kiosk_token: str) -> str:
+    """Regenerate the printable kiosk-token QR (data URI PNG) for reprint."""
+    if not kiosk_token:
+        return ""
+    try:
+        import base64, io
+        import qrcode
+        img = qrcode.make(f"kio:{kiosk_token}")
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+    except Exception as e:  # noqa: BLE001
+        server.logger.warning(f"[kiosk] reprint QR render failed: {e}")
+        return ""
+
+
+@router.get("/admin/kiosk/orders/today")
+async def admin_kiosk_orders_today(
+    date: Optional[str] = Query(None, description="Override date (IST, YYYY-MM-DD). Defaults to today IST."),
+    limit: int = Query(50, ge=1, le=200),
+    user: server.User = Depends(server.get_current_user),
+):
+    """List today's walk-in kiosk orders (most recent first) so admins can
+    reprint a receipt from history. Scoped to a single IST day for clarity.
+    """
+    if user.role not in ("admin", "staff", "franchise_owner"):
+        raise HTTPException(status_code=403, detail="Admin/staff only")
+    day = (date or _today_ist()).strip()
+    cur = server.db.mess_menu_orders.find(
+        {"kind": "walk_in_kiosk", "bill_date": day},
+        {"_id": 0, "kiosk_token": 0, "razorpay_qr_image_url": 0, "razorpay_qr_short_url": 0, "upi_qr_text": 0},
+    ).sort("bill_no", -1).limit(limit)
+    orders = [doc async for doc in cur]
+    return {"ok": True, "date": day, "count": len(orders), "orders": orders}
+
+
+@router.get("/admin/kiosk/reprint/{bill_no}")
+async def admin_kiosk_reprint(
+    bill_no: int,
+    date: Optional[str] = Query(None, description="IST day (YYYY-MM-DD). Defaults to today IST."),
+    user: server.User = Depends(server.get_current_user),
+):
+    """Fetch a settled kiosk order by bill_no + date (defaults today) and
+    return the payload the receipt modal expects (order + regenerated
+    single-use kiosk-token QR PNG). Staff can now hand a customer a fresh
+    print of a lost receipt in one tap.
+    """
+    if user.role not in ("admin", "staff", "franchise_owner"):
+        raise HTTPException(status_code=403, detail="Admin/staff only")
+    day = (date or _today_ist()).strip()
+    doc = await server.db.mess_menu_orders.find_one(
+        {"kind": "walk_in_kiosk", "bill_no": int(bill_no), "bill_date": day},
+        {"_id": 0},
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail=f"No kiosk bill #{bill_no} for {day}")
+    qr_text = f"kio:{doc.get('kiosk_token') or ''}"
+    qr_data_url = _render_kiosk_qr_datauri(doc.get("kiosk_token") or "")
+    return {
+        "ok": True,
+        "order": doc,
+        "qr_text": qr_text,
+        "qr_data_url": qr_data_url,
+    }

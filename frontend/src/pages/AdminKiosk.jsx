@@ -17,7 +17,7 @@ import { api } from "../lib/api";
 import { useBranding } from "../context/BrandingContext";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
-import { ShoppingCart, Maximize2, Minimize2, X } from "lucide-react";
+import { ShoppingCart, Maximize2, Minimize2, Receipt, X } from "lucide-react";
 import KioskReceiptModal from "../components/KioskReceiptModal";
 import { connectBluetoothPrinter, isBluetoothSupported } from "../lib/bluetoothPrinter";
 
@@ -25,6 +25,7 @@ import KioskCounterPanel from "../components/admin-kiosk/KioskCounterPanel";
 import KioskMenuCard from "../components/admin-kiosk/KioskMenuCard";
 import KioskOrderForm from "../components/admin-kiosk/KioskOrderForm";
 import KioskPaymentModal from "../components/admin-kiosk/KioskPaymentModal";
+import KioskReprintDialog from "../components/admin-kiosk/KioskReprintDialog";
 
 const LOCATION = "main";
 
@@ -241,6 +242,7 @@ export default function AdminKiosk() {
   const [pendingOrder, setPendingOrder] = useState(null);
   const [lastOrder, setLastOrder] = useState(null);
   const [receipt, setReceipt] = useState(null);
+  const [reprintOpen, setReprintOpen] = useState(false);
   const printedFor = useRef(new Set());
 
   const loadMenu = useCallback(async () => {
@@ -498,6 +500,14 @@ export default function AdminKiosk() {
             <button type="button" onClick={() => setTab("today")} className={`rounded-full font-extrabold ${isFullscreenRoute ? "px-6 h-12 text-base" : "px-4 h-9 text-xs"} ${tab === "today" ? "bg-white text-black" : "text-white/80"}`} data-testid="kiosk-day-today">Today</button>
             <button type="button" onClick={() => setTab("tomorrow")} className={`rounded-full font-extrabold ${isFullscreenRoute ? "px-6 h-12 text-base" : "px-4 h-9 text-xs"} ${tab === "tomorrow" ? "bg-white text-black" : "text-white/80"}`} data-testid="kiosk-day-tomorrow">Tomorrow</button>
           </div>
+          <button
+            type="button"
+            onClick={() => setReprintOpen(true)}
+            className={`inline-flex items-center gap-1.5 rounded-full font-extrabold bg-white/15 hover:bg-white/25 text-white ${isFullscreenRoute ? "h-12 px-5 text-sm" : "h-9 px-3 text-xs"}`}
+            data-testid="kiosk-reprint-open"
+          >
+            <Receipt className={isFullscreenRoute ? "h-4 w-4" : "h-3.5 w-3.5"} /> Reprint
+          </button>
           {/* iter-131.28: fullscreen kiosk mode toggle */}
           {isFullscreenRoute ? (
             <div className="flex items-center gap-2 ml-2">
@@ -554,6 +564,12 @@ export default function AdminKiosk() {
           onClose={() => setReceipt(null)}
         />
       )}
+
+      <KioskReprintDialog
+        open={reprintOpen}
+        onClose={() => setReprintOpen(false)}
+        onReprint={(rcpt) => setReceipt(rcpt)}
+      />
     </div>
   );
 }

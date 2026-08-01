@@ -1,0 +1,28 @@
+{
+  "base_url": "https://dining-pass-scan.preview.emergentagent.com/admin/kiosk",
+  "date_ist": "2026-08-01",
+  "created_ui_order": {
+    "bill_no": 5,
+    "razorpay_qr_id": "qr_TKTyKs4KMwEvN9",
+    "razorpay_qr_image_url": "https://rzp.io/rzp/tjneyQE",
+    "razorpay_qr_short_url": ""
+  },
+  "checks": [
+    "Admin kiosk page loaded with test admin session",
+    "UI-created online order returned Razorpay QR id and image URL",
+    "KioskPaymentModal rendered data-testid=kiosk-razorpay-qr-img with src exactly equal to backend razorpay_qr_image_url",
+    "KioskPaymentModal did not render QRCodeSVG fallback when image_url exists",
+    "Receipt iframe showed Bill No #5",
+    "Invalid WhatsApp mobile kept Send disabled",
+    "Valid WhatsApp mobile enabled Send",
+    "WhatsApp receipt opened a deep link containing Bill #5, meal DINNER, service TAKEAWAY, total, and kio: token",
+    "Reprint dialog opened from AdminKiosk header and listed today's bill #5",
+    "Valid reprint lookup returned data:image/png;base64 QR and opened KioskReceiptModal"
+  ],
+  "failures": [
+    "UI-created order missing razorpay_qr_short_url (empty/null)",
+    "Fallback Open pay link data-testid=kiosk-razorpay-open-link was not visible below Razorpay QR",
+    "Invalid reprint bill displayed backend detail 'No kiosk bill #9999 for 2026-08-01' instead of exact 'Bill not found' toast"
+  ],
+  "browser_console_log": "/root/.emergent/automation_output/20260801_110419/console_20260801_110419.log"
+}

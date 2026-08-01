@@ -2,17 +2,20 @@
 import React from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "../ui/button";
-import { CheckCircle2, Loader2, X as XIcon } from "lucide-react";
+import { CheckCircle2, ExternalLink, Loader2, X as XIcon } from "lucide-react";
 
 export default function KioskPaymentModal({ pendingOrder, onConfirm, onCancel }) {
   if (!pendingOrder || !pendingOrder.order || pendingOrder.order.payment_method === "cash") return null;
   const { order, provider, upiQrText, upiVpa, razorpayQrImageUrl, razorpayQrId, razorpayShortUrl } = pendingOrder;
   const isPolling = provider === "razorpay" && !!razorpayQrId && !order.online_paid;
-  // iter-134.m — for Razorpay we render a sharp local QRCodeSVG from the
-  // short URL (crisp at any size). If backend didn't expose short_url we
-  // fall back to the upstream img — but display it at 320×320 with
-  // crisp-edges to reduce the "blurry" perception on portrait tablets.
-  const rzpText = razorpayShortUrl || (razorpayQrId ? `https://rzp.io/i/${razorpayQrId}` : "");
+  // iter-135 — Razorpay Dynamic QR fix.
+  // Rendering the `short_url` (rzp.io/...) as a QRCodeSVG produces a QR that
+  // encodes a URL, NOT a UPI intent — GPay/PhonePe/Paytm's in-app scanners
+  // then fail to interpret it as a payment. The `image_url` PNG served by
+  // Razorpay contains the ACTUAL UPI intent QR and works with every UPI
+  // app. So we render the upstream PNG as the primary QR (sized crisp for
+  // 27" kiosk), and the short_url is offered as a manual "Open pay link"
+  // backup for phones that can't scan the wall from close range.
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" data-testid="kiosk-paytm-modal">
       <div className="bg-white text-[hsl(140,8%,8%)] rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto p-5">
@@ -31,19 +34,25 @@ export default function KioskPaymentModal({ pendingOrder, onConfirm, onCancel })
           </button>
         </div>
 
-        {provider === "razorpay" && (razorpayQrImageUrl || rzpText) ? (
+        {provider === "razorpay" && (razorpayQrImageUrl || razorpayShortUrl) ? (
           <div className="mt-4 flex flex-col items-center">
             <div className="relative rounded-2xl bg-white p-4 border-2 border-[hsl(220,55%,55%)]" data-testid="kiosk-razorpay-qr">
-              {rzpText ? (
-                // Sharp vector-rendered QR from Razorpay short URL — no blur on any tablet.
-                <QRCodeSVG value={rzpText} size={320} level="M" includeMargin={false} />
-              ) : (
+              {razorpayQrImageUrl ? (
+                // Razorpay-hosted PNG contains the real UPI intent QR that all
+                // UPI apps (GPay/PhonePe/Paytm) recognize. crisp-edges keeps
+                // it sharp on high-DPI kiosk displays.
                 <img
                   src={razorpayQrImageUrl}
-                  alt="Scan to pay via Razorpay UPI"
-                  className="w-[320px] h-[320px] object-contain"
-                  style={{ imageRendering: "crisp-edges" }}
+                  alt="Scan to pay via UPI"
+                  className="w-[320px] h-[320px] object-contain block"
+                  style={{ imageRendering: "pixelated" }}
+                  data-testid="kiosk-razorpay-qr-img"
                 />
+              ) : (
+                // Only used if Razorpay didn't return an image_url (rare) — the
+                // short_url QR opens Razorpay's hosted payment page in a
+                // browser, which is a working fallback for any camera scanner.
+                <QRCodeSVG value={razorpayShortUrl} size={320} level="M" includeMargin={false} data-testid="kiosk-razorpay-qr-svg" />
               )}
               {isPolling && (
                 <div
@@ -56,7 +65,18 @@ export default function KioskPaymentModal({ pendingOrder, onConfirm, onCancel })
                 </div>
               )}
             </div>
-            <p className="text-[11px] mt-2 text-muted-foreground text-center">Razorpay Dynamic QR · auto-confirms on payment</p>
+            <p className="text-[11px] mt-2 text-muted-foreground text-center">Razorpay Dynamic UPI QR · auto-confirms on payment</p>
+            {razorpayShortUrl && (
+              <a
+                href={razorpayShortUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-extrabold text-[hsl(220,55%,45%)] hover:underline"
+                data-testid="kiosk-razorpay-open-link"
+              >
+                <ExternalLink className="h-3.5 w-3.5" /> Can't scan? Open pay link
+              </a>
+            )}
           </div>
         ) : upiQrText ? (
           <div className="mt-4 flex flex-col items-center">
