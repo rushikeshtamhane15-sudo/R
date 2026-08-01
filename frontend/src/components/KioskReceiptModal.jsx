@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Button } from "./ui/button";
 import { Printer, X, Bluetooth, BluetoothConnected, Loader2, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
+import { api } from "../lib/api";
 import { connectBluetoothPrinter, isBluetoothSupported, getLastPrinterName } from "../lib/bluetoothPrinter";
 
 /**
@@ -182,24 +183,36 @@ export default function KioskReceiptModal({ order, qrDataUrl, qrText, onClose })
 
 function WhatsAppReceiptRow({ order, qrText }) {
   const [phone, setPhone] = React.useState(order?.phone || "");
+  const [sending, setSending] = React.useState(false);
+  const [sentAt, setSentAt] = React.useState(null);
   const digits = String(phone || "").replace(/\D/g, "").replace(/^0+/, "");
-  const waPhone = /^\d{10}$/.test(digits) ? `91${digits}` : (digits.length >= 10 ? digits : "");
-  const disabled = !waPhone;
-  const send = () => {
-    if (!waPhone) { toast.error("Enter a valid 10-digit mobile"); return; }
-    const bill = order?.bill_no ? `Bill #${order.bill_no}` : `Order ${order?.order_id || ""}`;
-    const msg =
-      `🍽️ *efoodcare receipt*\n` +
-      `${bill}\n` +
-      `Date: ${order?.date || ""} · Meal: ${(order?.meal_type || "").toUpperCase()}\n` +
-      `Service: ${(order?.service || "").toUpperCase()}\n` +
-      `${order?.qty || 1} × ${(order?.menu_text || "").slice(0, 60)}\n` +
-      `TOTAL: ₹${order?.total || 0}\n` +
-      `Status: ${order?.status || "created"}\n\n` +
-      `Show this at the counter (single-use QR token): ${qrText || ""}\n\n` +
-      `Ghar se accha khana ♻️`;
-    window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
+  const validPhone = /^\d{10}$/.test(digits) || digits.length >= 10;
+  const disabled = !validPhone || sending;
+  const send = async () => {
+    if (!validPhone) { toast.error("Enter a valid 10-digit mobile"); return; }
+    if (!order?.order_id) { toast.error("Order missing — reprint from history to send"); return; }
+    setSending(true);
+    try {
+      // iter-136 — one-tap silent send via Meta WhatsApp Cloud API.
+      // Backend chooses live-vs-stub based on WHATSAPP_ACCESS_TOKEN etc.
+      const r = await api.post("/admin/kiosk/whatsapp/send-receipt", {
+        order_id: order.order_id,
+        phone: digits,
+        name: order?.customer_name || "",
+      });
+      const status = r.data?.status || "sent";
+      if (status === "stub_mode") {
+        toast.warning("WhatsApp is in stub mode — enable Meta credentials to actually send", { duration: 6000 });
+      } else {
+        toast.success(`WhatsApp receipt sent to +91${digits.slice(-10)}`);
+      }
+      setSentAt(new Date().toISOString());
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "WhatsApp send failed");
+    } finally { setSending(false); }
   };
+  // Silence unused-var lint — qrText is preserved for future template media params.
+  void qrText;
   return (
     <div className="flex items-center gap-2 rounded-2xl border border-emerald-300 bg-emerald-50/60 p-2.5" data-testid="kiosk-wa-row">
       <input
@@ -209,7 +222,8 @@ function WhatsAppReceiptRow({ order, qrText }) {
         placeholder="Customer's WhatsApp mobile (10-digit)"
         value={phone}
         onChange={(e) => setPhone(e.target.value)}
-        className="flex-1 min-w-0 h-10 rounded-full bg-white border border-emerald-300 px-3 text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        disabled={sending}
+        className="flex-1 min-w-0 h-10 rounded-full bg-white border border-emerald-300 px-3 text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-60"
         data-testid="kiosk-wa-phone"
       />
       <Button
@@ -218,7 +232,12 @@ function WhatsAppReceiptRow({ order, qrText }) {
         className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs h-10 px-4"
         data-testid="kiosk-wa-send"
       >
-        <MessageCircle className="h-3.5 w-3.5 mr-1.5" /> Send on WhatsApp
+        {sending ? (
+          <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+        ) : (
+          <MessageCircle className="h-3.5 w-3.5 mr-1.5" />
+        )}
+        {sending ? "Sending…" : sentAt ? "Sent · Resend" : "Send on WhatsApp"}
       </Button>
     </div>
   );

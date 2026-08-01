@@ -44,7 +44,7 @@ export default function KioskPaymentModal({ pendingOrder, onConfirm, onCancel })
                 <img
                   src={razorpayQrImageUrl}
                   alt="Scan to pay via UPI"
-                  className="w-[320px] h-[320px] object-contain block"
+                  className="w-[440px] h-[440px] max-w-[80vw] max-h-[80vw] object-contain block"
                   style={{ imageRendering: "pixelated" }}
                   data-testid="kiosk-razorpay-qr-img"
                 />
@@ -52,16 +52,18 @@ export default function KioskPaymentModal({ pendingOrder, onConfirm, onCancel })
                 // Only used if Razorpay didn't return an image_url (rare) — the
                 // short_url QR opens Razorpay's hosted payment page in a
                 // browser, which is a working fallback for any camera scanner.
-                <QRCodeSVG value={razorpayShortUrl} size={320} level="M" includeMargin={false} data-testid="kiosk-razorpay-qr-svg" />
+                <QRCodeSVG value={razorpayShortUrl} size={440} level="M" includeMargin={false} data-testid="kiosk-razorpay-qr-svg" />
               )}
               {isPolling && (
+                // iter-135.a — no more full-QR overlay (was blocking scans).
+                // A small corner dot tells staff we're still polling without
+                // hiding the QR from the customer's camera.
                 <div
-                  className="pointer-events-none absolute inset-0 rounded-2xl flex flex-col items-center justify-center gap-2 bg-white/72 backdrop-blur-[1.5px] animate-in fade-in"
+                  className="pointer-events-none absolute top-2 right-2 flex items-center gap-1 rounded-full bg-[hsl(220,55%,45%)]/95 px-2 py-1 text-white shadow"
                   data-testid="kiosk-razorpay-polling"
                 >
-                  <Loader2 className="h-10 w-10 animate-spin text-[hsl(220,55%,45%)]" strokeWidth={2.5} />
-                  <p className="text-[13px] font-extrabold tracking-wide text-[hsl(220,55%,25%)]">Waiting for UPI…</p>
-                  <p className="text-[10px] font-semibold text-[hsl(220,10%,40%)] tracking-[0.14em] uppercase">Auto-prints on confirmation</p>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.75} />
+                  <span className="text-[10px] font-extrabold tracking-wide">POLLING</span>
                 </div>
               )}
             </div>

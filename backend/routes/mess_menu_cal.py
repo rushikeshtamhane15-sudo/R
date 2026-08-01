@@ -854,3 +854,46 @@ async def admin_kiosk_reprint(
         "qr_text": qr_text,
         "qr_data_url": qr_data_url,
     }
+
+
+
+# -------- iter-136 · One-tap WhatsApp receipt send (Meta Cloud API) ----------
+class KioskWhatsAppSendIn(BaseModel):
+    order_id: str = Field(..., description="Kiosk order_id (kio_...)")
+    phone: str = Field(..., description="Customer WhatsApp mobile, 10-digit or E.164")
+    name: str = Field(default="", description="Optional customer name; defaults to 'Guest'")
+
+
+@router.post("/admin/kiosk/whatsapp/send-receipt")
+async def admin_kiosk_send_whatsapp_receipt(
+    payload: KioskWhatsAppSendIn,
+    user: server.User = Depends(server.get_current_user),
+):
+    """iter-136 — silently send the kiosk receipt via Meta WhatsApp Cloud API.
+    Replaces the earlier wa.me deep-link that forced a browser/app switch.
+    Falls back to stub mode (logged-only) when Meta credentials are missing.
+    """
+    if user.role not in ("admin", "staff", "franchise_owner"):
+        raise HTTPException(status_code=403, detail="Admin/staff only")
+
+    doc = await server.db.mess_menu_orders.find_one({"order_id": payload.order_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if doc.get("kind") != "walk_in_kiosk":
+        raise HTTPException(status_code=400, detail="Not a kiosk order")
+
+    from whatsapp_cloud import send_kiosk_receipt
+
+    meal_service = f"{(doc.get('meal_type') or '').title()} · {(doc.get('service') or '').title()}".strip(" ·")
+    result = await send_kiosk_receipt(
+        server.db,
+        phone=payload.phone,
+        name=(payload.name or "").strip() or "Guest",
+        bill_no=str(doc.get("bill_no") or doc.get("order_id") or ""),
+        meal_service=meal_service or "Order",
+        qty=str(doc.get("qty") or 1),
+        total=str(doc.get("total") or 0),
+    )
+    if not result.get("ok"):
+        raise HTTPException(status_code=502, detail=result.get("detail") or "WhatsApp send failed")
+    return result

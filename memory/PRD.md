@@ -4,6 +4,17 @@
 
 
 
+## iter-136 — One-tap silent WhatsApp receipt (Meta Cloud API) + big Razorpay QR (2026-02-15)
+**Status: DONE — stub mode (creds required for live). Frontend and backend end-to-end wired.**
+
+- **One-tap WhatsApp send**: Kiosk staff no longer face a `wa.me` new-tab jump. Tapping "Send on WhatsApp" now POSTs to `/api/admin/kiosk/whatsapp/send-receipt`, which fires a Meta WhatsApp Cloud API utility template silently (`whatsapp_cloud.py`). Button shows loader → toast confirmation. Stub mode auto-engages when creds are missing (payload logged to `db.whatsapp_outbox`).
+- **Razorpay QR readability**: Removed the full-QR "Waiting for UPI…" white overlay that blocked scans. Replaced with a tiny top-right "POLLING" chip. QR itself bumped from 320px → 440px (capped at 80vw) for wall-kiosk 27" displays.
+- **Env**: `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_API_VERSION`, `WHATSAPP_TPL_RECEIPT`, `WHATSAPP_TPL_LANG` seeded blank in `/app/backend/.env`. Template must expect 5 body params: name, bill_no, meal·service, qty, total.
+
+Files touched: `/app/backend/whatsapp_cloud.py` (new), `/app/backend/routes/mess_menu_cal.py` (new endpoint), `/app/frontend/src/components/KioskReceiptModal.jsx`, `/app/frontend/src/components/admin-kiosk/KioskPaymentModal.jsx`, `/app/backend/.env`.
+
+
+
 ## iter-135 — Razorpay QR fix + kiosk WhatsApp receipt + bill numbering & reprint (2026-02-15)
 **Status: DONE — bug_testing_agent verdict `not_fixed` initially (2 minor UI copy issues fixed on retest self-verify).**
 
