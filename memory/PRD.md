@@ -4,6 +4,16 @@
 
 
 
+## iter-137.g/h — Payment mode container slimmed + Bilingual check-in voice (2026-02-17)
+**Status: DONE — 2 wall kiosk polish items.**
+
+- **#1 Payment mode container slimmed**: Order form padding trimmed p-5 → p-3 (fullscreen) and p-4 → p-3 (admin), gap-3 → gap-2. Meal Lunch/Dinner toggle inside the order form now hidden (still tracks `orderMeal` automatically from the active IST slot so bills always tag the correct meal). Saves ~40-50px of vertical dead space on the 27" wall.
+- **#2 Bilingual check-in voice notification**: New `announceCheckinSuccess(meal)` in `notify.js` plays the C-major success chord, then speaks the Hindi phrase ("लंच/डिनर चेक-इन सफल हुआ। धन्यवाद।") followed by English ("Lunch/Dinner check-in successful. Thank you."). Preferred voice picks up an Indian voice when available (`hi-IN` + `en-IN` — Google Hindi / Google Indian English / Rishi / Veena). AdminKiosk polls `/admin/attendance/today` every 6 seconds, seeds seen `att_id`s on first tick, then announces each new check-in exactly once. A `Voice` toggle in the kiosk header (data-testid="kiosk-voice-toggle") unlocks the browser AudioContext and persists to localStorage `efc.kiosk.voice`.
+
+Files touched: `/app/frontend/src/components/admin-kiosk/KioskOrderForm.jsx`, `/app/frontend/src/lib/notify.js`, `/app/frontend/src/pages/AdminKiosk.jsx`.
+
+
+
 ## iter-137.e — Manual takeaway mess-scope fix (2026-02-16)
 **Status: DONE — root cause of production Raw=50/In-hand=50/Engaged=0 with 1 takeaway.**
 

@@ -37,7 +37,9 @@ export default function KioskOrderForm({
   // the wall-kiosk fullscreen route where everything must be readable at ~5ft.
   const S = isFullscreen
     ? {
-        wrap: "rounded-3xl bg-white border border-black/8 p-5 flex flex-col gap-3 shadow-md text-foreground h-full",
+        // iter-137.g — tighter vertical footprint per user's request. p-5 → p-3,
+        // gap-3 → gap-2 shaves ~30px of dead space on the 27" wall kiosk.
+        wrap: "rounded-3xl bg-white border border-black/8 p-3 flex flex-col gap-2 shadow-md text-foreground h-full",
         mealBtn: "px-6 h-11 rounded-full text-base font-extrabold",
         svcBtn: "rounded-2xl px-3 py-4 text-lg font-extrabold border-2 gap-1.5",
         svcIcon: "h-6 w-6",
@@ -57,7 +59,7 @@ export default function KioskOrderForm({
         resetBtn: "text-muted-foreground hover:text-primary text-sm h-10",
       }
     : {
-        wrap: "rounded-2xl bg-white border border-black/8 p-4 flex flex-col gap-3 shadow-sm text-foreground",
+        wrap: "rounded-2xl bg-white border border-black/8 p-3 flex flex-col gap-2 shadow-sm text-foreground",
         mealBtn: "px-5 h-10 rounded-full text-sm font-extrabold",
         svcBtn: "rounded-xl px-2 py-3 text-sm font-extrabold border-2 gap-1",
         svcIcon: "h-5 w-5",
@@ -87,16 +89,14 @@ export default function KioskOrderForm({
 
   return (
     <div className={S.wrap} data-testid="kiosk-order-form">
+      {/* iter-137.g — meal toggle hidden per user request; `orderMeal` still
+          syncs automatically with the active IST slot so the correct meal is
+          always billed. Left in JSX (hidden) so slot-close logic keeps a
+          stable DOM anchor for existing e2e tests. */}
       {active.lunch && active.dinner && (
-        <div className={`inline-flex rounded-full bg-white ring-1 ring-primary/25 p-1 gap-1 shadow-sm ${isFullscreen ? "self-center" : "self-start"}`} data-testid="kiosk-order-meal-toggle">
-          <button type="button" onClick={() => setOrderMeal("lunch")} data-testid="kiosk-order-meal-lunch"
-            className={`${S.mealBtn} transition-all ${orderMeal === "lunch" ? "bg-white text-primary ring-2 ring-emerald-500 shadow" : "bg-white text-primary/50 opacity-70 cursor-not-allowed"}`}
-            disabled={orderMeal !== "lunch"}
-            title={orderMeal === "lunch" ? "Currently serving Lunch" : "Lunch slot closed — set by admin windows"}>Lunch</button>
-          <button type="button" onClick={() => setOrderMeal("dinner")} data-testid="kiosk-order-meal-dinner"
-            className={`${S.mealBtn} transition-all ${orderMeal === "dinner" ? "bg-white text-primary ring-2 ring-emerald-500 shadow" : "bg-white text-primary/50 opacity-70 cursor-not-allowed"}`}
-            disabled={orderMeal !== "dinner"}
-            title={orderMeal === "dinner" ? "Currently serving Dinner" : "Dinner slot closed — set by admin windows"}>Dinner</button>
+        <div className="hidden" aria-hidden data-testid="kiosk-order-meal-toggle">
+          <button type="button" onClick={() => setOrderMeal("lunch")} data-testid="kiosk-order-meal-lunch" disabled={orderMeal !== "lunch"}>Lunch</button>
+          <button type="button" onClick={() => setOrderMeal("dinner")} data-testid="kiosk-order-meal-dinner" disabled={orderMeal !== "dinner"}>Dinner</button>
         </div>
       )}
 

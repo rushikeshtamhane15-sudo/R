@@ -133,12 +133,50 @@ export function speak(text, opts = {}) {
     u.pitch = opts.pitch ?? 1.0;
     u.volume = opts.volume ?? 1.0;
     u.lang = opts.lang ?? "en-IN";
-    window.speechSynthesis.cancel(); // avoid pile-up
+    // iter-137.h — prefer an Indian voice (hi-IN / en-IN) when available so
+    // the wall kiosk sounds natural. Chrome/Edge on Windows ship "Google
+    // हिन्दी" and "Google Indian English"; iOS ships "Rishi" / "Veena".
+    try {
+      const voices = window.speechSynthesis.getVoices() || [];
+      const langPrefix = String(u.lang).split("-")[0];
+      const preferred = opts.voice
+        ? voices.find((v) => v.name === opts.voice)
+        : voices.find((v) => v.lang === u.lang)
+          || voices.find((v) => (v.lang || "").toLowerCase().startsWith(langPrefix + "-in"))
+          || voices.find((v) => /india|hindi|rishi|veena/i.test(v.name));
+      if (preferred) u.voice = preferred;
+    } catch { /* noop */ }
     window.speechSynthesis.speak(u);
     return true;
   } catch {
     return false;
   }
+}
+
+/** iter-137.h — Bilingual "meal check-in successful" announcement.
+ *  Plays the success chord first, then Hindi followed by English so the
+ *  wall kiosk audibly confirms each subscriber's attendance in both
+ *  languages. Voices default to hi-IN / en-IN.
+ *  `meal` — "lunch" | "dinner". */
+export function announceCheckinSuccess(meal = "lunch") {
+  const isDinner = String(meal).toLowerCase() === "dinner";
+  const hindi = isDinner
+    ? "डिनर चेक-इन सफल हुआ। धन्यवाद।"
+    : "लंच चेक-इन सफल हुआ। धन्यवाद।";
+  const english = isDinner ? "Dinner check-in successful. Thank you." : "Lunch check-in successful. Thank you.";
+  try {
+    playCheckinSuccess();
+  } catch { /* noop */ }
+  // Cancel any pending utterances so back-to-back scans don't queue up.
+  try { if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel(); } catch { /* noop */ }
+  // Chime lasts ~450ms. Give a short pause before the voice fires.
+  setTimeout(() => {
+    speak(hindi, { lang: "hi-IN", rate: 0.98, pitch: 1.0, volume: 1.0 });
+    // Chain English after the Hindi utterance finishes. speechSynthesis
+    // queues utterances FIFO, so we can just enqueue the English right
+    // after — it starts when the Hindi one ends.
+    speak(english, { lang: "en-IN", rate: 1.02, pitch: 1.0, volume: 1.0 });
+  }, 500);
 }
 
 /**

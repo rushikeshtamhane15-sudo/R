@@ -17,9 +17,10 @@ import { api } from "../lib/api";
 import { useBranding } from "../context/BrandingContext";
 import { Button } from "../components/ui/button";
 import { toast } from "sonner";
-import { ShoppingCart, Maximize2, Minimize2, Receipt, FileText, X } from "lucide-react";
+import { ShoppingCart, Maximize2, Minimize2, Receipt, FileText, Volume2, VolumeX, X } from "lucide-react";
 import KioskReceiptModal from "../components/KioskReceiptModal";
 import { connectBluetoothPrinter, isBluetoothSupported } from "../lib/bluetoothPrinter";
+import { unlockAudio, announceCheckinSuccess } from "../lib/notify";
 
 import KioskCounterPanel from "../components/admin-kiosk/KioskCounterPanel";
 import KioskMenuCard from "../components/admin-kiosk/KioskMenuCard";
@@ -212,6 +213,36 @@ export default function AdminKiosk() {
     } catch (e) { console.warn("[AdminKiosk] /counter/qr fetch failed", e); }
   }, [meal]);
   useEffect(() => { loadCounter(); const id = setInterval(loadCounter, 25_000); return () => clearInterval(id); }, [loadCounter]);
+  // iter-137.h — poll today's attendance every 6s; when a new att_id appears
+  // AND the voice toggle is on, play the bilingual "meal check-in successful"
+  // announcement. First tick just seeds the seen-set so we don't blast the
+  // whole day of history on page load.
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const r = await api.get("/admin/attendance/today");
+        const recs = (r.data && r.data.attendance) || [];
+        if (cancelled) return;
+        if (!attInitRef.current) {
+          for (const rec of recs) { if (rec.att_id) seenAttIdsRef.current.add(rec.att_id); }
+          attInitRef.current = true;
+          return;
+        }
+        // Newly appended records — announce (most recent first, but only 1
+        // per tick to avoid a queue of TTS if 3 people scan in the same window).
+        const fresh = recs.filter((rec) => rec.att_id && !seenAttIdsRef.current.has(rec.att_id));
+        for (const rec of fresh) seenAttIdsRef.current.add(rec.att_id);
+        if (fresh.length && voiceOn) {
+          const latest = fresh[0]; // sorted checked_at desc by server
+          try { announceCheckinSuccess(latest.meal_type || "lunch"); } catch { /* noop */ }
+        }
+      } catch { /* noop */ }
+    };
+    tick();
+    const id = setInterval(tick, 6_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [voiceOn]);
   // iter-134.e: 1-Hz local tick to power the "Refreshes in Ns" QR countdown pill.
   const [qrTick, setQrTick] = useState(0);
   useEffect(() => { const id = setInterval(() => setQrTick((t) => t + 1), 1000); return () => clearInterval(id); }, []);
@@ -246,6 +277,13 @@ export default function AdminKiosk() {
   const [reprintOpen, setReprintOpen] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [dailyReportOpen, setDailyReportOpen] = useState(false);
+  // iter-137.h — voice-alert toggle for the check-in announcer. Requires
+  // a real user gesture to unlock browser audio, hence a manual toggle.
+  const [voiceOn, setVoiceOn] = useState(() => {
+    try { return localStorage.getItem("efc.kiosk.voice") === "1"; } catch { return false; }
+  });
+  const seenAttIdsRef = useRef(new Set());
+  const attInitRef = useRef(false);
   const printedFor = useRef(new Set());
 
   const loadMenu = useCallback(async () => {
@@ -501,6 +539,32 @@ export default function AdminKiosk() {
               <p className={`font-display font-extrabold ${isFullscreenRoute ? "text-2xl sm:text-3xl" : "text-base sm:text-lg"}`}>Tap. Pay. Print.</p>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              const next = !voiceOn;
+              setVoiceOn(next);
+              try { localStorage.setItem("efc.kiosk.voice", next ? "1" : "0"); } catch { /* noop */ }
+              if (next) {
+                // The click IS the required user gesture — unlock the audio
+                // engine right now so the very first check-in speaks.
+                unlockAudio();
+                try { announceCheckinSuccess("lunch"); } catch { /* noop */ }
+                toast.success("Voice alerts enabled · Hindi + English");
+              } else {
+                toast.message("Voice alerts muted");
+              }
+            }}
+            className={`inline-flex items-center gap-1.5 rounded-full font-extrabold ${voiceOn ? "bg-emerald-500 text-white" : "bg-white/15 text-white hover:bg-white/25"} ${isFullscreenRoute ? "h-12 px-5 text-sm" : "h-9 px-3 text-xs"}`}
+            data-testid="kiosk-voice-toggle"
+            aria-pressed={voiceOn}
+            title={voiceOn ? "Voice alerts on · tap to mute" : "Tap to enable Hindi + English voice alerts"}
+          >
+            {voiceOn
+              ? <Volume2 className={isFullscreenRoute ? "h-4 w-4" : "h-3.5 w-3.5"} />
+              : <VolumeX className={isFullscreenRoute ? "h-4 w-4" : "h-3.5 w-3.5"} />}
+            {voiceOn ? "Voice ON" : "Voice"}
+          </button>
           <button
             type="button"
             onClick={() => setReprintOpen(true)}
