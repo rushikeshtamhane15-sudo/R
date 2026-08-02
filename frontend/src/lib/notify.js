@@ -124,14 +124,29 @@ export function playAlarm() {
   } catch { /* noop */ }
 }
 
+/** iter-137.j — persisted per-language voice preferences from
+ *  AdminVoiceSettings. Empty when nothing was chosen. */
+function _voicePrefs() {
+  try {
+    return {
+      hindi: localStorage.getItem("efc.voice.hi") || "",
+      english: localStorage.getItem("efc.voice.en") || "",
+      rate: Number(localStorage.getItem("efc.voice.rate") || "") || null,
+      pitch: Number(localStorage.getItem("efc.voice.pitch") || "") || null,
+      volume: Number(localStorage.getItem("efc.voice.volume") || "") || null,
+    };
+  } catch { return { hindi: "", english: "", rate: null, pitch: null, volume: null }; }
+}
+
 /** Speak a short phrase (English). Returns true if engine was available. */
 export function speak(text, opts = {}) {
   if (typeof window === "undefined" || !window.speechSynthesis) return false;
   try {
+    const prefs = _voicePrefs();
     const u = new SpeechSynthesisUtterance(text);
-    u.rate = opts.rate ?? 1.05;
-    u.pitch = opts.pitch ?? 1.0;
-    u.volume = opts.volume ?? 1.0;
+    u.rate = opts.rate ?? prefs.rate ?? 1.05;
+    u.pitch = opts.pitch ?? prefs.pitch ?? 1.0;
+    u.volume = opts.volume ?? prefs.volume ?? 1.0;
     u.lang = opts.lang ?? "en-IN";
     // iter-137.h — prefer an Indian voice (hi-IN / en-IN) when available so
     // the wall kiosk sounds natural. Chrome/Edge on Windows ship "Google
@@ -139,8 +154,11 @@ export function speak(text, opts = {}) {
     try {
       const voices = window.speechSynthesis.getVoices() || [];
       const langPrefix = String(u.lang).split("-")[0];
-      const preferred = opts.voice
-        ? voices.find((v) => v.name === opts.voice)
+      const pinned = opts.voice
+        || (langPrefix === "hi" ? prefs.hindi : "")
+        || (langPrefix === "en" ? prefs.english : "");
+      const preferred = pinned
+        ? voices.find((v) => v.name === pinned)
         : voices.find((v) => v.lang === u.lang)
           || voices.find((v) => (v.lang || "").toLowerCase().startsWith(langPrefix + "-in"))
           || voices.find((v) => /india|hindi|rishi|veena/i.test(v.name));
@@ -227,3 +245,21 @@ export function playCustomSound() {
     return false;
   }
 }
+
+/** iter-137.j — Return the list of available Web Speech API voices, awaiting
+ *  the async voice-load event on Chrome (voices are populated after a
+ *  microtask on first call). Returns an empty array on unsupported browsers. */
+export async function listVoicesAsync() {
+  if (typeof window === "undefined" || !window.speechSynthesis) return [];
+  const speech = window.speechSynthesis;
+  const now = speech.getVoices() || [];
+  if (now.length) return now;
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => { if (done) return; done = true; resolve(speech.getVoices() || []); };
+    speech.addEventListener?.("voiceschanged", finish, { once: true });
+    // Fallback in case voiceschanged never fires (Safari, older FF).
+    setTimeout(finish, 800);
+  });
+}
+

@@ -4,6 +4,18 @@
 
 
 
+## iter-137.j — Admin Voice Preview & Tuning widget (2026-02-17)
+**Status: DONE — new admin page.**
+
+- New route: `/admin/voice-settings` (nav entry under "Operations · Kiosk voice", accessible to admin/staff/franchise_owner).
+- Lists all installed Web Speech API voices grouped by language (Hindi and English), lets admins pin the exact voice per language, tune rate/pitch/volume via live sliders, and hear both single-language previews AND the full bilingual check-in announcement (chord + Hindi + English) with a custom test name.
+- Preferences persist to localStorage (`efc.voice.hi/en/rate/pitch/volume`). `announceCheckinSuccess()` and `speak()` in `notify.js` now read those keys automatically so the wall kiosk picks them up instantly — no restart required.
+- Guidance shown when no Hindi voice is detected (Windows / Android install steps).
+
+Files touched: `/app/frontend/src/pages/AdminVoiceSettings.jsx` (new), `/app/frontend/src/lib/notify.js`, `/app/frontend/src/App.js`, `/app/frontend/src/components/AdminLayout.jsx`.
+
+
+
 ## iter-137.g/h — Payment mode container slimmed + Bilingual check-in voice (2026-02-17)
 **Status: DONE — 2 wall kiosk polish items.**
 

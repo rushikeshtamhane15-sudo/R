@@ -77,6 +77,7 @@ import AdminCashCollections from "./pages/AdminCashCollections";
 import AdminPartialPayments from "./pages/AdminPartialPayments";
 import AdminCashAnalytics from "./pages/AdminCashAnalytics";
 import AdminKitchenSettings from "./pages/AdminKitchenSettings";
+import AdminVoiceSettings from "./pages/AdminVoiceSettings";
 import AdminMesses from "./pages/AdminMesses";
 import AdminRestaurantHours from "./pages/AdminRestaurantHours";
 import AdminWalletTopup from "./pages/AdminWalletTopup";
@@ -202,6 +203,7 @@ function AppRoutes() {
             <Route path="cash-collections" element={<AdminCashCollections />} />
             <Route path="cash-analytics" element={<AdminCashAnalytics />} />
             <Route path="kitchen-settings" element={<AdminKitchenSettings />} />
+            <Route path="voice-settings" element={<AdminVoiceSettings />} />
             <Route path="partial-payments" element={<AdminPartialPayments />} />
             <Route path="theme" element={<AdminTheme />} />
             <Route path="landing" element={<AdminLanding />} />
