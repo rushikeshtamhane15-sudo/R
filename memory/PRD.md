@@ -4,6 +4,18 @@
 
 
 
+## iter-137.c/d — Tiffin math bug fix + Day toggle relocation (2026-02-16)
+**Status: DONE — 2 targeted fixes.**
+
+- **#1 Tiffin Raw-inflation bug (P1)**: Root cause — `add_manual_tiffin_pendency` was creating a pendency row without decrementing `quantity`, and the `tiffin_stock` GET then silently inflated `lifetime_purchases` via `fallback_total = quantity + engaged + broken` to hide the drift. Result: user's real Raw=50 was displayed as Raw=51 when 1 takeaway was engaged. Fix (a) removed the fallback inflation — Raw now equals `lifetime_purchases − broken_total` purely, so a new pendency without a stock decrement is visibly flagged in the reconciliation footer. Fix (b) manual pendency now calls `decrement_stock_db(count)` so future takeaways correctly drop in-hand from 50 → 49.
+- **#2 Day toggle relocation (P2)**: Removed the Today/Tomorrow toggle from the "Wall kiosk · self-order" section header. Placed it centered above the mess-menu container on both admin and fullscreen kiosk views. Uses white pill on primary text for the active tab; keeps the same `data-testid="kiosk-day-toggle"` / `kiosk-day-today` / `kiosk-day-tomorrow`.
+
+Files touched: `/app/backend/routes/tiffin_stock.py`, `/app/backend/routes/app_cms.py`, `/app/frontend/src/pages/AdminKiosk.jsx`.
+
+Historical drift note: if the reconciliation footer flags "⚠ drift" for existing rows on live, admins can either use Manual Adjust to align in-hand or collect the outstanding pendency via `/admin/restaurant/takeaway-pendency/collect` — that will bump in-hand back and the drift vanishes.
+
+
+
 ## iter-137 — Kiosk day-report, Reprint WhatsApp, Purity strip, Optional name, Tiffin stock re-model (2026-02-15)
 **Status: DONE — testing agent 100% backend + 100% frontend, no regressions.**
 
