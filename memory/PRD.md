@@ -4,6 +4,21 @@
 
 
 
+## iter-137.k — PWA cache invalidation fix (production blank page) (2026-02-17)
+**Status: DONE — root cause of the blank /admin/kiosk on production.**
+
+Root cause: the service-worker `VERSION` string had been frozen at `v3-iter55` for months. Every production deploy since shipped fresh hashed JS bundles under the same cache keys, so old clients that had already registered the SW served a stale mix of new index.html referencing bundles that no longer matched, producing a blank React root. Additionally the `activate` handler only deleted caches missing from the whitelist — meaning same-key caches were never invalidated on updates.
+
+Fixes:
+- `public/service-worker.js` — bumped `VERSION` to `v4-iter137j` and switched activate() to delete every cache key that doesn't end with the current VERSION suffix. Guarantees a clean slate on future deploys as long as we bump VERSION per release.
+- `src/lib/sw-register.js` — added `reg.update()` on every page load so stale clients (Chrome's default is a 24h passive poll) actively check for new SW versions on each visit and update within seconds.
+
+Files touched: `/app/frontend/public/service-worker.js`, `/app/frontend/src/lib/sw-register.js`.
+
+**Recovery path for stuck production users**: (1) push a fresh deploy so the new SW+bundles land; (2) users' next page load fetches the updated SW, installs it, calls `skipWaiting()` + `clients.claim()`, then the `controllerchange` listener force-reloads the tab once — app comes back live. No manual "clear site data" needed.
+
+
+
 ## iter-137.j — Admin Voice Preview & Tuning widget (2026-02-17)
 **Status: DONE — new admin page.**
 

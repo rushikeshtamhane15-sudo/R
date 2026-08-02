@@ -11,7 +11,7 @@
  * - Everything else (third-party, /api, POST/PUT/DELETE): pass-through.
  */
 
-const VERSION = "v3-iter55";
+const VERSION = "v4-iter137j";
 const APP_SHELL = `efoodcare-shell-${VERSION}`;
 const STATIC = `efoodcare-static-${VERSION}`;
 const PRECACHE = ["/", "/index.html", "/manifest.webmanifest"];
@@ -31,10 +31,16 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
+      // iter-137.k — nuke ALL caches whose keys don't include the current
+      // VERSION string. Prior activate() logic only cleared caches missing
+      // from the whitelist, which meant a stale service-worker.js identical
+      // in content (but with tree-changed bundles) would silently serve a
+      // broken mix of old + new hashed JS. Version-scoped keys guarantee a
+      // clean slate whenever VERSION is bumped.
       const keys = await caches.keys();
       await Promise.all(
         keys
-          .filter((k) => ![APP_SHELL, STATIC].includes(k))
+          .filter((k) => !k.endsWith(VERSION))
           .map((k) => caches.delete(k))
       );
       await self.clients.claim();

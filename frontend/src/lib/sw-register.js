@@ -15,6 +15,12 @@ export function registerSW() {
       .register("/service-worker.js")
       .then((reg) => {
         if (!reg) return;
+        // iter-137.k — force an update check on every page load so a stale
+        // client that never spontaneously polls (Chrome checks every ~24h
+        // otherwise) picks up new deploys within seconds. This is critical
+        // when production ships a bug-fix and users are stuck on a broken
+        // cached bundle.
+        try { reg.update(); } catch { /* non-critical */ }
         // Listen for an installing worker AFTER the current one is already active.
         reg.addEventListener("updatefound", () => {
           const sw = reg.installing;
