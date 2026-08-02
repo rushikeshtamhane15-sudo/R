@@ -4,6 +4,17 @@
 
 
 
+## iter-137.e — Manual takeaway mess-scope fix (2026-02-16)
+**Status: DONE — root cause of production Raw=50/In-hand=50/Engaged=0 with 1 takeaway.**
+
+Root cause: my earlier iter-137.c decrement scoped the stock update to the admin's OWN `user.mess_id` (`active:{admin.mess_id}`) while the UI display + topup default to the global `LEGACY_KEY`. Two different stock documents — the decrement landed on a phantom mess-scoped doc so the "HQ · all branches" dashboard never saw it drop.
+
+Fix: both manual pendency add (`/admin/restaurant/takeaway-pendency/manual`) and collect (`/admin/restaurant/takeaway-pendency/collect`) now use the SAME `_resolve_target_mess(user, None)` helper as `topup()`. Admin/staff → global (LEGACY_KEY). Franchise_owner → their own mess. In-hand now correctly drops on manual pendency and returns to the same doc on collect.
+
+Files touched: `/app/backend/routes/app_cms.py` (both `add_manual_takeaway` and `collect_takeaway`).
+
+
+
 ## iter-137.c/d — Tiffin math bug fix + Day toggle relocation (2026-02-16)
 **Status: DONE — 2 targeted fixes.**
 

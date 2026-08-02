@@ -261,19 +261,23 @@ async def collect_takeaway(payload: CollectTakeaway, user: server.User = Depends
             {"user_id": rec["user_id"], "tiffin_balance": {"$gte": n}},
             {"$inc": {"tiffin_balance": -n}},
         )
-    # iter-131.30: physical steel-tiffin stock sync — customer just returned
-    # the tiffin, add back to the branch's physical inventory.
+    # iter-131.30 + iter-137.e: physical steel-tiffin stock sync — customer
+    # returned the tiffin, add back to inventory. Uses the same mess-scope
+    # resolver as topup so the increment lands on the SAME stock doc admins
+    # see on the dashboard (LEGACY_KEY / global for admin, franchise's own
+    # mess for franchise_owner). For manual pendency (user_id=None) this
+    # ensures we don't accidentally target a phantom mess.
     if n > 0:
         try:
-            from routes.tiffin_stock import increment_stock_db
-            u = await server.db.users.find_one({"user_id": rec.get("user_id")}, {"_id": 0, "mess_id": 1}) or {}
+            from routes.tiffin_stock import increment_stock_db, _resolve_target_mess
+            target_mess = await _resolve_target_mess(user, None)
             await increment_stock_db(
                 server.db,
                 count=n,
                 reason=f"Take-away return · pendency {payload.pendency_id}",
                 source="takeaway_collected",
                 user_id=rec.get("user_id"),
-                mess_id=u.get("mess_id"),
+                mess_id=target_mess,
             )
         except Exception as e:  # noqa: BLE001
             server.logger.warning(f"[collect_takeaway] tiffin_stock increment failed · {e}")
@@ -515,20 +519,21 @@ async def add_manual_takeaway(payload: ManualTakeaway, user: server.User = Depen
         "added_by": user.user_id,
     }
     await server.db.restaurant_tiffin_pendency.insert_one(doc)
-    # iter-137.c — manual takeaway pendency now decrements physical in-hand
-    # so the tiffin-stock invariant Raw = In-hand + Engaged (with Engaged
-    # derived as Raw − In-hand) holds cleanly. Comes back on mark_collected.
+    # iter-137.c/e — manual takeaway pendency decrements physical in-hand so
+    # the invariant Raw = In-hand + Engaged holds. Uses the SAME mess-scope
+    # resolver as topup (`_resolve_target_mess`) — otherwise admin scope
+    # (`active:{admin.mess_id}`) mismatches topup's LEGACY_KEY (global) and
+    # the drop is invisible on the shared "HQ · all branches" dashboard.
     try:
-        from routes.tiffin_stock import decrement_stock_db
-        # Resolve mess scope: fall back to the admin's mess_id (multi-branch safe).
-        admin_doc = await server.db.users.find_one({"user_id": user.user_id}, {"_id": 0, "mess_id": 1}) or {}
+        from routes.tiffin_stock import decrement_stock_db, _resolve_target_mess
+        target_mess = await _resolve_target_mess(user, None)
         await decrement_stock_db(
             server.db,
             count=int(payload.tiffin_count),
             reason=f"Manual take-away pendency · {payload.name.strip()[:60]}",
             source="takeaway_manual",
             user_id=user.user_id,
-            mess_id=admin_doc.get("mess_id"),
+            mess_id=target_mess,
         )
     except Exception as e:  # noqa: BLE001
         server.logger.warning(f"[CMS] manual pendency stock decrement failed · {e}")
