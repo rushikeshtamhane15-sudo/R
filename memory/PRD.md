@@ -4,6 +4,20 @@
 
 
 
+## iter-137 — Kiosk day-report, Reprint WhatsApp, Purity strip, Optional name, Tiffin stock re-model (2026-02-15)
+**Status: DONE — testing agent 100% backend + 100% frontend, no regressions.**
+
+- **Send-by-Bill WhatsApp** — Reprint dialog rows now expose an inline phone input + WhatsApp button that hits `/api/admin/kiosk/whatsapp/send-receipt` for that specific bill.
+- **Kiosk Daily Cash Report** — New `GET /api/admin/kiosk/daily-report` + `KioskDailyReportDialog` (accessible via "Day report" button in kiosk header). Tallies bill count, cash/UPI collected + pending, meal & service split, per-staff cash-in-hand breakdown, top 5 bills. Prints as an 80mm thermal-shaped summary.
+- **Meal-toggle spacing** — bumped `mb-4` → `mb-8` between the meal toggle and counter QR for breathing room.
+- **Optional customer name** — `KioskOrderForm` now has an optional "Customer name" input. When filled, it's stored on the order and prints as `Name: <value>` on the receipt (omitted otherwise).
+- **Purity strip** — Permanent bottom row on both admin & fullscreen kiosk showing four pills: `0% Ajinomoto · 0% Maida · 0% Palm or Refined Oil Meal · 100% Pure Veg Meal`.
+- **Tiffin Stock re-model (operator mental model)** — 4 tiles: Raw (owned) · In-hand (kitchen) · Engaged (raw − in-hand, with sub-line X on-delivery · Y takeaway) · Shortage for next run (auto-derived from active tiffin-sub count for the next IST slot). New emerald "Log empty return" action posts to `POST /api/admin/tiffin-stock/collect-empties` — increments in-hand, engaged auto drops. Movement recorded with `kind: "return"` (distinct from purchase top-up so lifetime_purchases stays clean).
+
+Files touched: `/app/backend/routes/mess_menu_cal.py`, `/app/backend/routes/tiffin_stock.py`, `/app/frontend/src/pages/AdminKiosk.jsx`, `/app/frontend/src/pages/AdminTiffinStock.jsx`, `/app/frontend/src/components/admin-kiosk/KioskCounterPanel.jsx`, `/app/frontend/src/components/admin-kiosk/KioskOrderForm.jsx`, `/app/frontend/src/components/admin-kiosk/KioskReprintDialog.jsx`, `/app/frontend/src/components/admin-kiosk/KioskDailyReportDialog.jsx` (new), `/app/frontend/src/components/KioskReceiptModal.jsx`.
+
+
+
 ## iter-136 — One-tap silent WhatsApp receipt (Meta Cloud API) + big Razorpay QR (2026-02-15)
 **Status: DONE — stub mode (creds required for live). Frontend and backend end-to-end wired.**
 

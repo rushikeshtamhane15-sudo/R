@@ -599,7 +599,7 @@ export default function AdminKiosk() {
         {[
           "0% Ajinomoto",
           "0% Maida",
-          "0% Palm / Refined Oil",
+          "0% Palm or Refined Oil Meal",
           "100% Pure Veg Meal",
         ].map((t) => (
           <span
