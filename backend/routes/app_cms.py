@@ -515,6 +515,23 @@ async def add_manual_takeaway(payload: ManualTakeaway, user: server.User = Depen
         "added_by": user.user_id,
     }
     await server.db.restaurant_tiffin_pendency.insert_one(doc)
+    # iter-137.c — manual takeaway pendency now decrements physical in-hand
+    # so the tiffin-stock invariant Raw = In-hand + Engaged (with Engaged
+    # derived as Raw − In-hand) holds cleanly. Comes back on mark_collected.
+    try:
+        from routes.tiffin_stock import decrement_stock_db
+        # Resolve mess scope: fall back to the admin's mess_id (multi-branch safe).
+        admin_doc = await server.db.users.find_one({"user_id": user.user_id}, {"_id": 0, "mess_id": 1}) or {}
+        await decrement_stock_db(
+            server.db,
+            count=int(payload.tiffin_count),
+            reason=f"Manual take-away pendency · {payload.name.strip()[:60]}",
+            source="takeaway_manual",
+            user_id=user.user_id,
+            mess_id=admin_doc.get("mess_id"),
+        )
+    except Exception as e:  # noqa: BLE001
+        server.logger.warning(f"[CMS] manual pendency stock decrement failed · {e}")
     return {"ok": True, "pendency_id": pid}
 
 

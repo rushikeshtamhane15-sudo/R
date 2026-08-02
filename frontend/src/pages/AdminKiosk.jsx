@@ -501,10 +501,6 @@ export default function AdminKiosk() {
               <p className={`font-display font-extrabold ${isFullscreenRoute ? "text-2xl sm:text-3xl" : "text-base sm:text-lg"}`}>Tap. Pay. Print.</p>
             </div>
           </div>
-          <div className="inline-flex bg-white/12 rounded-full p-1 gap-1" data-testid="kiosk-day-toggle">
-            <button type="button" onClick={() => setTab("today")} className={`rounded-full font-extrabold ${isFullscreenRoute ? "px-6 h-12 text-base" : "px-4 h-9 text-xs"} ${tab === "today" ? "bg-white text-black" : "text-white/80"}`} data-testid="kiosk-day-today">Today</button>
-            <button type="button" onClick={() => setTab("tomorrow")} className={`rounded-full font-extrabold ${isFullscreenRoute ? "px-6 h-12 text-base" : "px-4 h-9 text-xs"} ${tab === "tomorrow" ? "bg-white text-black" : "text-white/80"}`} data-testid="kiosk-day-tomorrow">Tomorrow</button>
-          </div>
           <button
             type="button"
             onClick={() => setReprintOpen(true)}
@@ -544,7 +540,25 @@ export default function AdminKiosk() {
           )}
         </div>
 
-        <div className={`flex-1 p-4 grid gap-3 overflow-auto min-h-0 ${isFullscreenRoute ? "grid-cols-1 grid-rows-[auto_1fr]" : "sm:grid-cols-[3fr_2fr] items-start"}`}>
+        <div className={`flex-1 p-4 grid gap-3 overflow-auto min-h-0 ${isFullscreenRoute ? "grid-cols-1 grid-rows-[auto_auto_1fr]" : "sm:grid-cols-[3fr_2fr] items-start"}`}>
+          {/* iter-137.d — day toggle relocated above the mess-menu container,
+              centred. Removed from the self-order header per user's request. */}
+          <div className={`${isFullscreenRoute ? "col-span-full" : "sm:col-span-2"} flex justify-center`}>
+            <div className="inline-flex bg-white/12 rounded-full p-1 gap-1 shadow-sm ring-1 ring-white/20" data-testid="kiosk-day-toggle">
+              <button
+                type="button"
+                onClick={() => setTab("today")}
+                className={`rounded-full font-extrabold ${isFullscreenRoute ? "px-8 h-12 text-base" : "px-5 h-9 text-xs"} ${tab === "today" ? "bg-white text-primary shadow" : "text-white/80"}`}
+                data-testid="kiosk-day-today"
+              >Today</button>
+              <button
+                type="button"
+                onClick={() => setTab("tomorrow")}
+                className={`rounded-full font-extrabold ${isFullscreenRoute ? "px-8 h-12 text-base" : "px-5 h-9 text-xs"} ${tab === "tomorrow" ? "bg-white text-primary shadow" : "text-white/80"}`}
+                data-testid="kiosk-day-tomorrow"
+              >Tomorrow</button>
+            </div>
+          </div>
           <KioskMenuCard active={active} activeDate={activeDate} tab={tab} cfg={cfg} isFullscreen={isFullscreenRoute} mealSlots={mealSlots} />
           <KioskOrderForm
             active={active}

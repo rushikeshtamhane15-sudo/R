@@ -215,8 +215,11 @@ async def get_state(mess_id: Optional[str] = None, user: server.User = Depends(s
             broken_total += abs(int(row.get("delta") or 0))
     except Exception:
         broken_total = 0
-    fallback_total = int(st["quantity"]) + engaged + broken_total
-    st["lifetime_purchases"] = max(lifetime_purchases, fallback_total)
+    # iter-137.b (fix) — Raw is a PURE bookkeeping figure: what we've ever
+    # bought minus what we've written off. It does NOT get inflated to hide
+    # in-flight drift; if pendency > 0 but in-hand hasn't been decremented,
+    # the reconciliation footer flags it as drift so the admin can adjust.
+    st["lifetime_purchases"] = lifetime_purchases
     st["broken_total"] = broken_total
     # iter-137.b — user's four-tile mental model:
     #   raw_tiffins   = total physical inventory currently owned
