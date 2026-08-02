@@ -153,17 +153,25 @@ export function speak(text, opts = {}) {
   }
 }
 
-/** iter-137.h — Bilingual "meal check-in successful" announcement.
+/** iter-137.h/i — Bilingual "meal check-in successful" announcement.
  *  Plays the success chord first, then Hindi followed by English so the
  *  wall kiosk audibly confirms each subscriber's attendance in both
  *  languages. Voices default to hi-IN / en-IN.
- *  `meal` — "lunch" | "dinner". */
-export function announceCheckinSuccess(meal = "lunch") {
+ *  `meal` — "lunch" | "dinner".
+ *  `name` — optional subscriber first name so the announcement can be
+ *          personalised: "Rushikesh, dinner check-in successful". */
+export function announceCheckinSuccess(meal = "lunch", name = "") {
   const isDinner = String(meal).toLowerCase() === "dinner";
+  // Use only the first word so long full-names don't slow the read.
+  const first = String(name || "").trim().split(/\s+/)[0] || "";
+  const hindiPrefix = first ? `${first}, ` : "";
+  const englishPrefix = first ? `${first}, ` : "";
   const hindi = isDinner
-    ? "डिनर चेक-इन सफल हुआ। धन्यवाद।"
-    : "लंच चेक-इन सफल हुआ। धन्यवाद।";
-  const english = isDinner ? "Dinner check-in successful. Thank you." : "Lunch check-in successful. Thank you.";
+    ? `${hindiPrefix}डिनर चेक-इन सफल हुआ। धन्यवाद।`
+    : `${hindiPrefix}लंच चेक-इन सफल हुआ। धन्यवाद।`;
+  const english = isDinner
+    ? `${englishPrefix}Dinner check-in successful. Thank you.`
+    : `${englishPrefix}Lunch check-in successful. Thank you.`;
   try {
     playCheckinSuccess();
   } catch { /* noop */ }

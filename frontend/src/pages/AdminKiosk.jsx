@@ -235,7 +235,7 @@ export default function AdminKiosk() {
         for (const rec of fresh) seenAttIdsRef.current.add(rec.att_id);
         if (fresh.length && voiceOn) {
           const latest = fresh[0]; // sorted checked_at desc by server
-          try { announceCheckinSuccess(latest.meal_type || "lunch"); } catch { /* noop */ }
+          try { announceCheckinSuccess(latest.meal_type || "lunch", latest.subscriber_name || ""); } catch { /* noop */ }
         }
       } catch { /* noop */ }
     };
