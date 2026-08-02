@@ -540,25 +540,10 @@ export default function AdminKiosk() {
           )}
         </div>
 
-        <div className={`flex-1 p-4 grid gap-3 overflow-auto min-h-0 ${isFullscreenRoute ? "grid-cols-1 grid-rows-[auto_auto_1fr]" : "sm:grid-cols-[3fr_2fr] items-start"}`}>
-          {/* iter-137.d — day toggle relocated above the mess-menu container,
-              centred. Removed from the self-order header per user's request. */}
-          <div className={`${isFullscreenRoute ? "col-span-full" : "sm:col-span-2"} flex justify-center`}>
-            <div className="inline-flex bg-white/12 rounded-full p-1 gap-1 shadow-sm ring-1 ring-white/20" data-testid="kiosk-day-toggle">
-              <button
-                type="button"
-                onClick={() => setTab("today")}
-                className={`rounded-full font-extrabold ${isFullscreenRoute ? "px-8 h-12 text-base" : "px-5 h-9 text-xs"} ${tab === "today" ? "bg-white text-primary shadow" : "text-white/80"}`}
-                data-testid="kiosk-day-today"
-              >Today</button>
-              <button
-                type="button"
-                onClick={() => setTab("tomorrow")}
-                className={`rounded-full font-extrabold ${isFullscreenRoute ? "px-8 h-12 text-base" : "px-5 h-9 text-xs"} ${tab === "tomorrow" ? "bg-white text-primary shadow" : "text-white/80"}`}
-                data-testid="kiosk-day-tomorrow"
-              >Tomorrow</button>
-            </div>
-          </div>
+        <div className={`flex-1 p-4 grid gap-3 overflow-auto min-h-0 ${isFullscreenRoute ? "grid-cols-1 grid-rows-[auto_1fr]" : "sm:grid-cols-[3fr_2fr] items-start"}`}>
+          {/* iter-137.d/f — day toggle removed per user's request. `tab` state
+              is retained (defaults to "today") so KioskMenuCard/OrderForm
+              keep their existing prop shape without a broader refactor. */}
           <KioskMenuCard active={active} activeDate={activeDate} tab={tab} cfg={cfg} isFullscreen={isFullscreenRoute} mealSlots={mealSlots} />
           <KioskOrderForm
             active={active}
