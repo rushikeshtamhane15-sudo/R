@@ -213,6 +213,13 @@ export default function AdminKiosk() {
     } catch (e) { console.warn("[AdminKiosk] /counter/qr fetch failed", e); }
   }, [meal]);
   useEffect(() => { loadCounter(); const id = setInterval(loadCounter, 25_000); return () => clearInterval(id); }, [loadCounter]);
+  // iter-137.h — voice-alert toggle (state hoisted above the polling effect
+  // so JS TDZ doesn't fire when the effect factory reads `voiceOn`).
+  const [voiceOn, setVoiceOn] = useState(() => {
+    try { return localStorage.getItem("efc.kiosk.voice") === "1"; } catch { return false; }
+  });
+  const seenAttIdsRef = useRef(new Set());
+  const attInitRef = useRef(false);
   // iter-137.h — poll today's attendance every 6s; when a new att_id appears
   // AND the voice toggle is on, play the bilingual "meal check-in successful"
   // announcement. First tick just seeds the seen-set so we don't blast the
@@ -277,13 +284,6 @@ export default function AdminKiosk() {
   const [reprintOpen, setReprintOpen] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [dailyReportOpen, setDailyReportOpen] = useState(false);
-  // iter-137.h — voice-alert toggle for the check-in announcer. Requires
-  // a real user gesture to unlock browser audio, hence a manual toggle.
-  const [voiceOn, setVoiceOn] = useState(() => {
-    try { return localStorage.getItem("efc.kiosk.voice") === "1"; } catch { return false; }
-  });
-  const seenAttIdsRef = useRef(new Set());
-  const attInitRef = useRef(false);
   const printedFor = useRef(new Set());
 
   const loadMenu = useCallback(async () => {

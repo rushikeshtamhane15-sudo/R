@@ -4,6 +4,22 @@
 
 
 
+## iter-137.n — TDZ crash on AdminKiosk fixed (2026-02-18)
+**Status: DONE — the LAST piece of the wall-kiosk blank-screen puzzle.**
+
+Root cause: in iter-137.h I added a polling `useEffect` at line 220 that referenced `voiceOn` in its body + dependency array, but the `voiceOn` `useState` declaration sat at line 282 (after other state). During each initial render the effect closure captured `voiceOn` via lexical scope, which threw `ReferenceError: Cannot access 'voiceOn' before initialization` (temporal dead zone) — React caught it and unmounted the entire kiosk tree, leaving a blank page.
+
+Fix: hoisted the `voiceOn` state and the two attendance-poll refs (`seenAttIdsRef`, `attInitRef`) to sit ABOVE the polling `useEffect`, removed the duplicate declarations further down. `CI=true yarn build` now completes with zero errors; preview loads the AdminKiosk splash successfully.
+
+Files touched: `/app/frontend/src/pages/AdminKiosk.jsx`.
+
+Full production recovery sequence for the user:
+1. Deploy (production build now compiles because iter-137.m fixed the CI-warnings-as-errors chain).
+2. The new bundle NO LONGER crashes because this iter-137.n TDZ bug is fixed.
+3. Users' service worker registers the new VERSION (auto-stamped via iter-137.l), purges the stale caches, and loads the fresh app.
+
+
+
 ## iter-137.m — 🔥 ROOT CAUSE: production deploys were silently failing (2026-02-18)
 **Status: DONE — the actual reason the wall kiosk has been blank on production.**
 
