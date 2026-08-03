@@ -4,6 +4,18 @@
 
 
 
+## iter-137.l — Git-SHA SW stamper + Emergency recovery page (2026-02-18)
+**Status: DONE — permanent PWA cache-invalidation loop + user escape hatch.**
+
+- **Auto-versioned service worker**: new `frontend/scripts/stamp-sw-version.js` runs before every `craco build` (chained via `package.json → build`). It rewrites `public/service-worker.js`'s `const VERSION = "..."` line to `v-<git-short-sha>` (falling back to `REACT_APP_BUILD_SHA` env or a base36 timestamp when git isn't available in the build image). Every production deploy now ships a UNIQUE VERSION, guaranteeing the SW `activate()` handler purges all older caches (keys are VERSION-suffixed). No more manual version bumps.
+- **`/recover.html` emergency page**: new static plain-HTML page that unregisters every registered service worker, deletes every Cache Storage bucket, and clears localStorage + sessionStorage. Kept as a raw HTML file (no bundle) so it works even when the main SPA JS is broken. The SW's `fetch` handler now explicitly skips `/recover.html` so the network always serves the fresh page. Users stuck on a stale bundle can visit `https://efoodcare.in/recover.html` to escape.
+
+Files touched: `/app/frontend/scripts/stamp-sw-version.js` (new), `/app/frontend/public/recover.html` (new), `/app/frontend/package.json` (build chain), `/app/frontend/public/service-worker.js` (bypass /recover.html).
+
+**Verify locally**: `yarn build` → confirm `build/service-worker.js` has `const VERSION = "v-<sha>";` and `build/recover.html` exists.
+
+
+
 ## iter-137.k — PWA cache invalidation fix (production blank page) (2026-02-17)
 **Status: DONE — root cause of the blank /admin/kiosk on production.**
 

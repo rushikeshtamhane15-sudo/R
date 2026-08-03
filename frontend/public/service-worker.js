@@ -11,7 +11,7 @@
  * - Everything else (third-party, /api, POST/PUT/DELETE): pass-through.
  */
 
-const VERSION = "v4-iter137j";
+const VERSION = "v-6ecc2bc98209";
 const APP_SHELL = `efoodcare-shell-${VERSION}`;
 const STATIC = `efoodcare-static-${VERSION}`;
 const PRECACHE = ["/", "/index.html", "/manifest.webmanifest"];
@@ -63,6 +63,9 @@ self.addEventListener("fetch", (event) => {
 
   // Never touch backend or third-party origins.
   if (isApi(url) || url.origin !== self.location.origin) return;
+  // iter-137.l — /recover.html is a stateless escape hatch that MUST hit the
+  // network so it can unregister the SW that would otherwise trap the user.
+  if (url.pathname === "/recover.html" || url.pathname === "/recover") return;
 
   // App shell — network-first so we always serve fresh JS bundles when online.
   if (req.mode === "navigate") {

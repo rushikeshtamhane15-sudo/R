@@ -68,7 +68,7 @@
   },
   "scripts": {
     "start": "craco start",
-    "build": "craco build",
+    "build": "node scripts/stamp-sw-version.js && craco build",
     "test": "craco test",
     "lint": "eslint \"src/**/*.{js,jsx}\""
   },
