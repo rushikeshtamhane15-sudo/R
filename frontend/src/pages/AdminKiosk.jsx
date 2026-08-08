@@ -23,6 +23,7 @@ import { connectBluetoothPrinter, isBluetoothSupported } from "../lib/bluetoothP
 import { unlockAudio, announceCheckinSuccess } from "../lib/notify";
 
 import KioskCounterPanel from "../components/admin-kiosk/KioskCounterPanel";
+import KioskFaceScan from "../components/admin-kiosk/KioskFaceScan";
 import KioskMenuCard from "../components/admin-kiosk/KioskMenuCard";
 import KioskOrderForm from "../components/admin-kiosk/KioskOrderForm";
 import KioskPaymentModal from "../components/admin-kiosk/KioskPaymentModal";
@@ -527,6 +528,30 @@ export default function AdminKiosk() {
         slotCountdownEndsAt={slotCountdownEndsAt}
         qrRotateSeconds={qrRotateSeconds}
       />
+
+      {/* iter-138 — Face check-in preview strip. Only mounts when the admin
+          enables Voice (which is also the audio-unlock gesture required for
+          the bilingual announcer). Small overlay in a corner so it doesn't
+          steal focus from the counter QR. */}
+      {voiceOn && (
+        <div className={`pointer-events-none fixed z-40 ${isFullscreenRoute ? "bottom-4 right-4 w-64" : "bottom-3 right-3 w-56"}`}>
+          <div className="pointer-events-auto">
+            <KioskFaceScan
+              isFullscreen={isFullscreenRoute}
+              active={voiceOn}
+              onCheckin={(data) => {
+                try {
+                  announceCheckinSuccess(data.meal_type || meal || "lunch", data.subscriber_name || "");
+                } catch { /* noop */ }
+                // Seed the poller so it doesn't double-announce this scan.
+                if (data?.record?.att_id) {
+                  try { seenAttIdsRef.current.add(data.record.att_id); } catch { /* noop */ }
+                }
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       <section className="rounded-3xl border border-white/25 bg-black/45 backdrop-blur-sm overflow-hidden flex flex-col" data-testid="kiosk-order-panel">
         <div className="flex items-center justify-between px-5 py-2.5 border-b border-white/12">

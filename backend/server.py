@@ -2454,6 +2454,159 @@ async def self_scan(payload: SelfScanRequest, user: User = Depends(get_current_u
     }
 
 
+
+# ---- iter-138 · Face check-in on the wall kiosk -----------------------------
+# Face-api.js in the browser computes a 128-dim float embedding per selfie.
+# We store the user's canonical embedding when they enroll from Profile,
+# then the wall kiosk periodically sends a live embedding for the closest
+# match. Distances are Euclidean; a threshold of 0.6 is the community-
+# accepted "same person" boundary for face-api.js's descriptor model.
+
+class FaceEnrollIn(BaseModel):
+    embedding: List[float] = Field(..., description="128-dim face descriptor from face-api.js")
+
+
+class FaceCheckinIn(BaseModel):
+    embedding: List[float] = Field(..., description="Live 128-dim descriptor")
+    meal_type: Optional[str] = Field(default=None, description="Optional override; defaults to the currently-open IST slot")
+
+
+def _euclidean(a: List[float], b: List[float]) -> float:
+    n = min(len(a), len(b))
+    return sum((float(a[i]) - float(b[i])) ** 2 for i in range(n)) ** 0.5
+
+
+def _current_meal_slot_ist(slot_cfg: dict) -> Optional[str]:
+    """Return the currently-open meal slot per IST + admin config windows."""
+    def _hm(s):
+        try:
+            h, m = s.split(":"); return int(h) * 60 + int(m)
+        except Exception:
+            return None
+    now_ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+    now_min = now_ist.hour * 60 + now_ist.minute
+    for meal, default in (("lunch", {"start": "12:00", "end": "15:00"}),
+                          ("dinner", {"start": "19:00", "end": "22:00"})):
+        win = (slot_cfg or {}).get(meal) or default
+        s = _hm(win.get("start")); e = _hm(win.get("end"))
+        if s is not None and e is not None and s <= now_min <= e:
+            return meal
+    return None
+
+
+@api_router.post("/users/me/face-embedding")
+async def set_face_embedding(payload: FaceEnrollIn, user: User = Depends(get_current_user)):
+    """Store the user's canonical face descriptor. Idempotent overwrite."""
+    if len(payload.embedding) not in (128, 512):
+        raise HTTPException(status_code=400, detail="Embedding must be 128 floats (face-api.js) or 512 (deep model)")
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {
+            "face_embedding": [float(x) for x in payload.embedding],
+            "face_embedding_dim": len(payload.embedding),
+            "face_embedding_updated_at": iso(now_utc()),
+        }},
+    )
+    return {"ok": True, "dim": len(payload.embedding)}
+
+
+@api_router.delete("/users/me/face-embedding")
+async def clear_face_embedding(user: User = Depends(get_current_user)):
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$unset": {"face_embedding": "", "face_embedding_dim": "", "face_embedding_updated_at": ""}},
+    )
+    return {"ok": True}
+
+
+@api_router.get("/users/me/face-embedding")
+async def get_face_embedding_status(user: User = Depends(get_current_user)):
+    doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0, "face_embedding_dim": 1, "face_embedding_updated_at": 1})
+    return {
+        "enrolled": bool((doc or {}).get("face_embedding_dim")),
+        "updated_at": (doc or {}).get("face_embedding_updated_at"),
+    }
+
+
+@api_router.post("/kiosk/face-checkin")
+async def kiosk_face_checkin(payload: FaceCheckinIn, user: User = Depends(get_current_user)):
+    """Live wall-kiosk face match → attendance.
+    Only admin/staff/franchise_owner may call this (the wall kiosk runs
+    under such a session). Compares payload.embedding against every
+    subscriber's stored embedding, picks the closest match under threshold
+    0.6, and records an attendance row exactly like a QR scan would.
+    """
+    if user.role not in ("staff", "admin", "franchise_owner"):
+        raise HTTPException(status_code=403, detail="Kiosk-only endpoint")
+    if len(payload.embedding) not in (128, 512):
+        raise HTTPException(status_code=400, detail="Bad embedding shape")
+
+    # Determine meal slot
+    slot_cfg = (await db.admin_config.find_one({"_id": "meal_slots"}, {"_id": 0})) or {}
+    meal_type = (payload.meal_type or _current_meal_slot_ist(slot_cfg) or "").lower()
+    if meal_type not in ("lunch", "dinner"):
+        raise HTTPException(status_code=400, detail="No active meal slot right now")
+
+    # Load enrolled subscribers. Filter to those with an embedding of the
+    # SAME dimensionality (128 vs 512) so we compare apples to apples.
+    live_dim = len(payload.embedding)
+    cur = db.users.find(
+        {"face_embedding_dim": live_dim, "face_embedding": {"$exists": True}},
+        {"_id": 0, "user_id": 1, "name": 1, "face_embedding": 1, "profile_photo_url": 1},
+    )
+    best = None  # (distance, user_doc)
+    async for u in cur:
+        emb = u.get("face_embedding") or []
+        if len(emb) != live_dim:
+            continue
+        d = _euclidean(payload.embedding, emb)
+        if best is None or d < best[0]:
+            best = (d, u)
+
+    if best is None:
+        raise HTTPException(status_code=404, detail="No enrolled subscribers found")
+    distance, matched = best
+    # face-api.js community threshold ≈ 0.6. Auto-check-in only ≤ 0.5 to keep
+    # false positives low; borderline 0.5-0.6 rejects with a hint so the
+    # customer can retry.
+    STRICT = 0.50
+    LOOSE = 0.60
+    if distance > LOOSE:
+        raise HTTPException(status_code=404, detail=f"Face not recognised (distance {distance:.2f})")
+    if distance > STRICT:
+        return {
+            "ok": False,
+            "reason": "borderline",
+            "distance": round(distance, 3),
+            "candidate": {"user_id": matched["user_id"], "name": matched.get("name"), "profile_photo_url": matched.get("profile_photo_url")},
+        }
+
+    # Strong match — record attendance.
+    try:
+        record = await _mark_attendance(matched, meal_type, user.user_id, "kiosk_face")
+    except HTTPException as e:
+        # Bubble up domain errors (already checked in, off-window, etc.)
+        return {
+            "ok": False,
+            "reason": "attendance_blocked",
+            "detail": e.detail,
+            "distance": round(distance, 3),
+            "candidate": {"user_id": matched["user_id"], "name": matched.get("name"), "profile_photo_url": matched.get("profile_photo_url")},
+        }
+    sub_after = await get_active_subscription(matched["user_id"])
+    return {
+        "ok": True,
+        "record": record,
+        "meal_type": meal_type,
+        "distance": round(distance, 3),
+        "subscriber_name": matched.get("name"),
+        "subscriber_user_id": matched.get("user_id"),
+        "profile_photo_url": matched.get("profile_photo_url"),
+        "meals_left": (sub_after["meals_total"] - sub_after["meals_used"]) if sub_after else 0,
+    }
+
+
+
 @api_router.get("/counter/qr")
 async def counter_qr(meal: str = "lunch", location: str = "main", user: User = Depends(get_current_user)):
     if user.role not in ("staff", "admin", "franchise_owner"):

@@ -8,6 +8,7 @@ import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
 import { MapPin, User as UserIcon, Phone, CheckCircle2, Camera, Trash2, AlertTriangle, Receipt as ReceiptIcon, Wallet as WalletIcon, ScanLine as ScanLineIcon, Store as StoreIcon, Bike as BikeIcon, Info as InfoIcon, Fingerprint as FingerprintIcon, Phone as PhoneIcon, MessageCircle as MessageCircleIcon, Lock as LockIcon, RefreshCw as RefreshCwIcon, FileText as FileTextIcon, LogOut as LogOutIcon, ChevronRight as ChevronRightIcon, Pencil as PencilIcon, QrCode as QrCodeIcon, MapPin as MapPinIcon, Gift as GiftIcon, Banknote as BanknoteIcon, Star as StarIcon, Newspaper as NewspaperIcon, ChefHat as ChefHatIcon, Bell as BellIcon, SlidersHorizontal as SlidersIcon } from "lucide-react";
 import WalletPill from "../components/WalletPill";
+import FaceEnrollCard from "../components/FaceEnrollCard";
 import SEO from "../components/SEO";
 
 const MAX_DIM = 720;
@@ -306,6 +307,9 @@ export default function Profile() {
               rows={3}
               maxLength={300}
             />
+          </div>
+          <div className="px-4 pb-4">
+            <FaceEnrollCard />
           </div>
         </div>
 

@@ -4,6 +4,25 @@
 
 
 
+## iter-138 — Wall-kiosk face check-in (face-api.js, on-device) (2026-02-18)
+**Status: DONE — client-only face recognition, zero per-scan cost.**
+
+- **Engine**: face-api.js (via @vladmandic/face-api CDN) — tinyFaceDetector + faceLandmark68Net + faceRecognitionNet. ~6 MB one-time download (cached). All inference client-side; only a 128-float descriptor ever leaves the device.
+- **Enrollment (Profile page)**: New `FaceEnrollCard` component. User taps "Enable face check-in" → front camera captures 3 aligned descriptors → averages → POSTs to `/api/users/me/face-embedding`. Includes a "Remove" button (DELETE endpoint).
+- **Wall kiosk (AdminKiosk)**: New `KioskFaceScan` overlay (bottom-right corner) that mounts only when the Voice toggle is ON (that same tap is the audio-unlock gesture). Continuously scans, computes live descriptor every ~1.8 s, POSTs to `/api/kiosk/face-checkin`. On strong match (Euclidean distance ≤ 0.50) the backend records attendance via `_mark_attendance` and returns the subscriber name → parent triggers the bilingual voice announcer. Borderline matches (0.50–0.60) show a helpful "move closer" hint instead of a false check-in. Per-user 60 s cooldown prevents double announcements.
+- **Backend endpoints**:
+  - `POST /api/users/me/face-embedding` (any authed user) — store 128-dim descriptor
+  - `GET /api/users/me/face-embedding` — enrollment status
+  - `DELETE /api/users/me/face-embedding` — un-enroll
+  - `POST /api/kiosk/face-checkin` (admin/staff/franchise_owner) — closest-match lookup + attendance
+- Reuses the existing `_mark_attendance` flow so all sub-window / off-window / already-checked-in checks apply identically to face and QR scans.
+
+Files touched: `/app/backend/server.py` (endpoints), `/app/frontend/src/lib/faceApi.js` (new), `/app/frontend/src/components/FaceEnrollCard.jsx` (new), `/app/frontend/src/components/admin-kiosk/KioskFaceScan.jsx` (new), `/app/frontend/src/pages/Profile.jsx`, `/app/frontend/src/pages/AdminKiosk.jsx`.
+
+**Threshold rationale**: face-api.js community-accepted "same person" boundary is 0.6; we chose 0.50 for auto-check-in to minimise false positives (kiosk is unattended). 0.50–0.60 rejects gracefully with a helpful UI hint.
+
+
+
 ## iter-137.n — TDZ crash on AdminKiosk fixed (2026-02-18)
 **Status: DONE — the LAST piece of the wall-kiosk blank-screen puzzle.**
 
