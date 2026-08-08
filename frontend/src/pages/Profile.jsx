@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { MapPin, User as UserIcon, Phone, CheckCircle2, Camera, Trash2, AlertTriangle, Receipt as ReceiptIcon, Wallet as WalletIcon, ScanLine as ScanLineIcon, Store as StoreIcon, Bike as BikeIcon, Info as InfoIcon, Fingerprint as FingerprintIcon, Phone as PhoneIcon, MessageCircle as MessageCircleIcon, Lock as LockIcon, RefreshCw as RefreshCwIcon, FileText as FileTextIcon, LogOut as LogOutIcon, ChevronRight as ChevronRightIcon, Pencil as PencilIcon, QrCode as QrCodeIcon, MapPin as MapPinIcon, Gift as GiftIcon, Banknote as BanknoteIcon, Star as StarIcon, Newspaper as NewspaperIcon, ChefHat as ChefHatIcon, Bell as BellIcon, SlidersHorizontal as SlidersIcon } from "lucide-react";
 import WalletPill from "../components/WalletPill";
 import FaceEnrollCard from "../components/FaceEnrollCard";
+import { computeDescriptor, ensureModelsLoaded } from "../lib/faceApi";
 import SEO from "../components/SEO";
 
 const MAX_DIM = 720;
@@ -56,6 +57,31 @@ export default function Profile() {
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
+  const photoDirtyRef = useRef(false);
+
+  // iter-138.b — auto-compute the face descriptor from the just-picked selfie
+  // and silently push it to /users/me/face-embedding after save succeeds. No
+  // manual enrollment step required — future subscribers get face check-in
+  // automatically when they upload a selfie during profile setup.
+  const autoEnrollFace = async (dataUrlOrHttpUrl) => {
+    if (!dataUrlOrHttpUrl) return;
+    try {
+      await ensureModelsLoaded();
+      const img = await new Promise((resolve, reject) => {
+        const el = new Image();
+        // Data URLs don't need CORS; http URLs may.
+        if (!dataUrlOrHttpUrl.startsWith("data:")) el.crossOrigin = "anonymous";
+        el.onload = () => resolve(el);
+        el.onerror = () => reject(new Error("image load failed"));
+        el.src = dataUrlOrHttpUrl;
+      });
+      const desc = await computeDescriptor(img);
+      if (!desc || !desc.length) return; // No face detected — skip silently.
+      await api.post("/users/me/face-embedding", { embedding: desc });
+      // Very subtle toast so the user knows they now have wall-kiosk auto-checkin.
+      toast.success("Face check-in enabled from your new selfie", { duration: 4000 });
+    } catch { /* silent — profile save already succeeded */ }
+  };
 
   const next = new URLSearchParams(location.search).get("next");
   const reason = new URLSearchParams(location.search).get("reason");
@@ -83,6 +109,7 @@ export default function Profile() {
     try {
       const dataUrl = await compressImage(file);
       setForm((f) => ({ ...f, photo_url: dataUrl }));
+      photoDirtyRef.current = true;
       toast.success(`${type === "camera" ? "Selfie" : "Photo"} ready`);
     } catch { toast.error("Could not read image"); }
     e.target.value = "";
@@ -118,6 +145,14 @@ export default function Profile() {
       const r = await api.post("/auth/profile", form);
       setUser(r.data.user);
       toast.success("Profile saved");
+      // iter-138.b — fire-and-forget auto-enroll if a fresh selfie was picked.
+      // Uses the compressed data URL we already have locally so we don't need
+      // to re-download from the server. Silent on failure — main save already
+      // succeeded and users can still enroll manually via the FaceEnrollCard.
+      if (photoDirtyRef.current) {
+        photoDirtyRef.current = false;
+        autoEnrollFace(form.photo_url);
+      }
       if (next) navigate(next, { replace: true });
       else navigate("/dashboard");
     } catch (e) {

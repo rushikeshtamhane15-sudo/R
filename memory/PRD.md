@@ -4,6 +4,20 @@
 
 
 
+## iter-138.b — Auto-enroll face embedding on selfie upload (2026-02-19)
+**Status: DONE — silent face-embedding computation on profile save.**
+
+- When a user picks a new selfie in Profile → `photoDirtyRef` is set.
+- After they tap Save and `/auth/profile` returns OK, a fire-and-forget helper (`autoEnrollFace`) loads face-api.js models (cached), computes the 128-dim descriptor from the SAME compressed data URL we already have locally (no re-download), and POSTs it to `/users/me/face-embedding` in the background.
+- On success, a subtle toast confirms "Face check-in enabled from your new selfie" (4 s). On failure or no-face-detected, silent — the main profile save is already complete and the user can still enroll manually from the FaceEnrollCard below.
+- No new backend endpoints — reuses the existing `POST /users/me/face-embedding` from iter-138.
+
+Result: new subscribers picking a selfie during onboarding get wall-kiosk face check-in enrolled the moment their profile saves — zero extra taps. Existing users still get the batch tool at `/admin/face-enroll` for their historical selfies.
+
+Files touched: `/app/frontend/src/pages/Profile.jsx`.
+
+
+
 ## iter-138.a — Admin batch face-enrollment (auto-scan existing 86 selfies) (2026-02-19)
 **Status: DONE — one-tap enrollment for all existing subscribers.**
 
