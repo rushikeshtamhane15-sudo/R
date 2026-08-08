@@ -4,6 +4,25 @@
 
 
 
+## iter-138.a — Admin batch face-enrollment (auto-scan existing 86 selfies) (2026-02-19)
+**Status: DONE — one-tap enrollment for all existing subscribers.**
+
+Purpose: face-api.js is browser-only, but we didn't want to force all 86 registered subscribers to re-scan from their phones. So a new admin-only browser tool ingests each subscriber's already-uploaded `profile_photo_url`, computes their descriptor client-side, and posts it to the backend on their behalf.
+
+- New page: `/admin/face-enroll` ("Face enrol batch" in the Operations sidebar, admin + franchise_owner only).
+- Checkbox to show only users missing an embedding (default on) so re-runs are cheap.
+- One-tap run: loads face-api.js models once (cached), then walks the user list serially, showing per-row status (Scanning / Enrolled / No face / No image / Failed). Live progress bar + counters (ok / no-face / no-image / failed).
+- Handles CORS-less profile images gracefully (retries without `crossOrigin`).
+- Can be stopped mid-run and resumed by tapping Run again.
+- Backend endpoints (both admin/franchise_owner only):
+  - `GET /api/admin/users/face-enroll-list?only_missing=true` — subscribers to enroll
+  - `POST /api/admin/users/{user_id}/face-embedding` — writes the descriptor on their behalf, tagged `face_embedding_source: batch_selfie`
+- Users still see "Re-scan face" on their own Profile card if they want to update the descriptor themselves (e.g., beard change, new glasses).
+
+Files touched: `/app/backend/server.py` (2 new endpoints), `/app/frontend/src/pages/AdminFaceEnroll.jsx` (new), `/app/frontend/src/App.js` (route), `/app/frontend/src/components/AdminLayout.jsx` (sidebar link).
+
+
+
 ## iter-138 — Wall-kiosk face check-in (face-api.js, on-device) (2026-02-18)
 **Status: DONE — client-only face recognition, zero per-scan cost.**
 

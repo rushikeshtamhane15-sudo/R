@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
 import { api } from "../lib/api";
 import BranchSwitcher, { PillChevron } from "./BranchSwitcher";
-import { LayoutDashboard, Package, Truck, ScanLine, QrCode, Utensils, Users, Palette, Home, Shield, FileText, MapPin, FootprintsIcon, LogIn, Megaphone, Radio, Layout, Wheat, ClipboardList, Menu, MessageSquareQuote, UtensilsCrossed, MessageCircle, ChefHat, Bike, AlertTriangle, X, Clock, Wallet, UserPlus, Volume2 } from "lucide-react";
+import { LayoutDashboard, Package, Truck, ScanLine, QrCode, Utensils, Users, Palette, Home, Shield, FileText, MapPin, FootprintsIcon, LogIn, Megaphone, Radio, Layout, Wheat, ClipboardList, Menu, MessageSquareQuote, UtensilsCrossed, MessageCircle, ChefHat, Bike, AlertTriangle, X, Clock, Wallet, UserPlus, Volume2, ScanFace } from "lucide-react";
 
 // `roles`: which roles can see the item. Default: admin only.
 // iter-78 #2: helper that grants franchise_owner read-only access to the
@@ -50,6 +50,7 @@ const SECTIONS = [
       { to: "/admin/scanner", label: "QR Scanner", icon: ScanLine, roles: FRANCHISE_VIEW },
       { to: "/admin/kiosk", label: "Wall Kiosk", icon: ScanLine, roles: FRANCHISE_VIEW },
       { to: "/admin/voice-settings", label: "Kiosk voice", icon: Volume2, roles: FRANCHISE_VIEW },
+      { to: "/admin/face-enroll", label: "Face enrol batch", icon: ScanFace, roles: ["admin", "franchise_owner"] },
       { to: "/admin/counter", label: "Counter QR", icon: QrCode, roles: FRANCHISE_VIEW },
       { to: "/admin/menu", label: "Daily Menu", icon: Utensils, roles: FRANCHISE_VIEW },
       { to: "/admin/mess-menu", label: "Mess Menu Calendar", icon: ClipboardList, roles: FRANCHISE_VIEW },

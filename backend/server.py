@@ -2528,6 +2528,64 @@ async def get_face_embedding_status(user: User = Depends(get_current_user)):
     }
 
 
+@api_router.get("/admin/users/face-enroll-list")
+async def admin_face_enroll_list(
+    only_missing: bool = True,
+    user: User = Depends(get_current_user),
+):
+    """iter-138.a — batch face-enrollment helper. Returns every subscriber
+    profile that has a `profile_photo_url` so the admin browser tool can
+    load each image, compute a face descriptor via face-api.js, and POST it
+    back — reusing the existing 86 selfies instead of asking each user to
+    re-do a scan from their phone.
+
+    `only_missing=true` (default) filters out users who already have an
+    embedding so re-runs don't waste bandwidth.
+    """
+    if user.role not in ("admin", "franchise_owner"):
+        raise HTTPException(status_code=403, detail="Admin only")
+    q: dict = {"profile_photo_url": {"$exists": True, "$ne": None}}
+    if only_missing:
+        q["face_embedding"] = {"$exists": False}
+    cur = db.users.find(q, {"_id": 0, "user_id": 1, "name": 1, "profile_photo_url": 1})
+    users_out = [u async for u in cur]
+    return {"ok": True, "count": len(users_out), "users": users_out}
+
+
+class AdminSetFaceEmbeddingIn(BaseModel):
+    embedding: List[float] = Field(..., description="128-dim descriptor computed by the admin browser tool")
+
+
+@api_router.post("/admin/users/{target_user_id}/face-embedding")
+async def admin_set_face_embedding(
+    target_user_id: str,
+    payload: AdminSetFaceEmbeddingIn,
+    user: User = Depends(get_current_user),
+):
+    """iter-138.a — admin writes a face embedding on behalf of another user
+    (during the batch tool run). Same shape as the self-serve endpoint but
+    scoped to admin/franchise_owner and tagged so we know it came from the
+    batch tool (helpful for later re-enroll prompts).
+    """
+    if user.role not in ("admin", "franchise_owner"):
+        raise HTTPException(status_code=403, detail="Admin only")
+    if len(payload.embedding) not in (128, 512):
+        raise HTTPException(status_code=400, detail="Bad embedding shape")
+    target = await db.users.find_one({"user_id": target_user_id}, {"_id": 0, "user_id": 1})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    await db.users.update_one(
+        {"user_id": target_user_id},
+        {"$set": {
+            "face_embedding": [float(x) for x in payload.embedding],
+            "face_embedding_dim": len(payload.embedding),
+            "face_embedding_updated_at": iso(now_utc()),
+            "face_embedding_source": "batch_selfie",
+        }},
+    )
+    return {"ok": True, "user_id": target_user_id, "dim": len(payload.embedding)}
+
+
 @api_router.post("/kiosk/face-checkin")
 async def kiosk_face_checkin(payload: FaceCheckinIn, user: User = Depends(get_current_user)):
     """Live wall-kiosk face match → attendance.
