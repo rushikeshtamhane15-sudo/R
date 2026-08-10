@@ -4,6 +4,16 @@
 
 
 
+## iter-138.d — Continual re-enrollment (EWMA) + Pulsing face zone (2026-02-19)
+**Status: DONE — self-improving face vectors + ambient "walk here" cue.**
+
+- **Continual re-enrollment (backend)**: On every successful `POST /api/kiosk/face-checkin` where the match distance is < 0.35 (very close), the backend now blends the fresh live descriptor into the stored one via an exponentially-weighted moving average with α=0.15 (`new = 0.85·old + 0.15·live`). The vector slowly tracks natural changes — beard growth, glasses, hairstyle, aging — with no user action. α is intentionally small so a single harsh-lit or badly-lit frame can't corrupt the canonical embedding. `face_embedding_source` is stamped `kiosk_ewma` when auto-updated so we can audit later.
+- **Pulsing face-scan tile (frontend)**: When no face has been detected in the current tick, the KioskFaceScan container gets a `kiosk-face-pulse` class — a 2-second emerald outer-glow ring animation defined in `index.css`. Pulse pauses when a strong match toast is visible so the celebration reads clearly. Respects `prefers-reduced-motion: reduce`.
+
+Files touched: `/app/backend/server.py` (EWMA block inside `kiosk_face_checkin`), `/app/frontend/src/components/admin-kiosk/KioskFaceScan.jsx` (conditional class), `/app/frontend/src/index.css` (keyframes + reduced-motion opt-out).
+
+
+
 ## iter-138.b — Auto-enroll face embedding on selfie upload (2026-02-19)
 **Status: DONE — silent face-embedding computation on profile save.**
 

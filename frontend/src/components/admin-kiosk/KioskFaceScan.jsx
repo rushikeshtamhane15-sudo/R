@@ -131,7 +131,7 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
   }, [ready, active, onCheckin]);
 
   return (
-    <div className={`relative rounded-2xl overflow-hidden bg-black shadow-lg ring-1 ring-black/30 ${isFullscreen ? "aspect-video" : "aspect-video max-w-md"}`} data-testid="kiosk-face-scan">
+    <div className={`relative rounded-2xl overflow-hidden bg-black shadow-lg ring-1 ring-black/30 ${isFullscreen ? "aspect-video" : "aspect-video max-w-md"} ${phase === "live" && !lastMsg.startsWith("✓") ? "kiosk-face-pulse" : ""}`} data-testid="kiosk-face-scan">
       <video ref={videoRef} playsInline muted className="w-full h-full object-cover" style={{ transform: "scaleX(-1)" }} />
       <div className="absolute inset-x-0 top-0 flex items-center gap-1.5 justify-center bg-black/60 text-white py-1.5 px-3">
         <ScanFace className={`h-3.5 w-3.5 ${phase === "scanning" ? "text-emerald-300 animate-pulse" : "text-white/80"}`} />

@@ -2651,6 +2651,32 @@ async def kiosk_face_checkin(payload: FaceCheckinIn, user: User = Depends(get_cu
             "distance": round(distance, 3),
             "candidate": {"user_id": matched["user_id"], "name": matched.get("name"), "profile_photo_url": matched.get("profile_photo_url")},
         }
+
+    # iter-138.d — continual re-enrollment. On a very-close match (< 0.35)
+    # we blend the fresh live descriptor into the stored one via a small
+    # EWMA (α = 0.15) so the vector slowly tracks natural changes — beard
+    # growth, glasses, hairstyle, aging — without ever asking the user to
+    # re-enroll. α is small so a one-off harsh-lit frame can't corrupt the
+    # canonical embedding.
+    if distance < 0.35:
+        try:
+            stored = matched.get("face_embedding") or []
+            live = payload.embedding
+            if len(stored) == len(live):
+                alpha = 0.15
+                blended = [round((1 - alpha) * float(stored[i]) + alpha * float(live[i]), 6) for i in range(len(stored))]
+                await db.users.update_one(
+                    {"user_id": matched["user_id"]},
+                    {"$set": {
+                        "face_embedding": blended,
+                        "face_embedding_dim": len(blended),
+                        "face_embedding_updated_at": iso(now_utc()),
+                        "face_embedding_source": "kiosk_ewma",
+                    }},
+                )
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"[face-checkin] EWMA update failed for {matched.get('user_id')}: {e}")
+
     sub_after = await get_active_subscription(matched["user_id"])
     return {
         "ok": True,
