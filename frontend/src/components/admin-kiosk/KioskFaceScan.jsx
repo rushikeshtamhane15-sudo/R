@@ -16,7 +16,7 @@ import { toast } from "sonner";
 // TTS queue clean and avoids hammering the backend on staff standing in view).
 const COOLDOWN_MS = 60_000;
 
-export default function KioskFaceScan({ onCheckin, isFullscreen = false, active = true }) {
+export default function KioskFaceScan({ onCheckin, isFullscreen = false, active = true, fillParent = false }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const tickTimerRef = useRef(null);
@@ -131,8 +131,11 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
   }, [ready, active, onCheckin]);
 
   return (
-    <div className={`relative rounded-2xl overflow-hidden bg-black shadow-lg ring-1 ring-black/30 ${isFullscreen ? "aspect-video" : "aspect-video max-w-md"} ${phase === "live" && !lastMsg.startsWith("✓") ? "kiosk-face-pulse" : ""}`} data-testid="kiosk-face-scan">
-      <video ref={videoRef} playsInline muted className="w-full h-full object-cover" style={{ transform: "scaleX(-1)" }} />
+    <div
+      className={`relative rounded-2xl overflow-hidden bg-black shadow-lg ring-1 ring-black/30 ${fillParent ? "w-full h-full" : (isFullscreen ? "aspect-video" : "aspect-video max-w-md")} ${phase === "live" && !lastMsg.startsWith("✓") ? "kiosk-face-pulse" : ""}`}
+      data-testid="kiosk-face-scan"
+    >
+      <video ref={videoRef} playsInline muted autoPlay className="w-full h-full object-cover" style={{ transform: "scaleX(-1)" }} />
       <div className="absolute inset-x-0 top-0 flex items-center gap-1.5 justify-center bg-black/60 text-white py-1.5 px-3">
         <ScanFace className={`h-3.5 w-3.5 ${phase === "scanning" ? "text-emerald-300 animate-pulse" : "text-white/80"}`} />
         <span className="text-[10px] tracking-[0.16em] uppercase font-extrabold">Face check-in</span>
@@ -144,12 +147,15 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
       {phase === "denied" && (
         <button
           type="button"
-          onClick={() => { toast.message("Please allow camera access in the browser to enable face check-in"); boot(); }}
-          className="absolute inset-0 flex items-center justify-center bg-black/85 text-white text-xs font-extrabold flex-col gap-2"
+          onClick={() => { toast.message("Allow camera in the browser prompt (or address-bar camera icon → Allow)"); boot(); }}
+          className="absolute inset-0 flex items-center justify-center bg-black/85 text-white text-xs font-extrabold flex-col gap-2 px-3 text-center"
           data-testid="kiosk-face-scan-retry"
         >
           <ScanFace className="h-6 w-6" />
-          Tap to grant camera access
+          <span>Tap to grant camera access</span>
+          <span className="text-[10px] font-normal opacity-80 leading-tight">
+            If nothing happens, open the browser's address-bar 🔒 icon → Camera → Allow, then reload.
+          </span>
         </button>
       )}
     </div>

@@ -527,37 +527,22 @@ export default function AdminKiosk() {
         slotCountdownLabel={slotCountdownLabel}
         slotCountdownEndsAt={slotCountdownEndsAt}
         qrRotateSeconds={qrRotateSeconds}
+        faceScanNode={voiceOn ? (
+          <KioskFaceScan
+            isFullscreen={isFullscreenRoute}
+            active={voiceOn}
+            fillParent
+            onCheckin={(data) => {
+              try {
+                announceCheckinSuccess(data.meal_type || meal || "lunch", data.subscriber_name || "");
+              } catch { /* noop */ }
+              if (data?.record?.att_id) {
+                try { seenAttIdsRef.current.add(data.record.att_id); } catch { /* noop */ }
+              }
+            }}
+          />
+        ) : null}
       />
-
-      {/* iter-138.c — Face scanner moved to the geometric CENTER of the wall
-          (was bottom-right corner) per user's UX preference. Keeps a subtle
-          transparent border + "SCAN ZONE" chip so subscribers instinctively
-          walk up to that spot. Sized ~28% viewport width on fullscreen so it
-          reads clearly from 3-4 metres out. */}
-      {voiceOn && (
-        <div
-          className={`pointer-events-none fixed z-40 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 ${isFullscreenRoute ? "w-[28vw] max-w-[520px] min-w-[320px]" : "w-[36vw] max-w-[420px] min-w-[280px]"}`}
-          data-testid="kiosk-face-scan-mount"
-        >
-          <div className="pointer-events-auto rounded-3xl ring-4 ring-white/60 shadow-[0_20px_60px_rgba(0,0,0,.45)] bg-black/40 backdrop-blur-md p-2 relative">
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-500 text-white text-[10px] tracking-[0.24em] uppercase font-extrabold px-3 py-1 rounded-full shadow-lg" data-testid="kiosk-face-scan-label">
-              Face check-in zone
-            </div>
-            <KioskFaceScan
-              isFullscreen={isFullscreenRoute}
-              active={voiceOn}
-              onCheckin={(data) => {
-                try {
-                  announceCheckinSuccess(data.meal_type || meal || "lunch", data.subscriber_name || "");
-                } catch { /* noop */ }
-                if (data?.record?.att_id) {
-                  try { seenAttIdsRef.current.add(data.record.att_id); } catch { /* noop */ }
-                }
-              }}
-            />
-          </div>
-        </div>
-      )}
 
       <section className="rounded-3xl border border-white/25 bg-black/45 backdrop-blur-sm overflow-hidden flex flex-col" data-testid="kiosk-order-panel">
         <div className="flex items-center justify-between px-5 py-2.5 border-b border-white/12">

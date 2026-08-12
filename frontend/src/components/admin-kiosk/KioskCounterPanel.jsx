@@ -16,6 +16,7 @@ export default function KioskCounterPanel({
   isFullscreen = false,
   slotCountdownLabel = "", slotCountdownEndsAt = "",
   qrRotateSeconds = 0,
+  faceScanNode = null,
 }) {
   // iter-131.30: hard-lock the meal toggle to the currently-active slot. Off-slot
   // buttons render disabled + faded so staff can never mint the wrong QR.
@@ -157,27 +158,21 @@ export default function KioskCounterPanel({
         </div>
 
         <div className="flex flex-col gap-3 h-full min-h-0">
-          <div className={`rounded-2xl bg-white border border-black/8 shadow-sm flex-1 min-h-0 ${isFullscreen ? "p-6" : "p-5"}`} data-testid="kiosk-how-it-works">
-            <p className={`tracking-[0.18em] uppercase font-bold text-primary ${isFullscreen ? "text-sm" : "text-[11px]"}`}>How it works</p>
-            <ol className={`mt-2 space-y-2 text-foreground list-decimal list-inside font-medium ${isFullscreen ? "text-xl leading-relaxed" : "text-base"}`}>
-              <li>Open your phone camera.</li>
-              <li>Point it at the QR on the left.</li>
-              <li>Tap the notification to check in for {meal}.</li>
-              <li>Walk-in? Scan the QR on your printed receipt instead.</li>
-            </ol>
-            {/* iter-134.c: printer status pill relocated below the how-it-works
-                copy so staff/customers see the health line without cluttering
-                the top header (which now only carries the brand + meal toggle). */}
-            <div className="mt-3">
-              <span
-                className={`inline-flex items-center gap-1.5 rounded-full uppercase font-extrabold ring-2 ${isFullscreen ? "text-xs px-3 h-9 tracking-[0.16em]" : "text-[10px] px-2.5 h-7 tracking-[0.16em]"} ${btPill.tone} shadow-sm`}
-                data-testid="kiosk-printer-status-pill"
-                title={btPill.label}
-              >
-                <btPill.Icon className={`${isFullscreen ? "h-3.5 w-3.5" : "h-3 w-3"} ${btStatus === "connecting" ? "animate-spin" : ""}`} />
-                <span>{btPill.label}</span>
-              </span>
-            </div>
+          {/* iter-138.e — Face check-in tile replaces the "How it works" copy.
+              Same width & height envelope so the top-right column keeps its
+              visual weight; the printer-status pill was moved into the BT
+              card below so nothing is lost. */}
+          <div className={`rounded-2xl bg-white border border-black/8 shadow-sm flex-1 min-h-0 overflow-hidden ${isFullscreen ? "p-3" : "p-2.5"}`} data-testid="kiosk-face-scan-tile">
+            <p className={`tracking-[0.18em] uppercase font-bold text-primary mb-2 ${isFullscreen ? "text-sm" : "text-[11px]"}`}>Face check-in</p>
+            {faceScanNode ? (
+              faceScanNode
+            ) : (
+              <div className="h-[calc(100%-1.5rem)] rounded-xl bg-slate-50 border border-dashed border-slate-300 flex items-center justify-center text-center px-3">
+                <p className={`text-muted-foreground font-bold ${isFullscreen ? "text-sm" : "text-xs"}`}>
+                  Enable the <b>Voice</b> button in the header to activate the wall camera and auto-check-in subscribers.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className={`rounded-2xl bg-white border border-black/8 shadow-sm ${isFullscreen ? "p-5" : "p-4"}`} data-testid="kiosk-qr-provider-card">
@@ -197,6 +192,13 @@ export default function KioskCounterPanel({
                   ? (btStatus === "connected" ? <BluetoothConnected className={`${isFullscreen ? "h-5 w-5" : "h-4 w-4"} text-blue-600`} /> : <Bluetooth className={`${isFullscreen ? "h-5 w-5" : "h-4 w-4"} text-blue-600`} />)
                   : <BluetoothOff className={`${isFullscreen ? "h-5 w-5" : "h-4 w-4"} text-muted-foreground`} />}
                 <p className={`font-extrabold ${isFullscreen ? "text-base" : "text-sm"}`}>Bluetooth printer</p>
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full uppercase font-extrabold ring-1 ${isFullscreen ? "text-[10px] px-2 h-6 tracking-[0.14em]" : "text-[9px] px-1.5 h-5 tracking-[0.14em]"} ${btPill.tone}`}
+                  data-testid="kiosk-printer-status-pill"
+                  title={btPill.label}
+                >
+                  {btPill.label}
+                </span>
               </div>
               <label className="inline-flex items-center cursor-pointer">
                 <input

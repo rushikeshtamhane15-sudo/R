@@ -4,6 +4,23 @@
 
 
 
+## iter-138.e — Face-scan tile replaces "How it works" + permission UX fix (2026-02-19)
+**Status: DONE — face scanner now docked, permission flow clearer.**
+
+- **Layout**: The "How it works" tile in the counter panel is now the Face check-in tile with the same width/height envelope. The printer-status pill was moved into the "Bluetooth printer" card header so no status info is lost. When Voice is off, the tile shows a helpful "Enable the Voice button in the header" hint instead of a black camera.
+- **Camera permission UX**: The "Tap to grant camera access" screen now includes a 3-line hint explaining what to do if nothing happens on tap ("open the browser's address-bar 🔒 icon → Camera → Allow, then reload"). This handles the common Chrome case where a previously-denied permission is remembered and a tap-to-boot returns the same rejection without a fresh prompt.
+- **Auto-play**: Added the `autoPlay` attribute to the `<video>` element so the live preview always begins as soon as the MediaStream is attached (some browsers on kiosk boot required an explicit play() and were silently pausing).
+- **Removed the fixed-position center overlay** since the tile inside the counter panel is now the canonical location.
+
+Files touched: `/app/frontend/src/components/admin-kiosk/KioskCounterPanel.jsx`, `/app/frontend/src/components/admin-kiosk/KioskFaceScan.jsx`, `/app/frontend/src/pages/AdminKiosk.jsx`.
+
+**If the "Tap to grant" screen still shows after this deploy** — this is a browser permission memory issue, not a code bug. On the wall kiosk device:
+1. Chrome address bar → 🔒 icon → **Camera → Allow**
+2. Reload the page (or Chrome menu → Settings → Site Settings → efoodcare.in → Camera → Allow)
+The camera then streams and face detection resumes automatically.
+
+
+
 ## iter-138.d — Continual re-enrollment (EWMA) + Pulsing face zone (2026-02-19)
 **Status: DONE — self-improving face vectors + ambient "walk here" cue.**
 
