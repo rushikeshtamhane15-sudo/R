@@ -4,6 +4,18 @@
 
 
 
+## iter-138.f — Face-scan resiliency + layout polish (2026-02-19)
+**Status: DONE — sticky "denied" bug fixed, layout tightened, walkthrough added.**
+
+- **Self-healing camera permission**: `KioskFaceScan` now subscribes to `navigator.permissions.query({name:"camera"})` and auto re-boots the moment the permission flips to "granted". Also polls silently every 5 s while stuck in the denied phase so a permission granted via the browser address-bar (which our `getUserMedia` promise can't observe) unsticks itself. No more "granted permission but tile still shows Tap to grant".
+- **Camera-reset walkthrough**: New in-tile helper card ("Show me how"). Opens a step-by-step overlay listing: click 🔒 lock icon → Camera → Allow → Reset if blocked → Reload → return. Ends with "I've allowed it — retry now" button that calls `boot()`. Non-technical on-site staff can now self-recover without opening OS/browser settings docs.
+- **Hidden "Online payment QR" card**: The Razorpay Dynamic UPI QR info tile is now hidden from the kiosk counter panel (still lives inside the payment modal). The Face check-in tile now stretches into that reclaimed vertical space.
+- **Payment mode container**: Removed `h-full` from the KioskOrderForm fullscreen wrapper so the card sits at natural height instead of stretching and leaving dead whitespace below.
+
+Files touched: `/app/frontend/src/components/admin-kiosk/KioskFaceScan.jsx`, `/app/frontend/src/components/admin-kiosk/KioskCounterPanel.jsx`, `/app/frontend/src/components/admin-kiosk/KioskOrderForm.jsx`.
+
+
+
 ## iter-138.e — Face-scan tile replaces "How it works" + permission UX fix (2026-02-19)
 **Status: DONE — face scanner now docked, permission flow clearer.**
 

@@ -175,15 +175,10 @@ export default function KioskCounterPanel({
             )}
           </div>
 
-          <div className={`rounded-2xl bg-white border border-black/8 shadow-sm ${isFullscreen ? "p-5" : "p-4"}`} data-testid="kiosk-qr-provider-card">
-            <p className={`tracking-[0.18em] uppercase font-bold text-primary mb-2 ${isFullscreen ? "text-sm" : "text-[11px]"}`}>Online payment QR</p>
-            <div className={`inline-flex bg-[hsl(220,55%,55%)] rounded-full items-center w-full justify-center ${isFullscreen ? "h-12 px-5" : "h-9 px-4"}`} data-testid="kiosk-qr-provider-razorpay">
-              <span className={`font-extrabold text-white ${isFullscreen ? "text-base" : "text-[12px]"}`}>Razorpay Dynamic UPI QR</span>
-            </div>
-            <p className={`text-muted-foreground mt-2 leading-relaxed ${isFullscreen ? "text-sm" : "text-[11px]"}`}>
-              Razorpay Dynamic QR — auto-confirms payment in ~4s. Paytm has been retired.
-            </p>
-          </div>
+          {/* iter-138.f — Online payment QR card hidden per user request; the
+              scannable QR still lives inside the payment modal that opens on
+              order. Face check-in tile now stretches to take the reclaimed
+              vertical space (flex-1 above). */}
 
           <div className={`rounded-2xl bg-white border border-black/8 shadow-sm ${isFullscreen ? "p-5" : "p-4"}`} data-testid="kiosk-bt-card">
             <div className="flex items-center justify-between gap-2">

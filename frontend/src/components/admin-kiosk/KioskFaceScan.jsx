@@ -8,7 +8,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { computeDescriptor, ensureModelsLoaded } from "../../lib/faceApi";
-import { ScanFace, Loader2 } from "lucide-react";
+import { ScanFace, Loader2, HelpCircle, X as XIcon } from "lucide-react";
 import { toast } from "sonner";
 
 // Suppress rapid duplicates: same user_id can't check in more than once per 60s
@@ -25,6 +25,7 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
   const [ready, setReady] = useState(false);
   const [phase, setPhase] = useState("boot"); // boot | live | scanning | denied | error
   const [lastMsg, setLastMsg] = useState("");
+  const [helperOpen, setHelperOpen] = useState(false);
 
   const stopCamera = useCallback(() => {
     try { if (tickTimerRef.current) { clearTimeout(tickTimerRef.current); tickTimerRef.current = null; } } catch { /* noop */ }
@@ -67,6 +68,43 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
     if (!active) { stopCamera(); return; }
     boot();
   }, [active, boot, stopCamera]);
+
+  // iter-138.f — self-heal from a sticky "denied" phase. Browsers cache a
+  // "camera: denied" once the user rejects the first prompt; even after the
+  // user re-enables permission via the address-bar icon, our getUserMedia
+  // call above already resolved with "denied" and won't retry on its own.
+  // Two safety nets:
+  //   1. Subscribe to Permissions API changes and re-boot the moment the
+  //      status flips to "granted".
+  //   2. Every 5s while in the denied phase, silently probe getUserMedia
+  //      again. Cheap (throws immediately when denied) and unblocks the
+  //      user when they granted permission via a browser dialog we can't
+  //      observe.
+  useEffect(() => {
+    if (!active) return undefined;
+    let cancelled = false;
+    let permStatus = null;
+    const onChange = () => { if (!cancelled && permStatus && permStatus.state === "granted") boot(); };
+    try {
+      if (navigator.permissions && navigator.permissions.query) {
+        navigator.permissions.query({ name: "camera" }).then((s) => {
+          if (cancelled) return;
+          permStatus = s;
+          s.addEventListener("change", onChange);
+          if (s.state === "granted") boot();
+        }).catch(() => { /* Firefox may reject camera name */ });
+      }
+    } catch { /* noop */ }
+    const poll = setInterval(() => {
+      if (cancelled) return;
+      if (phase === "denied") boot();
+    }, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(poll);
+      try { if (permStatus) permStatus.removeEventListener("change", onChange); } catch { /* noop */ }
+    };
+  }, [active, boot, phase]);
 
   // Scanning loop
   useEffect(() => {
@@ -145,18 +183,53 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
         {lastMsg || "Loading camera…"}
       </div>
       {phase === "denied" && (
-        <button
-          type="button"
-          onClick={() => { toast.message("Allow camera in the browser prompt (or address-bar camera icon → Allow)"); boot(); }}
-          className="absolute inset-0 flex items-center justify-center bg-black/85 text-white text-xs font-extrabold flex-col gap-2 px-3 text-center"
-          data-testid="kiosk-face-scan-retry"
-        >
-          <ScanFace className="h-6 w-6" />
-          <span>Tap to grant camera access</span>
-          <span className="text-[10px] font-normal opacity-80 leading-tight">
-            If nothing happens, open the browser's address-bar 🔒 icon → Camera → Allow, then reload.
-          </span>
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={() => { toast.message("Allow camera in the browser prompt (or address-bar 🔒 icon → Camera → Allow)"); boot(); }}
+            className="absolute inset-0 flex items-center justify-center bg-black/85 text-white text-xs font-extrabold flex-col gap-2 px-3 text-center"
+            data-testid="kiosk-face-scan-retry"
+          >
+            <ScanFace className="h-6 w-6" />
+            <span>Tap to grant camera access</span>
+            <span className="text-[10px] font-normal opacity-80 leading-tight">
+              If nothing happens, open the browser's address-bar 🔒 icon → Camera → Allow, then reload.
+            </span>
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => { e.stopPropagation(); setHelperOpen(true); }}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); setHelperOpen(true); } }}
+              className="mt-1 inline-flex items-center gap-1 text-[10px] font-extrabold underline underline-offset-2 text-emerald-300"
+              data-testid="kiosk-face-scan-help"
+            >
+              <HelpCircle className="h-3 w-3" /> Show me how
+            </span>
+          </button>
+          {helperOpen && (
+            <div className="absolute inset-0 z-10 bg-slate-900/95 text-white p-4 flex flex-col gap-2 overflow-auto" data-testid="kiosk-face-scan-helper" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] tracking-[0.16em] uppercase font-extrabold text-emerald-300">Reset camera permission</p>
+                <button type="button" onClick={() => setHelperOpen(false)} className="h-6 w-6 inline-flex items-center justify-center rounded-full bg-white/15" aria-label="Close"><XIcon className="h-3.5 w-3.5" /></button>
+              </div>
+              <ol className="mt-1 space-y-1.5 text-[11px] leading-snug list-decimal list-inside">
+                <li>Click the <b>🔒 lock icon</b> on the left of the address bar.</li>
+                <li>Find <b>Camera</b> in the list → set it to <b>Allow</b>.</li>
+                <li>Tap <b>Reset permissions</b> if it's stuck as "Blocked".</li>
+                <li>Close the popup and <b>reload</b> the page (Ctrl + R).</li>
+                <li>Return here — the camera will start automatically.</li>
+              </ol>
+              <button
+                type="button"
+                onClick={() => { setHelperOpen(false); boot(); }}
+                className="mt-2 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs h-8"
+                data-testid="kiosk-face-scan-helper-retry"
+              >
+                I've allowed it — retry now
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

@@ -37,9 +37,9 @@ export default function KioskOrderForm({
   // the wall-kiosk fullscreen route where everything must be readable at ~5ft.
   const S = isFullscreen
     ? {
-        // iter-137.g — tighter vertical footprint per user's request. p-5 → p-3,
-        // gap-3 → gap-2 shaves ~30px of dead space on the 27" wall kiosk.
-        wrap: "rounded-3xl bg-white border border-black/8 p-3 flex flex-col gap-2 shadow-md text-foreground h-full",
+        // iter-137.g/138.f — tight vertical footprint. Removed the h-full
+        // stretch so the card sits at natural height (no whitespace below).
+        wrap: "rounded-3xl bg-white border border-black/8 p-3 flex flex-col gap-2 shadow-md text-foreground",
         mealBtn: "px-6 h-11 rounded-full text-base font-extrabold",
         svcBtn: "rounded-2xl px-3 py-4 text-lg font-extrabold border-2 gap-1.5",
         svcIcon: "h-6 w-6",
