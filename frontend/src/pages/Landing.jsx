@@ -62,7 +62,7 @@ export default function Landing() {
       <SEO
         title="Subscription tiffin · ghar se accha khana"
         path="/home"
-        description="India's first zero adulteration meal app · 28-day subscription tiffin plans with smart wallet & QR check-in. No Ajinomoto, No Maida, No Refined or Palm oil. Subscribe in minutes via UPI."
+        description="India's first zero adulteration meal app · 30-day subscription tiffin plans with smart wallet & QR check-in. No Ajinomoto, No Maida, No Refined or Palm oil. Subscribe in minutes via UPI."
       />
       {/* Hero — iter-64 #1: full-viewport landing hero with serviceability
           pill anchored at the TOP, generous spacing, fluid type so the whole
@@ -102,7 +102,7 @@ export default function Landing() {
             {c.hero_title_line2 || "ab ek e-Meal Pass pe."}
           </motion.h1>
           <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mt-5 sm:mt-7 text-[17px] sm:text-2xl max-w-2xl text-muted-foreground leading-relaxed font-semibold">
-            {c.hero_subtitle || "28-day tiffin subscriptions with a smart wallet. Pay once by UPI, check-in by QR, skip a few days — we pause your wallet, no meals wasted."}
+            {c.hero_subtitle || "30-day tiffin subscriptions with a smart wallet. Pay once by UPI, check-in by QR, skip a few days — we pause your wallet, no meals wasted."}
           </motion.p>
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mt-10 sm:mt-12 flex flex-wrap gap-3 sm:gap-4">
             {/* iter-64 #3: 'Get your e-Meal Pass' should always go to /plans
@@ -153,7 +153,7 @@ export default function Landing() {
           <div className="md:col-span-6">
             <p className="text-xs tracking-overline uppercase font-bold text-secondary mb-4">{c.how_overline || "How it works"}</p>
             <h2 className="font-display font-extrabold text-3xl sm:text-4xl lg:text-5xl tracking-tight leading-[1.05]">
-              {c.how_title || "Pay once. Eat for 28 days. Pause when you travel."}
+              {c.how_title || "Pay once. Eat for 30 days. Pause when you travel."}
             </h2>
             <p className="mt-6 text-muted-foreground leading-relaxed max-w-lg whitespace-pre-line">
               {c.how_body || "Money loads into your wallet on day one. Every day you eat, a small amount ticks down."}
@@ -236,7 +236,7 @@ export default function Landing() {
               {c.cta_title_line1 || "ghar se achha khana,"} <br />
               {c.cta_title_line2 || "ab UPI pe."}
             </h3>
-            <p className="mt-4 text-primary-foreground/80 max-w-lg">{c.cta_subtitle || "Plans start at ₹1,800 for 28 days."}</p>
+            <p className="mt-4 text-primary-foreground/80 max-w-lg">{c.cta_subtitle || "Plans start at ₹1,800 for 30 days."}</p>
           </div>
           <Link to={ctaTarget} data-testid="cta-footer">
             <Button size="lg" className="rounded-full bg-white text-primary hover:bg-white/90 px-8 h-12 text-base font-bold">

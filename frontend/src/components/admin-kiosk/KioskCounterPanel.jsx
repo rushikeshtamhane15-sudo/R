@@ -77,15 +77,11 @@ export default function KioskCounterPanel({
       </div>
 
       <div className={`flex-1 grid sm:grid-cols-[1.4fr_1fr] gap-4 min-h-0 ${isFullscreen ? "p-6" : "p-5"}`}>
-        <div className={`rounded-2xl bg-white flex flex-col items-center justify-between h-full ${isFullscreen ? "px-6 py-5" : "p-5"}`} data-testid="kiosk-counter-qr">
-          {/* iter-138.k — layout is now three edge-to-edge groups so the QR
-              container has no wasted whitespace at the top or bottom:
-                • top    → meal toggle
-                • middle → the QR itself (flex-1, absorbs excess height)
-                • bottom → all info pills (scan-me, slot countdown, refresh)
-              justify-between on the parent pushes the toggle to the top edge
-              and the pill group to the bottom edge; the QR block auto-centers
-              in whatever's left over. */}
+        <div className={`rounded-2xl bg-white flex flex-col items-center justify-center h-full ${isFullscreen ? "px-6 py-4 gap-2" : "p-5 gap-2"}`} data-testid="kiosk-counter-qr">
+          {/* iter-138.l — items are now packed tight (small gap-2) and the
+              group is vertically centered. No gap between the Lunch/Dinner
+              toggle and the QR, and no gap between the QR and the pill
+              group beneath it. */}
           <div className={`inline-flex bg-primary/5 rounded-full p-1 gap-1 shadow-sm ring-2 ring-primary/20`} data-testid="kiosk-meal-toggle">
             <button
               type="button"
@@ -121,9 +117,7 @@ export default function KioskCounterPanel({
 
           {counter ? (
             <>
-              <div className="flex flex-col items-center justify-center flex-1 min-h-0 w-full">
-                <QRCodeSVG value={counter.counter_code} size={isFullscreen ? 500 : 360} level="M" fgColor="hsl(142 45% 28%)" />
-              </div>
+              <QRCodeSVG value={counter.counter_code} size={isFullscreen ? 500 : 360} level="M" fgColor="hsl(142 45% 28%)" />
               <div className="flex flex-col items-center gap-2 w-full">
                 <div
                   className={`inline-flex items-center gap-2 rounded-full bg-primary text-white shadow ring-1 ring-primary/20 ${isFullscreen ? "px-5 h-11 text-base" : "px-4 h-9 text-xs"} font-extrabold tracking-tight`}
@@ -132,8 +126,6 @@ export default function KioskCounterPanel({
                   <ScanLine className={isFullscreen ? "h-5 w-5" : "h-3.5 w-3.5"} />
                   Scan Me And Get Ghar Se Accha Khana
                 </div>
-                {/* iter-134.f — slot-close timer replaces the raw counter_code
-                    + "LUNCH · main" caption below the QR. */}
                 {slotCountdownLabel && (
                   <div
                     className={`inline-flex items-center gap-1.5 rounded-full bg-white text-primary shadow-sm ring-2 ring-emerald-500 ${isFullscreen ? "px-4 h-10 text-sm" : "px-3 h-8 text-xs"} font-extrabold uppercase tracking-[0.14em]`}

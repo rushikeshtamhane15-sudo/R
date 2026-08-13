@@ -16,8 +16,18 @@ function splitMenuItems(str) {
 }
 
 export default function KioskMenuCard({ active, activeDate, tab, isFullscreen = false, mealSlots }) {
-  const dateLabel = activeDate
-    ? new Date(activeDate).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "short" })
+  // iter-138.l — parse the ISO date as a LOCAL date (not UTC) so the
+  // weekday/day label always matches the intended calendar day. The prior
+  // `new Date("2026-08-13")` treated the string as UTC midnight, which on a
+  // wall-kiosk with a slightly-off system clock or non-IST timezone rendered
+  // as the previous day (e.g. "Wednesday 12 Aug" on Aug 13).
+  let localDate = null;
+  if (activeDate && /^\d{4}-\d{2}-\d{2}$/.test(activeDate)) {
+    const [y, m, d] = activeDate.split("-").map(Number);
+    localDate = new Date(y, m - 1, d);
+  }
+  const dateLabel = localDate
+    ? localDate.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "short" })
     : "";
   const cardLabel = `${tab === "today" ? "Today’s mess menu" : "Tomorrow’s preview"} · ${dateLabel}`;
   // iter-134.k: display the admin-configured meal windows in the tile pill.

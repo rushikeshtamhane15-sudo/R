@@ -4,6 +4,30 @@
 
 
 
+## iter-138.l — Kiosk polish: QR spacing · 30-day plans · correct date · face-align red/green guide (2026-02-19)
+**Status: DONE — all four user requests wired.**
+
+**1. QR container spacing.** The counter-QR tile in `KioskCounterPanel.jsx` now packs the meal toggle, the QR itself and the info-pill group tightly together (`gap-2`) and centers the whole stack vertically (`justify-center`) — no gap between the Lunch/Dinner toggle and the QR, and no gap between the QR and the "Scan me / Ghar se accha khana" pill.
+
+**2. Monthly plans back on a 30-day / 60-meal cadence.**
+- `DEFAULT_PLANS` in `backend/server.py` reverted from 28/56 → 30/60. Same amounts (₹2 800 / ₹2 600 / ₹1 800), same 2-meals-per-day invariant. Per-meal deduction is now `amount / 60`, e.g. Premium: ₹46.67 (was ₹50).
+- New idempotent startup migration `_migrate_plans_28day_to_30day` (marker: `iter138_30day_plans`) walks every `duration_days == 28` plan back to `duration_days: 30, meals: 60` and rewrites the "28 days" / "56 home-style meals" description strings. Runs after the iter-129 migration. **Existing subscriptions are never touched** — contracts honoured, only NEW subs use the 30-day math.
+- Landing page copy updated: hero subtitle, "Pay once. Eat for 30 days.", CTA subtitle, and SEO description all now say **30 days** (was 28).
+
+**3. Wall-kiosk mess menu was showing yesterday's date.**
+- `new Date("2026-08-13")` parses as UTC midnight; on a wall-kiosk whose system clock or timezone is slightly off from IST, that renders as the previous local day. Both `KioskMenuCard.jsx` and `TodayMessMenuFlash.jsx` now parse the ISO string into a **local** date (`new Date(y, m-1, d)`) before formatting the "Today's mess menu · Wednesday, 13 Aug" heading.
+
+**4. Face-alignment red/green guide + auto check-in on green.**
+- New `detectFace()` helper in `/app/frontend/src/lib/faceApi.js` returns both the descriptor AND the bounding box (relative fractions).
+- `KioskFaceScan.jsx` gained a `TARGET_BOX` in the center of the video (40% × 64%) and a `computeAlignment()` helper that turns the guide **green** when the detected face is centered inside the target and its width is in the 18-55% band ("not too far, not too close"), and **red** otherwise.
+- Only aligned faces trigger a `POST /api/kiosk/face-checkin` — misaligned faces just get a coaching message ("Move closer", "Step back a little", "Center your face in the green frame"). The moment alignment turns green the check-in fires automatically.
+- Scan tick sped up from 1.8s → 700 ms so the ring reacts quickly as the user moves.
+- CSS: guide is a rounded oval-ish frame with a 6-px border and a soft glow that shifts from `border-rose-500 shadow-rose` to `border-emerald-400 shadow-emerald` when aligned.
+
+Files touched: `backend/server.py`, `frontend/src/pages/Landing.jsx`, `frontend/src/components/admin-kiosk/KioskCounterPanel.jsx`, `frontend/src/components/admin-kiosk/KioskMenuCard.jsx`, `frontend/src/components/TodayMessMenuFlash.jsx`, `frontend/src/lib/faceApi.js`, `frontend/src/components/admin-kiosk/KioskFaceScan.jsx`.
+
+
+
 ## iter-138.k — QR container edge-to-edge layout (2026-02-19)
 **Status: DONE — no more top/bottom whitespace in the counter QR tile.**
 

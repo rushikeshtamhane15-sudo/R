@@ -138,10 +138,19 @@ export default function TodayMessMenuFlash({ compact = false }) {
 
   const active = tab === "today" ? today : next;
   const activeDate = tab === "today" ? data.today : data.tomorrow;
+  // iter-138.l — parse ISO date as local (see KioskMenuCard for full note).
+  let _localDate = null;
+  if (activeDate && /^\d{4}-\d{2}-\d{2}$/.test(activeDate)) {
+    const [_y, _m, _d] = activeDate.split("-").map(Number);
+    _localDate = new Date(_y, _m - 1, _d);
+  }
+  const _dateStr = _localDate
+    ? _localDate.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })
+    : "";
   const cardLabel = active
     ? (tab === "today"
-        ? `Today's mess menu · ${new Date(activeDate).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}`
-        : `Tomorrow's preview · ${new Date(activeDate).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}`)
+        ? `Today's mess menu · ${_dateStr}`
+        : `Tomorrow's preview · ${_dateStr}`)
     : "";
 
   const priceFor = (svc) => Number(cfg[`price_${svc}`] || 0);

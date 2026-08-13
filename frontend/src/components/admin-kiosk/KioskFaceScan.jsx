@@ -7,7 +7,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
-import { computeDescriptor, ensureModelsLoaded } from "../../lib/faceApi";
+import { detectFace, ensureModelsLoaded } from "../../lib/faceApi";
 import { ScanFace, Loader2, HelpCircle, X as XIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -15,6 +15,37 @@ import { toast } from "sonner";
 // (attendance dedup already blocks same-slot duplicates, but this keeps the
 // TTS queue clean and avoids hammering the backend on staff standing in view).
 const COOLDOWN_MS = 60_000;
+
+// iter-138.l — alignment target: face must fit inside this centered box for
+// the guide ring to turn green. Values are fractions of the video frame.
+//   TARGET box: 40% width, 60% height, centered.
+//   FACE_MIN / FACE_MAX: acceptable face-box width as a fraction of the
+//   video width — filters out "too far" (tiny face) and "too close" (huge
+//   face) states.
+//   OFFSET_TOL: max distance (fraction of video) the face-box center can
+//   drift from the target center before turning red.
+const TARGET_BOX = { x: 0.30, y: 0.18, w: 0.40, h: 0.64 };
+const FACE_MIN_W = 0.18;
+const FACE_MAX_W = 0.55;
+const OFFSET_TOL = 0.12;
+
+function computeAlignment(box) {
+  if (!box) return { aligned: false, reason: "no-face" };
+  const cxFace = box.x + box.w / 2;
+  const cyFace = box.y + box.h / 2;
+  const cxTarget = TARGET_BOX.x + TARGET_BOX.w / 2;
+  const cyTarget = TARGET_BOX.y + TARGET_BOX.h / 2;
+  // The <video> is CSS-mirrored (scaleX(-1)) so users see themselves
+  // naturally; the underlying frame we detect on is NOT mirrored. Mirror
+  // the face-box X for UI alignment math.
+  const dx = Math.abs((1 - cxFace) - cxTarget);
+  const dy = Math.abs(cyFace - cyTarget);
+  if (box.w < FACE_MIN_W) return { aligned: false, reason: "too-far" };
+  if (box.w > FACE_MAX_W) return { aligned: false, reason: "too-close" };
+  if (dx > OFFSET_TOL) return { aligned: false, reason: dx > 0 ? "off-center" : "off-center" };
+  if (dy > OFFSET_TOL) return { aligned: false, reason: "off-center" };
+  return { aligned: true, reason: "ok" };
+}
 
 export default function KioskFaceScan({ onCheckin, isFullscreen = false, active = true, fillParent = false }) {
   const videoRef = useRef(null);
@@ -26,6 +57,11 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
   const [phase, setPhase] = useState("boot"); // boot | live | scanning | denied | error
   const [lastMsg, setLastMsg] = useState("");
   const [helperOpen, setHelperOpen] = useState(false);
+  // iter-138.l — live alignment state drives the red/green target ring and
+  // gates the check-in POST. Only "aligned" faces (centered + right size)
+  // trigger a network round-trip; misaligned faces just update the coach
+  // message ("move closer", "too close", "look at camera").
+  const [alignment, setAlignment] = useState({ aligned: false, reason: "no-face" });
 
   const stopCamera = useCallback(() => {
     try { if (tickTimerRef.current) { clearTimeout(tickTimerRef.current); tickTimerRef.current = null; } } catch { /* noop */ }
@@ -204,48 +240,63 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
     let cancelled = false;
     const tick = async () => {
       if (cancelled) return;
-      if (inflightRef.current) { tickTimerRef.current = setTimeout(tick, 1200); return; }
+      if (inflightRef.current) { tickTimerRef.current = setTimeout(tick, 500); return; }
       inflightRef.current = true;
       try {
         setPhase("scanning");
-        const desc = await computeDescriptor(videoRef.current);
+        const detected = await detectFace(videoRef.current);
         if (cancelled) return;
-        if (!desc) {
+        if (!detected) {
+          setAlignment({ aligned: false, reason: "no-face" });
           setPhase("live");
-          setLastMsg("Looking for a face…");
-        } else {
-          try {
-            const r = await api.post("/kiosk/face-checkin", { embedding: desc });
-            if (cancelled) return;
-            const data = r.data || {};
-            if (data.ok && data.subscriber_user_id) {
-              const uid = data.subscriber_user_id;
-              const now = Date.now();
-              const last = lastByUserRef.current.get(uid) || 0;
-              if (now - last >= COOLDOWN_MS) {
-                lastByUserRef.current.set(uid, now);
-                setLastMsg(`✓ ${data.subscriber_name || "Guest"} · ${data.meal_type}`);
-                try { onCheckin && onCheckin(data); } catch { /* noop */ }
-              } else {
-                setLastMsg(`${data.subscriber_name || "Guest"} · already checked in`);
-              }
-            } else if (data.reason === "borderline") {
-              setLastMsg(`Face unclear · move closer · ${(data.candidate && data.candidate.name) || ""}`);
-            } else if (data.reason === "attendance_blocked") {
-              setLastMsg(`${(data.candidate && data.candidate.name) || "Face matched"} · ${data.detail}`);
+          setLastMsg("Look at the camera to check in");
+          return;
+        }
+        const align = computeAlignment(detected.box);
+        setAlignment(align);
+        if (!align.aligned) {
+          // Coach the user into the target frame — don't waste a network
+          // round-trip on a face that isn't centered/sized correctly yet.
+          setPhase("live");
+          if (align.reason === "too-far") setLastMsg("Move closer to the camera");
+          else if (align.reason === "too-close") setLastMsg("Step back a little");
+          else if (align.reason === "off-center") setLastMsg("Center your face in the green frame");
+          else setLastMsg("Look straight at the camera");
+          return;
+        }
+        // Aligned! Fire the check-in POST.
+        setLastMsg("Matching…");
+        try {
+          const r = await api.post("/kiosk/face-checkin", { embedding: detected.descriptor });
+          if (cancelled) return;
+          const data = r.data || {};
+          if (data.ok && data.subscriber_user_id) {
+            const uid = data.subscriber_user_id;
+            const now = Date.now();
+            const last = lastByUserRef.current.get(uid) || 0;
+            if (now - last >= COOLDOWN_MS) {
+              lastByUserRef.current.set(uid, now);
+              setLastMsg(`✓ ${data.subscriber_name || "Guest"} · ${data.meal_type}`);
+              try { onCheckin && onCheckin(data); } catch { /* noop */ }
             } else {
-              setLastMsg("Face not recognised · scan QR from mobile");
+              setLastMsg(`${data.subscriber_name || "Guest"} · already checked in`);
             }
-          } catch (err) {
-            const s = err?.response?.status;
-            const detail = err?.response?.data?.detail;
-            if (s === 404 && detail && /No enrolled/.test(detail)) {
-              setLastMsg("No subscribers enrolled yet · enroll from Profile page");
-            } else if (s === 400) {
-              setLastMsg(detail || "No active meal slot");
-            } else {
-              setLastMsg("Server didn't respond · will retry");
-            }
+          } else if (data.reason === "borderline") {
+            setLastMsg(`Face unclear · move closer · ${(data.candidate && data.candidate.name) || ""}`);
+          } else if (data.reason === "attendance_blocked") {
+            setLastMsg(`${(data.candidate && data.candidate.name) || "Face matched"} · ${data.detail}`);
+          } else {
+            setLastMsg("Face not recognised · scan QR from mobile");
+          }
+        } catch (err) {
+          const s = err?.response?.status;
+          const detail = err?.response?.data?.detail;
+          if (s === 404 && detail && /No enrolled/.test(detail)) {
+            setLastMsg("No subscribers enrolled yet · enroll from Profile page");
+          } else if (s === 400) {
+            setLastMsg(detail || "No active meal slot");
+          } else {
+            setLastMsg("Server didn't respond · will retry");
           }
         }
       } catch (e) {
@@ -253,7 +304,9 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
       } finally {
         setPhase("live");
         inflightRef.current = false;
-        if (!cancelled) tickTimerRef.current = setTimeout(tick, 1800);
+        // Faster tick (700ms) so the red/green frame reacts quickly as the
+        // user moves; when a check-in is in flight we throttle to 500ms.
+        if (!cancelled) tickTimerRef.current = setTimeout(tick, 700);
       }
     };
     tick();
@@ -266,6 +319,34 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
       data-testid="kiosk-face-scan"
     >
       <video ref={videoRef} playsInline muted autoPlay className="w-full h-full object-cover" style={{ transform: "scaleX(-1)" }} />
+      {/* iter-138.l — face alignment target: a translucent rounded frame the
+          user positions their face inside. Turns emerald-green when the
+          detected face-box is centered + correctly sized (auto-triggers
+          the check-in POST) and rose-red otherwise. */}
+      {ready && phase !== "denied" && (
+        <div
+          className="pointer-events-none absolute"
+          style={{
+            left:   `${TARGET_BOX.x * 100}%`,
+            top:    `${TARGET_BOX.y * 100}%`,
+            width:  `${TARGET_BOX.w * 100}%`,
+            height: `${TARGET_BOX.h * 100}%`,
+          }}
+          data-testid="kiosk-face-align-target"
+          data-aligned={alignment.aligned ? "1" : "0"}
+        >
+          <div
+            className={`w-full h-full rounded-[36%_36%_44%_44%/40%_40%_50%_50%] border-[6px] transition-colors duration-150 ${
+              alignment.aligned
+                ? "border-emerald-400 shadow-[0_0_24px_rgba(52,211,153,0.75)]"
+                : "border-rose-500 shadow-[0_0_18px_rgba(244,63,94,0.55)]"
+            }`}
+            style={{
+              backgroundColor: alignment.aligned ? "rgba(16,185,129,0.10)" : "rgba(244,63,94,0.06)",
+            }}
+          />
+        </div>
+      )}
       <div className="absolute inset-x-0 top-0 flex items-center gap-1.5 justify-center bg-black/60 text-white py-1.5 px-3">
         <ScanFace className={`h-3.5 w-3.5 ${phase === "scanning" ? "text-emerald-300 animate-pulse" : "text-white/80"}`} />
         <span className="text-[10px] tracking-[0.16em] uppercase font-extrabold">Face check-in</span>

@@ -66,13 +66,34 @@ export async function ensureModelsLoaded() {
 
 /** Compute a 128-dim descriptor from an <img>, <video>, or <canvas>. Returns null when no face detected. */
 export async function computeDescriptor(source) {
+  const out = await detectFace(source);
+  return out ? out.descriptor : null;
+}
+
+/** iter-138.l — detect a face + return both the 128-dim descriptor AND the
+ * bounding box (relative x/y/w/h in [0,1] against the source's dimensions).
+ * Returns null when no face is detected. Used by the wall-kiosk red/green
+ * alignment guide to know where the face is inside the video frame.
+ */
+export async function detectFace(source) {
   const faceapi = await ensureModelsLoaded();
   const detected = await faceapi
     .detectSingleFace(source, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.55 }))
     .withFaceLandmarks()
     .withFaceDescriptor();
   if (!detected || !detected.descriptor) return null;
-  // detected.descriptor is a Float32Array — convert to plain Array so it
-  // serialises correctly through fetch(JSON.stringify).
-  return Array.from(detected.descriptor);
+  const b = detected.detection && detected.detection.box;
+  const iw = (source && (source.videoWidth || source.naturalWidth || source.width)) || 1;
+  const ih = (source && (source.videoHeight || source.naturalHeight || source.height)) || 1;
+  const box = b ? {
+    x: b.x / iw,
+    y: b.y / ih,
+    w: b.width / iw,
+    h: b.height / ih,
+  } : null;
+  return {
+    descriptor: Array.from(detected.descriptor),
+    box,
+    score: (detected.detection && detected.detection.score) || 0,
+  };
 }

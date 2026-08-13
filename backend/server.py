@@ -74,13 +74,13 @@ CUSTOM_MAX_DAYS = 90
 PARTIAL_PAYMENT_SURCHARGE_INR = 200.0
 
 DEFAULT_PLANS = [
-    # iter-129: monthly plans re-scoped 30d → 28d.
-    # Rule (approved by product): keep amount the same, drop days to 28, drop
-    # meals to 56 (exactly 2/day). Result: daily ₹100, per-meal ₹50 exact
-    # for the flagship Premium plan; other plans scale proportionally.
-    {"plan_id": "premium_60", "name": "Premium Dining", "description": "Eat at our hall · 56 home-style meals across 28 days · scan QR at counter", "amount": 2800.0, "currency": "INR", "duration_days": 28, "meals": 56, "active": True, "sort_order": 1, "plan_type": "kiosk", "service_type": "dining", "tiffin_size": None, "tiffins_per_day": 0},
-    {"plan_id": "classic_60", "name": "Classic Full Tiffin", "description": "Full home-style tiffin — 5 chapati + sabzi/dal/rice, delivered twice daily · 28 days", "amount": 2600.0, "currency": "INR", "duration_days": 28, "meals": 56, "active": True, "sort_order": 2, "plan_type": "delivery", "service_type": "tiffin", "tiffin_size": "full", "tiffins_per_day": 2},
-    {"plan_id": "saver_60", "name": "Classic Half Tiffin", "description": "Lighter portion tiffin — 3 chapati + sabzi/dal, delivered twice daily · 28 days", "amount": 1800.0, "currency": "INR", "duration_days": 28, "meals": 56, "active": True, "sort_order": 3, "plan_type": "delivery", "service_type": "tiffin", "tiffin_size": "half", "tiffins_per_day": 2},
+    # iter-138.l: monthly plans re-scoped 28d → 30d.
+    # Rule (approved by product): keep amount the same, extend duration to 30
+    # days and meals to 60 (exactly 2/day). Result: daily ₹93.33, per-meal
+    # ₹46.67 for the flagship Premium plan; other plans scale proportionally.
+    {"plan_id": "premium_60", "name": "Premium Dining", "description": "Eat at our hall · 60 home-style meals across 30 days · scan QR at counter", "amount": 2800.0, "currency": "INR", "duration_days": 30, "meals": 60, "active": True, "sort_order": 1, "plan_type": "kiosk", "service_type": "dining", "tiffin_size": None, "tiffins_per_day": 0},
+    {"plan_id": "classic_60", "name": "Classic Full Tiffin", "description": "Full home-style tiffin — 5 chapati + sabzi/dal/rice, delivered twice daily · 30 days", "amount": 2600.0, "currency": "INR", "duration_days": 30, "meals": 60, "active": True, "sort_order": 2, "plan_type": "delivery", "service_type": "tiffin", "tiffin_size": "full", "tiffins_per_day": 2},
+    {"plan_id": "saver_60", "name": "Classic Half Tiffin", "description": "Lighter portion tiffin — 3 chapati + sabzi/dal, delivered twice daily · 30 days", "amount": 1800.0, "currency": "INR", "duration_days": 30, "meals": 60, "active": True, "sort_order": 3, "plan_type": "delivery", "service_type": "tiffin", "tiffin_size": "half", "tiffins_per_day": 2},
 ]
 
 
@@ -1772,6 +1772,82 @@ async def _startup_migrate_plans_30d_to_28d():
         # Don't crash server boot — an admin can re-trigger via a manual admin
         # endpoint if this ever fails (unlikely for a simple update-many).
         logger.warning(f"[migrations] iter129 plan re-scope failed: {e}")
+
+
+async def _migrate_plans_28day_to_30day():
+    """iter-138.l — reverse the iter-129 shrink and put monthly plans back on
+    a 30-day / 60-meal cadence.
+
+    Rule (approved by product): keep amount the same, extend duration back
+    to 30 days and meal count back to 60 (exactly 2/day). Daily rate drops
+    from ₹100 to ₹93.33 for the flagship Premium plan.
+      • Every active plan whose `duration_days == 28` is switched to 30.
+      • Its `meals` count is grown proportionally to preserve the 2/day
+        invariant — 56 → 60, 42 → 45 (rounded to even), etc.
+      • Existing subscriptions are NEVER touched. Contracts honoured.
+
+    Marker: db.migrations.find_one({"key": "iter138_30day_plans"}).
+    Safe to redeploy — re-runs are a no-op if marker exists.
+    """
+    try:
+        marker = await db.migrations.find_one({"key": "iter138_30day_plans"})
+        if marker:
+            return   # already ran on this DB
+        cursor = db.plans.find({"duration_days": 28}, {"plan_id": 1, "meals": 1, "duration_days": 1})
+        touched = 0
+        async for p in cursor:
+            old_meals = int(p.get("meals") or 0)
+            # snap to nearest even number to preserve 2/day invariant; bump
+            # by +4 as a sensible floor if the proportional bump lands on
+            # the same number.
+            new_meals = max(2, (old_meals * 30 // 28) // 2 * 2)
+            if new_meals == old_meals:
+                new_meals = old_meals + 4
+            await db.plans.update_one(
+                {"_id": p["_id"]},
+                {"$set": {
+                    "duration_days": 30,
+                    "meals": new_meals,
+                    "_migrated_from_28d": True,
+                    "_migrated_at": "iter-138-startup",
+                }, "$unset": {"_migrated_from_30d": ""}},
+            )
+            touched += 1
+        # Also fix any residual descriptions that still say "28 days" or
+        # "56 home-style meals". We only fix the two default text patterns.
+        await db.plans.update_many(
+            {"description": {"$regex": "28 days"}},
+            [{"$set": {"description": {
+                "$replaceAll": {"input": "$description", "find": "28 days", "replacement": "30 days"}
+            }}}],
+        )
+        await db.plans.update_many(
+            {"description": {"$regex": "56 home-style meals"}},
+            [{"$set": {"description": {
+                "$replaceAll": {"input": "$description", "find": "56 home-style meals", "replacement": "60 home-style meals"}
+            }}}],
+        )
+        await db.migrations.insert_one({
+            "key": "iter138_30day_plans",
+            "ran_at": now_utc().isoformat(),
+            "plans_touched": touched,
+            "note": "28d plans → 30d; meals grown to 2/day invariant; existing subs untouched.",
+        })
+        if touched:
+            logger.info(f"[migrations] iter138: migrated {touched} plans from 28d back to 30d")
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[migrations] iter138 plan re-scope failed: {e}")
+
+
+@app.on_event("startup")
+async def _startup_migrate_plans_28d_to_30d():
+    """iter-138.l startup hook — reverts monthly plans back to 30d/60m.
+
+    Runs AFTER the iter-129 startup hook has fired (both are idempotent, so
+    the ordering doesn't actually matter — the 28→30 migration only touches
+    docs whose `duration_days == 28`, which the iter-129 marker guarantees).
+    """
+    await _migrate_plans_28day_to_30day()
 
 
 @api_router.get("/messes")
