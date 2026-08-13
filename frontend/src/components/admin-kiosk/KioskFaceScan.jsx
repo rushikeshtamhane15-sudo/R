@@ -163,7 +163,14 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
         if (cancelled) return;
         // eslint-disable-next-line no-console
         console.warn(`[face-scan] model retry #${attempt} failed`, e && e.message);
-        setLastMsg(`Recognition models loading · retry ${attempt}…`);
+        // iter-138.n — after 4 failed attempts we're likely stuck on a stale
+        // service-worker cache; surface a bright "Tap to reload" prompt so
+        // the operator can recover without knowing how to hard-refresh.
+        if (attempt >= 4) {
+          setLastMsg("Tap here to reload models");
+        } else {
+          setLastMsg(`Recognition models loading · retry ${attempt}…`);
+        }
         setTimeout(tryLoad, 8_000);
       }
     };
@@ -352,9 +359,27 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
         <span className="text-[10px] tracking-[0.16em] uppercase font-extrabold">Face check-in</span>
         {phase === "boot" && <Loader2 className="h-3.5 w-3.5 animate-spin text-white/70 ml-1" />}
       </div>
-      <div className="absolute inset-x-0 bottom-0 bg-black/70 text-white text-center text-xs sm:text-sm font-extrabold py-2 px-2" data-testid="kiosk-face-scan-msg">
+      <button
+        type="button"
+        onClick={() => {
+          // iter-138.n — if the operator taps the bottom banner while it's
+          // showing the "Tap here to reload models" recovery hint, hard-reload
+          // the page so a stale service-worker cache is bypassed.
+          if (typeof lastMsg === "string" && /reload/i.test(lastMsg)) {
+            try {
+              if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+                navigator.serviceWorker.getRegistrations().then((rs) => rs.forEach((r) => r.unregister())).catch(() => {});
+              }
+              // eslint-disable-next-line no-restricted-globals
+              window.location.reload();
+            } catch { /* noop */ }
+          }
+        }}
+        className={`absolute inset-x-0 bottom-0 bg-black/70 text-white text-center text-xs sm:text-sm font-extrabold py-2 px-2 ${lastMsg && /reload/i.test(lastMsg) ? "bg-amber-600 animate-pulse cursor-pointer" : "cursor-default"}`}
+        data-testid="kiosk-face-scan-msg"
+      >
         {lastMsg || (ready ? "Look at the camera to check in" : "Loading detector…")}
-      </div>
+      </button>
       {phase === "denied" && (
         <>
           <button

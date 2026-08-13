@@ -4,7 +4,19 @@
 
 
 
-## iter-138.m — Wall-kiosk QR layout: fill the vertical column, no white bands (2026-02-19)
+## iter-138.n — Payment container fits · faster voice · face-scan recovery tap (2026-02-19)
+**Status: DONE.**
+
+**1. Payment / order-form was cut off at the bottom of the 27″ wall kiosk.**
+Root cause: `AdminKiosk.jsx` fullscreen grid rows were `3fr_2fr_auto` — the QR panel claimed 60 % of the viewport, leaving < 40 % for the self-order section which then couldn't fit menu + payment-mode + totals + customer-name row on one screen. Rebalanced to `2fr_3fr_auto` (QR ≈ 40 %, self-order ≈ 60 %). The payment mode buttons, TOTAL row, quantity stepper and Confirm-Order button now sit above the fold.
+
+**2. Check-in voice was too slow.**
+`announceCheckinSuccess()` was firing utterances at rate 0.98 / 1.02 after a 500 ms wait. Bumped Hindi to rate 1.18, English to rate 1.22, and dropped the pre-voice delay to 220 ms — a full "लंच चेक-इन सफल हुआ। धन्यवाद। Lunch check-in successful. Thank you." bilingual announcement now finishes in ~3 s instead of ~5 s.
+
+**3. Face-scan red/green overlay was missing on production because a stale service-worker cache was still serving the old jsdelivr-only faceApi.js.**
+The models were already deployed to `/models/*` (verified via `curl https://efoodcare.in/models/…` → HTTP 200). The wall kiosk's browser was just running yesterday's cached JS. Added a self-recovery UX in `KioskFaceScan.jsx`:
+- After 4 failed model-load retries, the bottom banner turns bright amber and says **"Tap here to reload models"**.
+- Tapping the banner unregisters all service-worker registrations then calls `location.reload()` — a clean hard-refresh that skips the SW cache and lets the browser pick up the new JS + local `/models` bundle. No more "walk to the kiosk with a keyboard to hard-reload" workaround.
 **Status: DONE — matches the "nice & aligned" look you asked for on the 27" vertical display.**
 
 Problem: on the 27" vertical wall-kiosk the left column is ~950 px tall. A 500-px QR + small pills sat crammed in the middle with big empty white bands above the meal toggle and below the "Refreshes in…" pill. Mobile was fine because the container is much shorter there.

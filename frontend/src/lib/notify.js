@@ -195,14 +195,17 @@ export function announceCheckinSuccess(meal = "lunch", name = "") {
   } catch { /* noop */ }
   // Cancel any pending utterances so back-to-back scans don't queue up.
   try { if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel(); } catch { /* noop */ }
-  // Chime lasts ~450ms. Give a short pause before the voice fires.
+  // iter-138.n — chime is only ~450ms and users found the old 500ms pause
+  // + rate 0.98/1.02 combination too slow. Cut the pre-voice pause to 220ms
+  // and bump the utterance rates to 1.18 (Hindi) / 1.22 (English) so the
+  // whole announcement completes in under ~3 s.
   setTimeout(() => {
-    speak(hindi, { lang: "hi-IN", rate: 0.98, pitch: 1.0, volume: 1.0 });
+    speak(hindi, { lang: "hi-IN", rate: 1.18, pitch: 1.0, volume: 1.0 });
     // Chain English after the Hindi utterance finishes. speechSynthesis
     // queues utterances FIFO, so we can just enqueue the English right
     // after — it starts when the Hindi one ends.
-    speak(english, { lang: "en-IN", rate: 1.02, pitch: 1.0, volume: 1.0 });
-  }, 500);
+    speak(english, { lang: "en-IN", rate: 1.22, pitch: 1.0, volume: 1.0 });
+  }, 220);
 }
 
 /**
