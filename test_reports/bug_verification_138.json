@@ -1,0 +1,43 @@
+{
+  "verdict": "fixed",
+  "user_reported_bug": "Uploaded a video showing the wall Kiosk camera blinking every ~5 seconds and never detecting faces on mobile. The Kiosk overlay keeps flashing back to the 'Tap to grant camera access' state even though the browser has already granted camera permission. The camera preview strobes off/on repeatedly and face check-ins never fire.",
+  "summary": "Focused mobile kiosk verification passed. Loaded ai-testing-core and ai-testing-image-video skills. Used admin OTP DEV MODE (MOCKED) login and real backend kiosk APIs (no kiosk API mocks); used a MOCKED headless canvas MediaStream because this container has no physical camera. With face-api model downloads blocked, I observed /admin/kiosk for 23s: one live stream stayed active, video currentTime advanced 0.28s→22.37s, denied overlay never appeared, banner showed 'Camera live · recognition models offline · retrying…', and heartbeat persisted camera_ok=true. Simulated genuine NotAllowedError showed one stable denied overlay for 13s with Show me how helper and no blink/remount.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/tests/kiosk_face_scan_bug_verification_iteration_138.py",
+    "/app/test_reports/bug_verification_138.json",
+    "/app/test_reports/iteration_138.json"
+  ],
+  "action_items": [
+    "Commit the currently uncommitted KioskFaceScan.jsx fix before handoff/deploy.",
+    "Optional: add an automated regression test that blocks face-api model URLs and asserts the kiosk never enters the denied phase while streamRef is active."
+  ],
+  "critical_code_review_comments": [
+    "Code inspection confirms boot() now returns early when streamRef.current.active is true and model-loading failures only update the offline banner instead of setting phase='denied'.",
+    "The verified fix is currently an uncommitted modification to /app/frontend/src/components/admin-kiosk/KioskFaceScan.jsx on top of commit 51c37bf."
+  ],
+  "updated_files": [
+    "/app/tests/kiosk_face_scan_bug_verification_iteration_138.py",
+    "/app/test_reports/bug_verification_138.json",
+    "/app/test_reports/iteration_138.json",
+    "/app/test_reports/kiosk_face_scan_iter138_browser1/",
+    "/app/test_reports/kiosk_face_scan_iter138_browser2/"
+  ],
+  "success_rate": {
+    "backend": "100% (focused auth + heartbeat/health checks)",
+    "frontend": "100% (focused kiosk camera stability checks)"
+  },
+  "seed_data_creation": "No seed data created. Used existing admin phone 9970705391 from ADMIN_PHONES via OTP DEV MODE (MOCKED) flow.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Use /admin/kiosk with efc.kiosk.voice=1. In a headless browser, grant camera and inject a canvas MediaStream, route-abort URLs containing /model/ or /models/, then sample [data-testid='kiosk-face-scan'] for at least 20s. Expected: stable video srcObject, no [data-testid='kiosk-face-scan-retry'], offline banner, heartbeat camera_ok true. For denied path, make getUserMedia reject NotAllowedError and confirm retry overlay + helper stay stable.",
+  "rca_of_the_issue": "RCA validated by code review and browser evidence: model download failure previously could be treated like camera denial, causing the 5s denied-phase poll to reboot camera and blink the stream. The current implementation acquires camera first, leaves phase live on model errors, and only shows denied UI for actual getUserMedia failures. Evidence: model-blocked run aborted 6 model requests, made 1 fake camera stream, had 0 null/inactive stream samples, 0 denied overlay samples, and heartbeat POSTed camera_ok=true (200). Denied run had getUserMedia calls at poll intervals but MutationObserver recorded 0 retry overlay removals/additions after initial render."
+}

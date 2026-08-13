@@ -40,18 +40,25 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
   useEffect(() => () => stopCamera(), [stopCamera]);
 
   const boot = useCallback(async () => {
+    if (streamRef.current && streamRef.current.active) {
+      // iter-138.i — don't re-acquire the camera if we already have a live
+      // stream (was causing a strobe/blink cycle every 5s when the model
+      // download failed and set phase="denied", triggering the poll to
+      // retry boot() while the camera was still perfectly fine).
+      setPhase("live");
+      return;
+    }
     setPhase("boot");
-    // iter-138.h — surface the real reason we can't start the camera so
-    // "tap to grant" isn't shown for causes it can't actually fix (camera
-    // in use by another app, no camera hardware, insecure origin, etc.).
     if (typeof navigator === "undefined" || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setPhase("denied");
       setLastMsg("Camera API unavailable · use HTTPS + Chrome/Edge/Safari");
       return;
     }
+    // Step 1 — acquire camera. Anything after this is best-effort so a
+    // model-download failure never blinks the live preview.
+    let stream = null;
     try {
-      const modelP = ensureModelsLoaded();
-      const stream = await navigator.mediaDevices.getUserMedia({
+      stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
         audio: false,
       });
@@ -60,15 +67,13 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
         videoRef.current.srcObject = stream;
         try { await videoRef.current.play(); } catch { /* iOS autoplay */ }
       }
-      await modelP;
-      setReady(true);
       setPhase("live");
-      setLastMsg("Camera ready · walk up to check in");
+      setLastMsg("Camera live · loading recognition models…");
     } catch (e) {
       const name = e && e.name ? e.name : "";
       const msg = e && e.message ? e.message : "";
       // eslint-disable-next-line no-console
-      console.warn("[face-scan] boot failed", name, msg);
+      console.warn("[face-scan] camera boot failed", name, msg);
       if (name === "NotAllowedError" || name === "SecurityError") {
         setPhase("denied");
         setLastMsg("Camera permission denied · allow in browser 🔒 icon then reload");
@@ -82,6 +87,20 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
         setPhase("denied");
         setLastMsg(`Camera failed · ${name || "error"} · ${msg || "reload page"}`);
       }
+      return;
+    }
+    // Step 2 — try to load recognition models. If this fails, keep the
+    // camera live and show a distinct error message. NEVER flip back to
+    // "denied" from a model error — the poll would strobe the camera off.
+    try {
+      await ensureModelsLoaded();
+      setReady(true);
+      setLastMsg("Camera ready · walk up to check in");
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn("[face-scan] models load failed", e && e.message);
+      setReady(false);
+      setLastMsg("Camera live · recognition models offline · retrying…");
     }
   }, []);
 

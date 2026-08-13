@@ -4,6 +4,20 @@
 
 
 
+## iter-138.i — Kiosk face-scan strobe/blink fix (2026-02-19)
+**Status: DONE — verified by `bug_testing_agent` on live preview.**
+
+Root cause: face-api.js model download failures were flipping `KioskFaceScan` to `phase="denied"`. The every-5s self-heal poll then re-invoked `boot()`, which re-acquired a fresh camera stream and blinked the video off/on. On mobile this looked like the overlay strobing back to "Tap to grant camera access" every ~5 seconds.
+
+Fix in `/app/frontend/src/components/admin-kiosk/KioskFaceScan.jsx`:
+- `boot()` returns early with `setPhase("live")` if `streamRef.current?.active` — never rip an already-live stream.
+- Model-load failures no longer set `phase="denied"`; camera stays live and the banner shows "recognition models offline · retrying…".
+- Denied overlay now only appears on genuine `getUserMedia` failures (`NotAllowedError`, `SecurityError`, `NotFoundError`, `OverconstrainedError`, `NotReadableError`).
+
+Verification (`/app/test_reports/bug_verification_138.json`): 23s observation with model URLs blocked → single live stream, video currentTime advanced 0.28s → 22.37s, zero denied-overlay flips, heartbeat POSTed `camera_ok=true`. Genuine `NotAllowedError` still shows a single stable denied overlay + helper.
+
+
+
 ## iter-138.h — Kiosk health tile + camera diagnostics + tighter kiosk rows (2026-02-19)
 **Status: DONE — dashboard visibility + clearer camera errors.**
 
