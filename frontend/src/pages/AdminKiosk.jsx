@@ -513,7 +513,7 @@ export default function AdminKiosk() {
 
   return (
     <div
-      className={`min-h-screen text-white grid gap-3 p-4 kiosk-lights-shell ${isFullscreenRoute ? "grid-rows-[5fr_5fr_auto]" : "grid-rows-[5fr_3fr_auto]"}`}
+      className={`min-h-screen text-white grid gap-3 p-4 kiosk-lights-shell ${isFullscreenRoute ? "grid-rows-[3fr_2fr_auto]" : "grid-rows-[5fr_3fr_auto]"}`}
       style={{ background: "hsl(0, 76%, 45%)" }}
       data-testid="admin-kiosk-page"
       data-kiosk-fs={isFullscreenRoute ? "1" : "0"}

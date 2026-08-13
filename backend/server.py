@@ -2586,6 +2586,51 @@ async def admin_set_face_embedding(
     return {"ok": True, "user_id": target_user_id, "dim": len(payload.embedding)}
 
 
+# ---- iter-138.h · Kiosk heartbeat + health tile -----------------------------
+class KioskHeartbeatIn(BaseModel):
+    camera_ok: bool = False
+    voice_on: bool = False
+    ua: Optional[str] = None
+    note: Optional[str] = None
+
+
+@api_router.post("/admin/kiosk/heartbeat")
+async def kiosk_heartbeat(payload: KioskHeartbeatIn, user: User = Depends(get_current_user)):
+    """Wall kiosk pings this every ~30s with its live camera + voice state
+    so the admin dashboard can flag "camera lost" without walking to the
+    display."""
+    if user.role not in ("admin", "staff", "franchise_owner"):
+        raise HTTPException(status_code=403, detail="Admin/staff only")
+    await db.kiosk_heartbeats.update_one(
+        {"admin_user_id": user.user_id},
+        {"$set": {
+            "admin_user_id": user.user_id,
+            "camera_ok": bool(payload.camera_ok),
+            "voice_on": bool(payload.voice_on),
+            "ua": (payload.ua or "")[:200],
+            "note": (payload.note or "")[:200],
+            "ts": iso(now_utc()),
+        }},
+        upsert=True,
+    )
+    return {"ok": True}
+
+
+@api_router.get("/admin/kiosk/health")
+async def kiosk_health(user: User = Depends(get_current_user)):
+    if user.role not in ("admin", "staff", "franchise_owner"):
+        raise HTTPException(status_code=403, detail="Admin/staff only")
+    hb_docs = await db.kiosk_heartbeats.find({}, {"_id": 0}).sort("ts", -1).limit(10).to_list(10)
+    # Last face check-in for the "N min ago" fresh-scan indicator.
+    last_att = await db.attendance.find_one({"marked_by": "kiosk_face"}, {"_id": 0}, sort=[("checked_at", -1)])
+    return {
+        "ok": True,
+        "kiosks": hb_docs,
+        "last_face_checkin_at": (last_att or {}).get("checked_at"),
+        "last_face_checkin_user_id": (last_att or {}).get("user_id"),
+    }
+
+
 @api_router.post("/kiosk/face-checkin")
 async def kiosk_face_checkin(payload: FaceCheckinIn, user: User = Depends(get_current_user)):
     """Live wall-kiosk face match → attendance.

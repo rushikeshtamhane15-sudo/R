@@ -41,8 +41,15 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
 
   const boot = useCallback(async () => {
     setPhase("boot");
+    // iter-138.h — surface the real reason we can't start the camera so
+    // "tap to grant" isn't shown for causes it can't actually fix (camera
+    // in use by another app, no camera hardware, insecure origin, etc.).
+    if (typeof navigator === "undefined" || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setPhase("denied");
+      setLastMsg("Camera API unavailable · use HTTPS + Chrome/Edge/Safari");
+      return;
+    }
     try {
-      // Kick off model download in parallel with camera acquisition.
       const modelP = ensureModelsLoaded();
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
@@ -51,17 +58,50 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        try { await videoRef.current.play(); } catch { /* iOS autoplay */ }
       }
       await modelP;
       setReady(true);
       setPhase("live");
       setLastMsg("Camera ready · walk up to check in");
     } catch (e) {
-      setPhase("denied");
-      setLastMsg(e && e.name === "NotAllowedError" ? "Camera permission denied" : (e?.message || "Camera failed"));
+      const name = e && e.name ? e.name : "";
+      const msg = e && e.message ? e.message : "";
+      // eslint-disable-next-line no-console
+      console.warn("[face-scan] boot failed", name, msg);
+      if (name === "NotAllowedError" || name === "SecurityError") {
+        setPhase("denied");
+        setLastMsg("Camera permission denied · allow in browser 🔒 icon then reload");
+      } else if (name === "NotFoundError" || name === "OverconstrainedError") {
+        setPhase("denied");
+        setLastMsg("No camera detected on this device");
+      } else if (name === "NotReadableError") {
+        setPhase("denied");
+        setLastMsg("Camera busy — close other apps/tabs using the camera, then reload");
+      } else {
+        setPhase("denied");
+        setLastMsg(`Camera failed · ${name || "error"} · ${msg || "reload page"}`);
+      }
     }
   }, []);
+
+  // iter-138.h — 30s heartbeat so the admin dashboard can flag a wall
+  // kiosk that's lost camera without staff walking to the display.
+  useEffect(() => {
+    if (!active) return undefined;
+    const send = () => {
+      try {
+        api.post("/admin/kiosk/heartbeat", {
+          camera_ok: phase === "live" || phase === "scanning",
+          voice_on: true,
+          ua: (typeof navigator !== "undefined" && navigator.userAgent) ? navigator.userAgent.slice(0, 200) : "",
+        }).catch(() => { /* silent */ });
+      } catch { /* noop */ }
+    };
+    send();
+    const id = setInterval(send, 30_000);
+    return () => clearInterval(id);
+  }, [active, phase]);
 
   // Boot the camera whenever the parent enables us.
   useEffect(() => {

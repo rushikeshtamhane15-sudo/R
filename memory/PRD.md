@@ -4,6 +4,23 @@
 
 
 
+## iter-138.h — Kiosk health tile + camera diagnostics + tighter kiosk rows (2026-02-19)
+**Status: DONE — dashboard visibility + clearer camera errors.**
+
+- **Kiosk health tile on admin dashboard**: New `KioskHealthTile` on `/admin` (top of the dashboard). Polls `GET /api/admin/kiosk/health` every 20 s. Shows green (camera live) / amber (heartbeat > 90 s stale) / red (camera reported down) status, "Heartbeat N min ago", and "Last face check-in N min ago". One glance from anywhere in the app tells you if the wall kiosk is up.
+- **Wall kiosk heartbeat**: KioskFaceScan now POSTs to `/admin/kiosk/heartbeat` every 30 s while active with `{camera_ok, voice_on, ua}`. Stored per-admin in `db.kiosk_heartbeats` (upsert).
+- **Camera diagnostics**: `boot()` now inspects the exact `getUserMedia` error and shows a specific reason instead of always "denied":
+  - `NotAllowedError` / `SecurityError` → "Camera permission denied · allow in 🔒 icon then reload"
+  - `NotFoundError` / `OverconstrainedError` → "No camera detected on this device"
+  - `NotReadableError` → "Camera busy — close other apps/tabs, then reload"
+  - Anything else → "Camera failed · <name> · <message>"
+  Also logs to console for remote debugging.
+- **Wall kiosk row heights**: Fullscreen grid rows changed from `5fr_5fr_auto` → `3fr_2fr_auto` so the counter panel is dominant (where the face-scan tile now lives) and the payment row is tighter — kills the whitespace strip below the KioskOrderForm.
+
+Files touched: `/app/backend/server.py` (2 new endpoints), `/app/frontend/src/components/admin-kiosk/KioskFaceScan.jsx` (diagnostics + heartbeat), `/app/frontend/src/components/KioskHealthTile.jsx` (new), `/app/frontend/src/pages/AdminDashboard.jsx` (mounts tile), `/app/frontend/src/pages/AdminKiosk.jsx` (grid rows).
+
+
+
 ## iter-138.g — Camera "denied" now recovers via reload (2026-02-19)
 **Status: DONE — most reliable browser-side fix.**
 

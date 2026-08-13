@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import { Users, Calendar, IndianRupee, Check, RefreshCw, AlertTriangle, Phone, MessageCircle } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
+import KioskHealthTile from "../components/KioskHealthTile";
 
 const PERIODS = [
   { id: "cycle", label: "Billing cycle" },
@@ -121,6 +122,8 @@ export default function AdminOverview() {
           <span className="text-xs text-muted-foreground" data-testid="period-window-label">{stats.period_label}</span>
         )}
       </div>
+
+      <div className="mt-6"><KioskHealthTile /></div>
 
       <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4" data-testid="stat-cards">
         {cards.map((c, idx) => (
