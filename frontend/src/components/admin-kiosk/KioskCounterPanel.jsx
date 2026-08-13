@@ -77,16 +77,16 @@ export default function KioskCounterPanel({
       </div>
 
       <div className={`flex-1 grid sm:grid-cols-[1.4fr_1fr] gap-4 min-h-0 ${isFullscreen ? "p-6" : "p-5"}`}>
-        <div className={`rounded-2xl bg-white flex flex-col items-center justify-center h-full ${isFullscreen ? "px-6 py-4" : "p-5"}`} data-testid="kiosk-counter-qr">
-          {/* iter-134.f — meal toggle moved from the header into the top of
-              the QR container so customers see the "currently serving" and
-              can (staff-only) toggle on demand right above the QR.
-              iter-134.g — during "off" hours we still show a soft ring on the
-              currently-splashed meal (activeMealNow feeds the QR), so users
-              don't see two fully-faded tabs and wonder why. */}
-          {/* iter-137.a — extra breathing room between the Lunch/Dinner toggle
-              and the counter QR so the toggle doesn't visually crowd the QR. */}
-          <div className={`inline-flex bg-primary/5 rounded-full p-1 gap-1 shadow-sm ring-2 ring-primary/20 ${isFullscreen ? "mb-8" : "mb-8"}`} data-testid="kiosk-meal-toggle">
+        <div className={`rounded-2xl bg-white flex flex-col items-center justify-between h-full ${isFullscreen ? "px-6 py-5" : "p-5"}`} data-testid="kiosk-counter-qr">
+          {/* iter-138.k — layout is now three edge-to-edge groups so the QR
+              container has no wasted whitespace at the top or bottom:
+                • top    → meal toggle
+                • middle → the QR itself (flex-1, absorbs excess height)
+                • bottom → all info pills (scan-me, slot countdown, refresh)
+              justify-between on the parent pushes the toggle to the top edge
+              and the pill group to the bottom edge; the QR block auto-centers
+              in whatever's left over. */}
+          <div className={`inline-flex bg-primary/5 rounded-full p-1 gap-1 shadow-sm ring-2 ring-primary/20`} data-testid="kiosk-meal-toggle">
             <button
               type="button"
               onClick={() => canLunch && setMeal("lunch")}
@@ -121,36 +121,40 @@ export default function KioskCounterPanel({
 
           {counter ? (
             <>
-              <QRCodeSVG value={counter.counter_code} size={isFullscreen ? 500 : 360} level="M" fgColor="hsl(142 45% 28%)" />
-              <div
-                className={`inline-flex items-center gap-2 rounded-full bg-primary text-white shadow ring-1 ring-primary/20 ${isFullscreen ? "mt-4 px-5 h-11 text-base" : "mt-3 px-4 h-9 text-xs"} font-extrabold tracking-tight`}
-                data-testid="kiosk-scan-info-tag"
-              >
-                <ScanLine className={isFullscreen ? "h-5 w-5" : "h-3.5 w-3.5"} />
-                Scan Me And Get Ghar Se Accha Khana
+              <div className="flex flex-col items-center justify-center flex-1 min-h-0 w-full">
+                <QRCodeSVG value={counter.counter_code} size={isFullscreen ? 500 : 360} level="M" fgColor="hsl(142 45% 28%)" />
               </div>
-              {/* iter-134.f — slot-close timer replaces the raw counter_code
-                  + "LUNCH · main" caption below the QR. */}
-              {slotCountdownLabel && (
+              <div className="flex flex-col items-center gap-2 w-full">
                 <div
-                  className={`inline-flex items-center gap-1.5 rounded-full bg-white text-primary shadow-sm ring-2 ring-emerald-500 ${isFullscreen ? "mt-3 px-4 h-10 text-sm" : "mt-2 px-3 h-8 text-xs"} font-extrabold uppercase tracking-[0.14em]`}
-                  data-testid="kiosk-slot-countdown"
-                  title={`${activeSlot === "lunch" ? "Lunch" : activeSlot === "dinner" ? "Dinner" : "Next meal"} timing (IST)`}
+                  className={`inline-flex items-center gap-2 rounded-full bg-primary text-white shadow ring-1 ring-primary/20 ${isFullscreen ? "px-5 h-11 text-base" : "px-4 h-9 text-xs"} font-extrabold tracking-tight`}
+                  data-testid="kiosk-scan-info-tag"
                 >
-                  <Clock className={isFullscreen ? "h-4 w-4" : "h-3.5 w-3.5"} />
-                  {slotCountdownLabel}
+                  <ScanLine className={isFullscreen ? "h-5 w-5" : "h-3.5 w-3.5"} />
+                  Scan Me And Get Ghar Se Accha Khana
                 </div>
-              )}
-              {qrRotateSeconds > 0 && (
-                <div
-                  className={`inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-800 ring-1 ring-emerald-300 ${isFullscreen ? "mt-2 px-3 h-8 text-xs" : "mt-2 px-2.5 h-7 text-[10px]"} font-extrabold uppercase tracking-[0.16em]`}
-                  data-testid="kiosk-qr-rotate-countdown"
-                  title="This QR rotates every 5 minutes for security"
-                >
-                  <RefreshCw className={`${isFullscreen ? "h-3.5 w-3.5" : "h-3 w-3"} ${qrRotateSeconds <= 10 ? "animate-spin" : ""}`} />
-                  Refreshes in {qrRotateSeconds >= 60 ? `${Math.floor(qrRotateSeconds / 60)}m ${String(qrRotateSeconds % 60).padStart(2, "0")}s` : `${qrRotateSeconds}s`}
-                </div>
-              )}
+                {/* iter-134.f — slot-close timer replaces the raw counter_code
+                    + "LUNCH · main" caption below the QR. */}
+                {slotCountdownLabel && (
+                  <div
+                    className={`inline-flex items-center gap-1.5 rounded-full bg-white text-primary shadow-sm ring-2 ring-emerald-500 ${isFullscreen ? "px-4 h-10 text-sm" : "px-3 h-8 text-xs"} font-extrabold uppercase tracking-[0.14em]`}
+                    data-testid="kiosk-slot-countdown"
+                    title={`${activeSlot === "lunch" ? "Lunch" : activeSlot === "dinner" ? "Dinner" : "Next meal"} timing (IST)`}
+                  >
+                    <Clock className={isFullscreen ? "h-4 w-4" : "h-3.5 w-3.5"} />
+                    {slotCountdownLabel}
+                  </div>
+                )}
+                {qrRotateSeconds > 0 && (
+                  <div
+                    className={`inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-800 ring-1 ring-emerald-300 ${isFullscreen ? "px-3 h-8 text-xs" : "px-2.5 h-7 text-[10px]"} font-extrabold uppercase tracking-[0.16em]`}
+                    data-testid="kiosk-qr-rotate-countdown"
+                    title="This QR rotates every 5 minutes for security"
+                  >
+                    <RefreshCw className={`${isFullscreen ? "h-3.5 w-3.5" : "h-3 w-3"} ${qrRotateSeconds <= 10 ? "animate-spin" : ""}`} />
+                    Refreshes in {qrRotateSeconds >= 60 ? `${Math.floor(qrRotateSeconds / 60)}m ${String(qrRotateSeconds % 60).padStart(2, "0")}s` : `${qrRotateSeconds}s`}
+                  </div>
+                )}
+              </div>
             </>
           ) : (
             <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />

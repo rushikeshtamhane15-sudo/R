@@ -4,6 +4,20 @@
 
 
 
+## iter-138.k — QR container edge-to-edge layout (2026-02-19)
+**Status: DONE — no more top/bottom whitespace in the counter QR tile.**
+
+The QR container previously centered its contents (`justify-center`) which left visible empty white bands above the meal toggle and below the refresh-countdown pill whenever the left column stretched taller than the QR content itself.
+
+Fix in `/app/frontend/src/components/admin-kiosk/KioskCounterPanel.jsx`:
+- Wrapped the QR into three edge-to-edge groups:
+  - **Top** — meal toggle (Lunch / Dinner)
+  - **Middle** — `<div flex-1>` around the QR SVG so it auto-absorbs the extra column height
+  - **Bottom** — pill group (`Scan Me · Ghar Se Accha Khana`, slot-close countdown, QR refresh countdown)
+- Outer flex-col now uses `justify-between` so the toggle sticks to the top edge and the pill group sticks to the bottom edge — the QR sits perfectly centered in whatever height is left.
+
+
+
 ## iter-138.j — Face check-in "nothing happens" fix + QR/face tile layout parity (2026-02-19)
 **Status: DONE — models now local, retry loop, matching visual footprint.**
 
