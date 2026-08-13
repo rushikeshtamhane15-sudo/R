@@ -186,14 +186,14 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
         <>
           <button
             type="button"
-            onClick={() => { toast.message("Allow camera in the browser prompt (or address-bar 🔒 icon → Camera → Allow)"); boot(); }}
+            onClick={() => { try { window.location.reload(); } catch { boot(); } }}
             className="absolute inset-0 flex items-center justify-center bg-black/85 text-white text-xs font-extrabold flex-col gap-2 px-3 text-center"
             data-testid="kiosk-face-scan-retry"
           >
             <ScanFace className="h-6 w-6" />
             <span>Tap to grant camera access</span>
             <span className="text-[10px] font-normal opacity-80 leading-tight">
-              If nothing happens, open the browser's address-bar 🔒 icon → Camera → Allow, then reload.
+              Allow camera in the browser · this button reloads the page so the new permission takes effect.
             </span>
             <span
               role="button"
@@ -215,17 +215,17 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
               <ol className="mt-1 space-y-1.5 text-[11px] leading-snug list-decimal list-inside">
                 <li>Click the <b>🔒 lock icon</b> on the left of the address bar.</li>
                 <li>Find <b>Camera</b> in the list → set it to <b>Allow</b>.</li>
-                <li>Tap <b>Reset permissions</b> if it's stuck as "Blocked".</li>
+                <li>Tap <b>Reset permissions</b> if it&apos;s stuck as &quot;Blocked&quot;.</li>
                 <li>Close the popup and <b>reload</b> the page (Ctrl + R).</li>
                 <li>Return here — the camera will start automatically.</li>
               </ol>
               <button
                 type="button"
-                onClick={() => { setHelperOpen(false); boot(); }}
+                onClick={() => { try { window.location.reload(); } catch { setHelperOpen(false); boot(); } }}
                 className="mt-2 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs h-8"
                 data-testid="kiosk-face-scan-helper-retry"
               >
-                I've allowed it — retry now
+                I&apos;ve allowed it — reload &amp; retry
               </button>
             </div>
           )}

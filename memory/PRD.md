@@ -4,6 +4,25 @@
 
 
 
+## iter-138.g — Camera "denied" now recovers via reload (2026-02-19)
+**Status: DONE — most reliable browser-side fix.**
+
+Browsers cache the "denied" state at the getUserMedia level even after users flip the address-bar permission back to Allow. Some browsers (Firefox, older Chrome) only re-check permission on the NEXT navigation/reload, not on subsequent `getUserMedia` calls. That's why the auto-retry poll from iter-138.f wasn't enough for every user.
+
+Fix:
+- Both the primary "Tap to grant camera access" button and the walkthrough's "I've allowed it" button now call `window.location.reload()` instead of just `boot()`. After reload, the browser always re-reads the current permission state and the camera starts immediately.
+- Copy updated to clearly say "Allow camera in the browser · this button reloads the page so the new permission takes effect."
+
+For a truly zero-prompt wall kiosk, admins should launch Chrome once with:
+```
+chrome --kiosk --use-fake-ui-for-media-stream https://efoodcare.in/admin/kiosk-lights
+```
+This browser flag auto-accepts every camera/mic request silently — the wall device then never prompts again.
+
+Files touched: `/app/frontend/src/components/admin-kiosk/KioskFaceScan.jsx`.
+
+
+
 ## iter-138.f — Face-scan resiliency + layout polish (2026-02-19)
 **Status: DONE — sticky "denied" bug fixed, layout tightened, walkthrough added.**
 
