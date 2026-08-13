@@ -4,6 +4,33 @@
 
 
 
+## iter-138.j — Face check-in "nothing happens" fix + QR/face tile layout parity (2026-02-19)
+**Status: DONE — models now local, retry loop, matching visual footprint.**
+
+Two problems reported from the wall kiosk in production:
+1. **Face check-in silently did nothing** — a user's face was in the profile, admin had run batch enrollment, but the kiosk never fired a check-in.
+2. **QR container showed empty white space** while the face-scan tile stretched into a very tall portrait, so the two tiles were visually unbalanced.
+
+Root cause for (1): `face-api.js` models were loaded from the jsdelivr CDN. On the wall-kiosk device (Windows + Chrome behind restrictive firewalls) the CDN request either failed or was intermittently blocked. Our previous fix stopped the "denied" strobe cycle but did NOT add a retry loop for the model load, so once the initial download failed the `ready` state stayed `false` forever and the scanning loop never started. Result: camera preview live, banner said "recognition models offline · retrying…" but nothing was actually retrying.
+
+Fix in `/app/frontend/src/lib/faceApi.js`:
+- Ships the three face-api model files (`tiny_face_detector`, `face_landmark_68`, `face_recognition`, ~6 MB) locally under `/app/frontend/public/models/`.
+- `ensureModelsLoaded()` now tries same-origin `/models` first (fast, works on any network that can reach the app) and falls back to jsdelivr only if the local files are missing.
+
+Fix in `/app/frontend/src/components/admin-kiosk/KioskFaceScan.jsx`:
+- Added a self-healing background retry: while `active && !ready`, `ensureModelsLoaded()` is retried every 8 s with an incrementing counter surfaced in the banner ("Recognition models loading · retry 3…"). A single failed load can no longer leave the tile in a permanent "camera live but no scanning" limbo.
+- Bigger, more legible banner text (`text-xs sm:text-sm font-extrabold`) so operators can read the state from across the counter.
+- Default banner distinguishes "Loading detector…" from "Look at the camera to check in" once models are ready.
+
+Fix for (2) in `/app/frontend/src/components/admin-kiosk/KioskCounterPanel.jsx`:
+- QR container: added `justify-center` in fullscreen mode so the QR + info pills are vertically balanced with the right column.
+- Face-scan tile: dropped `flex-1 min-h-0` and pinned `aspect-square` so the video preview matches the QR's visual footprint instead of stretching tall.
+- Right-column flex uses `justify-center` so face tile + BT card sit symmetrically.
+
+Files touched: `/app/frontend/src/lib/faceApi.js`, `/app/frontend/src/components/admin-kiosk/KioskFaceScan.jsx`, `/app/frontend/src/components/admin-kiosk/KioskCounterPanel.jsx`, `/app/frontend/public/models/*` (7 new binary/JSON files).
+
+
+
 ## iter-138.i — Kiosk face-scan strobe/blink fix (2026-02-19)
 **Status: DONE — verified by `bug_testing_agent` on live preview.**
 

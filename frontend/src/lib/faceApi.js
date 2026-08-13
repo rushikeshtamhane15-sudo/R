@@ -10,7 +10,12 @@
  */
 
 const FACEAPI_SRC = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.min.js";
-const MODEL_BASE = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model";
+// iter-138.j — models are now served from the same origin (/models) so a
+// blocked/slow jsdelivr CDN on the wall-kiosk network never leaves the tile
+// stuck at "camera live but no detection". A CDN URL is kept as a fallback
+// in case the local static files ever go missing.
+const MODEL_LOCAL = "/models";
+const MODEL_CDN = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model";
 
 let _libPromise = null;
 let _modelsLoaded = false;
@@ -35,15 +40,26 @@ export async function ensureFaceApiLoaded() {
   return _libPromise;
 }
 
-/** Load the three required models (idempotent). Total download ≈ 6MB, cached forever. */
+/** Load the three required models (idempotent). Total download ≈ 6MB, cached forever.
+ * iter-138.j — tries the same-origin /models bundle first (fast, no CDN
+ * dependency, works even on tight-firewalled wall-kiosk networks). Falls
+ * back to the jsdelivr CDN only if the local files 404.
+ */
 export async function ensureModelsLoaded() {
   const faceapi = await ensureFaceApiLoaded();
   if (_modelsLoaded) return faceapi;
-  await Promise.all([
-    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_BASE),
-    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_BASE),
-    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_BASE),
+  const load = async (base) => Promise.all([
+    faceapi.nets.tinyFaceDetector.loadFromUri(base),
+    faceapi.nets.faceLandmark68Net.loadFromUri(base),
+    faceapi.nets.faceRecognitionNet.loadFromUri(base),
   ]);
+  try {
+    await load(MODEL_LOCAL);
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn("[faceApi] local models failed, falling back to CDN", e && e.message);
+    await load(MODEL_CDN);
+  }
   _modelsLoaded = true;
   return faceapi;
 }

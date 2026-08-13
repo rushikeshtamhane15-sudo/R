@@ -77,7 +77,7 @@ export default function KioskCounterPanel({
       </div>
 
       <div className={`flex-1 grid sm:grid-cols-[1.4fr_1fr] gap-4 min-h-0 ${isFullscreen ? "p-6" : "p-5"}`}>
-        <div className={`rounded-2xl bg-white flex flex-col items-center h-full ${isFullscreen ? "px-6 pt-4 pb-3" : "p-5 justify-center"}`} data-testid="kiosk-counter-qr">
+        <div className={`rounded-2xl bg-white flex flex-col items-center justify-center h-full ${isFullscreen ? "px-6 py-4" : "p-5"}`} data-testid="kiosk-counter-qr">
           {/* iter-134.f — meal toggle moved from the header into the top of
               the QR container so customers see the "currently serving" and
               can (staff-only) toggle on demand right above the QR.
@@ -157,12 +157,14 @@ export default function KioskCounterPanel({
           )}
         </div>
 
-        <div className="flex flex-col gap-3 h-full min-h-0">
+        <div className="flex flex-col gap-3 h-full min-h-0 justify-center">
           {/* iter-138.e — Face check-in tile replaces the "How it works" copy.
-              Same width & height envelope so the top-right column keeps its
-              visual weight; the printer-status pill was moved into the BT
-              card below so nothing is lost. */}
-          <div className={`rounded-2xl bg-white border border-black/8 shadow-sm flex-1 min-h-0 overflow-hidden ${isFullscreen ? "p-3" : "p-2.5"}`} data-testid="kiosk-face-scan-tile">
+              iter-138.j — no longer flex-1; uses a fixed aspect so the tile
+              matches the QR's visual footprint on the left instead of
+              stretching into a distorted tall portrait. Excess column
+              height (from the taller QR pills stack) becomes symmetric
+              whitespace above/below the right column via justify-center. */}
+          <div className={`rounded-2xl bg-white border border-black/8 shadow-sm overflow-hidden ${isFullscreen ? "p-3 aspect-square" : "p-2.5 aspect-square"}`} data-testid="kiosk-face-scan-tile">
             <p className={`tracking-[0.18em] uppercase font-bold text-primary mb-2 ${isFullscreen ? "text-sm" : "text-[11px]"}`}>Face check-in</p>
             {faceScanNode ? (
               faceScanNode

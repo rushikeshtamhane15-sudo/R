@@ -92,6 +92,9 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
     // Step 2 — try to load recognition models. If this fails, keep the
     // camera live and show a distinct error message. NEVER flip back to
     // "denied" from a model error — the poll would strobe the camera off.
+    // iter-138.j — a dedicated retry effect below re-attempts model load
+    // every 8s while `ready` is false, so an initial CDN blip doesn't leave
+    // the tile stuck in a "camera live but no detection" limbo.
     try {
       await ensureModelsLoaded();
       setReady(true);
@@ -100,9 +103,39 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
       // eslint-disable-next-line no-console
       console.warn("[face-scan] models load failed", e && e.message);
       setReady(false);
-      setLastMsg("Camera live · recognition models offline · retrying…");
+      setLastMsg("Camera live · loading recognition models…");
     }
   }, []);
+
+  // iter-138.j — keep retrying `ensureModelsLoaded()` in the background
+  // whenever the camera is live but recognition isn't ready. Without this,
+  // one flaky CDN response leaves the tile in a "live video, zero detection"
+  // state until the operator reloads the page.
+  useEffect(() => {
+    if (!active || ready) return undefined;
+    let cancelled = false;
+    let attempt = 0;
+    const tryLoad = async () => {
+      if (cancelled || ready) return;
+      attempt += 1;
+      try {
+        await ensureModelsLoaded();
+        if (cancelled) return;
+        setReady(true);
+        setLastMsg("Camera ready · walk up to check in");
+      } catch (e) {
+        if (cancelled) return;
+        // eslint-disable-next-line no-console
+        console.warn(`[face-scan] model retry #${attempt} failed`, e && e.message);
+        setLastMsg(`Recognition models loading · retry ${attempt}…`);
+        setTimeout(tryLoad, 8_000);
+      }
+    };
+    // First retry fires ~2s after the initial boot() attempt fails so we
+    // don't hammer the CDN back-to-back.
+    const t = setTimeout(tryLoad, 2_000);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [active, ready]);
 
   // iter-138.h — 30s heartbeat so the admin dashboard can flag a wall
   // kiosk that's lost camera without staff walking to the display.
@@ -238,8 +271,8 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
         <span className="text-[10px] tracking-[0.16em] uppercase font-extrabold">Face check-in</span>
         {phase === "boot" && <Loader2 className="h-3.5 w-3.5 animate-spin text-white/70 ml-1" />}
       </div>
-      <div className="absolute inset-x-0 bottom-0 bg-black/60 text-white text-center text-[11px] font-bold py-1.5 px-2 truncate" data-testid="kiosk-face-scan-msg">
-        {lastMsg || "Loading camera…"}
+      <div className="absolute inset-x-0 bottom-0 bg-black/70 text-white text-center text-xs sm:text-sm font-extrabold py-2 px-2" data-testid="kiosk-face-scan-msg">
+        {lastMsg || (ready ? "Look at the camera to check in" : "Loading detector…")}
       </div>
       {phase === "denied" && (
         <>
