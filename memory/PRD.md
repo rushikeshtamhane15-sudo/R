@@ -4,6 +4,20 @@
 
 
 
+## iter-138.m — Wall-kiosk QR layout: fill the vertical column, no white bands (2026-02-19)
+**Status: DONE — matches the "nice & aligned" look you asked for on the 27" vertical display.**
+
+Problem: on the 27" vertical wall-kiosk the left column is ~950 px tall. A 500-px QR + small pills sat crammed in the middle with big empty white bands above the meal toggle and below the "Refreshes in…" pill. Mobile was fine because the container is much shorter there.
+
+Fix in `/app/frontend/src/components/admin-kiosk/KioskCounterPanel.jsx`:
+- **Fullscreen only** — outer QR container is now `justify-between` with three edge-to-edge groups: meal toggle pinned to the **top** edge, QR SVG auto-centered in the leftover space, info pills pinned to the **bottom** edge. Zero empty white band at the very top or very bottom.
+- **Mobile** (non-fullscreen) keeps the compact `justify-center + gap-2` packing so it doesn't stretch on smaller screens.
+- **QR now responsive.** Uses `size={720}` (large SVG viewBox) plus CSS `width:100%, maxWidth: 620px` so it scales to the actual column width without overflowing on 27" displays.
+- **Toggle & pills grown for kiosk visibility** — Lunch/Dinner buttons are now `h-14 text-xl`, the "Scan Me · Ghar se accha khana" pill is `h-14 text-xl`, slot countdown pill is `h-12 text-base`, refresh pill is `h-10 text-sm`. All large enough to read from across the counter.
+- **Face-check-in tile switched to `aspect-[3/4]`** (portrait) so it fills more of the right column vertically and visually matches the enlarged QR next to it, instead of sitting as a small square with big whitespace above/below.
+
+
+
 ## iter-138.l — Kiosk polish: QR spacing · 30-day plans · correct date · face-align red/green guide (2026-02-19)
 **Status: DONE — all four user requests wired.**
 

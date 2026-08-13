@@ -77,18 +77,22 @@ export default function KioskCounterPanel({
       </div>
 
       <div className={`flex-1 grid sm:grid-cols-[1.4fr_1fr] gap-4 min-h-0 ${isFullscreen ? "p-6" : "p-5"}`}>
-        <div className={`rounded-2xl bg-white flex flex-col items-center justify-center h-full ${isFullscreen ? "px-6 py-4 gap-2" : "p-5 gap-2"}`} data-testid="kiosk-counter-qr">
-          {/* iter-138.l — items are now packed tight (small gap-2) and the
-              group is vertically centered. No gap between the Lunch/Dinner
-              toggle and the QR, and no gap between the QR and the pill
-              group beneath it. */}
-          <div className={`inline-flex bg-primary/5 rounded-full p-1 gap-1 shadow-sm ring-2 ring-primary/20`} data-testid="kiosk-meal-toggle">
+        <div className={`rounded-2xl bg-white flex flex-col items-center h-full ${isFullscreen ? "px-6 py-6 justify-between" : "p-5 gap-2 justify-center"}`} data-testid="kiosk-counter-qr">
+          {/* iter-138.m — three edge-to-edge groups on the wall kiosk:
+                • top    → meal toggle (large, readable across the counter)
+                • middle → the QR itself (auto-centered in the leftover)
+                • bottom → info pills (scan-me, slot countdown, refresh)
+              justify-between pins the toggle to the top edge and the pill
+              group to the bottom edge — so there is NO empty white band
+              above the toggle or below the pills. Mobile (non-fullscreen)
+              stays compact with justify-center + gap-2. */}
+          <div className={`inline-flex bg-primary/5 rounded-full p-1.5 gap-1 shadow-sm ring-2 ring-primary/20`} data-testid="kiosk-meal-toggle">
             <button
               type="button"
               onClick={() => canLunch && setMeal("lunch")}
               disabled={!canLunch}
               data-testid="kiosk-meal-lunch"
-              className={`rounded-full font-extrabold inline-flex items-center transition-all ${isFullscreen ? "h-10 px-5 text-base gap-1.5" : "h-11 px-5 text-sm gap-1.5"} ${meal === "lunch" && canLunch
+              className={`rounded-full font-extrabold inline-flex items-center transition-all ${isFullscreen ? "h-14 px-8 text-xl gap-2" : "h-11 px-5 text-sm gap-1.5"} ${meal === "lunch" && canLunch
                 ? "bg-white text-primary ring-[3px] ring-emerald-500 shadow"
                 : meal === "lunch"
                   ? "bg-white text-primary ring-2 ring-emerald-300 shadow-sm"
@@ -96,14 +100,14 @@ export default function KioskCounterPanel({
                     ? "bg-transparent text-primary/70 hover:text-primary"
                     : "bg-transparent text-primary/40 opacity-70 cursor-not-allowed"}`}
             >
-              <Sun className={isFullscreen ? "h-4 w-4" : "h-4 w-4"} /> Lunch
+              <Sun className={isFullscreen ? "h-6 w-6" : "h-4 w-4"} /> Lunch
             </button>
             <button
               type="button"
               onClick={() => canDinner && setMeal("dinner")}
               disabled={!canDinner}
               data-testid="kiosk-meal-dinner"
-              className={`rounded-full font-extrabold inline-flex items-center transition-all ${isFullscreen ? "h-10 px-5 text-base gap-1.5" : "h-11 px-5 text-sm gap-1.5"} ${meal === "dinner" && canDinner
+              className={`rounded-full font-extrabold inline-flex items-center transition-all ${isFullscreen ? "h-14 px-8 text-xl gap-2" : "h-11 px-5 text-sm gap-1.5"} ${meal === "dinner" && canDinner
                 ? "bg-white text-primary ring-[3px] ring-emerald-500 shadow"
                 : meal === "dinner"
                   ? "bg-white text-primary ring-2 ring-emerald-300 shadow-sm"
@@ -111,38 +115,44 @@ export default function KioskCounterPanel({
                     ? "bg-transparent text-primary/70 hover:text-primary"
                     : "bg-transparent text-primary/40 opacity-70 cursor-not-allowed"}`}
             >
-              <Moon className={isFullscreen ? "h-4 w-4" : "h-4 w-4"} /> Dinner
+              <Moon className={isFullscreen ? "h-6 w-6" : "h-4 w-4"} /> Dinner
             </button>
           </div>
 
           {counter ? (
             <>
-              <QRCodeSVG value={counter.counter_code} size={isFullscreen ? 500 : 360} level="M" fgColor="hsl(142 45% 28%)" />
-              <div className="flex flex-col items-center gap-2 w-full">
+              <QRCodeSVG
+                value={counter.counter_code}
+                size={720}
+                level="M"
+                fgColor="hsl(142 45% 28%)"
+                style={{ width: "100%", height: "auto", maxWidth: isFullscreen ? "620px" : "360px" }}
+              />
+              <div className={`flex flex-col items-center w-full ${isFullscreen ? "gap-3" : "gap-2"}`}>
                 <div
-                  className={`inline-flex items-center gap-2 rounded-full bg-primary text-white shadow ring-1 ring-primary/20 ${isFullscreen ? "px-5 h-11 text-base" : "px-4 h-9 text-xs"} font-extrabold tracking-tight`}
+                  className={`inline-flex items-center gap-2 rounded-full bg-primary text-white shadow ring-1 ring-primary/20 ${isFullscreen ? "px-7 h-14 text-xl" : "px-4 h-9 text-xs"} font-extrabold tracking-tight`}
                   data-testid="kiosk-scan-info-tag"
                 >
-                  <ScanLine className={isFullscreen ? "h-5 w-5" : "h-3.5 w-3.5"} />
+                  <ScanLine className={isFullscreen ? "h-6 w-6" : "h-3.5 w-3.5"} />
                   Scan Me And Get Ghar Se Accha Khana
                 </div>
                 {slotCountdownLabel && (
                   <div
-                    className={`inline-flex items-center gap-1.5 rounded-full bg-white text-primary shadow-sm ring-2 ring-emerald-500 ${isFullscreen ? "px-4 h-10 text-sm" : "px-3 h-8 text-xs"} font-extrabold uppercase tracking-[0.14em]`}
+                    className={`inline-flex items-center gap-2 rounded-full bg-white text-primary shadow-sm ring-2 ring-emerald-500 ${isFullscreen ? "px-5 h-12 text-base" : "px-3 h-8 text-xs"} font-extrabold uppercase tracking-[0.14em]`}
                     data-testid="kiosk-slot-countdown"
                     title={`${activeSlot === "lunch" ? "Lunch" : activeSlot === "dinner" ? "Dinner" : "Next meal"} timing (IST)`}
                   >
-                    <Clock className={isFullscreen ? "h-4 w-4" : "h-3.5 w-3.5"} />
+                    <Clock className={isFullscreen ? "h-5 w-5" : "h-3.5 w-3.5"} />
                     {slotCountdownLabel}
                   </div>
                 )}
                 {qrRotateSeconds > 0 && (
                   <div
-                    className={`inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-800 ring-1 ring-emerald-300 ${isFullscreen ? "px-3 h-8 text-xs" : "px-2.5 h-7 text-[10px]"} font-extrabold uppercase tracking-[0.16em]`}
+                    className={`inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-800 ring-1 ring-emerald-300 ${isFullscreen ? "px-4 h-10 text-sm" : "px-2.5 h-7 text-[10px]"} font-extrabold uppercase tracking-[0.16em]`}
                     data-testid="kiosk-qr-rotate-countdown"
                     title="This QR rotates every 5 minutes for security"
                   >
-                    <RefreshCw className={`${isFullscreen ? "h-3.5 w-3.5" : "h-3 w-3"} ${qrRotateSeconds <= 10 ? "animate-spin" : ""}`} />
+                    <RefreshCw className={`${isFullscreen ? "h-4 w-4" : "h-3 w-3"} ${qrRotateSeconds <= 10 ? "animate-spin" : ""}`} />
                     Refreshes in {qrRotateSeconds >= 60 ? `${Math.floor(qrRotateSeconds / 60)}m ${String(qrRotateSeconds % 60).padStart(2, "0")}s` : `${qrRotateSeconds}s`}
                   </div>
                 )}
@@ -154,13 +164,12 @@ export default function KioskCounterPanel({
         </div>
 
         <div className="flex flex-col gap-3 h-full min-h-0 justify-center">
-          {/* iter-138.e — Face check-in tile replaces the "How it works" copy.
-              iter-138.j — no longer flex-1; uses a fixed aspect so the tile
-              matches the QR's visual footprint on the left instead of
-              stretching into a distorted tall portrait. Excess column
-              height (from the taller QR pills stack) becomes symmetric
-              whitespace above/below the right column via justify-center. */}
-          <div className={`rounded-2xl bg-white border border-black/8 shadow-sm overflow-hidden ${isFullscreen ? "p-3 aspect-square" : "p-2.5 aspect-square"}`} data-testid="kiosk-face-scan-tile">
+          {/* iter-138.m — the wall-kiosk right column is ~600 px wide and
+              ~1000 px tall; an `aspect-square` face tile only used ~60% of
+              the column height, leaving big whitespace above/below. Bumped
+              to `aspect-[3/4]` (portrait) so the tile fills the column
+              vertically and visually matches the enlarged QR next to it. */}
+          <div className={`rounded-2xl bg-white border border-black/8 shadow-sm overflow-hidden ${isFullscreen ? "p-3 aspect-[3/4]" : "p-2.5 aspect-square"}`} data-testid="kiosk-face-scan-tile">
             <p className={`tracking-[0.18em] uppercase font-bold text-primary mb-2 ${isFullscreen ? "text-sm" : "text-[11px]"}`}>Face check-in</p>
             {faceScanNode ? (
               faceScanNode
