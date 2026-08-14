@@ -163,11 +163,34 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
         if (cancelled) return;
         // eslint-disable-next-line no-console
         console.warn(`[face-scan] model retry #${attempt} failed`, e && e.message);
-        // iter-138.n — after 4 failed attempts we're likely stuck on a stale
-        // service-worker cache; surface a bright "Tap to reload" prompt so
-        // the operator can recover without knowing how to hard-refresh.
-        if (attempt >= 4) {
-          setLastMsg("Tap here to reload models");
+        // iter-138.o — after 3 failed attempts we're almost certainly stuck
+        // on a stale service-worker cache. Automatically unregister the SW
+        // and hard-reload — ONCE per browser session (guarded by a
+        // sessionStorage flag) so a legitimate offline network doesn't loop
+        // the page forever. The tile becomes "always on" from the operator's
+        // point of view: no tap needed, the browser fixes itself.
+        if (attempt >= 3) {
+          const key = "efc.facescan.autoReloaded";
+          try {
+            const alreadyReloaded = window.sessionStorage.getItem(key) === "1";
+            if (!alreadyReloaded) {
+              window.sessionStorage.setItem(key, "1");
+              setLastMsg("Reloading recognition models…");
+              try {
+                if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+                  const regs = await navigator.serviceWorker.getRegistrations();
+                  await Promise.all(regs.map((r) => r.unregister()));
+                }
+                if (typeof caches !== "undefined" && caches.keys) {
+                  const keys = await caches.keys();
+                  await Promise.all(keys.map((k) => caches.delete(k)));
+                }
+              } catch { /* noop */ }
+              setTimeout(() => { try { window.location.reload(); } catch { /* noop */ } }, 400);
+              return;
+            }
+          } catch { /* noop */ }
+          setLastMsg("Recognition models offline · check network");
         } else {
           setLastMsg(`Recognition models loading · retry ${attempt}…`);
         }
@@ -362,20 +385,32 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
       <button
         type="button"
         onClick={() => {
-          // iter-138.n — if the operator taps the bottom banner while it's
-          // showing the "Tap here to reload models" recovery hint, hard-reload
-          // the page so a stale service-worker cache is bypassed.
-          if (typeof lastMsg === "string" && /reload/i.test(lastMsg)) {
-            try {
-              if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
-                navigator.serviceWorker.getRegistrations().then((rs) => rs.forEach((r) => r.unregister())).catch(() => {});
-              }
+          // iter-138.o — one-tap manual recovery if the auto-reload has
+          // already fired once this session and models still won't load.
+          // Clears service-worker + caches then hard-reloads.
+          if (typeof lastMsg === "string" && /reload|offline/i.test(lastMsg)) {
+            (async () => {
+              try {
+                if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+                  const regs = await navigator.serviceWorker.getRegistrations();
+                  await Promise.all(regs.map((r) => r.unregister()));
+                }
+                if (typeof caches !== "undefined" && caches.keys) {
+                  const keys = await caches.keys();
+                  await Promise.all(keys.map((k) => caches.delete(k)));
+                }
+                try { window.sessionStorage.removeItem("efc.facescan.autoReloaded"); } catch { /* noop */ }
+              } catch { /* noop */ }
               // eslint-disable-next-line no-restricted-globals
               window.location.reload();
-            } catch { /* noop */ }
+            })();
           }
         }}
-        className={`absolute inset-x-0 bottom-0 bg-black/70 text-white text-center text-xs sm:text-sm font-extrabold py-2 px-2 ${lastMsg && /reload/i.test(lastMsg) ? "bg-amber-600 animate-pulse cursor-pointer" : "cursor-default"}`}
+        className={`absolute inset-x-0 bottom-0 text-white text-center font-extrabold py-2 px-2 leading-tight ${
+          lastMsg && /reload|offline/i.test(lastMsg)
+            ? "bg-amber-600 animate-pulse cursor-pointer text-sm sm:text-base"
+            : "bg-black/70 cursor-default text-xs sm:text-sm"
+        }`}
         data-testid="kiosk-face-scan-msg"
       >
         {lastMsg || (ready ? "Look at the camera to check in" : "Loading detector…")}

@@ -11,7 +11,7 @@
  * - Everything else (third-party, /api, POST/PUT/DELETE): pass-through.
  */
 
-const VERSION = "v-fe6f196dd18d";
+const VERSION = "v-40cb4d982cf1";
 const APP_SHELL = `efoodcare-shell-${VERSION}`;
 const STATIC = `efoodcare-static-${VERSION}`;
 const PRECACHE = ["/", "/index.html", "/manifest.webmanifest"];

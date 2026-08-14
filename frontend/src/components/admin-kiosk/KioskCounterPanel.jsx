@@ -77,15 +77,14 @@ export default function KioskCounterPanel({
       </div>
 
       <div className={`flex-1 grid sm:grid-cols-[1.4fr_1fr] gap-4 min-h-0 ${isFullscreen ? "p-6" : "p-5"}`}>
-        <div className={`rounded-2xl bg-white flex flex-col items-center h-full ${isFullscreen ? "px-6 py-6 justify-between" : "p-5 gap-2 justify-center"}`} data-testid="kiosk-counter-qr">
-          {/* iter-138.m — three edge-to-edge groups on the wall kiosk:
-                • top    → meal toggle (large, readable across the counter)
-                • middle → the QR itself (auto-centered in the leftover)
-                • bottom → info pills (scan-me, slot countdown, refresh)
-              justify-between pins the toggle to the top edge and the pill
-              group to the bottom edge — so there is NO empty white band
-              above the toggle or below the pills. Mobile (non-fullscreen)
-              stays compact with justify-center + gap-2. */}
+        <div className={`rounded-2xl bg-white flex flex-col items-center h-full ${isFullscreen ? "px-6 py-6 gap-1 justify-center" : "p-5 gap-2 justify-center"}`} data-testid="kiosk-counter-qr">
+          {/* iter-138.o — user asked for ~3pt breathing space between the
+              toggle, the QR itself and the info-pill group (previously
+              `justify-between` glued the toggle to the top edge and the pills
+              to the bottom edge with a huge middle gap). `gap-1` = 4px ≈ 3pt
+              — small but visible breathing room between each item. Any
+              leftover vertical space becomes symmetric whitespace at the
+              top/bottom of the container via justify-center. */}
           <div className={`inline-flex bg-primary/5 rounded-full p-1.5 gap-1 shadow-sm ring-2 ring-primary/20`} data-testid="kiosk-meal-toggle">
             <button
               type="button"
@@ -163,13 +162,13 @@ export default function KioskCounterPanel({
           )}
         </div>
 
-        <div className="flex flex-col gap-3 h-full min-h-0 justify-center">
-          {/* iter-138.m — the wall-kiosk right column is ~600 px wide and
-              ~1000 px tall; an `aspect-square` face tile only used ~60% of
-              the column height, leaving big whitespace above/below. Bumped
-              to `aspect-[3/4]` (portrait) so the tile fills the column
-              vertically and visually matches the enlarged QR next to it. */}
-          <div className={`rounded-2xl bg-white border border-black/8 shadow-sm overflow-hidden ${isFullscreen ? "p-3 aspect-[3/4]" : "p-2.5 aspect-square"}`} data-testid="kiosk-face-scan-tile">
+        <div className="flex flex-col gap-3 h-full min-h-0">
+          {/* iter-138.o — face-check-in tile now fills the full column
+              height (flex-1) so it aligns visually with the QR container
+              on the left instead of sitting as a small aspect-fixed box
+              with whitespace above/below. Bluetooth-printer card sits
+              at natural height beneath it. */}
+          <div className={`rounded-2xl bg-white border border-black/8 shadow-sm overflow-hidden flex-1 min-h-0 ${isFullscreen ? "p-3" : "p-2.5"}`} data-testid="kiosk-face-scan-tile">
             <p className={`tracking-[0.18em] uppercase font-bold text-primary mb-2 ${isFullscreen ? "text-sm" : "text-[11px]"}`}>Face check-in</p>
             {faceScanNode ? (
               faceScanNode

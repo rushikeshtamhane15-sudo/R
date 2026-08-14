@@ -4,6 +4,26 @@
 
 
 
+## iter-138.o — Wall-kiosk fit-and-finish: aligned tiles · auto-reload · tighter QR spacing (2026-02-19)
+**Status: DONE — five polishing fixes on top of iter-138.n.**
+
+**1. Face-check-in tile now matches the QR container height.**
+Was `aspect-[3/4]` (fixed portrait) → often shorter than the QR container, so the right column looked visibly smaller than the left. Switched to `flex-1 min-h-0` so it fills the full column height above the Bluetooth-printer card. Both left and right columns now line up top-to-bottom.
+
+**2. Auto-reload once after 3 failed model-load retries (no more "tap to reload" prompt).**
+Previously the tile surfaced a "Tap here to reload models" button after 4 retries and required a physical tap on the kiosk — hard to do on a wall-mounted display. Now, after 3 consecutive failures, `KioskFaceScan.jsx` automatically unregisters every service-worker registration, wipes `caches`, and hard-reloads the page **once per browser session** (guarded by `sessionStorage["efc.facescan.autoReloaded"]="1"` to prevent an infinite reload loop when the network is genuinely offline). The tile is now truly "always on when the device is on".
+
+**3. Big empty white band below the payment container is gone.**
+Root cause: `AdminKiosk.jsx` used `grid-rows-[auto_1fr]` inside the self-order section which stretched the order-form card to fill all remaining vertical space, painting a huge white void beneath the "Place order" button. Changed to `grid-rows-[auto_auto] content-start` so both the menu card and the order form sit at their natural height and any leftover row height is the dark-red kiosk background instead of a stretched white card.
+
+**4. ~3pt gap between toggle / QR / info-pills on the wall kiosk.**
+Previously the fullscreen QR container used `justify-between` which pinned items to the top and bottom edges with a large void in the middle. Switched to `justify-center gap-1` (4px ≈ 3pt) so all three items pack tightly together with a small, visible breathing room between them — matches the "add 3pt space" ask exactly.
+
+**5. Red/green face-alignment border missing on the wall kiosk.**
+Same root cause as (2): the wall-kiosk browser was serving a stale service-worker cached JS. Once the auto-reload from (2) fires, the fresh JS + local `/models` bundle load, `ready` becomes `true`, and the alignment overlay renders. The overlay code (`kiosk-face-align-target` in `KioskFaceScan.jsx`) is already gated on `ready && phase !== "denied"` — no change needed to the guide itself, just needs the models to load.
+
+
+
 ## iter-138.n — Payment container fits · faster voice · face-scan recovery tap (2026-02-19)
 **Status: DONE.**
 
