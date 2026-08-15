@@ -879,15 +879,18 @@ async def catch_up_subscription(sub: dict) -> dict:
         is_inactive = (sub.get("service_type") != "tiffin") and (days_since_anchor >= INACTIVITY_THRESHOLD_DAYS + 1)
 
         # iter-138.s — admin-assigned back-dated subs stamp
-        # `no_pause_before` with the creation date. Any tick date STRICTLY
-        # before that boundary must NOT auto-pause: those days represent
+        # `no_pause_before` with the creation date. Any tick date up to and
+        # INCLUDING that boundary must NOT auto-pause: those days represent
         # the period the user was already eating (admin is just recording
         # it retroactively), so we deduct wallet for every one of them.
+        # iter-138.t — was `<` (strict) which missed the assign-day itself:
+        # 12 back-dated days → only 11 got deducted, meals_used stuck at 22
+        # instead of 24 and meals_left showed 38 instead of the expected 36.
         _npb = sub.get("no_pause_before")
         if is_inactive and _npb:
             try:
                 npb_date = date.fromisoformat(str(_npb)[:10])
-                if current < npb_date:
+                if current <= npb_date:
                     is_inactive = False
             except Exception:  # noqa: BLE001
                 pass

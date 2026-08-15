@@ -4,7 +4,20 @@
 
 
 
-## iter-138.s — Back-dated manual subs no longer auto-pause (2026-02-19)
+## iter-138.t — Off-by-one meals fix · red/green ring always visible · order-form fills row (2026-02-19)
+**Status: DONE.**
+
+**1. Meals math off by one on freshly assigned back-dated subs.**
+Root cause: yesterday's `no_pause_before` check used strict `<` — the assign-day itself (e.g. 15 Aug when admin recorded a sub back-dated from 3 Aug) still fell into the auto-pause branch because `current < npb_date` is false when they're equal. So 12 back-dated days produced only 11 debits (22 meals used instead of 24, meals_left = 38 instead of 36).
+Fix: changed the tick comparison to `current <= npb_date`. Now the assign-day gets deducted too and freshly back-dated subs land on the correct meals_left immediately.
+*Historical drift note:* Satwik's already-committed sub still shows meals_left = 38. To align it to 36 use the existing `POST /api/admin/users/{id}/wallet-adjust` with a `meals_delta: -2` and `delta: -100` (₹50/meal × 2).
+
+**2. Red/green face-alignment ring now shows the moment the camera goes live.**
+Was gated behind `ready && phase !== "denied"` — so the ring stayed invisible while face-api models were still loading (which can take a few seconds on a cold cache). Users walked up and saw a plain video feed with no indication where to stand. Now gated on `phase !== "denied"` alone — the ring appears immediately in RED (guide me here) and turns emerald-green the second the detector matches a centered / properly-sized face.
+
+**3. Wall-kiosk self-order overlap + big red blank space below Place-Order — fixed.**
+- Inner grid restored from `grid-rows-[auto_auto] content-start` → `grid-rows-[auto_1fr]` in fullscreen so the order-form card fills the row height.
+- `KioskOrderForm` fullscreen wrap grew `h-full justify-between` — form fields sit at the top of the card, Place-Order + Reset buttons stick to the bottom edge. No visible red bg beneath the buttons.
 **Status: DONE — targeted fix in `admin_assign_subscription` + daily tick.**
 
 Problem: When admin manually assigns a subscription with a `start_date` in the past (e.g. user has been eating from 3 Aug, admin only records it on 15 Aug), the daily-tick auto-pause logic was kicking in for every one of the 12 back-dated no-scan days. Result: only 3 days of wallet were deducted (the initial no-show grace window), the other 9+ were credited back as "paused", the sub extended past its natural end_date, and the wallet stayed higher than admin expected.

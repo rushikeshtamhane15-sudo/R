@@ -354,8 +354,12 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
           always renders as a natural face-shaped ring regardless of how
           tall the container gets. The alignment MATH still uses the
           TARGET_BOX percentages against the video frame; the visual
-          oval is a UI guide, not the geometry test. */}
-      {ready && phase !== "denied" && (
+          oval is a UI guide, not the geometry test.
+          iter-138.t — the guide now renders as soon as the camera is live
+          (phase !== "denied") — even if face-api models are still loading —
+          so the user knows exactly where to stand from the moment they walk
+          up. Default state is RED; turns green only after real detection. */}
+      {phase !== "denied" && (
         <div
           className="pointer-events-none absolute inset-0 flex items-center justify-center"
           data-testid="kiosk-face-align-target"
