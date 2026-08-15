@@ -274,6 +274,29 @@ async def admin_users(user: server.User = Depends(server.get_current_user)):
         else:
             q = {"user_id": user.user_id}
     users = await server.db.users.find(q, {"_id": 0}).to_list(1000)
+    # iter-138.r — the source of truth for a subscriber's spendable balance
+    # is the sum of their ACTIVE subscription `wallet_balance` fields (that's
+    # what the user profile / dashboard shows and what meal check-ins actually
+    # decrement). Admin previously saw the raw `users.wallet_balance` column
+    # which drifts because meal deductions only touch the subscription row.
+    # Override the field here so admin's "wallet ₹" columns AND the manual
+    # top-up screen match exactly what the user sees on their phone.
+    try:
+        uids = [u.get("user_id") for u in users if u.get("user_id")]
+        if uids:
+            sub_totals: dict = {}
+            async for s in server.db.subscriptions.find(
+                {"user_id": {"$in": uids}, "status": "active"},
+                {"_id": 0, "user_id": 1, "wallet_balance": 1},
+            ):
+                sub_totals[s["user_id"]] = sub_totals.get(s["user_id"], 0.0) + float(s.get("wallet_balance") or 0.0)
+            for u in users:
+                if u.get("user_id") in sub_totals:
+                    u["wallet_balance"] = round(sub_totals[u["user_id"]], 2)
+    except Exception:  # noqa: BLE001
+        # Fail-open: if the sum breaks for any reason, keep the raw
+        # users.wallet_balance so admin isn't shown a blank column.
+        pass
     return {"users": users}
 
 

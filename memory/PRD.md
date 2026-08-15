@@ -4,6 +4,26 @@
 
 
 
+## iter-138.r — Admin wallet display synced with what the user sees (2026-02-19)
+**Status: DONE — one-line data-source fix.**
+
+Problem: `Satwik prashant ghuikhedkar` (and every other subscriber) was showing **₹2,800** on the admin "Manual wallet top-up" screen while their own account page showed **₹2,520** — a ₹280 drift.
+
+Root cause: two separate wallet counters on two different documents.
+- User profile / dashboard reads from the **active subscription's** `wallet_balance` field — this is the source that meal check-ins actually decrement.
+- Admin `/admin/users` was returning the raw `users.wallet_balance` column — this only moves when admin does a manual top-up / debit, so it drifts higher than the sub wallet as meals get consumed.
+
+Fix in `backend/routes/admin.py`, single endpoint:
+- `GET /admin/users` now overrides each returned user's `wallet_balance` with the **sum of their ACTIVE subscription wallet_balance values** — exactly what the user sees on their phone.
+- Fail-open: if the sum breaks for any reason, we keep the original users.wallet_balance so the column never shows blank.
+- Admin cards, the top-up screen ("User wallet today: ₹…"), and the duplicate-detection list all use the same field, so all three now match the user's view.
+
+No frontend change needed — every admin view that reads `u.wallet_balance` immediately displays the correct amount.
+
+Also worth noting: the `POST /admin/users/{id}/wallet-adjust` endpoint (server.py) already updates BOTH `users.wallet_balance` and the sub's `wallet_balance` in lock-step, so a manual top-up won't re-introduce drift. Drift only comes from meal check-ins which — by design — only decrement the sub wallet. This fix ensures admin always sees the sub-wallet reality.
+
+
+
 ## iter-138.q — Kiosk polish · raw-veg gen · bulk tiers · account trim (2026-02-19)
 **Status: DONE — 5 asks landed.**
 
