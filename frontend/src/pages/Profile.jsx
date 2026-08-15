@@ -462,7 +462,7 @@ function AccountHub({ user, onLogout }) {
     <div className="min-h-screen bg-muted/10 pb-24" data-testid="account-hub">
       <SEO title="My account" path="/profile" includeBusinessSchema={false} description="Your efoodcare account." />
 
-      <div className="max-w-md mx-auto px-4 pt-5 space-y-5">
+      <div className="max-w-2xl mx-auto px-4 pt-5 space-y-5">
         <div className="flex items-center justify-between">
           <h1 className="font-display font-extrabold text-3xl">My account</h1>
           <button
@@ -550,7 +550,6 @@ function AccountHub({ user, onLogout }) {
         </HubSection>
 
         <HubSection label="Discover" testid="hub-section-discover">
-          <HubRow icon={StoreIcon} label="Our branches" to="/contact" testid="hub-row-branches" />
           <HubRow icon={BikeIcon} label="Become a rider" to="/become-a-rider" testid="hub-row-rider" />
           <HubRow icon={InfoIcon} label="About efoodcare" to="/about" testid="hub-row-about" />
         </HubSection>
@@ -602,8 +601,12 @@ function AccountHub({ user, onLogout }) {
 function HubSection({ label, testid, children }) {
   return (
     <div data-testid={testid}>
-      <p className="text-[13px] font-bold text-muted-foreground/90 px-1 mb-2">{label}</p>
-      <div className="space-y-2.5">{children}</div>
+      <p className="text-[11px] font-bold text-muted-foreground/90 px-1 mb-1.5 tracking-wide uppercase">{label}</p>
+      {/* iter-138.q — account hub rows made tinier: 2-column responsive
+          grid on ≥sm, single column stack on phones so nothing changes
+          on mobile. Rows themselves are shorter (h-11, smaller icons,
+          smaller labels). */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">{children}</div>
     </div>
   );
 }
@@ -612,14 +615,14 @@ function HubRow({ icon: Icon, label, to, testid }) {
   return (
     <Link
       to={to}
-      className="flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-card ring-1 ring-black/5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_10px_-6px_rgba(0,0,0,0.06)] hover:bg-accent/40 transition-colors"
+      className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-card ring-1 ring-black/5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:bg-accent/40 transition-colors"
       data-testid={testid}
     >
-      <span className="inline-flex h-10 w-10 rounded-full bg-primary/8 text-primary items-center justify-center shrink-0">
-        <Icon className="h-4 w-4" strokeWidth={2} />
+      <span className="inline-flex h-7 w-7 rounded-full bg-primary/8 text-primary items-center justify-center shrink-0">
+        <Icon className="h-3.5 w-3.5" strokeWidth={2} />
       </span>
-      <span className="flex-1 text-[15px] font-bold text-foreground">{label}</span>
-      <ChevronRightIcon className="h-4 w-4 text-muted-foreground/70 shrink-0" />
+      <span className="flex-1 text-[13px] font-bold text-foreground truncate">{label}</span>
+      <ChevronRightIcon className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />
     </Link>
   );
 }

@@ -104,6 +104,14 @@ class MenuItem(BaseModel):
     #   - absolute form:   {"large": {"absolute": 650}}
     # An empty dict (default) preserves the standard 1×/2×/4× multipliers.
     variant_prices: dict = Field(default_factory=dict)
+    # iter-138.q — per-item bulk quantity tiers. Each tier is a triple:
+    #   { "qty": <int, unit multiplier — e.g. 1, 5, 10>, "unit": "kg"|"g"|"pc",
+    #     "price": <float, absolute price in ₹ for that quantity> }
+    # Defaults to three tiers (1 kg / 5 kg / 10 kg) with the base price
+    # applied to the smallest. Admin can edit any tier price + labels in
+    # the restaurant menu editor. The customer picks a tier at add-to-cart
+    # time; the checked-out `unit_price` becomes the tier's `price`.
+    quantity_tiers: List[dict] = Field(default_factory=list)
 
 
 class MenuPatch(BaseModel):
@@ -113,13 +121,12 @@ class MenuPatch(BaseModel):
 class CartLine(BaseModel):
     id: str
     qty: int = Field(ge=1, le=50)
-    # Optional portion variant — used by the dish detail modal so a single
-    # cart line can represent a Large/Family-sized order. Backend resolves
-    # variant → portion multiplier ({regular:1, large:2, family:4}) to compute
-    # the line total. Defaults to "regular" when missing.
-    # Pydantic Literal[] catches invalid values at OpenAPI schema validation
-    # (HTTP 422) instead of inside the handler — cleaner error message.
     variant: Optional[Literal["regular", "large", "family"]] = "regular"
+    # iter-138.q — bulk-tier index into the item's `quantity_tiers` list. When
+    # None → legacy per-piece pricing (uses `price` × `qty` × variant
+    # multiplier). When set → the customer picked a tier (e.g. 5 kg pack)
+    # and the line total becomes `tier.price * qty`.
+    tier_index: Optional[int] = Field(default=None, ge=0, le=20)
 
 
 # Portion-variant → multiplier. Keep in sync with frontend
@@ -244,6 +251,33 @@ def _compute_totals(menu_by_id: dict, items: list[CartLine]) -> tuple[list[dict]
         variant = (line.variant or "regular").lower()
         if variant not in PORTION_MULTIPLIER:
             raise HTTPException(status_code=400, detail=f"Unknown portion variant: {variant}")
+        # iter-138.q — bulk-quantity tier takes precedence over the portion
+        # variant multiplier. When the client supplies a `tier_index` we
+        # charge the tier's absolute price (per pack) × qty and label the
+        # line with the tier's unit (e.g. "5 kg pack").
+        tier_idx = line.tier_index
+        tiers = m.get("quantity_tiers") or []
+        if tier_idx is not None and 0 <= tier_idx < len(tiers):
+            tier = tiers[tier_idx] or {}
+            unit = round(float(tier.get("price") or 0.0), 2)
+            if unit <= 0:
+                raise HTTPException(status_code=400, detail=f"Tier {tier_idx} has no price for item {m['name']}")
+            portion_mult = 1.0
+            tier_qty = tier.get("qty") or 1
+            tier_unit = tier.get("unit") or "pc"
+            variant_label = f"{tier_qty} {tier_unit} pack"
+            line_total = round(unit * line.qty, 2)
+            priced.append({
+                "id": m["id"], "name": m["name"], "qty": line.qty,
+                "variant": variant,
+                "variant_label": variant_label,
+                "portion_multiplier": portion_mult,
+                "unit_price": unit, "line_total": line_total,
+                "tier_index": tier_idx, "tier_qty": tier_qty, "tier_unit": tier_unit,
+                "image_url": m.get("image_url", ""),
+            })
+            subtotal += line_total
+            continue
         # Admin variant-price overrides — `variant_prices` on the menu item
         # can contain either a custom multiplier (float) OR an absolute price
         # ({"absolute": 650}). Falls back to the default 1×/2×/4× table when
@@ -484,14 +518,23 @@ async def admin_generate_menu_image(
     if is_non_veg(payload.name, payload.description, payload.category):
         raise HTTPException(status_code=400, detail="Refusing to generate — non-veg item")
     from image_gen import generate_3d_image  # late import → keeps SDK off the hot import path
+    # iter-138.q — restaurant is now a "farm-to-kitchen" storefront so we
+    # generate images of the RAW ingredient the customer is buying (a small
+    # heap/pile as it comes from the sabji-mandi), NOT a cooked/plated dish.
+    # Keeps the same call site & response shape.
     prompt_bits = [
-        f"Indian vegetarian dish: {payload.name}",
+        f"Raw fresh Indian market vegetable / ingredient — {payload.name}",
     ]
     if payload.category:
         prompt_bits.append(f"Category: {payload.category}")
     if payload.description:
         prompt_bits.append(payload.description)
-    prompt_bits.append("Plated, garnished, hot, freshly cooked, glistening, appetising, top-down 30-degree angle.")
+    prompt_bits.append(
+        "Depict as UNCOOKED, uncut, whole raw produce piled on a clean white background — "
+        "the way it looks when brought back from the sabji-mandi (Indian vegetable market). "
+        "No plate, no bowl, no cooking, no oil, no garnish, no steam, no chopping board. "
+        "Studio-lit product photography, top-down 30-degree angle, natural colours, appetising."
+    )
     try:
         url, nbytes = await generate_3d_image(prompt=" · ".join(prompt_bits), subdir="menu_images")
     except Exception as e:

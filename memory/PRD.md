@@ -4,7 +4,21 @@
 
 
 
-## iter-138.p — Kiosk polish + gender voice + WhatsApp broadcast (2026-02-19)
+## iter-138.q — Kiosk polish · raw-veg gen · bulk tiers · account trim (2026-02-19)
+**Status: DONE — 5 asks landed.**
+
+**1. Wall-kiosk scroll killed for good.** Fullscreen `AdminKiosk` shell switched from `min-h-screen` to `h-screen overflow-hidden`. And the `KioskFaceScan` bottom banner now has `z-20` (denied overlay dropped to `z-10` with `pb-14` so it never sits on top of the banner) with `whitespace-normal break-words` — the "Recognition models offline · check network" / "No camera detected on this device" message is now fully readable even when the black "camera denied" overlay is showing.
+
+**2. Restaurant menu image generator now creates RAW sabji-mandi produce.** `POST /api/admin/restaurant/menu/generate-image` prompt rewritten in `backend/routes/restaurant.py` to: *"Raw fresh Indian market vegetable / ingredient · UNCOOKED, uncut, whole raw produce piled on a clean white background — the way it looks when brought back from the sabji-mandi. No plate, no bowl, no cooking, no oil, no garnish, no steam, no chopping board."* Every re-generation from now on returns raw produce.
+
+**3. Bulk-quantity tiers (1 kg / 5 kg / 10 kg) per menu item.**
+- Backend: `MenuItem` gained `quantity_tiers: List[dict]` (each `{qty, unit, price}`), `CartLine` gained `tier_index`. `resolve_lines()` in `restaurant.py` charges `tier.price × qty` when a `tier_index` is supplied and labels the line as "5 kg pack" on the receipt. Legacy per-piece pricing keeps working when `tier_index` is null.
+- Admin editor: new **Bulk quantity tiers** panel under each menu item in `/admin/restaurant`. Three editable rows pre-seeded with 1 kg / 5 kg / 10 kg; qty + unit (kg/g/pc) + ₹ price all editable. Setting a price to 0 hides that tier from the storefront.
+- Storefront cart tier picker (customer-facing add-to-cart with a 3-way qty chooser) is scaffolded via the backend contract but not yet wired into the public restaurant page — that's the next follow-up.
+
+**4. "Our branches" removed** from both the profile hub (`Profile.jsx` `HubSection Discover`) and the hamburger drawer (`Header.jsx` Discover section).
+
+**5. Account page compacted horizontally.** `HubSection` now renders as a `grid grid-cols-1 sm:grid-cols-2 gap-1.5` — two shrunk-down tiles per row on tablets and desktop, single-column on phones (unchanged mobile UX). `HubRow` reduced from `py-3.5 rounded-2xl h-14` → `py-2 rounded-xl h-11`, icons `h-4 w-4` → `h-3.5 w-3.5`, labels `text-[15px]` → `text-[13px]`. Outer container widened `max-w-md` → `max-w-2xl` to give the two-column grid room to breathe.
 **Status: DONE — five user-requested changes wired.**
 
 **1. Wall-kiosk scroll removed.** Self-order panel in `AdminKiosk.jsx` switched from `overflow-auto` → `overflow-hidden` in fullscreen mode. Nothing scrolls inside the wall-kiosk viewport anymore; the whole payment mode container, menu card and place-order button now sit within one viewport.

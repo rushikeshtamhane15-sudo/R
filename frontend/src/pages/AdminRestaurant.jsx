@@ -19,6 +19,14 @@ const blank = () => ({
   image_url: "",
   active: true,
   sort_order: 100,
+  // iter-138.q — default 1 kg / 5 kg / 10 kg tiers pre-populated so admin
+  // just fills the three prices and hits Save. Leave `price` at 0 to skip
+  // that tier for a specific item.
+  quantity_tiers: [
+    { qty: 1,  unit: "kg", price: 0 },
+    { qty: 5,  unit: "kg", price: 0 },
+    { qty: 10, unit: "kg", price: 0 },
+  ],
 });
 
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024; // 4 MB (matches backend)
@@ -134,6 +142,18 @@ export default function AdminRestaurant() {
           active: it.active !== false,
           sort_order: Number(it.sort_order) || (i + 1) * 10,
           is_returnable_tiffin: it.is_returnable_tiffin === true,
+          // iter-138.q — persist bulk-quantity tiers to the backend.
+          // Skip empty rows (qty or price ≤ 0) so junk tiers never render
+          // on the storefront.
+          quantity_tiers: Array.isArray(it.quantity_tiers)
+            ? it.quantity_tiers
+                .filter((t) => Number(t?.qty) > 0 && Number(t?.price) > 0)
+                .map((t) => ({
+                  qty: Number(t.qty) || 1,
+                  unit: (t.unit || "kg").toString().slice(0, 4),
+                  price: Math.max(0, Number(t.price) || 0),
+                }))
+            : [],
         })),
       };
       const r = await api.put("/admin/restaurant/menu", payload);
@@ -210,7 +230,7 @@ export default function AdminRestaurant() {
           <p className="text-xs tracking-overline uppercase font-bold text-secondary flex items-center gap-1.5"><UtensilsCrossed className="h-3.5 w-3.5" /> Restaurant</p>
           <h1 className="font-display font-extrabold text-2xl sm:text-3xl md:text-4xl tracking-tight mt-1 leading-tight">Online ordering menu</h1>
           <p className="text-sm text-muted-foreground mt-1.5 max-w-2xl">
-            Items shown on <code className="font-mono text-xs">/restaurant</code>. Hide what's not available today, drop a discount, swap photos.
+            Items shown on <code className="font-mono text-xs">/restaurant</code>. Hide what&apos;s not available today, drop a discount, swap photos.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -395,6 +415,72 @@ export default function AdminRestaurant() {
                     <Input type="number" value={it.sort_order} onChange={(e) => update(idx, { sort_order: e.target.value })} data-testid={`menu-sort-${idx}`} />
                   </div>
                 </div>
+                {/* iter-138.q — bulk quantity-tier editor (1 kg / 5 kg / 10 kg).
+                    Admin sets a different absolute price for each tier; the
+                    customer picks a tier at add-to-cart time. Setting a
+                    tier's price to 0 hides that tier from the storefront. */}
+                <div className="mt-3 rounded-xl bg-muted/30 border border-black/8 p-3" data-testid={`menu-tiers-${idx}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[11px] tracking-[0.14em] uppercase font-bold text-muted-foreground">Bulk quantity tiers</p>
+                    <p className="text-[10px] text-muted-foreground">Set price to 0 to hide a tier</p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(it.quantity_tiers && it.quantity_tiers.length ? it.quantity_tiers : [
+                      { qty: 1,  unit: "kg", price: 0 },
+                      { qty: 5,  unit: "kg", price: 0 },
+                      { qty: 10, unit: "kg", price: 0 },
+                    ]).map((tier, ti) => (
+                      <div key={ti} className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            min={1}
+                            value={tier.qty ?? ""}
+                            onChange={(e) => {
+                              const next = [...(it.quantity_tiers || [])];
+                              while (next.length <= ti) next.push({ qty: 1, unit: "kg", price: 0 });
+                              next[ti] = { ...next[ti], qty: Number(e.target.value) || 0 };
+                              update(idx, { quantity_tiers: next });
+                            }}
+                            className="h-9 text-sm w-16"
+                            data-testid={`menu-tier-qty-${idx}-${ti}`}
+                          />
+                          <select
+                            value={tier.unit || "kg"}
+                            onChange={(e) => {
+                              const next = [...(it.quantity_tiers || [])];
+                              while (next.length <= ti) next.push({ qty: 1, unit: "kg", price: 0 });
+                              next[ti] = { ...next[ti], unit: e.target.value };
+                              update(idx, { quantity_tiers: next });
+                            }}
+                            className="h-9 rounded-md border border-input bg-background px-2 text-xs"
+                            data-testid={`menu-tier-unit-${idx}-${ti}`}
+                          >
+                            <option value="kg">kg</option>
+                            <option value="g">g</option>
+                            <option value="pc">pc</option>
+                          </select>
+                        </div>
+                        <Input
+                          type="number"
+                          min={0}
+                          step={1}
+                          placeholder="₹ price"
+                          value={tier.price ?? 0}
+                          onChange={(e) => {
+                            const next = [...(it.quantity_tiers || [])];
+                            while (next.length <= ti) next.push({ qty: 1, unit: "kg", price: 0 });
+                            next[ti] = { ...next[ti], price: Number(e.target.value) || 0 };
+                            update(idx, { quantity_tiers: next });
+                          }}
+                          className="h-9 text-sm"
+                          data-testid={`menu-tier-price-${idx}-${ti}`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 <label className="flex items-center gap-2 mt-3 text-xs font-semibold cursor-pointer select-none" data-testid={`menu-returnable-label-${idx}`}>
                   <input
                     type="checkbox"

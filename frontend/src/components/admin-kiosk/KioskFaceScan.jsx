@@ -402,10 +402,10 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
             })();
           }
         }}
-        className={`absolute inset-x-0 bottom-0 text-white text-center font-extrabold py-2 px-2 leading-tight ${
+        className={`absolute inset-x-0 bottom-0 z-20 text-white text-center font-extrabold py-2 px-3 leading-tight whitespace-normal break-words ${
           lastMsg && /reload|offline/i.test(lastMsg)
             ? "bg-amber-600 animate-pulse cursor-pointer text-sm sm:text-base"
-            : "bg-black/70 cursor-default text-xs sm:text-sm"
+            : "bg-black/85 cursor-default text-xs sm:text-sm"
         }`}
         data-testid="kiosk-face-scan-msg"
       >
@@ -416,7 +416,7 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
           <button
             type="button"
             onClick={() => { try { window.location.reload(); } catch { boot(); } }}
-            className="absolute inset-0 flex items-center justify-center bg-black/85 text-white text-xs font-extrabold flex-col gap-2 px-3 text-center"
+            className="absolute inset-0 z-10 flex items-center justify-center bg-black/85 text-white text-sm font-extrabold flex-col gap-2 px-4 text-center pb-14"
             data-testid="kiosk-face-scan-retry"
           >
             <ScanFace className="h-6 w-6" />

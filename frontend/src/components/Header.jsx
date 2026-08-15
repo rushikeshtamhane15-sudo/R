@@ -192,7 +192,6 @@ export default function Header() {
                 )}
 
                 <MenuSection label="Discover" testid="drawer-section-discover">
-                  <MenuRow icon={Store} label="Our branches" to="/contact" onClick={close} testid="drawer-item-branches" />
                   <MenuRow icon={Bike} label="Become a rider" to="/become-a-rider" onClick={close} testid="drawer-item-rider" />
                   <MenuRow icon={Info} label="About efoodcare" to="/about" onClick={close} testid="drawer-item-about" />
                   <MenuRow icon={Phone} label="Contact us" to="/contact" onClick={close} testid="drawer-item-contact" />
