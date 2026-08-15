@@ -4,6 +4,22 @@
 
 
 
+## iter-138.s — Back-dated manual subs no longer auto-pause (2026-02-19)
+**Status: DONE — targeted fix in `admin_assign_subscription` + daily tick.**
+
+Problem: When admin manually assigns a subscription with a `start_date` in the past (e.g. user has been eating from 3 Aug, admin only records it on 15 Aug), the daily-tick auto-pause logic was kicking in for every one of the 12 back-dated no-scan days. Result: only 3 days of wallet were deducted (the initial no-show grace window), the other 9+ were credited back as "paused", the sub extended past its natural end_date, and the wallet stayed higher than admin expected.
+
+Fix:
+- `POST /admin/users/{id}/assign-subscription` in `server.py` — when `start_date.date() < today.date()`, the new sub is stamped with `no_pause_before: iso(now_utc())` (the actual creation timestamp). Present or future starts leave the field as `None` so normal auto-pause remains fully active for organic subs.
+- Daily-tick auto-pause branch — if `is_inactive` would normally fire AND the tick date is strictly before `no_pause_before`, `is_inactive` is forced back to `False`. Those days deduct wallet normally (2 meals / day) and do NOT extend the end-date.
+- Fail-open: if `no_pause_before` fails to parse for any reason, existing logic runs unchanged.
+
+Net effect: admin retro-recording a customer's month deducts the full wallet across all back-dated days as intended, and no phantom pause days accumulate.
+
+Note: existing already-drifted subs (assigned before this fix) still carry their extra paused_days. Use the existing `POST /admin/users/{id}/reconcile-subscription` if you need to trim them.
+
+
+
 ## iter-138.r — Admin wallet display synced with what the user sees (2026-02-19)
 **Status: DONE — one-line data-source fix.**
 

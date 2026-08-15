@@ -878,6 +878,20 @@ async def catch_up_subscription(sub: dict) -> dict:
         days_since_anchor = (current - anchor).days
         is_inactive = (sub.get("service_type") != "tiffin") and (days_since_anchor >= INACTIVITY_THRESHOLD_DAYS + 1)
 
+        # iter-138.s — admin-assigned back-dated subs stamp
+        # `no_pause_before` with the creation date. Any tick date STRICTLY
+        # before that boundary must NOT auto-pause: those days represent
+        # the period the user was already eating (admin is just recording
+        # it retroactively), so we deduct wallet for every one of them.
+        _npb = sub.get("no_pause_before")
+        if is_inactive and _npb:
+            try:
+                npb_date = date.fromisoformat(str(_npb)[:10])
+                if current < npb_date:
+                    is_inactive = False
+            except Exception:  # noqa: BLE001
+                pass
+
         if not is_inactive:
             # Active day — deduct money + consume the day's 2 meals from balance.
             new_balance = round(float(sub["wallet_balance"]) - per_day, 2)
@@ -3514,6 +3528,21 @@ async def admin_assign_subscription(
         "assigned_by_admin": user.email or user.user_id,
         "admin_assign_reason": payload.reason.strip()[:500],
         "created_at": iso(start),
+        # iter-138.s — when admin manually assigns a back-dated subscription
+        # (start_date is in the past, e.g. user has been eating since 3 Aug
+        # but admin only records it on 15 Aug), the daily-tick auto-pause
+        # logic must NOT kick in for those back-dated days. Otherwise every
+        # day the user "didn't scan" (because there was no sub yet!) gets
+        # credited as a paused day and the sub extends beyond its natural
+        # end_date. We stamp `no_pause_before` with the creation date (IST):
+        # the tick treats any date < this as "active" (deduct wallet, no
+        # auto-pause). Set to None for present/future starts so normal
+        # auto-pause remains active from day 1.
+        "no_pause_before": (
+            iso(now_utc())
+            if (start.date() < now_utc().date())
+            else None
+        ),
     }
     await db.subscriptions.insert_one(sub.copy())
     # Credit the user's wallet for the plan amount (mirrors the paid-flow)
