@@ -123,7 +123,7 @@ export default function KioskCounterPanel({
                 size={720}
                 level="M"
                 fgColor="hsl(142 45% 28%)"
-                style={{ width: "100%", height: "auto", maxWidth: isFullscreen ? "620px" : "360px" }}
+                style={{ width: "100%", height: "auto", maxWidth: isFullscreen ? "480px" : "360px" }}
               />
               <div className={`flex flex-col items-center w-full ${isFullscreen ? "gap-3" : "gap-2"}`}>
                 <div

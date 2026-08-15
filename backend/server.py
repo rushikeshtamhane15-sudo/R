@@ -2930,6 +2930,95 @@ class WalletAdjustRequest(BaseModel):
     restore_meals: Optional[int] = 0
 
 
+@api_router.post("/admin/reconcile-backdated-drift")
+async def admin_reconcile_backdated_drift(user: User = Depends(get_current_user)):
+    """iter-138.u — one-tap batch reconciler for every user whose active
+    subscription was manually assigned back-dated BEFORE iter-138.t landed.
+
+    Rule (matches the per-user "Prefill drift fix" button):
+      • Only touch subs that have `no_pause_before` set (this flag was only
+        stamped on manual back-dated assignments).
+      • Only touch subs that haven't already been reconciled (guarded by
+        `no_pause_before_reconciled: True` marker).
+      • Subtract 2 from `meals_left`, add 2 to `meals_used`, subtract ₹100
+        from both `wallet_balance` fields (user + sub) — exactly what
+        would have been deducted on the assign-day if the strict `<`
+        comparison hadn't skipped it.
+      • Never take meals_left below 0 or wallet below 0.
+      • Record an audit ledger entry per user so the admin sees which
+        accounts got auto-adjusted.
+
+    Returns { touched: int, skipped: int, users: [{user_id, name, before, after}] }.
+    """
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    cursor = db.subscriptions.find(
+        {
+            "status": "active",
+            "no_pause_before": {"$exists": True, "$ne": None},
+            "no_pause_before_reconciled": {"$ne": True},
+        },
+        {"_id": 0},
+    )
+    touched = 0
+    skipped = 0
+    changed: list = []
+    async for sub in cursor:
+        uid = sub.get("user_id")
+        if not uid:
+            skipped += 1
+            continue
+        u = await db.users.find_one({"user_id": uid}, {"_id": 0, "user_id": 1, "name": 1, "wallet_balance": 1})
+        if not u:
+            skipped += 1
+            continue
+        # Bring meals_used up by 2 (never above meals_total), meals_left down
+        # by 2 (never below 0), wallet down by ₹100 (never below 0).
+        meals_total = int(sub.get("meals_total") or 0)
+        meals_used_before = int(sub.get("meals_used") or 0)
+        meals_left_before = max(0, meals_total - meals_used_before)
+        delta_meals = min(2, meals_left_before)  # don't overshoot
+        meals_used_after = min(meals_total, meals_used_before + delta_meals)
+        sub_wallet_before = float(sub.get("wallet_balance") or 0.0)
+        user_wallet_before = float(u.get("wallet_balance") or 0.0)
+        # Per-meal rate → prefer sub.per_meal_price, fallback to ₹50 (Premium 60).
+        per_meal = float(sub.get("per_meal_price") or 50.0)
+        delta_rupees = min(delta_meals * per_meal, sub_wallet_before, user_wallet_before)
+        sub_wallet_after = round(max(0.0, sub_wallet_before - delta_rupees), 2)
+        user_wallet_after = round(max(0.0, user_wallet_before - delta_rupees), 2)
+
+        await db.subscriptions.update_one(
+            {"user_id": uid, "status": "active"},
+            {
+                "$set": {
+                    "meals_used": meals_used_after,
+                    "wallet_balance": sub_wallet_after,
+                    "no_pause_before_reconciled": True,
+                    "no_pause_before_reconciled_at": now_utc().isoformat(),
+                    "no_pause_before_reconciled_by": user.email or user.user_id,
+                },
+            },
+        )
+        await db.users.update_one({"user_id": uid}, {"$set": {"wallet_balance": user_wallet_after}})
+        await db.wallet_transactions.insert_one({
+            "user_id": uid,
+            "delta": -delta_rupees,
+            "reason": f"iter-138.u auto-reconcile back-dated drift · -{delta_meals} meals",
+            "actor_user_id": user.user_id,
+            "created_at": now_utc().isoformat(),
+            "kind": "admin_override",
+            "meals_delta": -delta_meals,
+        })
+        changed.append({
+            "user_id": uid,
+            "name": u.get("name") or "",
+            "before": {"meals_left": meals_left_before, "wallet": sub_wallet_before},
+            "after": {"meals_left": max(0, meals_total - meals_used_after), "wallet": sub_wallet_after},
+        })
+        touched += 1
+    return {"ok": True, "touched": touched, "skipped": skipped, "users": changed}
+
+
 @api_router.post("/admin/users/{target_user_id}/wallet-adjust")
 async def admin_wallet_adjust(target_user_id: str, payload: WalletAdjustRequest, user: User = Depends(get_current_user)):
     """Admin manually credits or debits a user's wallet.

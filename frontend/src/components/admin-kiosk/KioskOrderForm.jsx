@@ -183,7 +183,7 @@ export default function KioskOrderForm({
             </div>
           )}
 
-          <div className="flex items-center justify-between gap-2 mt-1">
+          <div className={`flex items-center justify-between gap-2 mt-1 ${isFullscreen ? "mt-auto pt-3" : ""}`}>
             <span className={S.totalLbl}>Total</span>
             <span className={S.totalVal} data-testid="kiosk-total">₹{total}</span>
           </div>

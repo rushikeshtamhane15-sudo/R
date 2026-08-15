@@ -31,6 +31,25 @@ export default function AdminUsers() {
   };
   useEffect(() => { load(); }, []);
 
+  // iter-138.u — one-tap batch reconciler for the back-dated drift bug.
+  // Walks every user whose active sub still has `no_pause_before` unmarked
+  // as reconciled and deducts the 2 phantom-paused meals + ₹100.
+  const [reconciling, setReconciling] = useState(false);
+  const reconcileDrift = async () => {
+    if (!window.confirm("Auto-reconcile every user whose back-dated sub still has the phantom-pause drift?\n\nEach affected user loses 2 meals + ₹100 · matches the iter-138.t deduction that was strictly-`<` skipped on assign-day.\n\nSafe to re-run — already-reconciled subs are skipped.")) return;
+    setReconciling(true);
+    try {
+      const r = await api.post("/admin/reconcile-backdated-drift", {});
+      const touched = r.data?.touched || 0;
+      const skipped = r.data?.skipped || 0;
+      if (touched === 0) toast.success("No drift left — every back-dated sub is already reconciled.");
+      else toast.success(`Reconciled ${touched} user${touched === 1 ? "" : "s"} · skipped ${skipped}`);
+      await load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Reconcile failed");
+    } finally { setReconciling(false); }
+  };
+
   // iter-102: scan for accounts that share email or phone with another account
   const scanDuplicates = async () => {
     setScanning(true);
@@ -314,6 +333,24 @@ export default function AdminUsers() {
             data-testid="scan-duplicates-button"
           >
             {scanning ? "Scanning…" : "Scan now"}
+          </Button>
+        </div>
+
+        {/* iter-138.u — auto-reconcile back-dated drift for every user in one tap. */}
+        <div className="mt-4 rounded-xl bg-white/70 dark:bg-white/5 border-2 border-emerald-500/40 p-3 flex flex-col sm:flex-row sm:items-center gap-2" data-testid="reconcile-drift-panel">
+          <div className="flex-1">
+            <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300">Back-dated drift · one-tap batch fix</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Applies the iter-138.t assign-day correction (−2 meals, −₹100) to every user whose sub still carries the strict-{"<"} phantom pause. Idempotent — safe to re-run.
+            </p>
+          </div>
+          <Button
+            onClick={reconcileDrift}
+            disabled={reconciling}
+            className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs uppercase tracking-[0.14em]"
+            data-testid="reconcile-drift-button"
+          >
+            {reconciling ? "Reconciling…" : "Reconcile all"}
           </Button>
         </div>
 
