@@ -349,24 +349,20 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
       data-testid="kiosk-face-scan"
     >
       <video ref={videoRef} playsInline muted autoPlay className="w-full h-full object-cover" style={{ transform: "scaleX(-1)" }} />
-      {/* iter-138.l — face alignment target: a translucent rounded frame the
-          user positions their face inside. Turns emerald-green when the
-          detected face-box is centered + correctly sized (auto-triggers
-          the check-in POST) and rose-red otherwise. */}
+      {/* iter-138.p — face alignment target: a fixed-aspect oval (aspect
+          3/4, ~60% of the container width) centered in the tile so it
+          always renders as a natural face-shaped ring regardless of how
+          tall the container gets. The alignment MATH still uses the
+          TARGET_BOX percentages against the video frame; the visual
+          oval is a UI guide, not the geometry test. */}
       {ready && phase !== "denied" && (
         <div
-          className="pointer-events-none absolute"
-          style={{
-            left:   `${TARGET_BOX.x * 100}%`,
-            top:    `${TARGET_BOX.y * 100}%`,
-            width:  `${TARGET_BOX.w * 100}%`,
-            height: `${TARGET_BOX.h * 100}%`,
-          }}
+          className="pointer-events-none absolute inset-0 flex items-center justify-center"
           data-testid="kiosk-face-align-target"
           data-aligned={alignment.aligned ? "1" : "0"}
         >
           <div
-            className={`w-full h-full rounded-[36%_36%_44%_44%/40%_40%_50%_50%] border-[6px] transition-colors duration-150 ${
+            className={`h-[62%] aspect-[3/4] rounded-[36%_36%_44%_44%/40%_40%_50%_50%] border-[6px] transition-colors duration-150 ${
               alignment.aligned
                 ? "border-emerald-400 shadow-[0_0_24px_rgba(52,211,153,0.75)]"
                 : "border-rose-500 shadow-[0_0_18px_rgba(244,63,94,0.55)]"

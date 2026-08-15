@@ -620,7 +620,7 @@ export default function AdminKiosk() {
           )}
         </div>
 
-        <div className={`flex-1 p-4 grid gap-3 overflow-auto min-h-0 ${isFullscreenRoute ? "grid-cols-1 grid-rows-[auto_auto] content-start" : "sm:grid-cols-[3fr_2fr] items-start"}`}>
+        <div className={`flex-1 p-4 grid gap-3 min-h-0 ${isFullscreenRoute ? "grid-cols-1 grid-rows-[auto_auto] content-start overflow-hidden" : "sm:grid-cols-[3fr_2fr] items-start overflow-auto"}`}>
           {/* iter-137.d/f — day toggle removed per user's request. `tab` state
               is retained (defaults to "today") so KioskMenuCard/OrderForm
               keep their existing prop shape without a broader refactor. */}

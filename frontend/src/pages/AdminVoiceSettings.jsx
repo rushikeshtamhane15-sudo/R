@@ -16,7 +16,22 @@ const LS_KEYS = {
   rate: "efc.voice.rate",
   pitch: "efc.voice.pitch",
   volume: "efc.voice.volume",
+  // iter-138.p — voice gender preference: "female" | "male" | ""(any).
+  gender: "efc.voice.gender",
 };
+
+// Rough heuristic — Web Speech API doesn't expose gender directly. Names
+// beginning with these terms are commonly female-tagged voices across
+// Chrome/Edge/Windows/Android engines. Anything else is treated as male
+// (or unknown). Admin can always pin an exact voice below to override.
+const _FEMALE_HINTS = /female|woman|zira|aditi|shreya|veena|geeta|hema|prisha|kalpana|neha|ipsheeta|mahita|niha|swara|hina|kajal|meera|priya|payal|sonal|isha|ananya|neel/i;
+const _MALE_HINTS = /male|man|david|ravi|hemant|arjun|sagar|amit|karan|rahul|kabir|vijay|akshay|prabhat/i;
+export function voiceGender(voice) {
+  if (!voice || !voice.name) return "unknown";
+  if (_FEMALE_HINTS.test(voice.name)) return "female";
+  if (_MALE_HINTS.test(voice.name)) return "male";
+  return "unknown";
+}
 
 function readLS(key, fallback = "") {
   try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; }
@@ -30,6 +45,7 @@ export default function AdminVoiceSettings() {
   const [rate, setRate] = useState(Number(readLS(LS_KEYS.rate)) || 1.0);
   const [pitch, setPitch] = useState(Number(readLS(LS_KEYS.pitch)) || 1.0);
   const [volume, setVolume] = useState(Number(readLS(LS_KEYS.volume)) || 1.0);
+  const [gender, setGender] = useState(readLS(LS_KEYS.gender, "") || "");
   const [testName, setTestName] = useState("Rushikesh");
 
   const load = useCallback(async () => {
@@ -64,6 +80,7 @@ export default function AdminVoiceSettings() {
       localStorage.setItem(LS_KEYS.rate, String(rate));
       localStorage.setItem(LS_KEYS.pitch, String(pitch));
       localStorage.setItem(LS_KEYS.volume, String(volume));
+      localStorage.setItem(LS_KEYS.gender, gender || "");
       toast.success("Voice preferences saved · wall kiosk will use these instantly");
     } catch { toast.error("Save failed"); }
   };
@@ -71,10 +88,24 @@ export default function AdminVoiceSettings() {
   const reset = () => {
     setHindiVoice(""); setEnglishVoice("");
     setRate(1.0); setPitch(1.0); setVolume(1.0);
+    setGender("");
     try {
       Object.values(LS_KEYS).forEach((k) => localStorage.removeItem(k));
       toast.success("Reset to browser defaults");
     } catch { /* noop */ }
+  };
+
+  // iter-138.p — when the admin picks a gender, auto-select the first
+  // matching Hindi + English voice so the "Save" button has sensible
+  // defaults ready. Admin can still override with the dropdowns below.
+  const applyGender = (g) => {
+    setGender(g);
+    if (!g) return;
+    const matches = (v) => voiceGender(v) === g;
+    const hi = hindiVoices.find(matches);
+    const en = englishVoices.find(matches);
+    if (hi) setHindiVoice(hi.name);
+    if (en) setEnglishVoice(en.name);
   };
 
   const previewLine = (lang, text) => {
@@ -121,6 +152,36 @@ export default function AdminVoiceSettings() {
           <div className="rounded-2xl card-3d p-5 space-y-4">
             <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-muted-foreground">Voice selection</p>
 
+            {/* iter-138.p — quick female / male toggle. Applies a heuristic to
+                the voice name and pre-selects a matching Hindi + English
+                voice below; admin can still override in the dropdowns. */}
+            <div>
+              <span className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Preferred voice gender</span>
+              <div className="flex gap-2 mt-1.5" role="radiogroup" aria-label="Preferred voice gender">
+                {[
+                  { id: "female", label: "Female voice" },
+                  { id: "male", label: "Male voice" },
+                  { id: "", label: "Any" },
+                ].map((opt) => (
+                  <button
+                    key={opt.id || "any"}
+                    type="button"
+                    role="radio"
+                    aria-checked={gender === opt.id}
+                    onClick={() => applyGender(opt.id)}
+                    data-testid={`voice-gender-${opt.id || "any"}`}
+                    className={`flex-1 h-10 rounded-xl border-2 font-extrabold text-xs uppercase tracking-[0.14em] transition-colors ${
+                      gender === opt.id
+                        ? "border-primary bg-primary text-white shadow-sm"
+                        : "border-black/10 bg-background text-foreground hover:border-primary/40"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <label className="block">
               <span className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Hindi voice</span>
               <div className="flex gap-2 mt-1">
@@ -145,7 +206,7 @@ export default function AdminVoiceSettings() {
                 </Button>
               </div>
               {hindiVoices.length === 0 && (
-                <p className="text-[11px] text-amber-700 mt-1">No Hindi voice found on this device. On Windows: Settings → Time &amp; Language → Speech → add Hindi voice pack. On Android/Chromebook, install "Google Text-to-Speech · Hindi".</p>
+                <p className="text-[11px] text-amber-700 mt-1">No Hindi voice found on this device. On Windows: Settings → Time &amp; Language → Speech → add Hindi voice pack. On Android/Chromebook, install &quot;Google Text-to-Speech · Hindi&quot;.</p>
               )}
             </label>
 

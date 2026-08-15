@@ -4037,6 +4037,87 @@ async def admin_run_expiry_reminders(user: User = Depends(get_current_user)):
     return {"ok": True, **result, "sms_stub": _sms_stub_mode_status()}
 
 
+# ---------------------------
+# iter-138.p — WhatsApp holiday broadcast (one-tap wa.me deep-link)
+# ---------------------------
+@api_router.get("/admin/broadcast/audience")
+async def admin_broadcast_audience(
+    category: str = "all",
+    user: User = Depends(get_current_user),
+):
+    """Return the phone-book of currently-active subscribers so the admin
+    can pick who receives a WhatsApp holiday broadcast.
+
+    Query:
+      category = "all" | "tiffin" | "dining" | "both"
+
+    Response rows:
+      { user_id, name, phone, categories: ["tiffin"|"dining"], plan_name, end_date }
+
+    Franchise owners are scoped to their branch. Users without a phone
+    number are skipped since wa.me requires one.
+    """
+    if user.role not in ("admin", "franchise_owner"):
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    sub_query: dict = {"status": "active"}
+    if user.role == "franchise_owner":
+        m = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+        if not m:
+            return {"users": [], "count": 0}
+        users_in_branch = await db.users.find({"mess_id": m["mess_id"]}, {"_id": 0, "user_id": 1}).to_list(10000)
+        sub_query["user_id"] = {"$in": [u["user_id"] for u in users_in_branch]}
+
+    subs = await db.subscriptions.find(sub_query, {"_id": 0}).to_list(5000)
+    if not subs:
+        return {"users": [], "count": 0}
+
+    # Group service_type per user (a user can have BOTH a tiffin and a dining sub).
+    cats_by_uid: dict = {}
+    plan_by_uid: dict = {}
+    end_by_uid: dict = {}
+    for s in subs:
+        uid = s.get("user_id")
+        if not uid:
+            continue
+        st = (s.get("service_type") or "dining").lower()
+        if st not in ("tiffin", "dining"):
+            st = "dining"
+        cats_by_uid.setdefault(uid, set()).add(st)
+        plan_by_uid[uid] = s.get("plan_name") or s.get("plan_id") or ""
+        end_by_uid[uid] = s.get("end_date") or ""
+
+    uids = list(cats_by_uid.keys())
+    users_docs = await db.users.find(
+        {"user_id": {"$in": uids}},
+        {"_id": 0, "user_id": 1, "name": 1, "phone": 1},
+    ).to_list(5000)
+
+    out = []
+    cat_lower = (category or "all").lower()
+    for u in users_docs:
+        phone = str(u.get("phone") or "").strip()
+        if not phone:
+            continue
+        cats = sorted(cats_by_uid.get(u["user_id"], set()))
+        if cat_lower == "tiffin" and "tiffin" not in cats:
+            continue
+        if cat_lower == "dining" and "dining" not in cats:
+            continue
+        if cat_lower == "both" and not ("tiffin" in cats and "dining" in cats):
+            continue
+        out.append({
+            "user_id": u["user_id"],
+            "name": u.get("name") or "Guest",
+            "phone": phone,
+            "categories": cats,
+            "plan_name": plan_by_uid.get(u["user_id"], ""),
+            "end_date": end_by_uid.get(u["user_id"], ""),
+        })
+    out.sort(key=lambda r: (r["name"] or "").lower())
+    return {"users": out, "count": len(out)}
+
+
 def _sms_stub_mode_status() -> bool:
     try:
         from sms import is_stub_mode  # type: ignore

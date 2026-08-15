@@ -77,21 +77,19 @@ export default function KioskCounterPanel({
       </div>
 
       <div className={`flex-1 grid sm:grid-cols-[1.4fr_1fr] gap-4 min-h-0 ${isFullscreen ? "p-6" : "p-5"}`}>
-        <div className={`rounded-2xl bg-white flex flex-col items-center h-full ${isFullscreen ? "px-6 py-6 gap-1 justify-center" : "p-5 gap-2 justify-center"}`} data-testid="kiosk-counter-qr">
-          {/* iter-138.o — user asked for ~3pt breathing space between the
-              toggle, the QR itself and the info-pill group (previously
-              `justify-between` glued the toggle to the top edge and the pills
-              to the bottom edge with a huge middle gap). `gap-1` = 4px ≈ 3pt
-              — small but visible breathing room between each item. Any
-              leftover vertical space becomes symmetric whitespace at the
-              top/bottom of the container via justify-center. */}
+        <div className={`rounded-2xl bg-white flex flex-col items-center h-full ${isFullscreen ? "px-6 py-6 gap-3 justify-center" : "p-5 gap-2 justify-center"}`} data-testid="kiosk-counter-qr">
+          {/* iter-138.p — user asked for MORE breathing space between the
+              toggle → QR → info pills (previous `gap-1` was still too tight).
+              Bumped fullscreen gap to `gap-3` (12px ≈ 9pt) — a comfortable
+              breathing room between each item. Also shrank the Lunch/Dinner
+              toggle from h-14 text-xl → h-12 text-lg per user request. */}
           <div className={`inline-flex bg-primary/5 rounded-full p-1.5 gap-1 shadow-sm ring-2 ring-primary/20`} data-testid="kiosk-meal-toggle">
             <button
               type="button"
               onClick={() => canLunch && setMeal("lunch")}
               disabled={!canLunch}
               data-testid="kiosk-meal-lunch"
-              className={`rounded-full font-extrabold inline-flex items-center transition-all ${isFullscreen ? "h-14 px-8 text-xl gap-2" : "h-11 px-5 text-sm gap-1.5"} ${meal === "lunch" && canLunch
+              className={`rounded-full font-extrabold inline-flex items-center transition-all ${isFullscreen ? "h-12 px-6 text-lg gap-2" : "h-11 px-5 text-sm gap-1.5"} ${meal === "lunch" && canLunch
                 ? "bg-white text-primary ring-[3px] ring-emerald-500 shadow"
                 : meal === "lunch"
                   ? "bg-white text-primary ring-2 ring-emerald-300 shadow-sm"
@@ -99,14 +97,14 @@ export default function KioskCounterPanel({
                     ? "bg-transparent text-primary/70 hover:text-primary"
                     : "bg-transparent text-primary/40 opacity-70 cursor-not-allowed"}`}
             >
-              <Sun className={isFullscreen ? "h-6 w-6" : "h-4 w-4"} /> Lunch
+              <Sun className={isFullscreen ? "h-5 w-5" : "h-4 w-4"} /> Lunch
             </button>
             <button
               type="button"
               onClick={() => canDinner && setMeal("dinner")}
               disabled={!canDinner}
               data-testid="kiosk-meal-dinner"
-              className={`rounded-full font-extrabold inline-flex items-center transition-all ${isFullscreen ? "h-14 px-8 text-xl gap-2" : "h-11 px-5 text-sm gap-1.5"} ${meal === "dinner" && canDinner
+              className={`rounded-full font-extrabold inline-flex items-center transition-all ${isFullscreen ? "h-12 px-6 text-lg gap-2" : "h-11 px-5 text-sm gap-1.5"} ${meal === "dinner" && canDinner
                 ? "bg-white text-primary ring-[3px] ring-emerald-500 shadow"
                 : meal === "dinner"
                   ? "bg-white text-primary ring-2 ring-emerald-300 shadow-sm"
@@ -114,7 +112,7 @@ export default function KioskCounterPanel({
                     ? "bg-transparent text-primary/70 hover:text-primary"
                     : "bg-transparent text-primary/40 opacity-70 cursor-not-allowed"}`}
             >
-              <Moon className={isFullscreen ? "h-6 w-6" : "h-4 w-4"} /> Dinner
+              <Moon className={isFullscreen ? "h-5 w-5" : "h-4 w-4"} /> Dinner
             </button>
           </div>
 

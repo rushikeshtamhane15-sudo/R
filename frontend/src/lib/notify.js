@@ -134,8 +134,22 @@ function _voicePrefs() {
       rate: Number(localStorage.getItem("efc.voice.rate") || "") || null,
       pitch: Number(localStorage.getItem("efc.voice.pitch") || "") || null,
       volume: Number(localStorage.getItem("efc.voice.volume") || "") || null,
+      // iter-138.p — "female" | "male" | "" (any). When set, we bias voice
+      // picking below toward names that heuristically match this gender.
+      gender: (localStorage.getItem("efc.voice.gender") || "").toLowerCase(),
     };
-  } catch { return { hindi: "", english: "", rate: null, pitch: null, volume: null }; }
+  } catch { return { hindi: "", english: "", rate: null, pitch: null, volume: null, gender: "" }; }
+}
+
+// iter-138.p — voice-name heuristic matching the one in AdminVoiceSettings.
+// Kept lightweight and duplicated here so notify.js stays a leaf module.
+const _FEMALE_HINTS_RX = /female|woman|zira|aditi|shreya|veena|geeta|hema|prisha|kalpana|neha|ipsheeta|mahita|niha|swara|hina|kajal|meera|priya|payal|sonal|isha|ananya|neel/i;
+const _MALE_HINTS_RX   = /male|man|david|ravi|hemant|arjun|sagar|amit|karan|rahul|kabir|vijay|akshay|prabhat/i;
+function _matchesGender(voice, gender) {
+  if (!gender || !voice || !voice.name) return true;
+  if (gender === "female") return _FEMALE_HINTS_RX.test(voice.name);
+  if (gender === "male") return _MALE_HINTS_RX.test(voice.name);
+  return true;
 }
 
 /** Speak a short phrase (English). Returns true if engine was available. */
@@ -157,11 +171,26 @@ export function speak(text, opts = {}) {
       const pinned = opts.voice
         || (langPrefix === "hi" ? prefs.hindi : "")
         || (langPrefix === "en" ? prefs.english : "");
-      const preferred = pinned
-        ? voices.find((v) => v.name === pinned)
-        : voices.find((v) => v.lang === u.lang)
-          || voices.find((v) => (v.lang || "").toLowerCase().startsWith(langPrefix + "-in"))
-          || voices.find((v) => /india|hindi|rishi|veena/i.test(v.name));
+      // iter-138.p — if a specific voice is pinned, use it regardless of
+      // gender. Otherwise pick the first Indian voice of the preferred
+      // language that also matches the admin's gender preference, falling
+      // back to language-only when no gender-matched voice is available.
+      const langMatches = voices.filter((v) =>
+        v.lang === u.lang
+        || (v.lang || "").toLowerCase().startsWith(langPrefix + "-in")
+        || (langPrefix === "hi" && /hindi|veena/i.test(v.name))
+        || (langPrefix === "en" && /india|rishi/i.test(v.name)),
+      );
+      let preferred = null;
+      if (pinned) {
+        preferred = voices.find((v) => v.name === pinned) || null;
+      } else if (prefs.gender && langMatches.length) {
+        preferred = langMatches.find((v) => _matchesGender(v, prefs.gender)) || langMatches[0];
+      } else if (langMatches.length) {
+        preferred = langMatches[0];
+      } else {
+        preferred = voices.find((v) => v.lang === u.lang) || null;
+      }
       if (preferred) u.voice = preferred;
     } catch { /* noop */ }
     window.speechSynthesis.speak(u);

@@ -45,6 +45,7 @@ const SECTIONS = [
       { to: "/admin/meal-slots", label: "Meal slot windows", icon: Clock, roles: FRANCHISE_VIEW },
       { to: "/admin/wallet-topup", label: "Manual wallet top-up", icon: Wallet, roles: ["admin"] },
       { to: "/admin/whatsapp", label: "WhatsApp outbox", icon: MessageCircle, roles: ["admin"] },
+      { to: "/admin/broadcast", label: "WhatsApp broadcast", icon: Megaphone, roles: FRANCHISE_VIEW },
       { to: "/admin/delivery", label: "Tiffin delivery", icon: Truck, roles: FRANCHISE_VIEW },
       { to: "/admin/live", label: "Live tracking", icon: Radio, roles: FRANCHISE_VIEW },
       { to: "/admin/scanner", label: "QR Scanner", icon: ScanLine, roles: FRANCHISE_VIEW },

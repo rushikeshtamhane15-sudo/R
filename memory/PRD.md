@@ -4,6 +4,24 @@
 
 
 
+## iter-138.p — Kiosk polish + gender voice + WhatsApp broadcast (2026-02-19)
+**Status: DONE — five user-requested changes wired.**
+
+**1. Wall-kiosk scroll removed.** Self-order panel in `AdminKiosk.jsx` switched from `overflow-auto` → `overflow-hidden` in fullscreen mode. Nothing scrolls inside the wall-kiosk viewport anymore; the whole payment mode container, menu card and place-order button now sit within one viewport.
+
+**2. Red/green face-alignment ring fixed on wall kiosk.** Previously the overlay was 40 % × 64 % of the video frame; on a very tall tile that stretched into a super-thin oval. Now the ring is a fixed-aspect (`aspect-[3/4]`, `h-[62 %]`) shape centered in the tile — it always renders as a natural face-shape regardless of how tall the container is.
+
+**3. 3pt breathing gap + smaller Lunch/Dinner toggle.** QR container fullscreen `gap-1` → `gap-3` (12 px ≈ 9 pt), and the toggle buttons dropped from `h-14 text-xl` → `h-12 text-lg` per user's "reduce toggle size" ask.
+
+**4. Female / Male voice preference.** New `voice-gender-{female|male|any}` toggle in `/admin/voice-settings` (persisted to `efc.voice.gender`). `notify.js` `_matchesGender()` biases voice-picking toward names that heuristically match the chosen gender (Aditi/Zira/Veena/… ⇒ female · Ravi/Hemant/Arjun/… ⇒ male). Picking "Female voice" also auto-selects the first matching Hindi + English voice in the dropdowns below as a shortcut.
+
+**5. One-tap WhatsApp broadcast for all subscribers.** New admin page `/admin/broadcast` (nav link "WhatsApp broadcast" under Operations, Megaphone icon).
+- Backend: `GET /api/admin/broadcast/audience?category=all|tiffin|dining|both` returns every currently-active subscriber with their `name`, `phone`, per-service `categories`, plan and end date. Franchise owners are scoped to their branch.
+- Frontend: message textarea (default holiday template pre-filled), category filter chips, per-row "WhatsApp" button that opens a `wa.me` deep-link with the message pre-typed and the recipient's first name auto-personalised, and a "Open WhatsApp for N" button that sequentially opens all filtered contacts (staggered 350 ms so browsers don't block the popup burst).
+- No approved Meta template needed — the wa.me deep-link lets the admin send from their own WhatsApp (business or personal) with one press each.
+
+
+
 ## iter-138.o — Wall-kiosk fit-and-finish: aligned tiles · auto-reload · tighter QR spacing (2026-02-19)
 **Status: DONE — five polishing fixes on top of iter-138.n.**
 
