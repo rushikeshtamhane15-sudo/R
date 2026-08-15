@@ -460,6 +460,27 @@ function WalletAdjustModal({ target, onClose, onSaved }) {
           <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Refund — failed delivery on 2026-02-03" className="mt-1.5" data-testid="wallet-reason" />
         </div>
 
+        {/* iter-138.u — one-tap quick action: back-dated drift fix. */}
+        <div className="mt-4 rounded-2xl bg-amber-50 border-2 border-amber-300 p-3 flex flex-col sm:flex-row sm:items-center gap-3" data-testid="wallet-fix-drift-panel">
+          <div className="flex-1 text-xs text-amber-900">
+            <p className="font-extrabold text-amber-900 tracking-[0.14em] uppercase text-[10px]">Back-dated drift</p>
+            <p className="mt-0.5">If this user was manually assigned a back-dated subscription before the iter-138.t fix, tap here to subtract the 2 phantom-paused meals + ₹100 that were skipped on assign-day.</p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setDelta("-100");
+              setRestoreMeals(-2);
+              setExtendDays(0);
+              setReason((r) => r || "Fix iter-138.t back-dated drift · -2 meals / -₹100");
+            }}
+            className="h-10 rounded-full border-amber-500 text-amber-800 hover:bg-amber-100 font-extrabold text-xs uppercase tracking-[0.14em]"
+            data-testid="wallet-fix-drift-btn"
+          >
+            Prefill drift fix
+          </Button>
+        </div>
+
         <div className="mt-6 flex gap-3 justify-end">
           <Button variant="outline" className="rounded-full" onClick={onClose} disabled={saving} data-testid="wallet-cancel">Cancel</Button>
           <Button onClick={submit} disabled={saving} className="rounded-full bg-primary hover:bg-primary/90" data-testid="wallet-save">
