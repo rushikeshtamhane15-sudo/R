@@ -190,7 +190,7 @@ export default function Profile() {
           className="pointer-events-none absolute -top-20 -right-20 h-56 w-56 rounded-full opacity-30"
           style={{ background: "radial-gradient(circle at center, rgba(255,255,255,0.35) 0%, transparent 65%)" }}
         />
-        <div className="relative max-w-2xl mx-auto px-5 pt-6 pb-10 text-center">
+        <div className="relative max-w-md mx-auto px-4 pt-6 pb-8 text-center">
           <p className="text-[10px] tracking-[0.18em] uppercase font-extrabold text-primary-foreground/85">My account</p>
           <div className="mt-4 inline-block relative">
             <div className="h-24 w-24 rounded-full bg-white/15 ring-4 ring-white/30 shadow-xl overflow-hidden flex items-center justify-center backdrop-blur-sm" data-testid="profile-hero-avatar">
@@ -229,7 +229,7 @@ export default function Profile() {
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 -mt-6 relative z-10 space-y-4">
+      <div className="max-w-md mx-auto px-4 -mt-6 relative z-10 space-y-4">
         {isFranchiseOnboard && (
           <div className="rounded-2xl bg-amber-50 border border-amber-300 px-4 py-3 shadow-sm" data-testid="franchise-onboard-banner">
             <p className="text-sm font-bold text-amber-900">Your branch dashboard is one step away</p>
@@ -462,7 +462,7 @@ function AccountHub({ user, onLogout }) {
     <div className="min-h-screen bg-muted/10 pb-24" data-testid="account-hub">
       <SEO title="My account" path="/profile" includeBusinessSchema={false} description="Your efoodcare account." />
 
-      <div className="max-w-2xl mx-auto px-4 pt-5 space-y-5">
+      <div className="max-w-md mx-auto px-4 pt-5 space-y-5">
         <div className="flex items-center justify-between">
           <h1 className="font-display font-extrabold text-3xl">My account</h1>
           <button
@@ -601,12 +601,11 @@ function AccountHub({ user, onLogout }) {
 function HubSection({ label, testid, children }) {
   return (
     <div data-testid={testid}>
-      <p className="text-[11px] font-bold text-muted-foreground/90 px-1 mb-1.5 tracking-wide uppercase">{label}</p>
-      {/* iter-138.q — account hub rows made tinier: 2-column responsive
-          grid on ≥sm, single column stack on phones so nothing changes
-          on mobile. Rows themselves are shorter (h-11, smaller icons,
-          smaller labels). */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">{children}</div>
+      <p className="text-[10px] font-bold text-muted-foreground/90 px-1 mb-1 tracking-[0.14em] uppercase">{label}</p>
+      {/* iter-138.v — narrow account page (max-w-md), so hub tiles go back
+          to single-column stack (was grid-cols-2). Tiles stay compact:
+          h-10 rows, small icons, small labels. */}
+      <div className="space-y-1.5">{children}</div>
     </div>
   );
 }
@@ -615,14 +614,14 @@ function HubRow({ icon: Icon, label, to, testid }) {
   return (
     <Link
       to={to}
-      className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-card ring-1 ring-black/5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:bg-accent/40 transition-colors"
+      className="flex items-center gap-2 px-3 h-10 rounded-lg bg-card ring-1 ring-black/5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:bg-accent/40 transition-colors"
       data-testid={testid}
     >
-      <span className="inline-flex h-7 w-7 rounded-full bg-primary/8 text-primary items-center justify-center shrink-0">
-        <Icon className="h-3.5 w-3.5" strokeWidth={2} />
+      <span className="inline-flex h-6 w-6 rounded-full bg-primary/8 text-primary items-center justify-center shrink-0">
+        <Icon className="h-3 w-3" strokeWidth={2} />
       </span>
-      <span className="flex-1 text-[13px] font-bold text-foreground truncate">{label}</span>
-      <ChevronRightIcon className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />
+      <span className="flex-1 text-[12px] font-bold text-foreground truncate">{label}</span>
+      <ChevronRightIcon className="h-3 w-3 text-muted-foreground/70 shrink-0" />
     </Link>
   );
 }
