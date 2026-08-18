@@ -100,12 +100,19 @@ export default function SubscriberDashboard() {
   //   • Wallet capacity  : how many days the remaining ₹ can fund at `per_day_amount`
   // After day-1 of a 30/60/₹2,800 plan, both report 29 → display stays
   // synchronised with the visible wallet (₹2,707) and meals-left (58).
-  const daysLeft = sub
-    ? Math.max(0, Math.min(
-        Math.floor((new Date(sub.end_date) - new Date()) / (1000 * 60 * 60 * 24)),
-        Math.round(Number(sub.wallet_balance || 0) / Math.max(1, Number(sub.per_day_amount || 1))),
-      ))
-    : 0;
+  // iter-138.v — compare CALENDAR days instead of timestamps. A sub created
+  // 3 seconds ago used to show 29 because `Math.floor((end - now) / 86400000)`
+  // hit 29.9999 → floor → 29. We now zero the hh:mm on both sides and use
+  // Math.round so a fresh sub reports the full 30 days remaining.
+  const daysLeft = sub ? (() => {
+    const end = new Date(sub.end_date);
+    const now = new Date();
+    const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+    const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const rawDaysLeft = Math.round((endDay - nowDay) / (1000 * 60 * 60 * 24));
+    const walletCapacity = Math.round(Number(sub.wallet_balance || 0) / Math.max(1, Number(sub.per_day_amount || 1)));
+    return Math.max(0, Math.min(rawDaysLeft, walletCapacity));
+  })() : 0;
   const mealsLeft = sub ? sub.meals_total - sub.meals_used : 0;
 
   const togglePause = async () => {
