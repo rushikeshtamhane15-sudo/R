@@ -184,7 +184,7 @@ export default function KioskCounterPanel({
               order. Face check-in tile now stretches to take the reclaimed
               vertical space (flex-1 above). */}
 
-          <div className={`rounded-2xl bg-white border border-black/8 shadow-sm ${isFullscreen ? "p-5" : "p-4"}`} data-testid="kiosk-bt-card">
+          <div className={`rounded-2xl bg-white border border-black/8 shadow-sm ${isFullscreen ? "p-3" : "p-4"}`} data-testid="kiosk-bt-card">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-foreground">
                 {btCfg?.enabled
