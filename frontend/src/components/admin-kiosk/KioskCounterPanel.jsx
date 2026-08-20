@@ -77,12 +77,13 @@ export default function KioskCounterPanel({
       </div>
 
       <div className={`flex-1 grid sm:grid-cols-[1.4fr_1fr] gap-4 min-h-0 ${isFullscreen ? "p-6" : "p-5"}`}>
-        <div className={`rounded-2xl bg-white flex flex-col items-center h-full ${isFullscreen ? "px-6 py-6 gap-3 justify-center" : "p-5 gap-2 justify-center"}`} data-testid="kiosk-counter-qr">
-          {/* iter-138.p — user asked for MORE breathing space between the
-              toggle → QR → info pills (previous `gap-1` was still too tight).
-              Bumped fullscreen gap to `gap-3` (12px ≈ 9pt) — a comfortable
-              breathing room between each item. Also shrank the Lunch/Dinner
-              toggle from h-14 text-xl → h-12 text-lg per user request. */}
+        <div className={`rounded-2xl bg-white flex flex-col items-center h-full ${isFullscreen ? "px-6 py-4 justify-between" : "p-5 gap-2 justify-center"}`} data-testid="kiosk-counter-qr">
+          {/* iter-138.w — user asked to remove whitespace above the toggle
+              and below the refresh-countdown pill on the wall kiosk.
+              justify-between pins the toggle to the very top edge and the
+              info-pill group to the very bottom edge; the QR auto-centers
+              in whatever's left. Mobile keeps its compact justify-center
+              packing so nothing changes on smaller viewports. */}
           <div className={`inline-flex bg-primary/5 rounded-full p-1.5 gap-1 shadow-sm ring-2 ring-primary/20`} data-testid="kiosk-meal-toggle">
             <button
               type="button"

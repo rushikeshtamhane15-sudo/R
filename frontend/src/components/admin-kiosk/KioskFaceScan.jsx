@@ -18,16 +18,15 @@ const COOLDOWN_MS = 60_000;
 
 // iter-138.l — alignment target: face must fit inside this centered box for
 // the guide ring to turn green. Values are fractions of the video frame.
-//   TARGET box: 40% width, 60% height, centered.
-//   FACE_MIN / FACE_MAX: acceptable face-box width as a fraction of the
-//   video width — filters out "too far" (tiny face) and "too close" (huge
-//   face) states.
-//   OFFSET_TOL: max distance (fraction of video) the face-box center can
-//   drift from the target center before turning red.
-const TARGET_BOX = { x: 0.30, y: 0.18, w: 0.40, h: 0.64 };
-const FACE_MIN_W = 0.18;
-const FACE_MAX_W = 0.55;
-const OFFSET_TOL = 0.12;
+// iter-138.w — widened tolerances so the geometry check matches the visible
+// aspect-[3/4] oval on the wall kiosk. The oval covers ~62% of a tall
+// container, so a face detected anywhere within a fairly generous window
+// should turn green. Previous 12%/18%/55% window was too strict — users
+// stood inside the ring and it stayed red.
+const TARGET_BOX = { x: 0.25, y: 0.15, w: 0.50, h: 0.70 };
+const FACE_MIN_W = 0.12;
+const FACE_MAX_W = 0.75;
+const OFFSET_TOL = 0.22;
 
 function computeAlignment(box) {
   if (!box) return { aligned: false, reason: "no-face" };
