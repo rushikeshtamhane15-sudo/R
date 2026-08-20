@@ -109,17 +109,26 @@ export default function KioskMenuCard({ active, activeDate, tab, isFullscreen = 
             </span>
           </div>
           {active.lunch ? (
-            <ul className={`flex flex-col ${isFullscreen ? "mt-3 gap-1.5" : "mt-1.5 gap-0.5"}`}>
-              {splitMenuItems(active.lunch).map((it, i) => (
-                <li
-                  key={`lunch-${it}-${i}`}
-                  className={`flex items-start gap-2 leading-tight font-semibold min-w-0 ${isFullscreen ? "text-lg" : "text-[13px]"}`}
-                >
-                  <span aria-hidden className={`inline-block rounded-full bg-amber-300/80 shrink-0 ${isFullscreen ? "h-1.5 w-1.5 mt-2" : "h-1 w-1 mt-1.5"}`} />
-                  <span className={isFullscreen ? "break-words" : "truncate"}>{it}</span>
-                </li>
-              ))}
-            </ul>
+            isFullscreen ? (
+              <p
+                className="mt-2 leading-tight font-semibold text-amber-50 break-words text-base"
+                data-testid="kiosk-mess-lunch-items"
+              >
+                {splitMenuItems(active.lunch).join(" · ")}
+              </p>
+            ) : (
+              <ul className="flex flex-col mt-1.5 gap-0.5">
+                {splitMenuItems(active.lunch).map((it, i) => (
+                  <li
+                    key={`lunch-${it}-${i}`}
+                    className="flex items-start gap-2 leading-tight font-semibold min-w-0 text-[13px]"
+                  >
+                    <span aria-hidden className="inline-block rounded-full bg-amber-300/80 shrink-0 h-1 w-1 mt-1.5" />
+                    <span className="truncate">{it}</span>
+                  </li>
+                ))}
+              </ul>
+            )
           ) : (
             <span className={`italic block opacity-70 ${isFullscreen ? "text-base mt-1.5" : "text-[11px] mt-0.5"}`}>Off today</span>
           )}
@@ -144,17 +153,26 @@ export default function KioskMenuCard({ active, activeDate, tab, isFullscreen = 
             </span>
           </div>
           {active.dinner ? (
-            <ul className={`flex flex-col ${isFullscreen ? "mt-3 gap-1.5" : "mt-1.5 gap-0.5"}`}>
-              {splitMenuItems(active.dinner).map((it, i) => (
-                <li
-                  key={`dinner-${it}-${i}`}
-                  className={`flex items-start gap-2 leading-tight font-semibold min-w-0 ${isFullscreen ? "text-lg" : "text-[13px]"}`}
-                >
-                  <span aria-hidden className={`inline-block rounded-full bg-blue-300/80 shrink-0 ${isFullscreen ? "h-1.5 w-1.5 mt-2" : "h-1 w-1 mt-1.5"}`} />
-                  <span className={isFullscreen ? "break-words" : "truncate"}>{it}</span>
-                </li>
-              ))}
-            </ul>
+            isFullscreen ? (
+              <p
+                className="mt-2 leading-tight font-semibold text-blue-50 break-words text-base"
+                data-testid="kiosk-mess-dinner-items"
+              >
+                {splitMenuItems(active.dinner).join(" · ")}
+              </p>
+            ) : (
+              <ul className="flex flex-col mt-1.5 gap-0.5">
+                {splitMenuItems(active.dinner).map((it, i) => (
+                  <li
+                    key={`dinner-${it}-${i}`}
+                    className="flex items-start gap-2 leading-tight font-semibold min-w-0 text-[13px]"
+                  >
+                    <span aria-hidden className="inline-block rounded-full bg-blue-300/80 shrink-0 h-1 w-1 mt-1.5" />
+                    <span className="truncate">{it}</span>
+                  </li>
+                ))}
+              </ul>
+            )
           ) : (
             <span className={`italic block opacity-70 ${isFullscreen ? "text-base mt-1.5" : "text-[11px] mt-0.5"}`}>Off today</span>
           )}
