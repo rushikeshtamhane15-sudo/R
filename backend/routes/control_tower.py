@@ -98,6 +98,14 @@ async def control_tower(user: server.User = Depends(server.get_current_user), as
         **rider_extra,
     })
 
+    # iter-138.x — active subscriber count (currently-billing subs) so the
+    # staff / franchise / admin control-tower always shows a live census
+    # tile. Franchise scope: only subs whose user is in the branch.
+    active_subscribers = await db.subscriptions.count_documents(with_branch({"status": "active"}))
+    # Split by service so the tile can render "82 · 45 tiffin · 37 dining".
+    tiffin_subs = await db.subscriptions.count_documents(with_branch({"status": "active", "service_type": "tiffin"}))
+    dining_subs = await db.subscriptions.count_documents(with_branch({"status": "active", "service_type": "dining"}))
+
     # --- ALERTS ----------------------------------------------------------
     pending_amt = 0.0
     pending_count = 0
@@ -128,6 +136,9 @@ async def control_tower(user: server.User = Depends(server.get_current_user), as
             "staff_online": staff_online,
             "admins_online": admins_online,
             "counter_staff_online": counter_staff_online,
+            "active_subscribers": active_subscribers,
+            "tiffin_subs": tiffin_subs,
+            "dining_subs": dining_subs,
         },
         "notifications": {
             "pending_bank_amt": round(pending_amt, 2),

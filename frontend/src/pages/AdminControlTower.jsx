@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import {
   Activity, Bike, Truck, Users, Package, AlertTriangle, ChefHat,
   Wallet, ScanLine, RefreshCw, ExternalLink, Building2, Banknote,
+  IdCard,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import KitchenCloseOutCard from "../components/KitchenCloseOutCard";
@@ -87,7 +88,17 @@ export default function AdminControlTower() {
       </div>
 
       {/* LIVE OPS */}
-      <div className="mt-5 grid lg:grid-cols-3 gap-3 sm:gap-4">
+      <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* iter-138.x — active-subscribers tile: shows the live census
+            of currently-billing subscribers, split by tiffin / dining so
+            staff and franchise owners see who's on the books right now. */}
+        <LiveCard
+          icon={IdCard} title="Active subscribers"
+          count={live.active_subscribers || 0}
+          subtitle={`${live.tiffin_subs || 0} tiffin · ${live.dining_subs || 0} dining`}
+          openTo="/admin/users"
+          testid="ct-active-subscribers"
+        />
         <LiveCard
           icon={Truck} title="Active tiffin deliveries"
           count={live.tiffin_deliveries_active || 0}
