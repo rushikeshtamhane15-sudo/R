@@ -49,6 +49,27 @@ export async function connectBluetoothPrinter() {
   if (!isBluetoothSupported()) {
     throw new Error("Web Bluetooth not supported on this browser. On iOS, install the Bluefy browser. On desktop, use Chrome or Edge.");
   }
+  // iter-138.z — proactively check the OS Bluetooth adapter BEFORE opening
+  // the picker so a switched-off adapter surfaces an actionable hint
+  // instead of the browser's generic "Bluetooth adapter not available".
+  // getAvailability() is supported in Chrome / Edge desktop.
+  try {
+    if (typeof navigator.bluetooth.getAvailability === "function") {
+      const available = await navigator.bluetooth.getAvailability();
+      if (!available) {
+        throw new Error("BLUETOOTH_ADAPTER_OFF");
+      }
+    }
+  } catch (e) {
+    if (e && e.message === "BLUETOOTH_ADAPTER_OFF") {
+      throw new Error(
+        "Bluetooth is turned OFF on this kiosk. Open Windows Settings → Bluetooth & devices → toggle Bluetooth ON, then tap Pair printer again.\n\n"
+        + "If you don't see a Bluetooth toggle at all this laptop has no Bluetooth adapter — plug in a USB Bluetooth dongle first."
+      );
+    }
+    // getAvailability itself blew up — fall through to requestDevice
+    // which will produce its own error.
+  }
   // iter-138.y — most ESC/POS thermal printers do NOT advertise their
   // service UUID in the BLE advertisement packet — the service is only
   // discoverable AFTER connect. The previous `filters:[{services: uuid}]`
@@ -57,10 +78,30 @@ export async function connectBluetoothPrinter() {
   // Bluetooth device in the browser picker) + `optionalServices` (grants
   // permission to read the ESC/POS services once connected). This is the
   // standard Web-Bluetooth pattern for thermal printers.
-  const device = await navigator.bluetooth.requestDevice({
-    acceptAllDevices: true,
-    optionalServices: KNOWN_SERVICES,
-  });
+  let device;
+  try {
+    device = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: KNOWN_SERVICES,
+    });
+  } catch (e) {
+    const msg = (e && e.message) || String(e);
+    // Common OS-level failure modes — rewrite the error into a
+    // step-by-step recovery hint the counter staff can act on.
+    if (/adapter/i.test(msg) || /not available/i.test(msg) || (e && e.name === "NotFoundError" && /adapter/i.test(msg))) {
+      throw new Error(
+        "Bluetooth adapter not available. Open Windows Settings → Bluetooth & devices → toggle Bluetooth ON, then tap Pair printer again. If your laptop has no built-in Bluetooth, plug in a USB dongle."
+      );
+    }
+    if (e && e.name === "NotFoundError") {
+      // User closed the picker or no device was chosen — quiet re-throw.
+      throw new Error("No printer selected. Tap Pair printer, then choose your thermal printer from the picker.");
+    }
+    if (e && e.name === "SecurityError") {
+      throw new Error("Bluetooth permission blocked for this site. Open the padlock icon in the address bar → Site settings → allow Bluetooth, then retry.");
+    }
+    throw e;
+  }
   const server = await device.gatt.connect();
   // Walk EVERY primary service on the device (not just our known list —
   // some OEM printers expose ESC/POS on a private UUID) and pick the first
