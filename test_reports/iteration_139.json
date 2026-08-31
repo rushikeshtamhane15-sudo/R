@@ -1,0 +1,45 @@
+{
+  "summary": "Frontend-only verification of the iter-138.y Web Bluetooth printer fix on the wall kiosk. navigator.bluetooth was MOCKED via page.add_init_script (no BT stack in CI). Logged in with admin OTP DEV MODE (phone 9970705391, otp-echo-code) and exercised both /admin/kiosk (1920x1080) and /kiosk fullscreen (1080x1920). All 4 requested behaviours plus 2 extra edge cases passed: (1) requestDevice is called exactly once with {acceptAllDevices:true, optionalServices:[4 known UUIDs]} and NO filters key -> the picker now lists every nearby device, fixing the empty-picker report; (2) with a printer whose service UUID is 12345678-1234-1234-1234-123456789012 the known-UUID fast path misses and connectBluetoothPrinter falls through to getPrimaryServices(), skips the read-only characteristic and picks the writable one (window.__efcBtPrinter set, gatt.disconnect never called, pill flips to PRINTER PAIRED, toast 'Paired with POS-58 MOCK'); (3) printReceipt emitted 657 bytes in 7 chunks (all <=100B) via writeValueWithoutResponse with no exception, and correctly fell back to writeValue (6 chunks) for a write-only characteristic; (4) localStorage efc_bt_printer_name_v1 = 'POS-58 MOCK' and survived a full reload. Extra: known-service device uses the getPrimaryService fast path (getPrimaryServices NOT called); a device with no writable characteristic fails gracefully - gatt.disconnect called once, window.__efcBtPrinter left null, pill stays PRINTER WAITING and the toast shows the POS-58/POS-80 guidance message.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "/kiosk fullscreen header",
+        "issues": [
+          "Sonner toast (e.g. 'Paired with POS-80 KNOWN') renders top-right and overlaps/hides the pure-veg certification mark (data-testid kiosk-header-pureveg) on the 1080x1920 vertical wall display. Cosmetic only - consider bottom-center toast placement on the kiosk route."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/tests/kiosk_bluetooth_printer_verification_iter139.py",
+    "/app/test_reports/bt_printer_iter139/paired.jpg",
+    "/app/test_reports/bt_printer_iter139b/kiosk_fullscreen_paired.jpg",
+    "/app/test_reports/bt_printer_iter139b/nowrite_error.jpg"
+  ],
+  "action_items": [
+    "No functional fix required for the Bluetooth pairing bug - verified fixed at the code + UI level with a mocked Web Bluetooth stack.",
+    "User-side caveat to communicate: acceptAllDevices only lists devices the OS exposes over BLE/GATT. A pure Bluetooth-Classic SPP POS-58 (no BLE GATT profile) will still not appear in Chrome's picker on Windows; the kiosk should keep the window.print() fallback documented for that case.",
+    "Optional: move kiosk toasts away from the top-right so they don't cover the pure-veg badge.",
+    "Optional cleanup: /app/frontend/src/lib/__tests__/bluetoothPrinter.test.js still fails to run under CRA Jest (ESM import). Either fix or delete it - the Playwright browser test above now covers this module."
+  ],
+  "critical_code_review_comments": [
+    "bluetoothPrinter.js: acceptAllDevices + optionalServices is the correct Web-Bluetooth pattern for ESC/POS printers; optionalServices is required or getPrimaryService would throw SecurityError after connect - present and correct.",
+    "The getPrimaryServices() fallback only triggers when NO known service is found. If a printer exposes a known service that has no writable characteristic, the code will fail without scanning the remaining services. Low risk, but a full-device scan on writeChar==null would be more robust.",
+    "Failure path correctly calls device.gatt.disconnect() and throws a user-actionable message; window.__efcBtPrinter is never populated on failure, so no stale printer handle leaks.",
+    "localStorage write is wrapped in try/catch - safe under kiosk privacy modes."
+  ],
+  "updated_files": [
+    "/app/tests/kiosk_bluetooth_printer_verification_iter139.py",
+    "/app/test_reports/iteration_139.json"
+  ],
+  "success_rate": { "backend": "not tested (frontend-only request)", "frontend": "100% (6/6 bluetooth pairing scenarios passed)" },
+  "seed_data_creation": "None. Used existing admin phone 9970705391 via OTP DEV MODE. Kiosk bt-config 'enabled' flag was toggled ON through the UI (persisted via PUT /api/admin/kiosk/bt-config) - leave as-is or turn off if undesired.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": false,
+  "test_credentials": "Admin OTP DEV MODE: phone 9970705391, OTP echoed in [data-testid=otp-echo-code] on /login.",
+  "context_for_next_testing_agent": "To retest BT printing: page.add_init_script a mock defining navigator.bluetooth via Object.defineProperty (headless Chrome has none), recording requestDevice options in window.__btCalls; login admin OTP 9970705391 with next=/admin/kiosk or /kiosk; enable [data-testid=kiosk-bt-toggle] then click [data-testid=kiosk-bt-pair]; assert window.__btCalls[0].acceptAllDevices===true and 'filters' absent; the paired printer object is exposed at window.__efcBtPrinter so printReceipt can be driven from page.evaluate. Status pill: [data-testid=kiosk-printer-status-pill].",
+  "rca_of_the_issue": "Original bug: requestDevice({filters:[{services:[UUID]}]}) filters on the BLE advertisement packet. POS-58/POS-80 serial-bridge printers do not advertise their ESC/POS service UUID, so the Chrome picker was always empty and staff could never pair. Fix uses acceptAllDevices:true (unfiltered picker) + optionalServices (post-connect service permission), plus a getPrimaryServices() fall-through for OEM printers on private service UUIDs. Both behaviours confirmed in a real browser against a mocked GATT device."
+}

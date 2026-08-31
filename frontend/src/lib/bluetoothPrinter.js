@@ -49,32 +49,56 @@ export async function connectBluetoothPrinter() {
   if (!isBluetoothSupported()) {
     throw new Error("Web Bluetooth not supported on this browser. On iOS, install the Bluefy browser. On desktop, use Chrome or Edge.");
   }
-  // requestDevice MUST be called inside a user gesture (button click).
+  // iter-138.y — most ESC/POS thermal printers do NOT advertise their
+  // service UUID in the BLE advertisement packet — the service is only
+  // discoverable AFTER connect. The previous `filters:[{services: uuid}]`
+  // therefore returned an empty picker on the wall kiosk and the user
+  // couldn't pair. Switched to `acceptAllDevices` (shows every nearby
+  // Bluetooth device in the browser picker) + `optionalServices` (grants
+  // permission to read the ESC/POS services once connected). This is the
+  // standard Web-Bluetooth pattern for thermal printers.
   const device = await navigator.bluetooth.requestDevice({
-    filters: KNOWN_SERVICES.map((uuid) => ({ services: [uuid] })),
+    acceptAllDevices: true,
     optionalServices: KNOWN_SERVICES,
   });
   const server = await device.gatt.connect();
-  // Walk the discovered services and find the first writable characteristic.
+  // Walk EVERY primary service on the device (not just our known list —
+  // some OEM printers expose ESC/POS on a private UUID) and pick the first
+  // writable characteristic. Fast path: try KNOWN_SERVICES first, then
+  // (whether or not any known service was found) probe the full service
+  // list if no writable characteristic surfaced yet. This is more robust
+  // than the previous "fall through only when NO known service is found"
+  // logic, which failed on printers that DID expose a known service but
+  // with only read/notify characteristics on it.
   let writeChar = null;
-  for (const svcUuid of KNOWN_SERVICES) {
-    let svc;
-    try { svc = await server.getPrimaryService(svcUuid); }
-    catch { continue; }
-    const chars = await svc.getCharacteristics();
-    for (const c of chars) {
-      if (c.properties.write || c.properties.writeWithoutResponse) {
-        if (KNOWN_CHAR_UUIDS.includes(c.uuid) || c.properties.write || c.properties.writeWithoutResponse) {
+  const scanServices = async (services) => {
+    for (const svc of services) {
+      let chars;
+      try { chars = await svc.getCharacteristics(); }
+      catch { continue; }
+      for (const c of chars) {
+        if (c.properties.write || c.properties.writeWithoutResponse) {
           writeChar = c;
-          break;
+          return;
         }
       }
     }
-    if (writeChar) break;
+  };
+  const knownServices = [];
+  for (const svcUuid of KNOWN_SERVICES) {
+    try { knownServices.push(await server.getPrimaryService(svcUuid)); }
+    catch { /* not present on this device */ }
+  }
+  if (knownServices.length) await scanServices(knownServices);
+  if (!writeChar) {
+    try {
+      const all = await server.getPrimaryServices();
+      await scanServices(all);
+    } catch { /* getPrimaryServices unavailable */ }
   }
   if (!writeChar) {
     try { device.gatt.disconnect(); } catch { /* ignore */ }
-    throw new Error("No writable ESC/POS characteristic found on this printer. Make sure it's a thermal Bluetooth printer (POS-58 / POS-80 family).");
+    throw new Error("No writable ESC/POS characteristic found on this printer. Make sure it's a thermal Bluetooth printer (POS-58 / POS-80 family) that supports BLE (not Bluetooth-Classic SPP only).");
   }
   try { localStorage.setItem(LS_KEY, device.name || "Bluetooth printer"); } catch { /* ignore */ }
 
