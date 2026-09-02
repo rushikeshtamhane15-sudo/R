@@ -3895,3 +3895,32 @@ Testing agent iter-134 report: 8/8 backend pytests + full frontend flow — zero
 - `/app/backend/routes/mess_menu_cal.py`
 - `/app/backend/tests/test_iter134_kiosk_staff_cash.py`
 
+
+## iter-140 (2026-02) — P0 bug fixes: wall-kiosk voice + wallet double-deduction
+
+### Fixed
+1. **Kiosk voice announcement** was playing Hindi AND English (Male + Female) sequentially on every check-in, confusing on-floor staff.
+2. **Wallet double-deduction (dining subs)** — subscribers were charged per-meal at QR/face scan AND charged a full per_day upfront by the midnight cron for the same day. Root cause: the tick loop advanced through `today` at 00:00 IST and deducted a full day BEFORE any scan had a chance to mark `scan_deducted_dates[today]`. Then the subsequent scans debited again.
+3. **users.wallet_balance drift on dining scans** — the scan path only decremented `subscriptions.wallet_balance`, never `users.wallet_balance`. `/api/my/wallet` therefore reported an inflated balance for every dining scan.
+
+### Implemented
+- `/app/frontend/src/lib/notify.js`: `announceCheckinSuccess` now reads `efc.voice.language` (default `en`) and speaks ONCE. Legacy dual-language mode preserved as an explicit `both` option.
+- `/app/frontend/src/pages/AdminVoiceSettings.jsx`: new Announcement Language radio (English / Hindi / Both) with `data-testid=voice-language-{en,hi,both}`, persisted via `LS_KEYS.language`.
+- `/app/backend/server.py::catch_up_subscription`: loop now stops at `cutoff = today - 1` so the tick can only account for FINALIZED past days. For DINING subs the loop reconciles per-meal — days with both scans in `scan_deducted_dates` are free, half-scanned days charge per_meal for the missed meal, and day 4+ of a no-scan streak still auto-pauses.
+- `/app/backend/server.py::_mark_attendance` (dining branch): no longer sets `last_tick_date=today` (kept the pause bookkeeping intact) and now also decrements `users.wallet_balance` in sync with `subscriptions.wallet_balance`.
+- New `POST /api/admin/reconcile-double-deduct` (admin-only, supports `?dry_run=true`): scans wallet_transactions for `Scan · <meal> · <date>` co-occurring with `Daily deduction · <date> · 2 meals`, credits the sub wallet by per_meal × scans, restores meals_used, and writes ledger rows tagged `kind=double_deduct_refund`. Idempotent — re-runs never double-refund. User-level wallet is not touched (historical bug only over-charged the sub wallet).
+- `/app/frontend/src/pages/AdminUsers.jsx`: new "Wallet double-deduction refund" panel with Preview + Apply buttons (`data-testid=reconcile-double-deduct-panel`, `dd-preview-button`, `dd-apply-button`).
+
+### Verified
+- Testing agent iter-140 report: 100% frontend + backend coverage on the new features (voice language modes + persistence, refund panel preview/apply flow).
+- `/app/backend/tests/test_iter140_double_deduct.py` — 11 pytest cases pass (per-meal reconciliation, half-scan behaviour, tiffin unchanged, 3-day skip rule, refund apply + idempotency).
+- `/app/backend/tests/test_iter140_scan_method.py` — 1 pytest case pass (dining scan updates both sub AND user wallet).
+- `/app/backend/tests/test_iter131_29_scan_and_kiosk.py` — 7 regression tests pass.
+
+### Files
+- `/app/backend/server.py`
+- `/app/frontend/src/lib/notify.js`
+- `/app/frontend/src/pages/AdminVoiceSettings.jsx`
+- `/app/frontend/src/pages/AdminUsers.jsx`
+- `/app/backend/tests/test_iter140_double_deduct.py`
+- `/app/backend/tests/test_iter140_scan_method.py`

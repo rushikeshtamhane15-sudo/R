@@ -810,25 +810,88 @@ async def catch_up_subscription(sub: dict) -> dict:
         except Exception:
             pass
     last = date.fromisoformat(sub["last_tick_date"])
-    if last >= today or sub["status"] != "active":
+    # iter-140 — process only FINALIZED past days (yesterday and earlier).
+    # Previously the loop advanced through `today` and deducted a full
+    # per_day upfront at 00:00 IST — meaning a dining subscriber who then
+    # scanned lunch/dinner during the day got charged AGAIN per meal.
+    # `cutoff` is the last day this tick is allowed to account for.
+    cutoff = today - timedelta(days=1)
+    if last >= cutoff or sub["status"] != "active":
         return sub
 
     per_day = float(sub.get("per_day_amount", 0))
+    per_meal = round(per_day / 2.0, 2)
+    is_dining = (sub.get("service_type") or "").lower() == "dining"
     user_id = sub["user_id"]
     paused_added = 0
     deducted_amount = 0.0
     days_processed = 0
 
     current = last
-    while current < today:
+    while current < cutoff:
         current = current + timedelta(days=1)
-        # iter-131.29: skip tick for dining days already scan-deducted so the
-        # user isn't double-charged (per scan + tick).
-        if (sub.get("service_type") or "").lower() == "dining":
+        # iter-140 — DINING subs: reconcile MISSED meals only. Each meal
+        # was either scan-deducted at kiosk (skip here) or missed
+        # (deduct per_meal now). The old logic skipped the entire day if
+        # ANY meal was scan-deducted which under-charged half-scanned days,
+        # and it processed `today` at 00:00 IST which double-charged the
+        # subsequent scans.
+        if is_dining:
             scan_map = sub.get("scan_deducted_dates") or {}
-            if scan_map.get(current.isoformat()):
+            scanned_meals = list(scan_map.get(current.isoformat()) or [])
+            missed_meals = [m for m in ("lunch", "dinner") if m not in scanned_meals]
+            if not missed_meals:
                 days_processed += 1
                 continue
+            # 3-day inactivity check — auto-pause on day 4+ of no-scan streak.
+            last_scan_doc = await db.attendance.find_one(
+                {"user_id": user_id, "date_str": {"$lt": current.isoformat()}},
+                {"_id": 0, "date_str": 1},
+                sort=[("date_str", -1)],
+            )
+            if last_scan_doc and last_scan_doc.get("date_str"):
+                anchor = date.fromisoformat(last_scan_doc["date_str"][:10])
+            else:
+                _sd = sub.get("start_date", current.isoformat())
+                if hasattr(_sd, "isoformat"):
+                    _sd = _sd.isoformat()
+                anchor = date.fromisoformat(str(_sd)[:10])
+            days_since_anchor = (current - anchor).days
+            is_inactive = days_since_anchor >= INACTIVITY_THRESHOLD_DAYS + 1
+            _npb = sub.get("no_pause_before")
+            if is_inactive and _npb:
+                try:
+                    npb_date = date.fromisoformat(str(_npb)[:10])
+                    if current <= npb_date:
+                        is_inactive = False
+                except Exception:  # noqa: BLE001
+                    pass
+            if is_inactive:
+                # Auto-pause: no debit, no meal consumption, end-date extends
+                # by 1 (matches the pre-iter-140 per-day pause behaviour so
+                # subscribers still get their day back on the calendar).
+                sub["paused_days"] = int(sub.get("paused_days", 0)) + 1
+                sub["end_date"] = iso(parse_dt(sub["end_date"]) + timedelta(days=1))
+                paused_added += 1
+                await _log_wallet_txn(user_id, sub["sub_id"], "pause", 0.0, float(sub["wallet_balance"]), f"Auto-pause · {current.isoformat()} ({days_since_anchor} days since last activity · day credited back)")
+                days_processed += 1
+                continue
+            # Active-but-missed meal(s) — deduct per_meal for each.
+            for _meal in missed_meals:
+                new_balance = round(float(sub["wallet_balance"]) - per_meal, 2)
+                if new_balance < 0:
+                    new_balance = 0.0
+                sub["wallet_balance"] = new_balance
+                deducted_amount += per_meal
+                new_used = min(int(sub.get("meals_total", 0)), int(sub.get("meals_used", 0)) + 1)
+                sub["meals_used"] = new_used
+                await _log_wallet_txn(
+                    user_id, sub["sub_id"], "debit", per_meal, new_balance,
+                    f"Daily deduction · {current.isoformat()} · {_meal} missed",
+                )
+            days_processed += 1
+            continue
+
         # ---- USER-PAUSED branch (tiffin only) ----
         if sub.get("user_paused") and sub.get("service_type") == "tiffin":
             # Always deduct (matches eat-in deduction rate).
@@ -916,7 +979,8 @@ async def catch_up_subscription(sub: dict) -> dict:
 
         days_processed += 1
 
-    sub["last_tick_date"] = today.isoformat()
+    # iter-140 — anchor moves to the last day we accounted for (yesterday).
+    sub["last_tick_date"] = cutoff.isoformat()
 
     # Persist
     await db.subscriptions.update_one({"sub_id": sub["sub_id"]}, {"$set": {
@@ -2413,17 +2477,33 @@ async def _mark_attendance(target_user: dict, meal_type: str, marked_by: str, me
                 "wallet_balance": new_bal,
                 "meals_used": new_meals_used,
                 "scan_deducted_dates": scan_map,
-                # advance tick anchor so catch_up won't re-deduct today
-                "last_tick_date": today,
+                # iter-140 — do NOT advance last_tick_date here. The
+                # midnight tick reads `scan_deducted_dates[today]` to
+                # decide which meals were already scan-deducted, and
+                # ONLY charges the missed ones per-meal. Advancing the
+                # anchor to today caused the previous under-charging bug
+                # on half-scanned days AND blocked the auto-pause
+                # bookkeeping from running for tomorrow's tick.
             }},
         )
+        # iter-140 — keep users.wallet_balance in sync with the sub doc so
+        # /api/my/wallet + admin wallet views reflect the debit. The tick
+        # path uses $inc on the same field; both stores must move together.
+        actual_debit = round(old_bal - new_bal, 2)
+        if actual_debit > 0:
+            await db.users.update_one(
+                {"user_id": target_user["user_id"]},
+                {"$inc": {"wallet_balance": -actual_debit}},
+            )
         await _log_wallet_txn(
             target_user["user_id"], sub["sub_id"], "debit",
             per_meal, new_bal,
             f"Scan · {meal_type} · {today}",
         )
-    # NOTE: meals_used is tick-driven (2 meals per active day, decremented from balance after midnight).
-    # Scans only record attendance — they don't double-deduct.
+    # iter-140 NOTE: Tiffin subs are tick-driven (2 meals per active day,
+    # decremented after midnight). Dining subs deduct per-meal on the scan
+    # above and let the midnight tick charge any meal that was missed
+    # (see catch_up_subscription).
     return record
 
 
@@ -3017,6 +3097,161 @@ async def admin_reconcile_backdated_drift(user: User = Depends(get_current_user)
         })
         touched += 1
     return {"ok": True, "touched": touched, "skipped": skipped, "users": changed}
+
+
+@api_router.post("/admin/reconcile-double-deduct")
+async def admin_reconcile_double_deduct(user: User = Depends(get_current_user), dry_run: bool = False):
+    """iter-140 — one-tap refund tool for the pre-iter-140 double-deduction
+    bug on DINING subscriptions.
+
+    Before iter-140 the midnight tick charged today's full per_day at
+    00:00 IST, then per-meal scans during the day charged AGAIN. Any date
+    where BOTH `Scan · <meal> · <date>` AND `Daily deduction · <date> · 2 meals`
+    ledger rows exist for the same sub is a double-charge candidate.
+
+    For each candidate:
+      • refund = per_meal × (# of scan rows that day), capped at per_day
+      • credit BOTH the user wallet AND the sub wallet
+      • write an audit ledger row so repeated runs are idempotent
+        (guarded by `kind == "double_deduct_refund"`)
+
+    Query param `dry_run=true` returns the diff without mutating.
+    """
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    # Build a set of (user_id, sub_id, date) already refunded so we never
+    # double-refund on re-runs.
+    already: set = set()
+    async for row in db.wallet_transactions.find(
+        {"kind": "double_deduct_refund"},
+        {"_id": 0, "user_id": 1, "sub_id": 1, "refund_date": 1},
+    ):
+        key = (row.get("user_id"), row.get("sub_id"), row.get("refund_date"))
+        already.add(key)
+
+    # Group per (user, sub, date) — how many scan rows + is there a daily
+    # deduction row?
+    # `type` is "debit" for both, so we key on the reason string.
+    from collections import defaultdict
+    scan_counts: dict = defaultdict(int)   # (uid, sid, day) → count
+    day_full: dict = {}                    # (uid, sid, day) → True if daily-deduction row exists
+    per_meals: dict = {}                   # (uid, sid, day) → per_meal amount from the scan row
+
+    async for txn in db.wallet_transactions.find(
+        {"type": "debit"},
+        {"_id": 0, "user_id": 1, "sub_id": 1, "reason": 1, "amount": 1},
+    ):
+        reason = txn.get("reason") or ""
+        uid = txn.get("user_id")
+        sid = txn.get("sub_id")
+        if not uid or not sid:
+            continue
+        # Scan · lunch · 2025-11-15
+        if reason.startswith("Scan · "):
+            parts = reason.split(" · ")
+            if len(parts) >= 3:
+                day = parts[2].strip()
+                key = (uid, sid, day)
+                scan_counts[key] += 1
+                # Keep first observed per_meal for this day
+                if key not in per_meals:
+                    try:
+                        per_meals[key] = float(txn.get("amount") or 0)
+                    except Exception:
+                        per_meals[key] = 0.0
+        # Daily deduction · 2025-11-15 · 2 meals · ...
+        elif reason.startswith("Daily deduction · ") and "2 meals" in reason:
+            parts = reason.split(" · ")
+            if len(parts) >= 2:
+                day = parts[1].strip()
+                key = (uid, sid, day)
+                day_full[key] = True
+
+    candidates: list = []
+    for key, scans in scan_counts.items():
+        if not day_full.get(key):
+            continue
+        if key in already:
+            continue
+        uid, sid, day = key
+        per_meal = per_meals.get(key) or 0.0
+        if per_meal <= 0:
+            continue
+        refund = round(min(scans * per_meal, per_meal * 2), 2)
+        if refund <= 0:
+            continue
+        candidates.append({"user_id": uid, "sub_id": sid, "day": day, "scans": scans, "per_meal": per_meal, "refund": refund})
+
+    if dry_run:
+        return {"ok": True, "dry_run": True, "candidates": candidates, "total": round(sum(c["refund"] for c in candidates), 2)}
+
+    # Apply refunds — group by (user_id, sub_id) so we do one Mongo write per user.
+    grouped: dict = defaultdict(list)
+    for c in candidates:
+        grouped[(c["user_id"], c["sub_id"])].append(c)
+
+    touched = 0
+    total_refund = 0.0
+    users_touched: list = []
+    for (uid, sid), rows in grouped.items():
+        per_user_refund = round(sum(r["refund"] for r in rows), 2)
+        if per_user_refund <= 0:
+            continue
+        u = await db.users.find_one({"user_id": uid}, {"_id": 0, "user_id": 1, "name": 1, "wallet_balance": 1})
+        s = await db.subscriptions.find_one({"sub_id": sid}, {"_id": 0, "sub_id": 1, "wallet_balance": 1, "meals_used": 1, "meals_total": 1})
+        if not u or not s:
+            continue
+        user_bal_before = float(u.get("wallet_balance") or 0.0)
+        sub_bal_before = float(s.get("wallet_balance") or 0.0)
+        # iter-140 — only the SUBSCRIPTION doc was double-charged historically
+        # (scans didn't touch users.wallet_balance before the iter-140 sync
+        # fix). Refund only the sub wallet; user-level balance is already
+        # correct — crediting it here would gift free money.
+        sub_bal_after = round(sub_bal_before + per_user_refund, 2)
+        user_bal_after = user_bal_before  # unchanged
+        # Also restore meals_used (each duplicated scan consumed 1 meal that
+        # shouldn't have counted). scans * 1 meal each, capped so
+        # meals_used never goes below 0.
+        meals_restore = min(int(sum(r["scans"] for r in rows)), int(s.get("meals_used") or 0))
+        meals_used_after = max(0, int(s.get("meals_used") or 0) - meals_restore)
+
+        await db.subscriptions.update_one({"sub_id": sid}, {"$set": {"wallet_balance": sub_bal_after, "meals_used": meals_used_after}})
+
+        # Ledger + audit per-day rows so re-runs are idempotent.
+        for r in rows:
+            await db.wallet_transactions.insert_one({
+                "txn_id": f"wtxn_{uuid.uuid4().hex[:12]}",
+                "user_id": uid,
+                "sub_id": sid,
+                "type": "credit",
+                "amount": round(r["refund"], 2),
+                "balance_after": user_bal_after,
+                "reason": f"iter-140 refund · double-deduct · {r['day']} · {r['scans']} scan(s)",
+                "created_at": now_utc_iso(),
+                "kind": "double_deduct_refund",
+                "refund_date": r["day"],
+                "actor_user_id": user.user_id,
+            })
+        users_touched.append({
+            "user_id": uid,
+            "name": u.get("name") or "",
+            "sub_id": sid,
+            "days": [r["day"] for r in rows],
+            "refund": per_user_refund,
+            "meals_restored": meals_restore,
+            "before": {"wallet": user_bal_before, "meals_used": int(s.get("meals_used") or 0)},
+            "after": {"wallet": user_bal_after, "meals_used": meals_used_after},
+        })
+        touched += 1
+        total_refund += per_user_refund
+
+    return {
+        "ok": True,
+        "touched": touched,
+        "total_refund": round(total_refund, 2),
+        "users": users_touched,
+    }
 
 
 @api_router.post("/admin/users/{target_user_id}/wallet-adjust")

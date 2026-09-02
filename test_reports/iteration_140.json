@@ -1,0 +1,44 @@
+{
+  "summary": "iter-140 P0 verification. Backend: 11/11 new pytest cases pass (tests/test_iter140_double_deduct.py) — the midnight tick no longer charges TODAY (cutoff=today-1), dining subs are reconciled per-MEAL for missed meals only, fully-scanned days are free, tiffin subs still get per_day for finalized past days only, skip-streak day 1-3 charges + day 4+ auto-pause still works, and POST /api/admin/reconcile-double-deduct is admin-gated, non-mutating in dry_run, credits user+sub+restores meals_used on apply and is idempotent on re-run (2nd run returns no rows for the same user, single ledger row with kind=double_deduct_refund). Frontend: /admin/voice-settings language radio group renders (voice-language-en/hi/both), persists efc.voice.language to localStorage across reload, and speechSynthesis.speak fires EXACTLY ONE audible utterance for en (en-IN) and hi (hi-IN), two only for 'both'. /admin/users double-deduct panel renders, Preview hits ?dry_run=true and shows 'Pending refund: Rs.100.00 across 1 day(s)', Apply hits the endpoint and DB verified (user 800->900, sub 800->900, meals_used 4->2, 1 refund ledger row). One real defect found: dining scan deducts only subscriptions.wallet_balance, never users.wallet_balance, so /api/my/wallet top-level balance now drifts (and the refund tool credits the user doc that was never over-charged).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "_mark_attendance (POST /api/attendance/scan, /api/attendance/self-scan)", "issue": "Dining per-meal scan deduction updates subscriptions.wallet_balance + ledger but does NOT decrement users.wallet_balance. Reproduced method-level (tests/test_iter140_scan_method.py): after a lunch scan sub=950 but users.wallet_balance stays 1000. Since iter-140 the tick no longer charges today's per_day, so a dining subscriber's user-level wallet (what GET /api/my/wallet returns as wallet_balance, and what admin wallet screens read) is now permanently over-stated for every scanned meal. Consequence for the refund tool: it credits users.wallet_balance by per_meal x scans even though the user doc was only ever charged the single per_day by the old cron — so the user-level balance is over-credited by the refunded amount (sub-level refund is correct)."},
+      {"endpoint": "POST /api/admin/reconcile-double-deduct", "issue": "Scans the ENTIRE wallet_transactions collection (no date/kind index filter, in-Python grouping). Fine at current volume (~sub-second) but will degrade; consider filtering by created_at < iter-140 deploy date and/or restricting to type='debit' + reason regex in the query."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/admin/voice-settings", "issues": ["Page subtitle still reads 'preview the full bilingual check-in announcement' — stale copy now that the default is a single English utterance."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter140_double_deduct.py",
+    "/app/backend/tests/test_iter140_scan_method.py",
+    "/app/test_reports/pytest/iter140_results.xml"
+  ],
+  "action_items": [
+    "Sync users.wallet_balance with the per-meal deduction inside _mark_attendance (e.g. db.users.update_one($inc wallet_balance -per_meal)), OR make /api/my/wallet + admin wallet views derive the balance from the active sub. Currently dining subscribers' user-level wallet never decreases on scans.",
+    "Once user-level wallet is decided, re-check the refund tool: it credits BOTH users and subscriptions by per_meal x scans; if the user doc was never charged the scan amounts this over-credits the user-facing balance.",
+    "Update the /admin/voice-settings subtitle ('full bilingual check-in announcement') to match the new single-language default."
+  ],
+  "critical_code_review_comments": [
+    "catch_up_subscription cutoff=today-1 logic is correct and matches _mark_attendance's scan_deducted_dates contract; scan no longer advances last_tick_date (verified).",
+    "server.py is 5717 lines — well over the 700-line guideline; catch_up_subscription + admin reconcile tools are good candidates to extract into modules.",
+    "Refund idempotency relies on a (user_id, sub_id, refund_date) set built from wallet_transactions with kind='double_deduct_refund' — verified idempotent, but there is no unique index enforcing it; two concurrent admin clicks could double-refund. Consider a unique index on (user_id, sub_id, refund_date, kind)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter140_double_deduct.py",
+    "/app/backend/tests/test_iter140_scan_method.py",
+    "/app/backend/tests/test_iter131_29_scan_and_kiosk.py (stale assertion last_tick_date==today -> yesterday per iter-140; file now 7/7 pass)"
+  ],
+  "success_rate": {"backend": "100% (11/11 iter-140 cases; 7/7 iter-131.29 regression)", "frontend": "100% (voice language modes + persistence, refund panel preview/apply)"},
+  "seed_data_creation": "All seeded via mongosh/pymongo with TEST_ prefixes (TEST_iter140_* users, TEST_sub_* dining/tiffin subs, TEST_iter140_fe_admin admin session, TEST_iter140_fe_victim double-deduct ledger rows). All deleted after the runs; admin_config.meal_slots temporarily widened by the method test and restored (verified back to lunch 12:00-15:00 / dinner 19:00-22:00).",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "Seeded ad-hoc mongo sessions (cookie session_token) for admin/subscriber; no persistent creds created.",
+  "context_for_next_testing_agent": "Both iter-140 P0 fixes are verified good. Use /app/backend/tests/test_iter140_double_deduct.py as the regression suite (seeds its own users, cleans up). test_iter140_scan_method.py intentionally FAILS on its last assertion — it documents the users.wallet_balance vs subscriptions.wallet_balance drift on dining scans; it should pass once that is fixed. Note pre-existing unrelated failures in tests/test_iter98_wallet_meals_bidirectional.py (12 cases) — all fail with 400 \"User's profile is missing: phone, address\" because the iter-106 profile guard was added after that suite was written; those tests need seed data updated, not product code.",
+  "rca_of_the_issue": "iter-140 fix verified: catch_up_subscription now stops at cutoff=today-1 so the midnight tick can never pre-charge the day a subscriber will scan, and the dining branch charges per_meal only for meals absent from scan_deducted_dates[day]; _mark_attendance no longer advances last_tick_date, keeping the pause bookkeeping intact. Remaining drift RCA: the per-meal debit path writes only to the subscriptions doc (and the ledger), while the tick path uses db.users.$inc on wallet_balance — so the two balance stores diverge for dining subs now that the tick never covers the current day."
+}

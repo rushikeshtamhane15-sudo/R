@@ -18,6 +18,8 @@ const LS_KEYS = {
   volume: "efc.voice.volume",
   // iter-138.p — voice gender preference: "female" | "male" | ""(any).
   gender: "efc.voice.gender",
+  // iter-140 — announcement language: "en" | "hi" | "both".
+  language: "efc.voice.language",
 };
 
 // Rough heuristic — Web Speech API doesn't expose gender directly. Names
@@ -46,6 +48,7 @@ export default function AdminVoiceSettings() {
   const [pitch, setPitch] = useState(Number(readLS(LS_KEYS.pitch)) || 1.0);
   const [volume, setVolume] = useState(Number(readLS(LS_KEYS.volume)) || 1.0);
   const [gender, setGender] = useState(readLS(LS_KEYS.gender, "") || "");
+  const [language, setLanguage] = useState(readLS(LS_KEYS.language, "en") || "en");
   const [testName, setTestName] = useState("Rushikesh");
 
   const load = useCallback(async () => {
@@ -81,6 +84,7 @@ export default function AdminVoiceSettings() {
       localStorage.setItem(LS_KEYS.pitch, String(pitch));
       localStorage.setItem(LS_KEYS.volume, String(volume));
       localStorage.setItem(LS_KEYS.gender, gender || "");
+      localStorage.setItem(LS_KEYS.language, language || "en");
       toast.success("Voice preferences saved · wall kiosk will use these instantly");
     } catch { toast.error("Save failed"); }
   };
@@ -89,6 +93,7 @@ export default function AdminVoiceSettings() {
     setHindiVoice(""); setEnglishVoice("");
     setRate(1.0); setPitch(1.0); setVolume(1.0);
     setGender("");
+    setLanguage("en");
     try {
       Object.values(LS_KEYS).forEach((k) => localStorage.removeItem(k));
       toast.success("Reset to browser defaults");
@@ -126,6 +131,7 @@ export default function AdminVoiceSettings() {
       localStorage.setItem(LS_KEYS.rate, String(rate));
       localStorage.setItem(LS_KEYS.pitch, String(pitch));
       localStorage.setItem(LS_KEYS.volume, String(volume));
+      localStorage.setItem(LS_KEYS.language, language || "en");
     } catch { /* noop */ }
     unlockAudio();
     announceCheckinSuccess(meal, testName);
@@ -139,7 +145,7 @@ export default function AdminVoiceSettings() {
           <Volume2 className="h-7 w-7 text-primary" /> Voice preview & tuning
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Pin the exact Hindi + English voices your wall kiosk should use, tune the rate, pitch and volume, and preview the full bilingual check-in announcement before service starts.
+          Pick the wall kiosk’s announcement language, pin the exact Hindi / English voice, tune rate, pitch and volume, and preview the check-in phrase before service starts.
         </p>
       </div>
 
@@ -151,6 +157,40 @@ export default function AdminVoiceSettings() {
         <>
           <div className="rounded-2xl card-3d p-5 space-y-4">
             <p className="text-[10px] tracking-[0.18em] uppercase font-bold text-muted-foreground">Voice selection</p>
+
+            {/* iter-140 — announcement language toggle. The wall kiosk
+                previously spoke Hindi + English back-to-back which staff
+                found confusing. Admins can now pick ONE language (or opt
+                into the legacy dual-language mode). */}
+            <div>
+              <span className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Announcement language</span>
+              <div className="flex gap-2 mt-1.5" role="radiogroup" aria-label="Announcement language">
+                {[
+                  { id: "en", label: "English" },
+                  { id: "hi", label: "Hindi" },
+                  { id: "both", label: "Both" },
+                ].map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={language === opt.id}
+                    onClick={() => setLanguage(opt.id)}
+                    data-testid={`voice-language-${opt.id}`}
+                    className={`flex-1 h-10 rounded-xl border-2 font-extrabold text-xs uppercase tracking-[0.14em] transition-colors ${
+                      language === opt.id
+                        ? "border-primary bg-primary text-white shadow-sm"
+                        : "border-black/10 bg-background text-foreground hover:border-primary/40"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1.5">
+                Wall kiosk speaks one utterance per scan in the chosen language. Pick “Both” to keep the legacy Hindi-then-English behaviour.
+              </p>
+            </div>
 
             {/* iter-138.p — quick female / male toggle. Applies a heuristic to
                 the voice name and pre-selects a matching Hindi + English
@@ -270,7 +310,7 @@ export default function AdminVoiceSettings() {
               </Button>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Plays the success chord + Hindi (लंच/डिनर चेक-इन सफल हुआ) + English announcement — exactly what the wall kiosk will say when this subscriber taps in.
+              Plays the success chord + the announcement in your chosen language(s) — exactly what the wall kiosk will say when this subscriber taps in.
             </p>
           </div>
 

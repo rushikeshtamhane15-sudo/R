@@ -310,7 +310,9 @@ class TestDiningDeduction:
         assert sub_after["meals_used"] == meals_used_after_scan, (
             f"meals_used changed! before={meals_used_after_scan} after={sub_after['meals_used']}"
         )
-        assert sub_after["last_tick_date"] == today
+        # iter-140: the tick now only accounts for FINALIZED past days, so the
+        # anchor stops at yesterday (today is settled by the per-meal scans).
+        assert sub_after["last_tick_date"] == yesterday
 
 
 # ============================================================

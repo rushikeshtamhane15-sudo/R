@@ -50,6 +50,38 @@ export default function AdminUsers() {
     } finally { setReconciling(false); }
   };
 
+  // iter-140 — refund the double-deduction bug (per-scan + full-day at midnight).
+  const [refunding, setRefunding] = useState(false);
+  const [ddPreview, setDdPreview] = useState(null);   // { candidates, total } or null
+  const previewDoubleDeduct = async () => {
+    setRefunding(true);
+    try {
+      const r = await api.post("/admin/reconcile-double-deduct?dry_run=true", {});
+      const cs = r.data?.candidates || [];
+      const total = r.data?.total || 0;
+      setDdPreview({ candidates: cs, total });
+      if (cs.length === 0) toast.success("No double-deduction rows found — every sub is clean.");
+      else toast.warning(`Found ${cs.length} candidate day(s) · ₹${total.toFixed(2)} pending refund`);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Preview failed");
+    } finally { setRefunding(false); }
+  };
+  const applyDoubleDeductRefund = async () => {
+    if (!window.confirm(`Refund every user affected by the pre-iter-140 double-deduction bug?\n\nThis credits back per_meal × scans for each day where BOTH a scan and a midnight full-day debit were logged. Idempotent — safe to re-run.`)) return;
+    setRefunding(true);
+    try {
+      const r = await api.post("/admin/reconcile-double-deduct", {});
+      const touched = r.data?.touched || 0;
+      const total = r.data?.total_refund || 0;
+      if (touched === 0) toast.success("Nothing to refund — every double-deduct row already refunded.");
+      else toast.success(`Refunded ${touched} user(s) · ₹${total.toFixed(2)} total`);
+      setDdPreview(null);
+      await load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Refund failed");
+    } finally { setRefunding(false); }
+  };
+
   // iter-102: scan for accounts that share email or phone with another account
   const scanDuplicates = async () => {
     setScanning(true);
@@ -352,6 +384,40 @@ export default function AdminUsers() {
           >
             {reconciling ? "Reconciling…" : "Reconcile all"}
           </Button>
+        </div>
+
+        {/* iter-140 — refund the double-deduct wallet bug (per-scan + midnight full-day). */}
+        <div className="mt-4 rounded-xl bg-white/70 dark:bg-white/5 border-2 border-rose-500/40 p-3 flex flex-col sm:flex-row sm:items-center gap-2" data-testid="reconcile-double-deduct-panel">
+          <div className="flex-1">
+            <p className="text-xs font-bold text-rose-800 dark:text-rose-300">Wallet double-deduction refund · one-tap batch fix</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Refunds every dining subscriber charged twice under the old midnight-cron bug (per_meal on scan AND full per_day at 00:00 IST). Preview first — apply only when you’re happy. Idempotent, ledger-audited.
+            </p>
+            {ddPreview && ddPreview.candidates?.length > 0 && (
+              <p className="mt-1 text-[11px] font-bold text-rose-700" data-testid="dd-preview-total">
+                Pending refund: ₹{ddPreview.total.toFixed(2)} across {ddPreview.candidates.length} day(s)
+              </p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button
+              onClick={previewDoubleDeduct}
+              disabled={refunding}
+              variant="outline"
+              className="rounded-full text-xs uppercase tracking-[0.14em] font-extrabold border-rose-500 text-rose-700 hover:bg-rose-50"
+              data-testid="dd-preview-button"
+            >
+              {refunding && !ddPreview ? "Scanning…" : "Preview"}
+            </Button>
+            <Button
+              onClick={applyDoubleDeductRefund}
+              disabled={refunding}
+              className="rounded-full bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs uppercase tracking-[0.14em]"
+              data-testid="dd-apply-button"
+            >
+              {refunding && ddPreview ? "Refunding…" : "Apply refund"}
+            </Button>
+          </div>
         </div>
 
         {duplicates !== null && duplicates.length === 0 && (

@@ -137,8 +137,12 @@ function _voicePrefs() {
       // iter-138.p — "female" | "male" | "" (any). When set, we bias voice
       // picking below toward names that heuristically match this gender.
       gender: (localStorage.getItem("efc.voice.gender") || "").toLowerCase(),
+      // iter-140 — announcement language: "en" | "hi" | "both". Default to
+      // "en" so a fresh install speaks ONCE (not the confusing Hindi +
+      // English back-to-back the wall kiosk used to play).
+      language: (localStorage.getItem("efc.voice.language") || "en").toLowerCase(),
     };
-  } catch { return { hindi: "", english: "", rate: null, pitch: null, volume: null, gender: "" }; }
+  } catch { return { hindi: "", english: "", rate: null, pitch: null, volume: null, gender: "", language: "en" }; }
 }
 
 // iter-138.p — voice-name heuristic matching the one in AdminVoiceSettings.
@@ -201,9 +205,10 @@ export function speak(text, opts = {}) {
 }
 
 /** iter-137.h/i — Bilingual "meal check-in successful" announcement.
- *  Plays the success chord first, then Hindi followed by English so the
- *  wall kiosk audibly confirms each subscriber's attendance in both
- *  languages. Voices default to hi-IN / en-IN.
+ *  iter-140 — Now plays ONLY the language the admin picked in
+ *  AdminVoiceSettings (`efc.voice.language` → "en" | "hi" | "both").
+ *  Default is "en" — the previous behaviour of speaking both languages
+ *  back-to-back was confusing on-floor at the wall kiosk.
  *  `meal` — "lunch" | "dinner".
  *  `name` — optional subscriber first name so the announcement can be
  *          personalised: "Rushikesh, dinner check-in successful". */
@@ -224,16 +229,21 @@ export function announceCheckinSuccess(meal = "lunch", name = "") {
   } catch { /* noop */ }
   // Cancel any pending utterances so back-to-back scans don't queue up.
   try { if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel(); } catch { /* noop */ }
-  // iter-138.n — chime is only ~450ms and users found the old 500ms pause
-  // + rate 0.98/1.02 combination too slow. Cut the pre-voice pause to 220ms
-  // and bump the utterance rates to 1.18 (Hindi) / 1.22 (English) so the
-  // whole announcement completes in under ~3 s.
+  const language = (_voicePrefs().language || "en").toLowerCase();
+  const speakHindi = () => speak(hindi, { lang: "hi-IN", rate: 1.18, pitch: 1.0, volume: 1.0 });
+  const speakEnglish = () => speak(english, { lang: "en-IN", rate: 1.22, pitch: 1.0, volume: 1.0 });
+  // Small pause after the chime so it doesn't clobber TTS on some engines.
   setTimeout(() => {
-    speak(hindi, { lang: "hi-IN", rate: 1.18, pitch: 1.0, volume: 1.0 });
-    // Chain English after the Hindi utterance finishes. speechSynthesis
-    // queues utterances FIFO, so we can just enqueue the English right
-    // after — it starts when the Hindi one ends.
-    speak(english, { lang: "en-IN", rate: 1.22, pitch: 1.0, volume: 1.0 });
+    if (language === "hi") {
+      speakHindi();
+    } else if (language === "both") {
+      // Legacy dual-language mode — kept for admins who explicitly opt in.
+      speakHindi();
+      speakEnglish();
+    } else {
+      // Default / "en" — single English announcement only.
+      speakEnglish();
+    }
   }, 220);
 }
 
