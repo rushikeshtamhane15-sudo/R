@@ -1,7 +1,8 @@
 // AdminKiosk — TOP panel: counter QR + meal toggle + QR provider + Bluetooth printer card.
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "../ui/button";
+import { api } from "../../lib/api";
 import {
   Sun, Moon, ScanLine, Loader2, Clock, RefreshCw,
   Bluetooth, BluetoothConnected, BluetoothOff,
@@ -22,6 +23,27 @@ export default function KioskCounterPanel({
   // buttons render disabled + faded so staff can never mint the wrong QR.
   const canLunch = activeSlot === "lunch";
   const canDinner = activeSlot === "dinner";
+
+  // iter-138.aa — live check-in counts per slot, rendered as a chip inside
+  // each Lunch/Dinner toggle button so counter staff always know the
+  // current tally. Polls /api/stats/today every 10s (cheap Mongo count).
+  const [checkinCounts, setCheckinCounts] = useState({ lunch: 0, dinner: 0 });
+  useEffect(() => {
+    let cancelled = false;
+    const fetchCounts = async () => {
+      try {
+        const r = await api.get("/stats/today");
+        if (cancelled) return;
+        setCheckinCounts({
+          lunch: Number(r.data?.lunch || 0),
+          dinner: Number(r.data?.dinner || 0),
+        });
+      } catch { /* silent — retry next tick */ }
+    };
+    fetchCounts();
+    const id = setInterval(fetchCounts, 10_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
   // iter-132.b: compact live Bluetooth-printer status pill for the kiosk header.
   // Three visible states: off (BT disabled), waiting (enabled but not paired),
   // pairing (in-flight), and paired (green). Rendered next to the header title
@@ -99,6 +121,15 @@ export default function KioskCounterPanel({
                     : "bg-transparent text-primary/40 opacity-70 cursor-not-allowed"}`}
             >
               <Sun className={isFullscreen ? "h-5 w-5" : "h-4 w-4"} /> Lunch
+              <span
+                className={`inline-flex items-center justify-center rounded-full font-black tabular-nums ${
+                  isFullscreen ? "h-7 min-w-[36px] px-2 text-sm ml-1" : "h-5 min-w-[24px] px-1.5 text-[10px] ml-1"
+                } ${meal === "lunch" && canLunch ? "bg-emerald-500 text-white" : "bg-primary/12 text-primary/80"}`}
+                data-testid="kiosk-meal-lunch-count"
+                aria-label={`${checkinCounts.lunch} lunch check-ins today`}
+              >
+                {checkinCounts.lunch}
+              </span>
             </button>
             <button
               type="button"
@@ -114,6 +145,15 @@ export default function KioskCounterPanel({
                     : "bg-transparent text-primary/40 opacity-70 cursor-not-allowed"}`}
             >
               <Moon className={isFullscreen ? "h-5 w-5" : "h-4 w-4"} /> Dinner
+              <span
+                className={`inline-flex items-center justify-center rounded-full font-black tabular-nums ${
+                  isFullscreen ? "h-7 min-w-[36px] px-2 text-sm ml-1" : "h-5 min-w-[24px] px-1.5 text-[10px] ml-1"
+                } ${meal === "dinner" && canDinner ? "bg-emerald-500 text-white" : "bg-primary/12 text-primary/80"}`}
+                data-testid="kiosk-meal-dinner-count"
+                aria-label={`${checkinCounts.dinner} dinner check-ins today`}
+              >
+                {checkinCounts.dinner}
+              </span>
             </button>
           </div>
 
