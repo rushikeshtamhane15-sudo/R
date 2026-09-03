@@ -83,6 +83,22 @@ export default function AdminUsers() {
     } finally { setRefunding(false); }
   };
 
+  // iter-140.h — one-tap backfill so every active sub has a "Joining"
+  // credit row on its wallet timeline. Idempotent — safe to re-run.
+  const [backfilling, setBackfilling] = useState(false);
+  const runBackfillJoining = async () => {
+    setBackfilling(true);
+    try {
+      const r = await api.post("/admin/backfill-joining-entries", {});
+      const added = r.data?.added || 0;
+      const skipped = r.data?.already_present || 0;
+      if (added === 0) toast.success(`Every active sub already has a Joining entry (${skipped} skipped).`);
+      else toast.success(`Added Joining entries for ${added} subs · ${skipped} already had one.`);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Backfill failed");
+    } finally { setBackfilling(false); }
+  };
+
   // iter-140.g — nuclear "factory reset" that wipes all wallet_transactions,
   // reseeds every active sub to a fresh 30-day frame using its original
   // start_date, and deducts the correct calendar-day backlog. Guardrailed
@@ -436,7 +452,17 @@ export default function AdminUsers() {
               </p>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              onClick={runBackfillJoining}
+              disabled={backfilling}
+              variant="outline"
+              className="rounded-full text-xs uppercase tracking-[0.14em] font-extrabold border-emerald-600 text-emerald-700 hover:bg-emerald-50"
+              data-testid="backfill-joining-button"
+              title="Add a 'Joining · <plan> · started <date>' credit row to every active sub that's missing one. Idempotent."
+            >
+              {backfilling ? "Backfilling…" : "Backfill joining"}
+            </Button>
             <Button
               onClick={previewDoubleDeduct}
               disabled={refunding}

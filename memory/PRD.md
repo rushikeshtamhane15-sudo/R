@@ -4057,3 +4057,21 @@ For **existing production victims** (already have 4× duplicate rows in their le
 - `/app/frontend/src/pages/AdminUsers.jsx` (Danger Zone panel + modal + Escape/backdrop/hint)
 - `/app/backend/tests/test_iter140g_factory_reset.py` (7 dev cases)
 - `/app/backend/tests/test_iter140g_review.py` (25 review cases from testing agent, all pass)
+
+## iter-140.h (2026-02) — Joining entry on every subscriber's wallet timeline
+
+### Implemented
+- **`POST /api/admin/backfill-joining-entries`** (admin-only, idempotent, `dry_run` supported): scans every active sub and inserts a `Joining · <plan_name> · started <start_date>` credit row (`kind='joining_credit'`) for the plan amount if one is missing. `created_at` is the sub's `start_date` at 00:00 IST so the entry sorts to the top of the wallet timeline in chronological order.
+- **Factory reset now writes both rows**: the joining credit + the `factory_reset` audit adjustment. Subscribers see their joining date + full plan amount right after any reset.
+- **Frontend `/admin/users`**: new emerald **Backfill joining** button next to the refund/reset actions (`data-testid=backfill-joining-button`) so admins can trigger it with one tap. Toast reports `added` + `already_present` counts.
+
+### Verified
+- `/app/backend/tests/test_iter140g_factory_reset.py` now covers joining-credit writes on factory reset and the standalone backfill endpoint (3 new cases). 44/44 total pytest across all iter-140 suites.
+
+### Deployment
+- Deploy this build. On `/admin/users`, tap the emerald **Backfill joining** button once (idempotent). Every subscriber will now see a "Joining · 30-day plan · started 2026-08-18" row on their wallet timeline showing the plan amount they signed up for.
+
+### Files
+- `/app/backend/server.py` (new `admin_backfill_joining_entries` endpoint + factory-reset writes joining rows)
+- `/app/frontend/src/pages/AdminUsers.jsx` (Backfill joining button + handler)
+- `/app/backend/tests/test_iter140g_factory_reset.py` (+3 cases)

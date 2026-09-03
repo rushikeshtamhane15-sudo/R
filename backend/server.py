@@ -3130,6 +3130,55 @@ async def admin_reconcile_backdated_drift(user: User = Depends(get_current_user)
     return {"ok": True, "touched": touched, "skipped": skipped, "users": changed}
 
 
+@api_router.post("/admin/backfill-joining-entries")
+async def admin_backfill_joining_entries(user: User = Depends(get_current_user), dry_run: bool = False):
+    """iter-140.h — inserts a `Joining · <plan> · started <start_date>`
+    credit row for every ACTIVE sub whose ledger doesn't already have one.
+    Idempotent: keyed by `kind='joining_credit'` + `sub_id`. Safe to run
+    any number of times."""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    added = 0
+    skipped = 0
+    async for sub in db.subscriptions.find({"status": "active"}, {"_id": 0}):
+        sid = sub.get("sub_id")
+        if not sid:
+            continue
+        existing = await db.wallet_transactions.find_one(
+            {"sub_id": sid, "kind": "joining_credit"},
+            {"_id": 0, "txn_id": 1},
+        )
+        if existing:
+            skipped += 1
+            continue
+        start_str = str(sub.get("start_date") or "")[:10]
+        if not start_str:
+            skipped += 1
+            continue
+        plan_amount = float(sub.get("plan_amount") or sub.get("amount_paid") or (float(sub.get("per_day_amount") or 0) * 30))
+        plan_name = sub.get("plan_name") or "30-day plan"
+        service_type = (sub.get("service_type") or "dining")
+        if dry_run:
+            added += 1
+            continue
+        await db.wallet_transactions.insert_one({
+            "txn_id": f"wtxn_{uuid.uuid4().hex[:12]}",
+            "user_id": sub.get("user_id"),
+            "sub_id": sid,
+            "type": "credit",
+            "amount": round(plan_amount, 2),
+            "balance_after": round(plan_amount, 2),
+            "reason": f"Joining · {plan_name} · started {start_str}",
+            "created_at": f"{start_str}T00:00:00+05:30",
+            "kind": "joining_credit",
+            "service_type": service_type,
+            "start_date": start_str,
+            "actor_user_id": user.user_id,
+        })
+        added += 1
+    return {"ok": True, "dry_run": dry_run, "added": added, "already_present": skipped}
+
+
 @api_router.post("/admin/factory-reset")
 async def admin_factory_reset(
     user: User = Depends(get_current_user),
@@ -3255,10 +3304,34 @@ async def admin_factory_reset(
         new_bal = round(user_wallet_totals.get(uid, 0.0), 2)
         await db.users.update_one({"user_id": uid}, {"$set": {"wallet_balance": new_bal}})
 
-    # 4. One audit row per reseeded sub — type='adjustment' with amount=0
-    # so any sum-based ledger reconstruction stays honest; the reseeded
-    # opening balance lives in `balance_after` and the audit metadata.
+    # 4. Two audit rows per reseeded sub:
+    #    (a) A `Joining` credit row so the subscriber can see their start
+    #        date + plan amount on their wallet timeline. This is what the
+    #        admin asked for — a clear "you joined on <date> with ₹X".
+    #    (b) A `factory_reset` adjustment row so admins can trace what
+    #        happened. `type='adjustment'` + `amount=0` preserves ledger-sum
+    #        integrity; opening balance is stored in `balance_after`.
     for row in users_touched:
+        sub_doc = await db.subscriptions.find_one(
+            {"sub_id": row["sub_id"]},
+            {"_id": 0, "plan_name": 1, "service_type": 1},
+        )
+        plan_name = (sub_doc or {}).get("plan_name") or "30-day plan"
+        service_type = (sub_doc or {}).get("service_type") or "dining"
+        joining_ts = f"{row['start_date']}T00:00:00+05:30"
+        await db.wallet_transactions.insert_one({
+            "txn_id": f"wtxn_{uuid.uuid4().hex[:12]}",
+            "user_id": row["user_id"],
+            "sub_id": row["sub_id"],
+            "type": "credit",
+            "amount": row["plan_amount"],
+            "balance_after": row["plan_amount"],
+            "reason": f"Joining · {plan_name} · started {row['start_date']}",
+            "created_at": joining_ts,
+            "kind": "joining_credit",
+            "service_type": service_type,
+            "start_date": row["start_date"],
+        })
         await db.wallet_transactions.insert_one({
             "txn_id": f"wtxn_{uuid.uuid4().hex[:12]}",
             "user_id": row["user_id"],

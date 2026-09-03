@@ -155,12 +155,11 @@ class TestFactoryReset:
         # User wallet is synced to sub wallet total.
         u = mdb.users.find_one({"user_id": victim_sub["user_id"]}, {"_id": 0})
         assert abs(u["wallet_balance"] - s["wallet_balance"]) < 0.01, (u, s)
-        # Only the ONE audit "System reset · reseeded 30-day plan" row remains
-        # for this user (the 3 junk debits + everything else are gone).
+        # Two audit rows: joining credit + factory_reset. Junk debits are gone.
         txns = list(mdb.wallet_transactions.find({"user_id": victim_sub["user_id"]}, {"_id": 0}))
-        assert len(txns) == 1, txns
-        assert txns[0]["kind"] == "factory_reset"
-        assert "System reset" in txns[0]["reason"]
+        assert len(txns) == 2, txns
+        kinds = sorted(t["kind"] for t in txns)
+        assert kinds == ["factory_reset", "joining_credit"], kinds
 
     def test_users_with_no_active_sub_are_zeroed(self, mdb, created, admin_token):
         # Pre-seed a user who has a bogus wallet_balance but no active sub.
@@ -176,6 +175,76 @@ class TestFactoryReset:
         assert r.status_code == 200, r.text
         u = mdb.users.find_one({"user_id": uid}, {"_id": 0})
         assert u["wallet_balance"] == 0.0, u
+
+    def test_reset_writes_joining_credit_row(self, mdb, victim_sub, admin_token):
+        """iter-140.h — every reseeded sub gets a `Joining · <plan> ·
+        started <date>` credit row alongside the factory_reset audit so
+        the subscriber can see their joining date + plan amount on their
+        wallet timeline."""
+        r = requests.post(f"{API}/admin/factory-reset?confirm=YES-DELETE-ALL",
+                          headers=_hdr(admin_token), timeout=120)
+        assert r.status_code == 200, r.text
+        joining = list(mdb.wallet_transactions.find(
+            {"user_id": victim_sub["user_id"], "kind": "joining_credit"},
+            {"_id": 0}))
+        assert len(joining) == 1, joining
+        j = joining[0]
+        assert j["type"] == "credit"
+        assert j["amount"] == 2800.0, j
+        assert j["start_date"] == victim_sub["start_date"], j
+        assert "Joining" in j["reason"]
+        assert victim_sub["start_date"] in j["reason"]
+
+
+class TestBackfillJoiningEntries:
+    """iter-140.h — POST /api/admin/backfill-joining-entries adds a
+    `Joining` credit for every active sub that's missing one. Idempotent."""
+
+    @pytest.fixture(scope="class")
+    def naked_sub(self, mdb, created):
+        uid = f"TEST_iter140h_backfill_{uuid.uuid4().hex[:8]}"
+        sid = f"TEST_sub_{uuid.uuid4().hex[:10]}"
+        mdb.users.insert_one({
+            "user_id": uid, "email": f"TEST_{uid}@example.test",
+            "phone": "9000000000", "address": "test",
+            "role": "subscriber", "wallet_balance": 0.0, "name": "N",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        start = (TODAY - timedelta(days=3)).isoformat()
+        mdb.subscriptions.insert_one({
+            "sub_id": sid, "user_id": uid, "plan_id": "p", "plan_name": "Test 30d",
+            "service_type": "dining", "meals_total": 60, "meals_used": 6,
+            "per_day_amount": 93.33, "wallet_balance": 2520.0, "plan_amount": 2800.0,
+            "start_date": start, "end_date": (TODAY + timedelta(days=27)).isoformat(),
+            "last_tick_date": D(1), "status": "active", "paused_days": 0,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        created["users"].append(uid); created["subs"].append(sid)
+        return {"user_id": uid, "sub_id": sid, "start": start}
+
+    def test_backfill_adds_missing_joining_row(self, mdb, naked_sub, admin_token):
+        pre = mdb.wallet_transactions.count_documents(
+            {"user_id": naked_sub["user_id"], "kind": "joining_credit"})
+        assert pre == 0
+        r = requests.post(f"{API}/admin/backfill-joining-entries",
+                          headers=_hdr(admin_token), timeout=60)
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["added"] >= 1, body
+        rows = list(mdb.wallet_transactions.find(
+            {"user_id": naked_sub["user_id"], "kind": "joining_credit"}, {"_id": 0}))
+        assert len(rows) == 1
+        assert rows[0]["amount"] == 2800.0
+        assert rows[0]["start_date"] == naked_sub["start"]
+        assert "Joining" in rows[0]["reason"]
+
+    def test_rerun_is_idempotent(self, mdb, naked_sub, admin_token):
+        r = requests.post(f"{API}/admin/backfill-joining-entries",
+                          headers=_hdr(admin_token), timeout=60)
+        assert r.status_code == 200, r.text
+        rows = list(mdb.wallet_transactions.find(
+            {"user_id": naked_sub["user_id"], "kind": "joining_credit"}))
+        assert len(rows) == 1, "backfill must not duplicate"
 
 
 class TestWalletAdjustAutoDerive:
