@@ -4094,3 +4094,17 @@ For **existing production victims** (already have 4× duplicate rows in their le
 
 ### Files
 - `/app/frontend/src/pages/WalletPage.jsx`
+
+## iter-140.k (2026-02) — Auto-backfill joining credit (no admin action needed)
+
+### Fixed
+- Kavya's screenshot showed the wallet page with only `System reset · reseeded 30-day plan` in the transaction history and no joining ribbon — because the joining_credit row didn't exist on that production sub. Even with the standalone `POST /admin/backfill-joining-entries` endpoint shipped, admin hadn't tapped it yet.
+
+### Implemented
+- **Auto-backfill on server startup**: `on_startup` in `server.py` scans every active sub and inserts a `Joining · <plan> · started <date>` credit row if missing. Idempotent, runs every boot, logs count. So the instant the next deploy lands, every active subscriber's wallet page will show the joining entry + ribbon.
+- **Lazy backfill on wallet fetch**: `/api/my/wallet` and `/api/my/wallet/transactions` also call the same helper before returning — so any sub created between deploys still gets a joining row the first time its owner opens their wallet.
+- Existing standalone endpoint + admin button remain for one-off runs.
+
+### Files
+- `/app/backend/routes/wallet.py` (`_ensure_joining_credit` helper + calls from both wallet routes)
+- `/app/backend/server.py` (startup backfill loop)

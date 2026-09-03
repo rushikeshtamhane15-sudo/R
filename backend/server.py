@@ -5701,6 +5701,49 @@ async def on_startup():
         logger.info(f"[STARTUP] {emoji} Razorpay status={rzp_status['status']} · {rzp_status['detail']}")
     except Exception as e:  # noqa: BLE001
         logger.warning(f"[STARTUP] Razorpay status check failed: {e}")
+    # iter-140.k — auto-backfill joining_credit ledger rows for any active
+    # sub still missing one. Runs on every boot (idempotent). Users don't
+    # have to open their wallet page to trigger the lazy backfill anymore.
+    try:
+        added = 0
+        async for sub in db.subscriptions.find(
+            {"status": "active"},
+            {"_id": 0, "sub_id": 1, "user_id": 1, "start_date": 1,
+             "plan_amount": 1, "amount_paid": 1, "per_day_amount": 1,
+             "plan_name": 1, "service_type": 1},
+        ):
+            sid = sub.get("sub_id"); uid = sub.get("user_id")
+            if not sid or not uid:
+                continue
+            already = await db.wallet_transactions.find_one(
+                {"sub_id": sid, "kind": "joining_credit"}, {"_id": 0, "txn_id": 1},
+            )
+            if already:
+                continue
+            start_str = str(sub.get("start_date") or "")[:10]
+            if not start_str:
+                continue
+            plan_amount = float(
+                sub.get("plan_amount") or sub.get("amount_paid")
+                or (float(sub.get("per_day_amount") or 0) * 30)
+            )
+            plan_name = sub.get("plan_name") or "30-day plan"
+            service_type = sub.get("service_type") or "dining"
+            await db.wallet_transactions.insert_one({
+                "txn_id": f"wtxn_{uuid.uuid4().hex[:12]}",
+                "user_id": uid, "sub_id": sid,
+                "type": "credit", "amount": round(plan_amount, 2),
+                "balance_after": round(plan_amount, 2),
+                "reason": f"Joining · {plan_name} · started {start_str}",
+                "created_at": f"{start_str}T00:00:00+05:30",
+                "kind": "joining_credit",
+                "service_type": service_type, "start_date": start_str,
+            })
+            added += 1
+        if added > 0:
+            logger.info(f"[STARTUP] joining-credit backfill · added {added} row(s)")
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[STARTUP] joining-credit backfill failed: {e}")
 
 
 
