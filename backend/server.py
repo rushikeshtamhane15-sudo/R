@@ -3160,13 +3160,18 @@ async def admin_reconcile_double_deduct(user: User = Depends(get_current_user), 
     from collections import defaultdict
     today = ist_today().isoformat()
 
-    # Aggregate all ledger rows we care about, keyed by (uid, sid, day).
-    tick_charged: dict = defaultdict(float)     # (uid, sid, day) → sum of daily-deduction amounts
-    scan_charged: dict = defaultdict(float)     # (uid, sid, day) → sum of per-scan amounts
-    scan_count: dict = defaultdict(int)         # (uid, sid, day) → # of scan rows
-    per_meal_hint: dict = {}                    # (uid, sid, day) → per_meal from a scan row (for meal math)
-    already_refund: dict = defaultdict(float)   # (uid, sid, day) → sum of already-refunded credit
-    already_meals: dict = defaultdict(int)      # (uid, sid, day) → meals already restored
+    # Aggregate every debit row we might be refunding, keyed by (uid, sid, day).
+    #   day_charged      — sum of ALL debit amounts touching that date
+    #   day_meals_added  — sum of meals each of those rows incremented
+    #   scan_count       — # of `Scan · X · <day>` rows (needed for today/future maths)
+    #   per_meal_hint    — best guess of that sub's per_meal
+    #   already_*        — how much we've refunded so far (for delta idempotency)
+    day_charged: dict = defaultdict(float)
+    day_meals_added: dict = defaultdict(int)
+    scan_count: dict = defaultdict(int)
+    per_meal_hint: dict = {}
+    already_refund: dict = defaultdict(float)
+    already_meals: dict = defaultdict(int)
 
     async for txn in db.wallet_transactions.find(
         {},
@@ -3187,48 +3192,65 @@ async def admin_reconcile_double_deduct(user: User = Depends(get_current_user), 
         # ---------- Debits we might be refunding ----------
         if txn.get("type") != "debit":
             continue
+        amt = float(txn.get("amount") or 0)
+        day = None
+        meals_added = 0
+        is_scan = False
         if reason.startswith("Scan · "):
+            # Scan · <meal> · <date>
             parts = reason.split(" · ")
             if len(parts) >= 3:
                 day = parts[2].strip()
-                key = (uid, sid, day)
-                amt = float(txn.get("amount") or 0)
-                scan_charged[key] += amt
-                scan_count[key] += 1
-                per_meal_hint.setdefault(key, amt)
-        elif reason.startswith("Daily deduction · ") and "2 meals" in reason:
+                meals_added = 1
+                is_scan = True
+                per_meal_hint.setdefault((uid, sid, day), amt)
+        elif reason.startswith("Daily deduction · "):
+            # Legacy pre-iter-140: "Daily deduction · <d> · 2 meals · active"
+            # iter-140.a:          "Daily deduction · <d> · lunch missed"
+            # iter-140.a:          "Daily deduction · <d> · dinner missed"
             parts = reason.split(" · ")
             if len(parts) >= 2:
                 day = parts[1].strip()
-                key = (uid, sid, day)
-                tick_charged[key] += float(txn.get("amount") or 0)
-
-    # Union of all keys that had any tick or scan row.
-    all_keys = set(tick_charged) | set(scan_charged)
+                if "2 meals" in reason:
+                    meals_added = 2
+                elif "missed" in reason:
+                    meals_added = 1
+                    # iter-140 rows carry per_meal in `amount`
+                    per_meal_hint.setdefault((uid, sid, day), amt)
+                else:
+                    meals_added = 0  # unknown format — count charge but skip meals
+        if not day:
+            continue
+        key = (uid, sid, day)
+        day_charged[key] += amt
+        day_meals_added[key] += meals_added
+        if is_scan:
+            scan_count[key] += 1
 
     candidates: list = []
-    for key in all_keys:
+    for key, buggy_charge in day_charged.items():
         uid, sid, day = key
-        tick = tick_charged.get(key, 0.0)
-        scans_amt = scan_charged.get(key, 0.0)
+        buggy_meals = day_meals_added.get(key, 0)
         n_scans = scan_count.get(key, 0)
-        per_meal = per_meal_hint.get(key) or (tick / 2.0 if tick > 0 else 0.0)
+        per_meal = per_meal_hint.get(key)
+        if not per_meal or per_meal <= 0:
+            # Fall back: assume 2-meal days at half the day's total charge.
+            per_meal = round(buggy_charge / max(1, buggy_meals), 2) if buggy_meals else 0
+        if per_meal <= 0:
+            continue
         is_future_or_today = (day >= today)
-        # Both charges present? or scans exist without tick? per-day math:
         if is_future_or_today:
-            # correct = scans_amt (only scanned meals should have charged)
-            over_charge = tick  # every rupee the tick charged is wrong
-            over_meals = 2 if tick > 0 else 0
+            # Correct = only the scans that actually happened.
+            correct_charge = round(n_scans * per_meal, 2)
+            correct_meals = n_scans
         else:
-            # PAST finalized day. Correct = per_day if tick fired (auto-pause
-            # would have written 0 tick). If only scans exist and no tick,
-            # then the sub was tick-inactive → scans covered it correctly →
-            # no over-charge.
-            if tick <= 0:
-                continue
-            # Buggy = tick + scans, correct = per_day (= tick). Over = scans.
-            over_charge = scans_amt
-            over_meals = n_scans
+            # PAST finalized day. Correct = exactly 2 meals of charge
+            # regardless of scan/miss split (business rule: skip days 1-3
+            # of a no-scan streak still charge normally).
+            correct_charge = round(2 * per_meal, 2)
+            correct_meals = 2
+        over_charge = round(max(0.0, buggy_charge - correct_charge), 2)
+        over_meals = max(0, buggy_meals - correct_meals)
         if over_charge <= 0 and over_meals <= 0:
             continue
         # Idempotency: delta over what we already refunded for this day.
@@ -3241,7 +3263,8 @@ async def admin_reconcile_double_deduct(user: User = Depends(get_current_user), 
         candidates.append({
             "user_id": uid, "sub_id": sid, "day": day,
             "scans": n_scans, "per_meal": round(per_meal, 2),
-            "tick_charged": round(tick, 2),
+            "buggy_charge": round(buggy_charge, 2),
+            "correct_charge": correct_charge,
             "over_charge": round(over_charge, 2),
             "over_meals": over_meals,
             "already_refunded": round(prev_amt, 2),
@@ -3269,12 +3292,7 @@ async def admin_reconcile_double_deduct(user: User = Depends(get_current_user), 
     total_refund = 0.0
     users_touched: list = []
     for (uid, sid), rows in grouped.items():
-        # Split refunds into "future/today" (both user + sub wallet debited
-        # by the old tick) and "past-scan" (only sub wallet debited, user
-        # wallet was left alone by the old scan code).
-        future_refund = round(sum(r["refund"] for r in rows if r["future"]), 2)
-        past_refund = round(sum(r["refund"] for r in rows if not r["future"]), 2)
-        per_user_refund = round(future_refund + past_refund, 2)
+        per_user_refund = round(sum(r["refund"] for r in rows), 2)
         if per_user_refund <= 0 and sum(r["meals_restore"] for r in rows) <= 0:
             continue
         u = await db.users.find_one({"user_id": uid}, {"_id": 0, "user_id": 1, "name": 1, "wallet_balance": 1})
@@ -3283,16 +3301,19 @@ async def admin_reconcile_double_deduct(user: User = Depends(get_current_user), 
             continue
         user_bal_before = float(u.get("wallet_balance") or 0.0)
         sub_bal_before = float(s.get("wallet_balance") or 0.0)
+        # iter-140.f — credit BOTH user AND sub wallet. Every debit format
+        # we refund here (concurrency-duplicate ticks, legacy full-day ticks,
+        # today/future early ticks) touched both docs. The only legacy case
+        # that touched sub-only was the pre-iter-140.a scan drift; in that
+        # rare case admins can still use wallet-adjust to trim residual drift.
         sub_bal_after = round(sub_bal_before + per_user_refund, 2)
-        # Future/today over-charges hit BOTH users and subscriptions; past
-        # scan-only drift only touched the sub doc.
-        user_bal_after = round(user_bal_before + future_refund, 2)
+        user_bal_after = round(user_bal_before + per_user_refund, 2)
         meals_restore_total = sum(r["meals_restore"] for r in rows)
         meals_restore_total = min(meals_restore_total, int(s.get("meals_used") or 0))
         meals_used_after = max(0, int(s.get("meals_used") or 0) - meals_restore_total)
 
         await db.subscriptions.update_one({"sub_id": sid}, {"$set": {"wallet_balance": sub_bal_after, "meals_used": meals_used_after}})
-        if future_refund > 0:
+        if per_user_refund > 0:
             await db.users.update_one({"user_id": uid}, {"$set": {"wallet_balance": user_bal_after}})
 
         # Ledger row per (day, delta). Write the OWED meals_delta so
@@ -3308,9 +3329,7 @@ async def admin_reconcile_double_deduct(user: User = Depends(get_current_user), 
                 "sub_id": sid,
                 "type": "credit",
                 "amount": round(r["refund"], 2),
-                # For past-only refunds the money hit the SUB wallet — the
-                # user wallet was unchanged so record the sub's balance.
-                "balance_after": (user_bal_after if r["future"] else sub_bal_after),
+                "balance_after": user_bal_after,
                 "reason": (
                     f"iter-140 refund · early-tick · {r['day']} · +{r['meals_restore']} meal(s)"
                     if r["future"]

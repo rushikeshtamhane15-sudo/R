@@ -68,7 +68,7 @@ export default function AdminUsers() {
     } finally { setRefunding(false); }
   };
   const applyDoubleDeductRefund = async () => {
-    if (!window.confirm(`Refund every subscriber affected by the pre-iter-140 wallet double-deduction bug?\n\n• Past days with scans: refunds per_meal × scans to the sub wallet.\n• Today / future days where the midnight tick fired early: refunds the full per_day to both the user and sub wallets and restores 2 meals.\n\nIdempotent — under-refunded users are topped up on re-run.`)) return;
+    if (!window.confirm(`Refund every subscriber affected by ALL known wallet double-deduction bugs (legacy full-day tick, iter-140 concurrency duplicates, early-tick on today/future days)?\n\nFor each affected day we compute the correct charge (per_day for past, scans for today) and credit BOTH the user and sub wallets by the delta. Idempotent — every re-run tops up any under-refunded subscriber and heals the ledger.`)) return;
     setRefunding(true);
     try {
       const r = await api.post("/admin/reconcile-double-deduct", {});
@@ -390,9 +390,9 @@ export default function AdminUsers() {
         {/* iter-140 — refund the double-deduct wallet bug (per-scan + midnight full-day). */}
         <div className="mt-4 rounded-xl bg-white/70 dark:bg-white/5 border-2 border-rose-500/40 p-3 flex flex-col sm:flex-row sm:items-center gap-2" data-testid="reconcile-double-deduct-panel">
           <div className="flex-1">
-            <p className="text-xs font-bold text-rose-800 dark:text-rose-300">Wallet double-deduction refund · one-tap batch fix</p>
+            <p className="text-xs font-bold text-rose-800 dark:text-rose-300">Wallet double-deduction refund · one-tap batch fix (all users)</p>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              Refunds every dining subscriber charged twice under the old midnight-cron bug (per_meal on scan AND full per_day at 00:00 IST). Preview first — apply only when you’re happy. Idempotent, ledger-audited.
+              Scans every subscriber's ledger and refunds every wallet double-deduction bug we know about — legacy full-day ticks, iter-140 concurrency duplicates, and early-tick charges on today/future days. Credits BOTH user and sub wallets. Idempotent — re-runs top up any under-refunded subscriber.
             </p>
             {ddPreview && ddPreview.candidates?.length > 0 && (
               <p className="mt-1 text-[11px] font-bold text-rose-700" data-testid="dd-preview-total">

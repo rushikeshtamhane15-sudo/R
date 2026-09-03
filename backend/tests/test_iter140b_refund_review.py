@@ -148,7 +148,8 @@ class TestPastDayRefund:
         assert row[0]["refund"] == 100.0 and row[0]["meals_restored"] == 2
         u = mdb.users.find_one({"user_id": uid}, {"_id": 0})
         s = mdb.subscriptions.find_one({"sub_id": sid}, {"_id": 0})
-        assert u["wallet_balance"] == 900.0, "past-only refund must NOT touch user wallet"
+        # iter-140.f — refund now credits BOTH wallets so any drift heals.
+        assert u["wallet_balance"] == 1000.0, u
         assert s["wallet_balance"] == 900.0, s
         assert s["meals_used"] == 2, s
         led = list(mdb.wallet_transactions.find({"user_id": uid, "kind": "double_deduct_refund"}, {"_id": 0}))
@@ -161,9 +162,42 @@ class TestPastDayRefund:
         # re-run must be a no-op
         assert [c for c in _dry(admin_token)["candidates"] if c["user_id"] == uid] == []
         _apply(admin_token)
-        assert mdb.users.find_one({"user_id": uid})["wallet_balance"] == 900.0
+        assert mdb.users.find_one({"user_id": uid})["wallet_balance"] == 1000.0
         assert mdb.subscriptions.find_one({"sub_id": sid})["wallet_balance"] == 900.0
         assert mdb.wallet_transactions.count_documents({"user_id": uid, "kind": "double_deduct_refund"}) == 1
+
+    def test_concurrency_duplicate_ticks_refunded(self, mdb, created, admin_token):
+        """iter-140.f — production case (Dnyanesh screenshot): 4 identical
+        `Daily deduction · <past-day> · lunch missed` rows for the same day
+        because 4 parallel /my/* calls raced the tick. The refund tool must
+        keep exactly 1 row's worth (per_meal × 2) and credit the extra 3×
+        per_meal to BOTH user + sub wallets."""
+        uid, _t = _user(mdb, created, wallet=800.0)
+        sid = _sub(mdb, uid, wallet=800.0, meals_used=8, last_tick=D(1))
+        day = D(5)
+        # 4 lunch-missed duplicates + 4 dinner-missed duplicates = 8 rows
+        # of ₹50 each = ₹400 total charge, correct is ₹100 → refund ₹300.
+        # meals over-added = 8, correct = 2 → refund 6 meals.
+        for meal in ("lunch", "dinner"):
+            for _i in range(4):
+                _txn(mdb, uid, sid, amount=50.0,
+                     reason=f"Daily deduction · {day} · {meal} missed",
+                     balance_after=800.0)
+        dry = _dry(admin_token)
+        mine = [c for c in dry["candidates"] if c["user_id"] == uid]
+        assert len(mine) == 1, mine
+        assert mine[0]["refund"] == 300.0, mine
+        assert mine[0]["meals_restore"] == 6, mine
+        res = _apply(admin_token)
+        row = [x for x in res["users"] if x["user_id"] == uid][0]
+        assert row["refund"] == 300.0
+        u = mdb.users.find_one({"user_id": uid}, {"_id": 0})
+        s = mdb.subscriptions.find_one({"sub_id": sid}, {"_id": 0})
+        assert u["wallet_balance"] == 1100.0, u
+        assert s["wallet_balance"] == 1100.0, s
+        assert s["meals_used"] == 2, s
+        # re-run is idempotent
+        assert [c for c in _dry(admin_token)["candidates"] if c["user_id"] == uid] == []
 
     def test_past_day_scans_without_tick_not_refunded(self, mdb, created, admin_token):
         """Auto-paused past day: only scan rows, no tick → correct charge, no refund."""
@@ -280,7 +314,8 @@ class TestMixedDays:
         assert row["meals_restored"] == 4, row
         u = mdb.users.find_one({"user_id": uid}, {"_id": 0})
         s = mdb.subscriptions.find_one({"sub_id": sid}, {"_id": 0})
-        assert u["wallet_balance"] == 900.0, "only the today tick portion (₹100) hits the user wallet"
+        # iter-140.f — refund credits BOTH wallets (the full ₹200 delta).
+        assert u["wallet_balance"] == 1000.0, u
         assert s["wallet_balance"] == 900.0, s
         assert s["meals_used"] == 2, s
         led = list(mdb.wallet_transactions.find({"user_id": uid, "kind": "double_deduct_refund"}, {"_id": 0}))

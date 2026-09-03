@@ -340,7 +340,8 @@ class TestReconcileDoubleDeduct:
         assert mine[0]["meals_restored"] == 2
         u = mdb.users.find_one({"user_id": victim["user_id"]}, {"_id": 0})
         s = mdb.subscriptions.find_one({"sub_id": victim["sub_id"]}, {"_id": 0})
-        assert u["wallet_balance"] == 900.0, u
+        # iter-140.f — refund credits BOTH wallets so any drift heals in one go.
+        assert u["wallet_balance"] == 1000.0, u
         assert s["wallet_balance"] == 900.0, s
         assert s["meals_used"] == 2, s
         ledger = list(mdb.wallet_transactions.find(
@@ -362,7 +363,7 @@ class TestReconcileDoubleDeduct:
         assert [x for x in r.json()["users"] if x["user_id"] == victim["user_id"]] == []
         u = mdb.users.find_one({"user_id": victim["user_id"]}, {"_id": 0})
         s = mdb.subscriptions.find_one({"sub_id": victim["sub_id"]}, {"_id": 0})
-        assert u["wallet_balance"] == 900.0, "second run double-refunded the user wallet"
+        assert u["wallet_balance"] == 1000.0, "second run double-refunded the user wallet"
         assert s["wallet_balance"] == 900.0, "second run double-refunded the sub wallet"
         assert s["meals_used"] == 2
         assert mdb.wallet_transactions.count_documents(

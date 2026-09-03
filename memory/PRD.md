@@ -3997,3 +3997,33 @@ For **existing production victims** (already have 4× duplicate rows in their le
 ### Files
 - `/app/backend/server.py`
 - `/app/backend/tests/test_iter140_double_deduct.py` (new class TestConcurrentTickGuard)
+
+## iter-140.f (2026-02) — Refund tool handles ALL known double-deduction variants
+
+### Fixed
+- **Dnyanesh Satote case + many more**: 4 identical `Daily deduction · 2026-08-22 · lunch missed` rows at the same second on the subscriber's wallet. Same iter-140.e concurrency race but the OLD refund tool from iter-140.b/.d only recognised the legacy `... · 2 meals · active` reason format — the new iter-140 `... · <meal> missed` duplicates were completely invisible to it.
+- Users still needed a manual raise per case; user asked for a batch heal.
+
+### Implemented
+- `/app/backend/server.py::admin_reconcile_double_deduct` fully generalised:
+  * Recognises ALL debit variants: `Scan · <meal> · <d>`, `Daily deduction · <d> · 2 meals · ...`, `Daily deduction · <d> · lunch missed`, `Daily deduction · <d> · dinner missed`.
+  * Per-day math: `over_charge = buggy_charge - correct_charge`; correct = `2 × per_meal` for past finalized days, `scan_count × per_meal` for today/future.
+  * Meals: `over_meals = buggy_meals - correct_meals`; correct = 2 for past, scan_count for today/future.
+  * Refund CREDITS BOTH `users.wallet_balance` AND `subscriptions.wallet_balance` so any drift heals in one go.
+  * Delta-idempotency (already-refund tracking per `(user, sub, refund_date)`) preserved so re-runs top up under-refunded subscribers without duplicates.
+- `/app/frontend/src/pages/AdminUsers.jsx` — panel copy + confirm dialog now describes the "all users, all variants" scope.
+
+### Verified
+- 34/34 pytest cases pass across all iter-140 suites, including new `test_concurrency_duplicate_ticks_refunded` that reproduces the Dnyanesh 4×lunch-missed + 4×dinner-missed screenshot exactly.
+- All existing test seeds updated for the "credit BOTH wallets" semantics.
+
+### For the admin (production instructions)
+- Deploy this build.
+- Tap the red **Apply refund** button on `/admin/users` **ONCE**. It scans the entire ledger, matches every affected `(user, sub, date)` triple across all known reason formats, and credits BOTH wallets + restores meals for every subscriber in a single Mongo pass.
+- Safe to re-run any time — idempotent + delta-aware.
+
+### Files
+- `/app/backend/server.py`
+- `/app/frontend/src/pages/AdminUsers.jsx`
+- `/app/backend/tests/test_iter140_double_deduct.py` (updated seeds)
+- `/app/backend/tests/test_iter140b_refund_review.py` (added `test_concurrency_duplicate_ticks_refunded`)
