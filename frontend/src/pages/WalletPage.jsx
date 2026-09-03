@@ -19,18 +19,29 @@ function LabelForSub(sub) {
 export default function WalletPage() {
   const [subs, setSubs] = useState([]);
   const [merged, setMerged] = useState(0);
+  // iter-140.d — residual user-level balance so a subscriber still sees
+  // their money even when every sub has expired (e.g. admin deducted the
+  // last meal via override). `/my/subscriptions` returns 0 in that case,
+  // but `users.wallet_balance` still holds the residual — that's the ONE
+  // source of truth for "cash left with me".
+  const [userBalance, setUserBalance] = useState(0);
   const [txnsByScope, setTxnsByScope] = useState({});
   const [loading, setLoading] = useState(false);
   const [slide, setSlide] = useState(0);
 
   const fetchSubs = async () => {
     try {
-      const r = await api.get("/my/subscriptions");
-      setSubs(r.data.subscriptions || []);
-      setMerged(Number(r.data.merged_wallet_balance || 0));
+      const [subsRes, walletRes] = await Promise.all([
+        api.get("/my/subscriptions"),
+        api.get("/my/wallet").catch(() => ({ data: {} })),
+      ]);
+      setSubs(subsRes.data.subscriptions || []);
+      setMerged(Number(subsRes.data.merged_wallet_balance || 0));
+      setUserBalance(Number(walletRes.data?.wallet_balance || 0));
     } catch {
       setSubs([]);
       setMerged(0);
+      setUserBalance(0);
     }
   };
 
@@ -54,7 +65,14 @@ export default function WalletPage() {
   useEffect(() => { fetchSubs(); }, []);
   useEffect(() => { if (subs.length >= 0) fetchTxns(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [subs.length]);
 
-  const balanceDisplay = Math.round(merged || subs.reduce((sum, s) => sum + Number(s.wallet_balance || 0), 0));
+  // iter-140.d — always trust the user-level wallet as the display value.
+  // `merged` (sum of active subs) can be less than the user-level balance
+  // when a sub has expired but residual money is still parked on the user
+  // doc — surface that so subscribers don't panic that their money vanished.
+  const balanceDisplay = Math.round(Math.max(
+    userBalance || 0,
+    merged || subs.reduce((sum, s) => sum + Number(s.wallet_balance || 0), 0),
+  ));
 
   const slides = useMemo(() => {
     if (subs.length <= 1) {
@@ -63,6 +81,8 @@ export default function WalletPage() {
         key: "single",
         title: only ? LabelForSub(only) : "My wallet",
         sub: only || null,
+        // If a sub exists, its wallet_balance is the per-plan number; if not,
+        // fall back to the user-level residual so the tile isn't ₹0.
         balance: only ? Math.round(only.wallet_balance || 0) : balanceDisplay,
         txnKey: only ? only.sub_id : "merged",
       }];
@@ -160,7 +180,13 @@ export default function WalletPage() {
             <p className="text-xs text-primary-foreground/80 mt-3">Combined across {slides.length - 1} active plans. Deductions still happen per plan — swipe to view one plan at a time.</p>
           )}
           {!current?.sub && !current?.isMerged && slides.length === 1 && (
-            <p className="text-xs text-primary-foreground/80 mt-3">No active plan yet — subscribe to load your wallet.</p>
+            balanceDisplay > 0 ? (
+              <p className="text-xs text-primary-foreground/80 mt-3" data-testid="wallet-residual-note">
+                Your subscription has ended but this residual is safe with you. Subscribe again and this balance carries over.
+              </p>
+            ) : (
+              <p className="text-xs text-primary-foreground/80 mt-3">No active plan yet — subscribe to load your wallet.</p>
+            )
           )}
         </div>
 

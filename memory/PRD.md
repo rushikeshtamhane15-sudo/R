@@ -3964,3 +3964,16 @@ For **Kavya's already-under-refunded account** on production: simply re-run the 
 
 ### Files
 - `/app/frontend/src/pages/SubscriberDashboard.jsx`
+
+## iter-140.d (2026-02) — Residual wallet visibility after sub expires
+
+### Fixed
+- Subscriber wallet page showed ₹0 even though `users.wallet_balance` held the residual (e.g. ₹560) after admin deducted enough meals via override to expire the sub (`meals_used >= meals_total`). Both the header pill and the wallet page derived their number solely from `/my/subscriptions` which excludes expired subs.
+
+### Implemented
+- `/app/frontend/src/pages/WalletPage.jsx`: also fetches `/my/wallet` in parallel; `balanceDisplay = max(userBalance, merged)` so residual always surfaces. Empty-state copy switches from "No active plan yet…" to a reassuring "Your subscription has ended but this residual is safe with you. Subscribe again and it carries over." when `balanceDisplay > 0`.
+- `/app/frontend/src/components/WalletPill.jsx`: same fetch + `Math.max` fallback so the header pill shows the residual too.
+
+### Files
+- `/app/frontend/src/pages/WalletPage.jsx`
+- `/app/frontend/src/components/WalletPill.jsx`

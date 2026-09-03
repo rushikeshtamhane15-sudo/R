@@ -30,6 +30,10 @@ function LabelForSub(sub) {
 export default function WalletPill({ trigger, alwaysShow = false, compact = false }) {
   const [subs, setSubs] = useState([]);
   const [merged, setMerged] = useState(0);
+  // iter-140.d — residual user-level balance surfaced when every sub has
+  // expired but money is still parked on the user doc (admin adjustment,
+  // etc.). Header pill and drawer both need this fallback.
+  const [userBalance, setUserBalance] = useState(0);
   const [txnsByScope, setTxnsByScope] = useState({}); // { "merged": [], "<sub_id>": [] }
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
@@ -37,12 +41,17 @@ export default function WalletPill({ trigger, alwaysShow = false, compact = fals
 
   const fetchSubs = async () => {
     try {
-      const r = await api.get("/my/subscriptions");
-      setSubs(r.data.subscriptions || []);
-      setMerged(Number(r.data.merged_wallet_balance || 0));
+      const [subsRes, walletRes] = await Promise.all([
+        api.get("/my/subscriptions"),
+        api.get("/my/wallet").catch(() => ({ data: {} })),
+      ]);
+      setSubs(subsRes.data.subscriptions || []);
+      setMerged(Number(subsRes.data.merged_wallet_balance || 0));
+      setUserBalance(Number(walletRes.data?.wallet_balance || 0));
     } catch {
       setSubs([]);
       setMerged(0);
+      setUserBalance(0);
     }
   };
   const fetchTxns = async () => {
@@ -67,7 +76,12 @@ export default function WalletPill({ trigger, alwaysShow = false, compact = fals
   useEffect(() => { if (open) { fetchSubs(); } }, [open]);
   useEffect(() => { if (open) { fetchTxns(); } }, [open, subs.length]);
 
-  const balanceDisplay = Math.round(merged || subs.reduce((sum, s) => sum + Number(s.wallet_balance || 0), 0));
+  // iter-140.d — always show the MAX of (user-level, merged) so residual
+  // money after every sub expires still surfaces on the header pill.
+  const balanceDisplay = Math.round(Math.max(
+    userBalance || 0,
+    merged || subs.reduce((sum, s) => sum + Number(s.wallet_balance || 0), 0),
+  ));
 
   // Build the list of slides the drawer will show. Always include the
   // merged slide when there are 2+ subs; otherwise show just the single
