@@ -22,7 +22,7 @@ function LabelForSub(sub) {
  *  row and pairs it with the calendar-days-remaining number so subscribers
  *  see a friendly "here's where you started · here's what's left" line at
  *  the very top of their wallet page. */
-function JoiningRibbon({ joiningTxn, sub, daysLeft }) {
+function JoiningRibbon({ joiningTxn, sub, daysLeft, mealsLeft }) {
   if (!joiningTxn) return null;
   const startDate = joiningTxn.start_date || String(joiningTxn.created_at || "").slice(0, 10);
   const amount = Math.round(Number(joiningTxn.amount || 0));
@@ -33,6 +33,9 @@ function JoiningRibbon({ joiningTxn, sub, daysLeft }) {
   } catch { /* keep ISO */ }
   const daysLine = Number.isFinite(daysLeft)
     ? ` · ${Math.max(0, daysLeft)} day${daysLeft === 1 ? "" : "s"} left`
+    : "";
+  const mealsLine = Number.isFinite(mealsLeft)
+    ? ` · ${Math.max(0, mealsLeft)} meal${mealsLeft === 1 ? "" : "s"} left`
     : "";
   const planLabel = sub?.plan_name || LabelForSub(sub) || "your plan";
   return (
@@ -46,7 +49,7 @@ function JoiningRibbon({ joiningTxn, sub, daysLeft }) {
       <div className="flex-1 min-w-0">
         <p className="text-[10px] tracking-[0.16em] uppercase font-bold text-primary/80">Your plan · {planLabel}</p>
         <p className="text-sm font-extrabold mt-0.5 leading-snug">
-          You joined on <span data-testid="wallet-joining-date">{prettyDate}</span> with <span data-testid="wallet-joining-amount">₹{amount.toLocaleString("en-IN")}</span>{daysLine}
+          You joined on <span data-testid="wallet-joining-date">{prettyDate}</span> with <span data-testid="wallet-joining-amount">₹{amount.toLocaleString("en-IN")}</span>{daysLine}<span data-testid="wallet-joining-meals">{mealsLine}</span>
         </p>
       </div>
     </div>
@@ -156,6 +159,16 @@ export default function WalletPage() {
     const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     return Math.max(0, Math.round((endDay - nowDay) / 86400000));
   }, [current]);
+  // iter-140.i — meals left on the current sub, with the same days×2 clamp
+  // the dashboard applies. Keeps "days left" and "meals left" honestly
+  // paired so subscribers never see "14 days · 32 meals" style drift.
+  const currentMealsLeft = useMemo(() => {
+    const sub = current?.sub;
+    if (!sub) return null;
+    const raw = Number(sub.meals_total || 0) - Number(sub.meals_used || 0);
+    if (currentDaysLeft == null) return Math.max(0, raw);
+    return Math.max(0, Math.min(raw, currentDaysLeft * 2));
+  }, [current, currentDaysLeft]);
 
   return (
     <div className="min-h-screen bg-background pb-24" data-testid="wallet-page">
@@ -205,7 +218,7 @@ export default function WalletPage() {
           </div>
         )}
 
-        <JoiningRibbon joiningTxn={joiningTxn} sub={current?.sub} daysLeft={currentDaysLeft} />
+        <JoiningRibbon joiningTxn={joiningTxn} sub={current?.sub} daysLeft={currentDaysLeft} mealsLeft={currentMealsLeft} />
 
         <div className="rounded-2xl bg-primary text-primary-foreground p-6 shadow-lg" data-testid={`wallet-page-card-${current?.key || "empty"}`}>
           <p className="text-[10px] tracking-widest uppercase font-bold text-primary-foreground/70 flex items-center gap-2">

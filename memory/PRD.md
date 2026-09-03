@@ -4085,3 +4085,12 @@ For **existing production victims** (already have 4× duplicate rows in their le
 
 ### Files
 - `/app/frontend/src/pages/WalletPage.jsx`
+
+## iter-140.j (2026-02) — Joining ribbon now shows meals too
+
+### Implemented
+- `WalletPage.jsx` — `JoiningRibbon` extended to append `· N meals left` alongside `· N days left`. Uses the same `min(raw, days×2)` coherency clamp as the dashboard so days and meals never drift on the same tile.
+- New testid `wallet-joining-meals` for automation.
+
+### Files
+- `/app/frontend/src/pages/WalletPage.jsx`
