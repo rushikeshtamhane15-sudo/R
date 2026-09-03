@@ -3977,3 +3977,23 @@ For **Kavya's already-under-refunded account** on production: simply re-run the 
 ### Files
 - `/app/frontend/src/pages/WalletPage.jsx`
 - `/app/frontend/src/components/WalletPill.jsx`
+
+## iter-140.e (2026-02) — Concurrency guard on catch_up_subscription
+
+### Fixed
+- Subscribers saw 4 identical `Daily deduction · <date>` rows at the **same second** on `/wallet`. Root cause: the SubscriberDashboard fires `/my/subscriptions`, `/my/wallet`, `/my/qr`, `/my/attendance` in parallel; the first two both call `get_active_subscription` → `catch_up_subscription`, and each invocation ran the tick loop independently, writing its own copy of every missed-meal debit.
+
+### Implemented
+- `/app/backend/server.py::catch_up_subscription` — atomic claim: before doing any work, `update_one({sub_id, last_tick_date: <old>}, {$set: {last_tick_date: cutoff}})`. Losers of the race see `modified_count == 0` and return the fresh sub state.
+- Tail persist now uses `$inc` for `wallet_balance` and `meals_used` (delta from a snapshot taken before the loop) so any scan that fired between the claim and the persist isn't clobbered by a stale `$set`.
+
+### Verified
+- New pytest `TestConcurrentTickGuard::test_parallel_wallet_calls_dedupe_missed_meal_debits` fires 4 endpoints in parallel and asserts exactly 6 debit rows (3 days × 2 missed meals) with no duplicates. Wallet and meals math both land exactly.
+- All 33 pytest cases pass (iter-140 + iter-140b + iter-131.29 regressions).
+
+### Deployment note
+For **existing production victims** (already have 4× duplicate rows in their ledger), the same `/admin/reconcile-double-deduct` refund tool from iter-140.b will detect them: `Daily deduction · <date>` rows dedup by date, and its delta-aware idempotency will credit them the exact over-charge. Just tap "Apply refund" again after this build ships.
+
+### Files
+- `/app/backend/server.py`
+- `/app/backend/tests/test_iter140_double_deduct.py` (new class TestConcurrentTickGuard)

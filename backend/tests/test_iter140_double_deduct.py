@@ -113,6 +113,57 @@ class TestHealth:
         assert r.status_code == 200, r.text
 
 
+# ---------- iter-140.e — concurrency guard (no more 4×same-day debits) ----------
+class TestConcurrentTickGuard:
+    """Reproduces the production bug where 4 identical
+    `Daily deduction · 2026-09-02` rows appeared at the same second because
+    /my/subscriptions, /my/wallet, /my/qr and /my/attendance all call
+    get_active_subscription in parallel and each ran the tick independently.
+    The atomic claim on last_tick_date must let exactly ONE tick through."""
+
+    def test_parallel_wallet_calls_dedupe_missed_meal_debits(self, mdb, created):
+        import concurrent.futures
+        uid, token = _seed_user(mdb, created)
+        # 3 finalized past days with NO scans → tick should charge 2
+        # missed-meal debits per day = 6 rows total. Not 24.
+        sid = _seed_sub(mdb, created, uid, service_type="dining",
+                        last_tick=D(4), wallet=1000.0, meals_used=0,
+                        start_days_ago=10)
+        mdb.users.update_one({"user_id": uid}, {"$set": {"wallet_balance": 1000.0}})
+        # Seed a recent attendance record so the 3-day inactivity rule
+        # doesn't auto-pause the tick before it can charge.
+        mdb.attendance.insert_one({
+            "user_id": uid, "date_str": D(4), "meal_type": "lunch",
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+        })
+
+        # Fire the same 4 endpoints the SubscriberDashboard fires in parallel
+        endpoints = ["/my/wallet", "/my/subscriptions", "/my/qr", "/my/attendance"]
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as ex:
+            results = list(ex.map(
+                lambda p: requests.get(f"{API}{p}", headers=_hdr(token), timeout=30),
+                endpoints,
+            ))
+        assert all(r.status_code == 200 for r in results), [r.status_code for r in results]
+
+        # Exactly 3 days * 2 meals = 6 missed-meal rows, no duplicates.
+        rows = list(mdb.wallet_transactions.find(
+            {"user_id": uid, "type": "debit", "reason": {"$regex": "missed$"}},
+            {"_id": 0, "reason": 1, "amount": 1},
+        ))
+        assert len(rows) == 6, f"expected 6 rows, got {len(rows)}: {rows}"
+        # And each (date, meal) pair appears exactly once
+        reasons = [r["reason"] for r in rows]
+        assert len(set(reasons)) == 6, f"duplicates present: {reasons}"
+
+        # Wallet must equal 1000 - 6 × 50 = 700 (per_meal=50 for per_day=100)
+        sub = mdb.subscriptions.find_one({"sub_id": sid}, {"_id": 0})
+        assert abs(sub["wallet_balance"] - 700.0) < 0.01, sub
+        assert sub["meals_used"] == 6, sub
+        u = mdb.users.find_one({"user_id": uid}, {"_id": 0})
+        assert abs(u["wallet_balance"] - 700.0) < 0.01, u
+
+
 # ---------- P0 #1: tick must not charge today ----------
 class TestNoDeductionForToday:
     def test_dining_scan_today_then_tick_does_not_double_charge(self, mdb, created):

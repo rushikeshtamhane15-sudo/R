@@ -819,6 +819,25 @@ async def catch_up_subscription(sub: dict) -> dict:
     if last >= cutoff or sub["status"] != "active":
         return sub
 
+    # iter-140.e — CONCURRENCY GUARD. When the frontend fires several
+    # requests in parallel (`/my/subscriptions`, `/my/wallet`, `/my/qr`,
+    # `/my/attendance` all call get_active_subscription), each invocation
+    # would race into the tick loop and write its own copy of every
+    # missed-meal debit row. Users saw 4× `Daily deduction · 2026-09-02`
+    # rows at the same second. Atomically claim the tick window by moving
+    # `last_tick_date` forward BEFORE we do any work. Losers of the race
+    # see modified_count == 0 and bail out.
+    claim = await db.subscriptions.update_one(
+        {"sub_id": sub["sub_id"], "last_tick_date": sub["last_tick_date"]},
+        {"$set": {"last_tick_date": cutoff.isoformat()}},
+    )
+    if claim.modified_count == 0:
+        # Another concurrent request already advanced last_tick_date past
+        # our anchor — return the freshest sub state so the caller keeps
+        # working with correct numbers.
+        fresh = await db.subscriptions.find_one({"sub_id": sub["sub_id"]}, {"_id": 0})
+        return fresh or sub
+
     per_day = float(sub.get("per_day_amount", 0))
     per_meal = round(per_day / 2.0, 2)
     is_dining = (sub.get("service_type") or "").lower() == "dining"
@@ -826,6 +845,10 @@ async def catch_up_subscription(sub: dict) -> dict:
     paused_added = 0
     deducted_amount = 0.0
     days_processed = 0
+    # iter-140.e — snapshot meals_used at start so the tail persist can
+    # $inc the DELTA (concurrent-safe) instead of $set-ing an absolute
+    # value that might clobber a scan's meals_used update.
+    sub_meals_used_at_start = int(sub.get("meals_used", 0))
 
     current = last
     while current < cutoff:
@@ -979,17 +1002,25 @@ async def catch_up_subscription(sub: dict) -> dict:
 
         days_processed += 1
 
-    # iter-140 — anchor moves to the last day we accounted for (yesterday).
-    sub["last_tick_date"] = cutoff.isoformat()
-
-    # Persist
-    await db.subscriptions.update_one({"sub_id": sub["sub_id"]}, {"$set": {
-        "wallet_balance": sub["wallet_balance"],
+    # iter-140.e — anchor is already at cutoff (set atomically at claim
+    # time above); persist wallet/meals via $inc so any concurrent scan
+    # that fired between the claim and this write isn't clobbered.
+    persist_set = {
         "paused_days": sub["paused_days"],
         "end_date": sub["end_date"],
-        "last_tick_date": sub["last_tick_date"],
-        "meals_used": sub.get("meals_used", 0),
-    }})
+    }
+    persist_ops = {"$set": persist_set}
+    inc_ops = {}
+    if deducted_amount > 0:
+        inc_ops["wallet_balance"] = -round(deducted_amount, 2)
+    meals_delta = int(sub.get("meals_used", 0)) - int(sub_meals_used_at_start)
+    if meals_delta != 0:
+        inc_ops["meals_used"] = meals_delta
+    if inc_ops:
+        persist_ops["$inc"] = inc_ops
+
+    # Persist
+    await db.subscriptions.update_one({"sub_id": sub["sub_id"]}, persist_ops)
     if deducted_amount > 0:
         await db.users.update_one({"user_id": user_id}, {"$inc": {"wallet_balance": -deducted_amount}})
     if days_processed:
