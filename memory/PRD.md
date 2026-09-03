@@ -4027,3 +4027,33 @@ For **existing production victims** (already have 4× duplicate rows in their le
 - `/app/frontend/src/pages/AdminUsers.jsx`
 - `/app/backend/tests/test_iter140_double_deduct.py` (updated seeds)
 - `/app/backend/tests/test_iter140b_refund_review.py` (added `test_concurrency_duplicate_ticks_refunded`)
+
+## iter-140.g (2026-02) — Factory reset + wallet auto-derive without snap
+
+### Implemented
+- **POST /api/admin/factory-reset** (admin-only, `confirm=YES-DELETE-ALL` guardrail, `dry_run` mode):
+  * Wipes ALL `wallet_transactions`.
+  * Reseeds every active sub to a fresh 30-day/60-meal frame using its ORIGINAL `start_date`.
+  * Deducts calendar backlog: `wallet -= days_elapsed × per_day`, `meals_used = days_elapsed × 2`, `last_tick_date = today − 1`.
+  * Marks sub `expired` if `days_elapsed > 30`.
+  * Syncs `users.wallet_balance = sum(sub.wallet_balance)` for role='subscriber' only (admins/staff untouched).
+  * Writes ONE `kind='factory_reset'` audit row per sub with `type='adjustment'`, `amount=0`, opening balance in `balance_after` and `opening_balance` fields (preserves ledger-sum integrity).
+- **Wallet-adjust auto-derive**: no more snapping. Adding ₹465 to a ₹2,800/30-day sub credits EXACTLY ₹465 to both wallets, extends `end_date` by +5 days, bumps `meals_total` by +10. Symmetric on removal — `meals_total` decrements (not `meals_used`), so a +465/−465 round-trip lands back on the exact starting `60/0` counters. Response: `auto_derived.applied_delta` + `residue_paisa` for transparent audit.
+- **Frontend `/admin/users` Danger Zone**: red pulse dot + typed-confirmation modal (`YES-DELETE-ALL`) with backdrop click, Escape key, and inline "phrase doesn't match" hint.
+
+### Verified
+- Testing agent iter-142 report: **58/58 backend cases + full frontend flow (100%)**. Preview/apply/idempotency + guardrails + toast + DB verification.
+- Local pytest: 41/41 across all iter-140 suites including symmetric meals_total round-trip test.
+
+### Deployment instructions
+- **On production**: deploy this build. Then on `/admin/users`:
+  1. Tap **Preview** in the Danger Zone panel → verify the counts.
+  2. Type `YES-DELETE-ALL` → tap **Reset everything**.
+  3. Every active sub is now clean: 30 days from their original start date, correct backlog charged.
+- Any admin who tops up ₹465 next will see +5 days + 10 meals extend automatically. −465 reverses cleanly.
+
+### Files
+- `/app/backend/server.py` (factory reset + wallet-adjust auto-derive without snap + symmetric meals_total)
+- `/app/frontend/src/pages/AdminUsers.jsx` (Danger Zone panel + modal + Escape/backdrop/hint)
+- `/app/backend/tests/test_iter140g_factory_reset.py` (7 dev cases)
+- `/app/backend/tests/test_iter140g_review.py` (25 review cases from testing agent, all pass)

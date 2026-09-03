@@ -83,6 +83,42 @@ export default function AdminUsers() {
     } finally { setRefunding(false); }
   };
 
+  // iter-140.g — nuclear "factory reset" that wipes all wallet_transactions,
+  // reseeds every active sub to a fresh 30-day frame using its original
+  // start_date, and deducts the correct calendar-day backlog. Guardrailed
+  // by a typed confirmation phrase so an accidental tap can't hurt anyone.
+  const [resetting, setResetting] = useState(false);
+  const [resetPreview, setResetPreview] = useState(null);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetPhrase, setResetPhrase] = useState("");
+  const previewFactoryReset = async () => {
+    setResetting(true);
+    try {
+      const r = await api.post("/admin/factory-reset?dry_run=true", {});
+      setResetPreview(r.data);
+      setShowResetModal(true);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Preview failed");
+    } finally { setResetting(false); }
+  };
+  const applyFactoryReset = async () => {
+    if (resetPhrase !== "YES-DELETE-ALL") {
+      toast.warning("Type YES-DELETE-ALL exactly to proceed");
+      return;
+    }
+    setResetting(true);
+    try {
+      const r = await api.post(`/admin/factory-reset?confirm=YES-DELETE-ALL`, {});
+      toast.success(`Reset ${r.data?.reset_users || 0} subs · deleted ${r.data?.txns_deleted || 0} txns · deducted ₹${(r.data?.total_deducted || 0).toFixed(2)}`);
+      setShowResetModal(false);
+      setResetPhrase("");
+      setResetPreview(null);
+      await load();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Reset failed");
+    } finally { setResetting(false); }
+  };
+
   // iter-102: scan for accounts that share email or phone with another account
   const scanDuplicates = async () => {
     setScanning(true);
@@ -420,6 +456,89 @@ export default function AdminUsers() {
             </Button>
           </div>
         </div>
+
+        {/* iter-140.g — Danger zone: factory reset + reseed */}
+        <div className="mt-4 rounded-xl bg-white/70 dark:bg-white/5 border-2 border-red-700/50 p-3 flex flex-col sm:flex-row sm:items-center gap-2" data-testid="factory-reset-panel">
+          <div className="flex-1">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-red-800 dark:text-red-300 flex items-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-red-600 animate-pulse" /> Danger zone · full factory reset
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Wipes every wallet transaction, resets every active subscription to a fresh 30-day frame using its <strong>original start_date</strong>, and deducts the correct backlog for days already elapsed. IRREVERSIBLE — requires typed confirmation.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              onClick={previewFactoryReset}
+              disabled={resetting}
+              variant="outline"
+              className="rounded-full text-xs uppercase tracking-[0.14em] font-extrabold border-red-600 text-red-700 hover:bg-red-50"
+              data-testid="factory-reset-preview-button"
+            >
+              {resetting ? "Scanning…" : "Preview"}
+            </Button>
+          </div>
+        </div>
+
+        {/* iter-140.g — typed-confirmation modal for the destructive reset */}
+        {showResetModal && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+            data-testid="factory-reset-modal"
+            onClick={(e) => { if (e.target === e.currentTarget) { setShowResetModal(false); setResetPhrase(""); } }}
+            onKeyDown={(e) => { if (e.key === "Escape") { setShowResetModal(false); setResetPhrase(""); } }}
+            tabIndex={-1}
+          >
+            <div className="w-full max-w-md rounded-2xl bg-background p-6 border-2 border-red-600 shadow-2xl space-y-4" onClick={(e) => e.stopPropagation()}>
+              <p className="text-lg font-black text-red-700 dark:text-red-300">Factory reset · confirm</p>
+              {resetPreview && (
+                <div className="rounded-xl bg-red-50 dark:bg-red-950/30 p-3 space-y-1">
+                  <p className="text-[11px] text-muted-foreground">Preview from server:</p>
+                  <p className="text-sm font-extrabold">{resetPreview.would_reset_users} sub(s) will be reseeded</p>
+                  <p className="text-sm">Deletes <strong>{resetPreview.would_delete_txns}</strong> wallet transactions</p>
+                  <p className="text-sm">₹{Number(resetPreview.total_deducted_after_reset || 0).toFixed(2)} total will be deducted based on days elapsed</p>
+                </div>
+              )}
+              <label className="block text-xs uppercase tracking-[0.14em] font-bold text-muted-foreground">
+                Type <span className="font-mono text-red-700">YES-DELETE-ALL</span> to confirm
+              </label>
+              <input
+                type="text"
+                value={resetPhrase}
+                onChange={(e) => setResetPhrase(e.target.value)}
+                className="w-full rounded-lg border-2 border-red-500/50 p-2 font-mono text-sm bg-background focus:border-red-700 outline-none"
+                placeholder="YES-DELETE-ALL"
+                data-testid="factory-reset-confirm-input"
+                autoFocus
+              />
+              {resetPhrase && resetPhrase !== "YES-DELETE-ALL" && (
+                <p className="text-[11px] font-bold text-red-700" data-testid="factory-reset-mismatch-hint">
+                  Phrase doesn't match — must be exactly <span className="font-mono">YES-DELETE-ALL</span> (uppercase).
+                </p>
+              )}
+              <div className="flex gap-2 justify-end">
+                <Button
+                  onClick={() => { setShowResetModal(false); setResetPhrase(""); }}
+                  variant="outline"
+                  className="rounded-full text-xs uppercase tracking-[0.14em]"
+                  data-testid="factory-reset-cancel-button"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={applyFactoryReset}
+                  disabled={resetting || resetPhrase !== "YES-DELETE-ALL"}
+                  className="rounded-full bg-red-700 hover:bg-red-800 disabled:bg-red-700/50 text-white font-extrabold text-xs uppercase tracking-[0.14em]"
+                  data-testid="factory-reset-apply-button"
+                >
+                  {resetting ? "Resetting…" : "Reset everything"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {duplicates !== null && duplicates.length === 0 && (
           <p className="mt-4 text-sm text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-3 py-2" data-testid="duplicates-empty">

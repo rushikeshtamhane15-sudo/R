@@ -3130,6 +3130,159 @@ async def admin_reconcile_backdated_drift(user: User = Depends(get_current_user)
     return {"ok": True, "touched": touched, "skipped": skipped, "users": changed}
 
 
+@api_router.post("/admin/factory-reset")
+async def admin_factory_reset(
+    user: User = Depends(get_current_user),
+    confirm: str = "",
+    dry_run: bool = False,
+):
+    """iter-140.g — one-tap "wipe everything and reseed" tool.
+
+    User asked for a hard restart because the ledger accumulated so many
+    duplicate + partial-refund rows that subscribers are confused. This
+    endpoint:
+      1. Deletes every `wallet_transactions` row (all ledger history).
+      2. For every *active* subscription, resets it to a fresh 30-day
+         state — wallet = plan_amount, meals_used = 0, paused = 0,
+         status = active, end_date = start_date + 30 days, no scan map.
+      3. Deducts the correct BACKLOG for calendar days already elapsed
+         since `start_date` (per_day × days_elapsed for wallet,
+         2 × days_elapsed for meals_used). `last_tick_date` moves to
+         `today - 1` so the midnight tick won't touch these days again.
+      4. Syncs `users.wallet_balance` to the sum of that user's sub
+         wallets (single source of truth).
+      5. Writes ONE audit row per user so admins can see who was reseeded.
+
+    Guardrail: requires `confirm=YES-DELETE-ALL` because it is
+    IRREVERSIBLE. Use `dry_run=true` to preview the impact.
+    """
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    if not dry_run and confirm != "YES-DELETE-ALL":
+        raise HTTPException(status_code=400, detail="Missing confirm=YES-DELETE-ALL — refusing to run destructive reset")
+
+    today_ist = ist_today()
+    cutoff = today_ist - timedelta(days=1)
+    active_subs_cur = db.subscriptions.find({"status": "active"}, {"_id": 0})
+    users_touched: list = []
+    total_deducted = 0.0
+    total_txns_deleted = 0
+
+    async for sub in active_subs_cur:
+        try:
+            sd = date.fromisoformat(str(sub.get("start_date"))[:10])
+        except Exception:  # noqa: BLE001
+            continue
+        # Days elapsed on the calendar since start_date, capped at 30.
+        days_elapsed_raw = (today_ist - sd).days
+        days_elapsed = max(0, min(30, days_elapsed_raw))
+        per_day = float(sub.get("per_day_amount") or 0)
+        plan_amount = round(float(sub.get("plan_amount") or sub.get("amount_paid") or (per_day * 30)), 2)
+        # iter-140.g — spec says every reseed lands on a clean 30-day/60-meal
+        # frame. Previously we carried meals_total over which meant an
+        # admin-extended plan kept its +10 meals while its wallet was reset
+        # to plan_amount → wallet/meals invariant broken.
+        meals_total = 60
+        # Fresh 30-day frame regardless of the sub's original end_date so
+        # reseeding correctly restores exactly 30 days of runway.
+        new_end = sd + timedelta(days=30)
+        # Charge for days already lived on the calendar.
+        deducted = round(per_day * days_elapsed, 2)
+        meals_used_after = min(meals_total, days_elapsed * MEALS_PER_DAY)
+        new_wallet = round(plan_amount - deducted, 2)
+        new_wallet = max(0.0, new_wallet)
+        # If we've passed 30 days already, mark expired.
+        new_status = "active" if days_elapsed_raw < 30 else "expired"
+
+        users_touched.append({
+            "user_id": sub["user_id"],
+            "sub_id": sub["sub_id"],
+            "start_date": sd.isoformat(),
+            "days_elapsed": days_elapsed,
+            "plan_amount": plan_amount,
+            "wallet_after": new_wallet,
+            "meals_used_after": meals_used_after,
+            "meals_total": meals_total,
+            "status": new_status,
+            "end_date": new_end.isoformat(),
+        })
+        total_deducted += deducted
+
+    if dry_run:
+        return {
+            "ok": True,
+            "dry_run": True,
+            "would_reset_users": len(users_touched),
+            "would_delete_txns": await db.wallet_transactions.count_documents({}),
+            "total_deducted_after_reset": round(total_deducted, 2),
+            "sample": users_touched[:5],
+        }
+
+    # ---------- APPLY ----------
+    # 1. Nuke ledger.
+    del_res = await db.wallet_transactions.delete_many({})
+    total_txns_deleted = del_res.deleted_count
+
+    # 2. Rewrite each active sub + sync user wallet.
+    user_wallet_totals: dict = {}
+    for row in users_touched:
+        await db.subscriptions.update_one(
+            {"sub_id": row["sub_id"]},
+            {"$set": {
+                "wallet_balance": row["wallet_after"],
+                "meals_used": row["meals_used_after"],
+                "meals_total": row["meals_total"],
+                "paused_days": 0,
+                "status": row["status"],
+                "end_date": row["end_date"],
+                "last_tick_date": cutoff.isoformat(),
+                "scan_deducted_dates": {},
+                "user_paused": False,
+                "zero_wallet_grace_until": None,
+                "no_pause_before": None,
+            }},
+        )
+        user_wallet_totals[row["user_id"]] = user_wallet_totals.get(row["user_id"], 0.0) + row["wallet_after"]
+
+    # 3. Users of role='subscriber' with no active sub go to 0 (their
+    # residuals from expired plans are no longer honoured — spec).
+    # Admins/staff/franchise wallets are untouched.
+    async for u in db.users.find(
+        {"role": {"$in": ["subscriber", None]}},
+        {"_id": 0, "user_id": 1},
+    ):
+        uid = u["user_id"]
+        new_bal = round(user_wallet_totals.get(uid, 0.0), 2)
+        await db.users.update_one({"user_id": uid}, {"$set": {"wallet_balance": new_bal}})
+
+    # 4. One audit row per reseeded sub — type='adjustment' with amount=0
+    # so any sum-based ledger reconstruction stays honest; the reseeded
+    # opening balance lives in `balance_after` and the audit metadata.
+    for row in users_touched:
+        await db.wallet_transactions.insert_one({
+            "txn_id": f"wtxn_{uuid.uuid4().hex[:12]}",
+            "user_id": row["user_id"],
+            "sub_id": row["sub_id"],
+            "type": "adjustment",
+            "amount": 0.0,
+            "balance_after": row["wallet_after"],
+            "reason": f"System reset · reseeded 30-day plan · {row['days_elapsed']} day(s) consumed since {row['start_date']}",
+            "created_at": now_utc_iso(),
+            "kind": "factory_reset",
+            "opening_balance": row["wallet_after"],
+            "days_elapsed": row["days_elapsed"],
+            "actor_user_id": user.user_id,
+        })
+
+    return {
+        "ok": True,
+        "reset_users": len(users_touched),
+        "txns_deleted": total_txns_deleted,
+        "total_deducted": round(total_deducted, 2),
+        "sample": users_touched[:20],
+    }
+
+
 @api_router.post("/admin/reconcile-double-deduct")
 async def admin_reconcile_double_deduct(user: User = Depends(get_current_user), dry_run: bool = False):
     """iter-140.a — one-tap refund tool for the pre-iter-140 double-deduction
@@ -3423,16 +3576,22 @@ async def admin_wallet_adjust(target_user_id: str, payload: WalletAdjustRequest,
         per_day = float(sub["per_day_amount"])
         derived_days = int(round(float(payload.delta) / per_day))
         if derived_days != 0:
-            snapped = round(derived_days * per_day, 2)
-            residue = round(float(payload.delta) - snapped, 2)
-            payload.delta = snapped  # mutate so all downstream code uses the snapped value
+            # iter-140.g — DO NOT snap the wallet delta anymore. Admins want
+            # the exact rupee amount they typed in the wallet AND the derived
+            # meal + day bump (per_day rounded). Previously we snapped to the
+            # nearest per-day multiple which left a rupee residue and made
+            # audit trails confusing ("added ₹465 but wallet shows ₹466.65").
             explicit_extend = derived_days
             meals_change = derived_days * MEALS_PER_DAY
             auto_derived = {
                 "days": derived_days,
                 "meals": meals_change,
-                "snapped_delta": snapped,
-                "residue": residue,
+                # iter-140.g — no snapping. Report the exact typed amount as
+                # `applied_delta` and the (worth-of-days − amount) gap in
+                # `residue_paisa` so audit reports can see the small
+                # under/over-funding admin implicitly accepted.
+                "applied_delta": float(payload.delta),
+                "residue_paisa": round(derived_days * per_day - float(payload.delta), 2),
             }
 
     delta = round(float(payload.delta), 2)
@@ -3484,14 +3643,15 @@ async def admin_wallet_adjust(target_user_id: str, payload: WalletAdjustRequest,
                 new_end = start
             sub_updates["end_date"] = iso(new_end)
         if meals_change:
-            # Positive meals_delta = restore (lower meals_used); negative = deduct (raise meals_used).
+            # iter-140.g — signed meals_delta. Positive extends the plan by
+            # bumping meals_total; negative shrinks the plan by decrementing
+            # meals_total (symmetric — a +465 then -465 round-trip lands
+            # meals_total exactly back at 60). Hard-floored so meals_total
+            # never dips below meals_used.
             current_used = int(sub.get("meals_used", 0))
             current_total = int(sub.get("meals_total", 0))
-            # New meals_used after applying the change. meals_used drops on restore,
-            # rises on deduction, and is hard-clamped to [0, meals_total].
-            proposed = current_used - meals_change
-            new_used = max(0, min(current_total, proposed))
-            sub_updates["meals_used"] = new_used
+            new_total = max(current_used, current_total + meals_change)
+            sub_updates["meals_total"] = new_total
         if sub_updates:
             unset_ops = {}
             if sub_updates.get("zero_wallet_grace_until") is None and "zero_wallet_grace_until" in sub_updates:
