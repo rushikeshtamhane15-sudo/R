@@ -4075,3 +4075,13 @@ For **existing production victims** (already have 4× duplicate rows in their le
 - `/app/backend/server.py` (new `admin_backfill_joining_entries` endpoint + factory-reset writes joining rows)
 - `/app/frontend/src/pages/AdminUsers.jsx` (Backfill joining button + handler)
 - `/app/backend/tests/test_iter140g_factory_reset.py` (+3 cases)
+
+## iter-140.i (2026-02) — Joining ribbon on wallet page
+
+### Implemented
+- `/app/frontend/src/pages/WalletPage.jsx`: new `JoiningRibbon` component that reads the current sub's `joining_credit` ledger row and renders a small "You joined on <date> with ₹<amount> · X days left" ribbon between the plan slider and the wallet card. Uses IST-aware date formatting (`Aug 18, 2026`), pulls calendar days-left from `sub.end_date`, and only shows when a `joining_credit` row exists for the current sub.
+- `data-testid=wallet-joining-ribbon` + `wallet-joining-date` + `wallet-joining-amount` for automation.
+- No backend changes — payload already includes `kind`, `start_date`, `amount` via the projection `{"_id": 0}`.
+
+### Files
+- `/app/frontend/src/pages/WalletPage.jsx`

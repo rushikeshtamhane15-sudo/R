@@ -7,13 +7,50 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { TxnRow } from "../components/WalletPill";
-import { Wallet, IndianRupee, Pause, Loader2, ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react";
+import { Wallet, IndianRupee, Pause, Loader2, ChevronLeft, ChevronRight, ArrowLeft, Sparkles } from "lucide-react";
 
 function LabelForSub(sub) {
   const svc = (sub?.service_type || sub?.category || "plan").toLowerCase();
   const map = { tiffin: "Tiffin", dining: "Dining", delivery: "Delivery" };
   const nice = map[svc] || (svc.charAt(0).toUpperCase() + svc.slice(1));
   return sub?.plan_name || nice;
+}
+
+/** iter-140.h — formats a joining ribbon like:
+ *    "You joined on Aug 18 with ₹2,800 · 14 days left"
+ *  Draws the joining date + plan amount from the `joining_credit` ledger
+ *  row and pairs it with the calendar-days-remaining number so subscribers
+ *  see a friendly "here's where you started · here's what's left" line at
+ *  the very top of their wallet page. */
+function JoiningRibbon({ joiningTxn, sub, daysLeft }) {
+  if (!joiningTxn) return null;
+  const startDate = joiningTxn.start_date || String(joiningTxn.created_at || "").slice(0, 10);
+  const amount = Math.round(Number(joiningTxn.amount || 0));
+  let prettyDate = startDate;
+  try {
+    const d = new Date(`${startDate}T00:00:00+05:30`);
+    prettyDate = d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  } catch { /* keep ISO */ }
+  const daysLine = Number.isFinite(daysLeft)
+    ? ` · ${Math.max(0, daysLeft)} day${daysLeft === 1 ? "" : "s"} left`
+    : "";
+  const planLabel = sub?.plan_name || LabelForSub(sub) || "your plan";
+  return (
+    <div
+      className="mb-3 rounded-2xl border-2 border-primary/25 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent px-4 py-3 flex items-start gap-3"
+      data-testid="wallet-joining-ribbon"
+    >
+      <span className="mt-0.5 h-8 w-8 rounded-full bg-primary/15 text-primary flex items-center justify-center shrink-0">
+        <Sparkles className="h-4 w-4" strokeWidth={2.5} />
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] tracking-[0.16em] uppercase font-bold text-primary/80">Your plan · {planLabel}</p>
+        <p className="text-sm font-extrabold mt-0.5 leading-snug">
+          You joined on <span data-testid="wallet-joining-date">{prettyDate}</span> with <span data-testid="wallet-joining-amount">₹{amount.toLocaleString("en-IN")}</span>{daysLine}
+        </p>
+      </div>
+    </div>
+  );
 }
 
 export default function WalletPage() {
@@ -102,6 +139,23 @@ export default function WalletPage() {
   const clampedSlide = Math.min(slide, slides.length - 1);
   const current = slides[clampedSlide] || slides[0];
   const currentTxns = current ? txnsByScope[current.txnKey] || [] : [];
+  // iter-140.h — pick the joining_credit ledger row for the current slide's
+  // sub so we can render the "You joined on <date> with ₹X" ribbon.
+  const joiningTxn = useMemo(() => {
+    if (!current?.sub) return null;
+    return currentTxns.find((t) => t.kind === "joining_credit") || null;
+  }, [current, currentTxns]);
+  // iter-140.h — calendar days left on the current sub (same formula the
+  // dashboard uses so the ribbon and hero stat agree).
+  const currentDaysLeft = useMemo(() => {
+    const sub = current?.sub;
+    if (!sub || !sub.end_date) return null;
+    const end = new Date(sub.end_date);
+    const now = new Date();
+    const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+    const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.max(0, Math.round((endDay - nowDay) / 86400000));
+  }, [current]);
 
   return (
     <div className="min-h-screen bg-background pb-24" data-testid="wallet-page">
@@ -151,6 +205,8 @@ export default function WalletPage() {
           </div>
         )}
 
+        <JoiningRibbon joiningTxn={joiningTxn} sub={current?.sub} daysLeft={currentDaysLeft} />
+
         <div className="rounded-2xl bg-primary text-primary-foreground p-6 shadow-lg" data-testid={`wallet-page-card-${current?.key || "empty"}`}>
           <p className="text-[10px] tracking-widest uppercase font-bold text-primary-foreground/70 flex items-center gap-2">
             {current?.isMerged ? "Combined balance" : "Current balance"}
@@ -159,8 +215,7 @@ export default function WalletPage() {
                 {LabelForSub(current.sub)}
               </span>
             )}
-          </p>
-          <p className="font-display font-extrabold text-5xl mt-2 leading-none flex items-center" data-testid="wallet-page-balance">
+          </p>          <p className="font-display font-extrabold text-5xl mt-2 leading-none flex items-center" data-testid="wallet-page-balance">
             <IndianRupee className="h-7 w-7" strokeWidth={2.5} />
             {Math.round(current?.balance || 0).toLocaleString("en-IN")}
           </p>
