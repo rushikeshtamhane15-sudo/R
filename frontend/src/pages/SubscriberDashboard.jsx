@@ -113,7 +113,14 @@ export default function SubscriberDashboard() {
     const walletCapacity = Math.round(Number(sub.wallet_balance || 0) / Math.max(1, Number(sub.per_day_amount || 1)));
     return Math.max(0, Math.min(rawDaysLeft, walletCapacity));
   })() : 0;
-  const mealsLeft = sub ? sub.meals_total - sub.meals_used : 0;
+  // iter-140.c — keep meals-left and days-left coherent from the
+  // subscriber's mental model: "20 days left = 40 meals left". Meals-used
+  // and wallet-balance can drift apart after admin adjustments or refunds,
+  // so we cap meals-left at daysLeft × 2 (2 meals/day). If the raw
+  // meals_used count is MORE restrictive (user ate every meal), we honour
+  // that too — always the smaller of the two.
+  const rawMealsLeft = sub ? sub.meals_total - sub.meals_used : 0;
+  const mealsLeft = sub ? Math.max(0, Math.min(rawMealsLeft, daysLeft * 2)) : 0;
 
   const togglePause = async () => {
     setPausing(true);
@@ -413,6 +420,10 @@ function NoSubscriptionCard({ texts }) {
 
 function TiffinHeroCard({ sub, isPaused, pausing, togglePause, daysLeft, accent }) {
   const accentStyle = accent ? { color: accent } : null;
+  // iter-140.c — same coherency rule as the main dashboard: cap
+  // tiffins-left at daysLeft × 2 so subscribers never see "20 days · 42
+  // tiffins" (they read the two numbers as tightly coupled).
+  const tiffinsLeft = Math.max(0, Math.min(sub.meals_total - sub.meals_used, daysLeft * 2));
   return (
     <div
       className="rounded-3xl border border-border bg-card p-6 md:p-7 space-y-5 relative overflow-hidden transition-transform hover:-translate-y-0.5"
@@ -474,7 +485,7 @@ function TiffinHeroCard({ sub, isPaused, pausing, togglePause, daysLeft, accent 
 
       <div className="grid grid-cols-3 gap-3 pt-2">
         <Stat label="Days left" value={daysLeft} />
-        <Stat label="Tiffins left" value={Math.max(0, sub.meals_total - sub.meals_used)} />
+        <Stat label="Tiffins left" value={tiffinsLeft} />
         <Stat label="End date" value={new Date(sub.end_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} />
       </div>
     </div>

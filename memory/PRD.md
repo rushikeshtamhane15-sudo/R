@@ -3952,3 +3952,15 @@ For **Kavya's already-under-refunded account** on production: simply re-run the 
 - `/app/frontend/src/components/admin-kiosk/KioskFaceScan.jsx`
 - `/app/backend/tests/test_iter140_double_deduct.py` (added `TestReconcileEarlyTick`)
 - `/app/backend/tests/test_iter140b_refund_review.py` (new — 11 cases from testing agent)
+
+## iter-140.c (2026-02) — Days-vs-meals coherency on dashboard
+
+### Fixed
+- Subscriber dashboard showed "20 days left · 42 meals left" (Rushikesh Tamhane case). Users read those two numbers as coupled ("20 days = 40 meals") but the code derived them from different sources (meals from `meals_used`, days from wallet capacity), so any drift between the two DB fields surfaced as a visible mismatch.
+
+### Implemented
+- `/app/frontend/src/pages/SubscriberDashboard.jsx`: `mealsLeft = min(60 - meals_used, daysLeft × 2)` — always the more restrictive of the two.
+- `TiffinHeroCard` component: same coherency clamp on the "Tiffins left" stat.
+
+### Files
+- `/app/frontend/src/pages/SubscriberDashboard.jsx`
