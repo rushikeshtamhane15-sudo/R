@@ -3101,93 +3101,136 @@ async def admin_reconcile_backdated_drift(user: User = Depends(get_current_user)
 
 @api_router.post("/admin/reconcile-double-deduct")
 async def admin_reconcile_double_deduct(user: User = Depends(get_current_user), dry_run: bool = False):
-    """iter-140 — one-tap refund tool for the pre-iter-140 double-deduction
+    """iter-140.a — one-tap refund tool for the pre-iter-140 double-deduction
     bug on DINING subscriptions.
 
-    Before iter-140 the midnight tick charged today's full per_day at
-    00:00 IST, then per-meal scans during the day charged AGAIN. Any date
-    where BOTH `Scan · <meal> · <date>` AND `Daily deduction · <date> · 2 meals`
-    ledger rows exist for the same sub is a double-charge candidate.
+    The old midnight tick did TWO wrong things:
+      (a) On any PAST day with scans, it still charged a full per_day even
+          though per-meal scans had already deducted. Over-charge that day =
+          scan_charged (extra on top of the correct per_day).
+      (b) On the current calendar day (today/future), it fired at 00:00 IST
+          and charged a full per_day + 2 meals BEFORE the user had eaten.
+          Over-charge that day = the tick's full per_day.
 
-    For each candidate:
-      • refund = per_meal × (# of scan rows that day), capped at per_day
-      • credit BOTH the user wallet AND the sub wallet
-      • write an audit ledger row so repeated runs are idempotent
-        (guarded by `kind == "double_deduct_refund"`)
+    Correct behaviour under iter-140:
+      • past finalized day → total charge = per_day, meals_used += 2
+      • today / future     → total charge = scan_charged, meals_used += scan_count
+
+    For each `(user_id, sub_id, date)` we compute over_charge + over_meals,
+    subtract what we already refunded, and apply the DELTA. Idempotent on
+    re-run and self-healing (an under-refunded row from an earlier run gets
+    topped up on the next run).
 
     Query param `dry_run=true` returns the diff without mutating.
     """
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
 
-    # Build a set of (user_id, sub_id, date) already refunded so we never
-    # double-refund on re-runs.
-    already: set = set()
-    async for row in db.wallet_transactions.find(
-        {"kind": "double_deduct_refund"},
-        {"_id": 0, "user_id": 1, "sub_id": 1, "refund_date": 1},
-    ):
-        key = (row.get("user_id"), row.get("sub_id"), row.get("refund_date"))
-        already.add(key)
-
-    # Group per (user, sub, date) — how many scan rows + is there a daily
-    # deduction row?
-    # `type` is "debit" for both, so we key on the reason string.
     from collections import defaultdict
-    scan_counts: dict = defaultdict(int)   # (uid, sid, day) → count
-    day_full: dict = {}                    # (uid, sid, day) → True if daily-deduction row exists
-    per_meals: dict = {}                   # (uid, sid, day) → per_meal amount from the scan row
+    today = ist_today().isoformat()
+
+    # Aggregate all ledger rows we care about, keyed by (uid, sid, day).
+    tick_charged: dict = defaultdict(float)     # (uid, sid, day) → sum of daily-deduction amounts
+    scan_charged: dict = defaultdict(float)     # (uid, sid, day) → sum of per-scan amounts
+    scan_count: dict = defaultdict(int)         # (uid, sid, day) → # of scan rows
+    per_meal_hint: dict = {}                    # (uid, sid, day) → per_meal from a scan row (for meal math)
+    already_refund: dict = defaultdict(float)   # (uid, sid, day) → sum of already-refunded credit
+    already_meals: dict = defaultdict(int)      # (uid, sid, day) → meals already restored
 
     async for txn in db.wallet_transactions.find(
-        {"type": "debit"},
-        {"_id": 0, "user_id": 1, "sub_id": 1, "reason": 1, "amount": 1},
+        {},
+        {"_id": 0, "user_id": 1, "sub_id": 1, "reason": 1, "amount": 1, "type": 1, "kind": 1, "refund_date": 1, "meals_delta": 1},
     ):
-        reason = txn.get("reason") or ""
         uid = txn.get("user_id")
         sid = txn.get("sub_id")
         if not uid or not sid:
             continue
-        # Scan · lunch · 2025-11-15
+        reason = txn.get("reason") or ""
+        # ---------- Existing refunds (idempotency delta tracking) ----------
+        if txn.get("kind") == "double_deduct_refund":
+            day = txn.get("refund_date")
+            if day:
+                already_refund[(uid, sid, day)] += float(txn.get("amount") or 0)
+                already_meals[(uid, sid, day)] += int(txn.get("meals_delta") or 0)
+            continue
+        # ---------- Debits we might be refunding ----------
+        if txn.get("type") != "debit":
+            continue
         if reason.startswith("Scan · "):
             parts = reason.split(" · ")
             if len(parts) >= 3:
                 day = parts[2].strip()
                 key = (uid, sid, day)
-                scan_counts[key] += 1
-                # Keep first observed per_meal for this day
-                if key not in per_meals:
-                    try:
-                        per_meals[key] = float(txn.get("amount") or 0)
-                    except Exception:
-                        per_meals[key] = 0.0
-        # Daily deduction · 2025-11-15 · 2 meals · ...
+                amt = float(txn.get("amount") or 0)
+                scan_charged[key] += amt
+                scan_count[key] += 1
+                per_meal_hint.setdefault(key, amt)
         elif reason.startswith("Daily deduction · ") and "2 meals" in reason:
             parts = reason.split(" · ")
             if len(parts) >= 2:
                 day = parts[1].strip()
                 key = (uid, sid, day)
-                day_full[key] = True
+                tick_charged[key] += float(txn.get("amount") or 0)
+
+    # Union of all keys that had any tick or scan row.
+    all_keys = set(tick_charged) | set(scan_charged)
 
     candidates: list = []
-    for key, scans in scan_counts.items():
-        if not day_full.get(key):
-            continue
-        if key in already:
-            continue
+    for key in all_keys:
         uid, sid, day = key
-        per_meal = per_meals.get(key) or 0.0
-        if per_meal <= 0:
+        tick = tick_charged.get(key, 0.0)
+        scans_amt = scan_charged.get(key, 0.0)
+        n_scans = scan_count.get(key, 0)
+        per_meal = per_meal_hint.get(key) or (tick / 2.0 if tick > 0 else 0.0)
+        is_future_or_today = (day >= today)
+        # Both charges present? or scans exist without tick? per-day math:
+        if is_future_or_today:
+            # correct = scans_amt (only scanned meals should have charged)
+            over_charge = tick  # every rupee the tick charged is wrong
+            over_meals = 2 if tick > 0 else 0
+        else:
+            # PAST finalized day. Correct = per_day if tick fired (auto-pause
+            # would have written 0 tick). If only scans exist and no tick,
+            # then the sub was tick-inactive → scans covered it correctly →
+            # no over-charge.
+            if tick <= 0:
+                continue
+            # Buggy = tick + scans, correct = per_day (= tick). Over = scans.
+            over_charge = scans_amt
+            over_meals = n_scans
+        if over_charge <= 0 and over_meals <= 0:
             continue
-        refund = round(min(scans * per_meal, per_meal * 2), 2)
-        if refund <= 0:
+        # Idempotency: delta over what we already refunded for this day.
+        prev_amt = already_refund.get(key, 0.0)
+        prev_meals = already_meals.get(key, 0)
+        delta_charge = round(max(0.0, over_charge - prev_amt), 2)
+        delta_meals = max(0, over_meals - prev_meals)
+        if delta_charge <= 0 and delta_meals <= 0:
             continue
-        candidates.append({"user_id": uid, "sub_id": sid, "day": day, "scans": scans, "per_meal": per_meal, "refund": refund})
+        candidates.append({
+            "user_id": uid, "sub_id": sid, "day": day,
+            "scans": n_scans, "per_meal": round(per_meal, 2),
+            "tick_charged": round(tick, 2),
+            "over_charge": round(over_charge, 2),
+            "over_meals": over_meals,
+            "already_refunded": round(prev_amt, 2),
+            "already_meals_restored": prev_meals,
+            "refund": delta_charge,
+            "meals_restore": delta_meals,
+            "future": is_future_or_today,
+        })
 
     if dry_run:
-        return {"ok": True, "dry_run": True, "candidates": candidates, "total": round(sum(c["refund"] for c in candidates), 2)}
+        return {
+            "ok": True, "dry_run": True,
+            "candidates": candidates,
+            "total": round(sum(c["refund"] for c in candidates), 2),
+            "total_meals": sum(c["meals_restore"] for c in candidates),
+        }
 
-    # Apply refunds — group by (user_id, sub_id) so we do one Mongo write per user.
-    grouped: dict = defaultdict(list)
+    # Apply refunds — grouped per (user, sub) so we do one Mongo write per user.
+    from collections import defaultdict as _dd
+    grouped: dict = _dd(list)
     for c in candidates:
         grouped[(c["user_id"], c["sub_id"])].append(c)
 
@@ -3195,8 +3238,13 @@ async def admin_reconcile_double_deduct(user: User = Depends(get_current_user), 
     total_refund = 0.0
     users_touched: list = []
     for (uid, sid), rows in grouped.items():
-        per_user_refund = round(sum(r["refund"] for r in rows), 2)
-        if per_user_refund <= 0:
+        # Split refunds into "future/today" (both user + sub wallet debited
+        # by the old tick) and "past-scan" (only sub wallet debited, user
+        # wallet was left alone by the old scan code).
+        future_refund = round(sum(r["refund"] for r in rows if r["future"]), 2)
+        past_refund = round(sum(r["refund"] for r in rows if not r["future"]), 2)
+        per_user_refund = round(future_refund + past_refund, 2)
+        if per_user_refund <= 0 and sum(r["meals_restore"] for r in rows) <= 0:
             continue
         u = await db.users.find_one({"user_id": uid}, {"_id": 0, "user_id": 1, "name": 1, "wallet_balance": 1})
         s = await db.subscriptions.find_one({"sub_id": sid}, {"_id": 0, "sub_id": 1, "wallet_balance": 1, "meals_used": 1, "meals_total": 1})
@@ -3204,21 +3252,24 @@ async def admin_reconcile_double_deduct(user: User = Depends(get_current_user), 
             continue
         user_bal_before = float(u.get("wallet_balance") or 0.0)
         sub_bal_before = float(s.get("wallet_balance") or 0.0)
-        # iter-140 — only the SUBSCRIPTION doc was double-charged historically
-        # (scans didn't touch users.wallet_balance before the iter-140 sync
-        # fix). Refund only the sub wallet; user-level balance is already
-        # correct — crediting it here would gift free money.
         sub_bal_after = round(sub_bal_before + per_user_refund, 2)
-        user_bal_after = user_bal_before  # unchanged
-        # Also restore meals_used (each duplicated scan consumed 1 meal that
-        # shouldn't have counted). scans * 1 meal each, capped so
-        # meals_used never goes below 0.
-        meals_restore = min(int(sum(r["scans"] for r in rows)), int(s.get("meals_used") or 0))
-        meals_used_after = max(0, int(s.get("meals_used") or 0) - meals_restore)
+        # Future/today over-charges hit BOTH users and subscriptions; past
+        # scan-only drift only touched the sub doc.
+        user_bal_after = round(user_bal_before + future_refund, 2)
+        meals_restore_total = sum(r["meals_restore"] for r in rows)
+        meals_restore_total = min(meals_restore_total, int(s.get("meals_used") or 0))
+        meals_used_after = max(0, int(s.get("meals_used") or 0) - meals_restore_total)
 
         await db.subscriptions.update_one({"sub_id": sid}, {"$set": {"wallet_balance": sub_bal_after, "meals_used": meals_used_after}})
+        if future_refund > 0:
+            await db.users.update_one({"user_id": uid}, {"$set": {"wallet_balance": user_bal_after}})
 
-        # Ledger + audit per-day rows so re-runs are idempotent.
+        # Ledger row per (day, delta). Write the OWED meals_delta so
+        # re-runs don't keep re-listing days where we've done everything we
+        # can (meals_used floor at 0 means "no more restoration possible").
+        # If a sub later accrues more meals_used via legitimate deductions,
+        # those aren't retroactively "double-charged" and shouldn't be
+        # restored.
         for r in rows:
             await db.wallet_transactions.insert_one({
                 "txn_id": f"wtxn_{uuid.uuid4().hex[:12]}",
@@ -3226,11 +3277,18 @@ async def admin_reconcile_double_deduct(user: User = Depends(get_current_user), 
                 "sub_id": sid,
                 "type": "credit",
                 "amount": round(r["refund"], 2),
-                "balance_after": user_bal_after,
-                "reason": f"iter-140 refund · double-deduct · {r['day']} · {r['scans']} scan(s)",
+                # For past-only refunds the money hit the SUB wallet — the
+                # user wallet was unchanged so record the sub's balance.
+                "balance_after": (user_bal_after if r["future"] else sub_bal_after),
+                "reason": (
+                    f"iter-140 refund · early-tick · {r['day']} · +{r['meals_restore']} meal(s)"
+                    if r["future"]
+                    else f"iter-140 refund · double-deduct · {r['day']} · +{r['meals_restore']} meal(s)"
+                ),
                 "created_at": now_utc_iso(),
                 "kind": "double_deduct_refund",
                 "refund_date": r["day"],
+                "meals_delta": r["meals_restore"],
                 "actor_user_id": user.user_id,
             })
         users_touched.append({
@@ -3239,9 +3297,9 @@ async def admin_reconcile_double_deduct(user: User = Depends(get_current_user), 
             "sub_id": sid,
             "days": [r["day"] for r in rows],
             "refund": per_user_refund,
-            "meals_restored": meals_restore,
-            "before": {"wallet": user_bal_before, "meals_used": int(s.get("meals_used") or 0)},
-            "after": {"wallet": user_bal_after, "meals_used": meals_used_after},
+            "meals_restored": meals_restore_total,
+            "before": {"wallet": user_bal_before, "sub_wallet": sub_bal_before, "meals_used": int(s.get("meals_used") or 0)},
+            "after": {"wallet": user_bal_after, "sub_wallet": sub_bal_after, "meals_used": meals_used_after},
         })
         touched += 1
         total_refund += per_user_refund

@@ -208,24 +208,25 @@ class TestMissedMealReconcile:
 
 
 # ---------- Admin refund tool ----------
-class TestReconcileDoubleDeduct:
-    @pytest.fixture(scope="class")
-    def admin_token(self, mdb, created):
-        uid = f"TEST_iter140_admin_{uuid.uuid4().hex[:8]}"
-        token = f"TEST_sess_{uuid.uuid4().hex}"
-        mdb.users.insert_one({
-            "user_id": uid, "email": f"TEST_{uid}@example.test", "name": "TEST admin",
-            "role": "admin", "wallet_balance": 0.0,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        })
-        mdb.user_sessions.insert_one({
-            "user_id": uid, "session_token": token,
-            "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        })
-        created["users"].append(uid)
-        return token
+@pytest.fixture(scope="module")
+def admin_token(mdb, created):
+    uid = f"TEST_iter140_admin_{uuid.uuid4().hex[:8]}"
+    token = f"TEST_sess_{uuid.uuid4().hex}"
+    mdb.users.insert_one({
+        "user_id": uid, "email": f"TEST_{uid}@example.test", "name": "TEST admin",
+        "role": "admin", "wallet_balance": 0.0,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    mdb.user_sessions.insert_one({
+        "user_id": uid, "session_token": token,
+        "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    created["users"].append(uid)
+    return token
 
+
+class TestReconcileDoubleDeduct:
     @pytest.fixture(scope="class")
     def victim(self, mdb, created):
         """A dining sub carrying the pre-iter-140 double-charge ledger rows.
@@ -315,6 +316,100 @@ class TestReconcileDoubleDeduct:
         assert s["meals_used"] == 2
         assert mdb.wallet_transactions.count_documents(
             {"user_id": victim["user_id"], "kind": "double_deduct_refund"}) == 1
+
+
+# ---------- iter-140.b — today/future-tick refund + delta idempotency ----------
+class TestReconcileEarlyTick:
+    """The old cron fired at 00:00 IST and charged today's full per_day
+    BEFORE any scan happened. The refund tool must credit both the user
+    wallet AND the sub wallet, and restore the 2 ghost meals — even when
+    there are zero scans for that date."""
+
+    @pytest.fixture(scope="class")
+    def victim(self, mdb, created):
+        uid, _tok = _seed_user(mdb, created)
+        sid = _seed_sub(mdb, created, uid, service_type="dining", last_tick=TODAY.isoformat(),
+                        wallet=800.0, meals_used=4)
+        # The old code decremented BOTH docs via the tick's $inc.
+        mdb.users.update_one({"user_id": uid}, {"$set": {"wallet_balance": 800.0}})
+        today_str = TODAY.isoformat()
+        mdb.wallet_transactions.insert_one({
+            "txn_id": f"TEST_{uuid.uuid4().hex[:10]}",
+            "user_id": uid, "sub_id": sid, "type": "debit",
+            "amount": 100.0, "balance_after": 800.0,
+            "reason": f"Daily deduction · {today_str} · 2 meals · active",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        return {"user_id": uid, "sub_id": sid, "day": today_str}
+
+    def test_early_tick_refunds_full_day_both_wallets(self, mdb, victim, admin_token):
+        r = requests.post(f"{API}/admin/reconcile-double-deduct",
+                          headers=_hdr(admin_token), timeout=180)
+        assert r.status_code == 200, r.text
+        mine = [x for x in r.json()["users"] if x["user_id"] == victim["user_id"]]
+        assert len(mine) == 1, r.json()
+        assert mine[0]["refund"] == 100.0
+        assert mine[0]["meals_restored"] == 2
+        u = mdb.users.find_one({"user_id": victim["user_id"]}, {"_id": 0})
+        s = mdb.subscriptions.find_one({"sub_id": victim["sub_id"]}, {"_id": 0})
+        # BOTH wallets credited (early-tick affected user + sub)
+        assert u["wallet_balance"] == 900.0, u
+        assert s["wallet_balance"] == 900.0, s
+        assert s["meals_used"] == 2, s
+        # Ledger row tagged as early-tick refund
+        ledger = list(mdb.wallet_transactions.find(
+            {"user_id": victim["user_id"], "kind": "double_deduct_refund"}, {"_id": 0}))
+        assert len(ledger) == 1
+        assert "early-tick" in ledger[0]["reason"]
+
+    def test_top_up_delta_after_manual_partial_refund(self, mdb, created, admin_token):
+        """Simulates the production scenario Kavya hit: the OLD refund
+        endpoint credited only per_meal × scans for a today-tick row (i.e.
+        zero here) and now we need the DELTA to top the wallet + meals up."""
+        uid, _tok = _seed_user(mdb, created)
+        sid = _seed_sub(mdb, created, uid, service_type="dining", last_tick=TODAY.isoformat(),
+                        wallet=800.0, meals_used=4)
+        mdb.users.update_one({"user_id": uid}, {"$set": {"wallet_balance": 800.0}})
+        today_str = TODAY.isoformat()
+        # Original buggy tick row
+        mdb.wallet_transactions.insert_one({
+            "txn_id": f"TEST_{uuid.uuid4().hex[:10]}",
+            "user_id": uid, "sub_id": sid, "type": "debit",
+            "amount": 100.0, "balance_after": 800.0,
+            "reason": f"Daily deduction · {today_str} · 2 meals · active",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        # Prior (insufficient) refund row from the OLD refund-tool version —
+        # e.g. under-refunded ₹40 with 0 meals restored.
+        mdb.wallet_transactions.insert_one({
+            "txn_id": f"TEST_{uuid.uuid4().hex[:10]}",
+            "user_id": uid, "sub_id": sid, "type": "credit",
+            "amount": 40.0, "balance_after": 840.0,
+            "reason": "iter-140 refund · double-deduct · older partial",
+            "kind": "double_deduct_refund", "refund_date": today_str,
+            "meals_delta": 0,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        # Bring the balances in line with the partial refund
+        mdb.users.update_one({"user_id": uid}, {"$set": {"wallet_balance": 840.0}})
+        mdb.subscriptions.update_one({"sub_id": sid}, {"$set": {"wallet_balance": 840.0}})
+
+        r = requests.post(f"{API}/admin/reconcile-double-deduct",
+                          headers=_hdr(admin_token), timeout=180)
+        assert r.status_code == 200, r.text
+        mine = [x for x in r.json()["users"] if x["user_id"] == uid]
+        assert len(mine) == 1, r.json()
+        assert mine[0]["refund"] == 60.0, mine        # 100 owed - 40 already = 60 delta
+        assert mine[0]["meals_restored"] == 2, mine   # 2 owed - 0 already = 2
+        u = mdb.users.find_one({"user_id": uid}, {"_id": 0})
+        s = mdb.subscriptions.find_one({"sub_id": sid}, {"_id": 0})
+        assert u["wallet_balance"] == 900.0, u
+        assert s["wallet_balance"] == 900.0, s
+        assert s["meals_used"] == 2, s
+        # Now a second run must find nothing pending
+        r2 = requests.post(f"{API}/admin/reconcile-double-deduct?dry_run=true",
+                           headers=_hdr(admin_token), timeout=120)
+        assert [c for c in r2.json()["candidates"] if c["user_id"] == uid] == []
 
 
 # ---------- business rule: skip days 1-3 charge, day 4+ auto-pause (dining) ----------

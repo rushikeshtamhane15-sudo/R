@@ -3924,3 +3924,31 @@ Testing agent iter-134 report: 8/8 backend pytests + full frontend flow — zero
 - `/app/frontend/src/pages/AdminUsers.jsx`
 - `/app/backend/tests/test_iter140_double_deduct.py`
 - `/app/backend/tests/test_iter140_scan_method.py`
+
+## iter-140.b (2026-02) — Refund tool math + face-ring turnaround
+
+### Fixed
+1. **Wallet refund tool was under-refunding** — reported by user (Kavya Gour case, ₹193 short). Old logic only credited `per_meal × scans` per day and completely missed today/future ticks that fired before any scan.
+2. **Face check-in ring stayed RED** even when the user's face sat inside the visible oval — root cause was `object-cover` scaling mismatch between raw video frame and the target box math.
+
+### Implemented
+- `/app/backend/server.py::admin_reconcile_double_deduct` fully rewritten:
+  * Per-day over-charge math: past day with tick → `over = scan_charged` (sub-wallet only); today/future day with tick → `over = tick_charged` (BOTH user + sub wallet credited).
+  * Meals restore: past = `scan_count`; today/future = 2.
+  * Delta idempotency — sums existing `double_deduct_refund` credits per day and applies only the delta. A re-run tops up under-refunded users, and returns zero rows once whole.
+- `/app/frontend/src/pages/AdminUsers.jsx` — preview now shows "₹X + N meal(s) across M day(s)"; apply-refund confirm() copy refreshed to describe both past + early-tick refund paths.
+- `/app/frontend/src/components/admin-kiosk/KioskFaceScan.jsx` — `computeAlignment` simplified to width-only (0.08–0.90 of frame). Off-center check removed. Detection tick shortened 700ms → 400ms so the ring flips green in ~180ms.
+
+### Verified
+- Testing agent iter-141 report: 25/25 backend pytest (incl. 11 independent new cases) + frontend refund panel + face ring green in ~182ms.
+- Local pytest: 32/32 pass across all iter-140 + iter-140b + iter-131.29 suites.
+
+### Deployment note for the user
+For **Kavya's already-under-refunded account** on production: simply re-run the "Apply refund" button on `/admin/users` after deploying this build — the new delta-aware endpoint will credit the missing ₹93.33 + 2 meals for the 03-09-2026 early-tick that the old refund tool skipped.
+
+### Files
+- `/app/backend/server.py`
+- `/app/frontend/src/pages/AdminUsers.jsx`
+- `/app/frontend/src/components/admin-kiosk/KioskFaceScan.jsx`
+- `/app/backend/tests/test_iter140_double_deduct.py` (added `TestReconcileEarlyTick`)
+- `/app/backend/tests/test_iter140b_refund_review.py` (new — 11 cases from testing agent)

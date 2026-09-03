@@ -16,33 +16,22 @@ import { toast } from "sonner";
 // TTS queue clean and avoids hammering the backend on staff standing in view).
 const COOLDOWN_MS = 60_000;
 
-// iter-138.l — alignment target: face must fit inside this centered box for
-// the guide ring to turn green. Values are fractions of the video frame.
-// iter-138.w — widened tolerances so the geometry check matches the visible
-// aspect-[3/4] oval on the wall kiosk. The oval covers ~62% of a tall
-// container, so a face detected anywhere within a fairly generous window
-// should turn green. Previous 12%/18%/55% window was too strict — users
-// stood inside the ring and it stayed red.
-const TARGET_BOX = { x: 0.25, y: 0.15, w: 0.50, h: 0.70 };
-const FACE_MIN_W = 0.12;
-const FACE_MAX_W = 0.75;
-const OFFSET_TOL = 0.22;
+// iter-140.b — alignment simplified. Previously we required the face to
+// land inside a small target box computed against the RAW video frame,
+// but the visible oval on-screen uses `object-cover` which crops/scales
+// the frame — so a face that clearly sat inside the oval visually could
+// still fall outside the raw-frame target box, leaving the ring red.
+// New rule: as long as a face is DETECTED and its width is within a
+// reasonable range (rules out background noise + faces too close), we
+// mark it aligned. `face-api.detectSingleFace` already picks the most
+// prominent face, so an off-center face isn't a real problem.
+const FACE_MIN_W = 0.08;
+const FACE_MAX_W = 0.90;
 
 function computeAlignment(box) {
   if (!box) return { aligned: false, reason: "no-face" };
-  const cxFace = box.x + box.w / 2;
-  const cyFace = box.y + box.h / 2;
-  const cxTarget = TARGET_BOX.x + TARGET_BOX.w / 2;
-  const cyTarget = TARGET_BOX.y + TARGET_BOX.h / 2;
-  // The <video> is CSS-mirrored (scaleX(-1)) so users see themselves
-  // naturally; the underlying frame we detect on is NOT mirrored. Mirror
-  // the face-box X for UI alignment math.
-  const dx = Math.abs((1 - cxFace) - cxTarget);
-  const dy = Math.abs(cyFace - cyTarget);
   if (box.w < FACE_MIN_W) return { aligned: false, reason: "too-far" };
   if (box.w > FACE_MAX_W) return { aligned: false, reason: "too-close" };
-  if (dx > OFFSET_TOL) return { aligned: false, reason: dx > 0 ? "off-center" : "off-center" };
-  if (dy > OFFSET_TOL) return { aligned: false, reason: "off-center" };
   return { aligned: true, reason: "ok" };
 }
 
@@ -285,12 +274,11 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
         setAlignment(align);
         if (!align.aligned) {
           // Coach the user into the target frame — don't waste a network
-          // round-trip on a face that isn't centered/sized correctly yet.
+          // round-trip on a face that isn't sized correctly yet.
           setPhase("live");
           if (align.reason === "too-far") setLastMsg("Move closer to the camera");
           else if (align.reason === "too-close") setLastMsg("Step back a little");
-          else if (align.reason === "off-center") setLastMsg("Center your face in the green frame");
-          else setLastMsg("Look straight at the camera");
+          else setLastMsg("Look at the camera to check in");
           return;
         }
         // Aligned! Fire the check-in POST.
@@ -333,9 +321,10 @@ export default function KioskFaceScan({ onCheckin, isFullscreen = false, active 
       } finally {
         setPhase("live");
         inflightRef.current = false;
-        // Faster tick (700ms) so the red/green frame reacts quickly as the
-        // user moves; when a check-in is in flight we throttle to 500ms.
-        if (!cancelled) tickTimerRef.current = setTimeout(tick, 700);
+        // iter-140.b — faster tick (400ms) so the red/green frame reacts
+        // near-instantly as the user walks up. Aligned face → check-in
+        // auto-fires in under half a second.
+        if (!cancelled) tickTimerRef.current = setTimeout(tick, 400);
       }
     };
     tick();

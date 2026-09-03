@@ -1,0 +1,48 @@
+{
+  "summary": "iter-140.b verification (backend + frontend). Backend: ran the dev's iter-140 suites (14/14 pass) plus a NEW independent review suite of 11 tests for POST /api/admin/reconcile-double-deduct covering past-day double charge (sub-wallet-only credit), today/future early-tick (BOTH users.wallet_balance and subscriptions.wallet_balance credited), mixed past+today on one sub, delta top-up idempotency, fully-refunded skip, no-tick past day (no refund), meals clamp, dry_run purity and auth guards — 11/11 pass (25/25 combined). Frontend: AdminUsers refund panel preview shows 'Pending refund: Rs.100.00 + 2 meal(s) across 1 day(s)', apply flow succeeded and DB verified (user 800->900, sub 800->900, meals_used 4->2, ledger reason 'early-tick', meals_delta=2). Kiosk face ring verified with an injected face-api stub (preview Chromium has no WebGL/WASM so the real models cannot init here): an off-center / far-left face inside the oval now turns the ring emerald (data-aligned=1) in ~182ms and stays green for 6s+, auto check-in POST fires; too-far -> 'Move closer to the camera', too-close -> 'Step back a little', no-face -> 'Look at the camera to check in', all red. No regressions found.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/admin/reconcile-double-deduct", "issue": "Full-collection scan: `db.wallet_transactions.find({})` iterates EVERY ledger row on every call (dry_run and apply). Add a server-side filter ($or on reason ^'Scan · ' / ^'Daily deduction · ' plus kind='double_deduct_refund') and an index on (kind, refund_date) / reason before this is used on a large production ledger."},
+      {"endpoint": "POST /api/admin/reconcile-double-deduct", "issue": "meals accounting inconsistency: meals_restore_total is clamped to sub.meals_used, but each ledger row still writes the UNCLAMPED r['meals_restore'] into meals_delta. If a sub had fewer meals_used than owed, the idempotency ledger over-reports restored meals and the residual is never topped up on a later run (verified via TestMealsClamp: meals_used 1 -> 0, refund Rs.100 correct, response meals_restored=1 while ledger meals_delta=2)."},
+      {"endpoint": "POST /api/admin/reconcile-double-deduct", "issue": "Audit trail: for past-day (sub-only) refund rows the ledger `balance_after` is set to the USER wallet balance (unchanged), not the sub wallet the money actually landed in — misleading for reconciliation."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admin > Users & Roles — double-deduct refund panel", "issues": ["Apply-refund confirm() copy is stale: it still says the tool 'credits back per_meal x scans for each day where BOTH a scan and a midnight full-day debit were logged' — it no longer describes the today/future early-tick full-day refund path that iter-140.b added."]},
+      {"screen": "Admin kiosk — face check-in tile", "issues": ["Long status messages wrap to 2 lines and the second line is visually clipped by the tile's overflow-hidden bottom edge (e.g. 'No subscribers enrolled yet · enroll from Profile page')."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter140b_refund_review.py",
+    "/app/backend/tests/test_iter140_double_deduct.py",
+    "/app/test_reports/pytest/iter141_results.xml",
+    "/app/test_reports/pytest/iter140b_review.xml",
+    "/app/test_reports/seed_iter140b_ui.py"
+  ],
+  "action_items": [
+    "Add a Mongo filter + index to the reconcile-double-deduct ledger scan (currently scans the whole wallet_transactions collection).",
+    "Write the CLAMPED meals value into the refund ledger's meals_delta so the delta-idempotency ledger matches what was actually applied.",
+    "Refresh the Apply-refund confirm() copy in AdminUsers.jsx to mention the early-tick (today/future) full-day refund.",
+    "Optional: stop the kiosk face status bar from clipping its second line."
+  ],
+  "critical_code_review_comments": [
+    "admin_reconcile_double_deduct iterates the entire wallet_transactions collection in Python; O(total ledger) per admin click — filter server-side.",
+    "Ledger meals_delta uses the unclamped owed meals while the applied restore is clamped to meals_used → residual meals can be permanently lost to idempotency.",
+    "Refund credit for past-only days lands on subscriptions.wallet_balance but the ledger row records the user wallet's balance_after."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter140b_refund_review.py",
+    "/app/test_reports/seed_iter140b_ui.py"
+  ],
+  "success_rate": {"backend": "100% (25/25 pytest, incl. 11 new independent cases)", "frontend": "100% of tested flows (refund panel preview+apply, face ring green/red states)"},
+  "seed_data_creation": "Ephemeral TEST_i140b_* users/subs/ledger rows created and torn down by the pytest module fixture. UI test seeded TEST_i140bui_admin_* (admin session cookie) + TEST_i140bui_victim_* with a today-dated tick row; both deleted after the run (verified only pre-existing TEST_user_dining_iter105 remains).",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "Admin access obtained by seeding users(role=admin) + user_sessions and setting the httpOnly `session_token` cookie for the preview host via Playwright (cookie auth, not localStorage).",
+  "context_for_next_testing_agent": "Face-api CANNOT run in this preview Chromium (no WebGL, tfjs-wasm .wasm 404s from the CDN) — the real detector never becomes ready and the tile shows 'Recognition models loading · retry N'. To test the kiosk ring, install a face-api stub with page.add_init_script BEFORE navigation, and IMPORTANT: the script string must be an IIFE `(() => {...})();` (a bare arrow-function expression silently does nothing). Stub shape: window.faceapi = {nets:{tinyFaceDetector|faceLandmark68Net|faceRecognitionNet:{loadFromUri:async()=>{}}}, TinyFaceDetectorOptions:function(){}, detectSingleFace:()=>({withFaceLandmarks:()=>({withFaceDescriptor:async()=>({descriptor:Float32Array(128), detection:{box:{x,y,width,height},score}})})})} and defineProperty it so the CDN UMD bundle can't clobber it. Also: face tile only renders after the kiosk Voice toggle (data-testid=kiosk-voice-toggle) is ON. Regression suite: /app/backend/tests/test_iter140b_refund_review.py.",
+  "rca_of_the_issue": "Both iter-140.b fixes verified as effective. Refund tool: per-day over_charge = tick_charged for today/future (credits BOTH users and subscriptions wallets) and = scan_charged for past days with a tick (credits sub only); already-refunded amount/meals are subtracted so a re-run tops up a partial refund (40 -> +60) and returns zero candidates once whole. Face ring: alignment now depends only on detected face width in [0.08,0.90] of the frame, so the object-cover scaling mismatch that kept an on-screen-centered face outside the old raw-frame TARGET_BOX can no longer keep the ring red; 400ms tick gives ~180ms perceived transition."
+}

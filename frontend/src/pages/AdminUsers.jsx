@@ -59,15 +59,16 @@ export default function AdminUsers() {
       const r = await api.post("/admin/reconcile-double-deduct?dry_run=true", {});
       const cs = r.data?.candidates || [];
       const total = r.data?.total || 0;
-      setDdPreview({ candidates: cs, total });
-      if (cs.length === 0) toast.success("No double-deduction rows found — every sub is clean.");
-      else toast.warning(`Found ${cs.length} candidate day(s) · ₹${total.toFixed(2)} pending refund`);
+      const totalMeals = r.data?.total_meals || 0;
+      setDdPreview({ candidates: cs, total, totalMeals });
+      if (cs.length === 0) toast.success("No pending double-deduct rows — every sub is clean.");
+      else toast.warning(`Found ${cs.length} candidate day(s) · ₹${total.toFixed(2)} + ${totalMeals} meals pending`);
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Preview failed");
     } finally { setRefunding(false); }
   };
   const applyDoubleDeductRefund = async () => {
-    if (!window.confirm(`Refund every user affected by the pre-iter-140 double-deduction bug?\n\nThis credits back per_meal × scans for each day where BOTH a scan and a midnight full-day debit were logged. Idempotent — safe to re-run.`)) return;
+    if (!window.confirm(`Refund every subscriber affected by the pre-iter-140 wallet double-deduction bug?\n\n• Past days with scans: refunds per_meal × scans to the sub wallet.\n• Today / future days where the midnight tick fired early: refunds the full per_day to both the user and sub wallets and restores 2 meals.\n\nIdempotent — under-refunded users are topped up on re-run.`)) return;
     setRefunding(true);
     try {
       const r = await api.post("/admin/reconcile-double-deduct", {});
@@ -395,7 +396,7 @@ export default function AdminUsers() {
             </p>
             {ddPreview && ddPreview.candidates?.length > 0 && (
               <p className="mt-1 text-[11px] font-bold text-rose-700" data-testid="dd-preview-total">
-                Pending refund: ₹{ddPreview.total.toFixed(2)} across {ddPreview.candidates.length} day(s)
+                Pending refund: ₹{ddPreview.total.toFixed(2)} + {ddPreview.totalMeals || 0} meal(s) across {ddPreview.candidates.length} day(s)
               </p>
             )}
           </div>
