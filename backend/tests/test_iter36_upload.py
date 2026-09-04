@@ -7,7 +7,7 @@ import zlib
 import pytest
 import requests
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://dining-pass-scan.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://dining-atomics.preview.emergentagent.com").rstrip("/")
 ADMIN_PHONE = "9970705391"  # from /app/backend/.env ADMIN_PHONES
 USER_PHONE = "9876543210"   # ordinary user
 

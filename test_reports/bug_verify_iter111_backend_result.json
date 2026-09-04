@@ -1,5 +1,5 @@
 {
-  "api": "https://dining-pass-scan.preview.emergentagent.com/api",
+  "api": "https://dining-atomics.preview.emergentagent.com/api",
   "checks": [
     {
       "name": "seed legacy bottom nav subscriber field",

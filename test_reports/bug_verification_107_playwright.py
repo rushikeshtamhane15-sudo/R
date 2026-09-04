@@ -1,7 +1,7 @@
 from pathlib import Path
 from playwright.async_api import expect
 
-PREVIEW_URL = "https://dining-pass-scan.preview.emergentagent.com"
+PREVIEW_URL = "https://dining-atomics.preview.emergentagent.com"
 PHONE = "9333333333"
 SESSION_TOKEN = Path("/app/test_reports/bug107_session_token.txt").read_text().strip()
 

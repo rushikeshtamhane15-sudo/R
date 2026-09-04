@@ -1,14 +1,14 @@
 {
-  "name": "efoodcare — ghar se achha khana",
-  "short_name": "efoodcare",
-  "description": "Your monthly mess + tiffin app. Pay once, eat 30 days. Track tiffin live.",
+  "name": "efoodtech — User Management System",
+  "short_name": "efoodtech",
+  "description": "SaaS mess & tiffin management platform. QR + face check-in, wallet, per-mess plans and payments.",
   "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#a02323",
-  "theme_color": "#a02323",
-  "categories": ["food", "lifestyle", "productivity"],
+  "background_color": "#0a1f44",
+  "theme_color": "#0a1f44",
+  "categories": ["food", "lifestyle", "productivity", "business"],
   "icons": [
     {
       "src": "/icon-192.png",
@@ -30,7 +30,7 @@
     }
   ],
   "shortcuts": [
-    { "name": "Today's tiffins", "url": "/track", "description": "Track your tiffin live" },
+    { "name": "My meals today", "url": "/track", "description": "Track your tiffin live" },
     { "name": "Plans", "url": "/plans", "description": "Browse subscription plans" }
   ]
 }

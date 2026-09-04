@@ -12,7 +12,7 @@ for line in (ROOT/'backend/.env').read_text().splitlines():
         env[k.strip()] = v.strip().strip('"').strip("'")
 MONGO_URL = env.get('MONGO_URL','mongodb://localhost:27017')
 DB_NAME = env.get('DB_NAME','test_database')
-API = os.environ.get('API_BASE','https://dining-pass-scan.preview.emergentagent.com/api')
+API = os.environ.get('API_BASE','https://dining-atomics.preview.emergentagent.com/api')
 client = MongoClient(MONGO_URL)
 db = client[DB_NAME]
 

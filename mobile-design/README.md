@@ -38,7 +38,7 @@ This folder is the single source of truth your mobile devs need to rebuild every
     └── 07_profile.md                  (parity reference — already looks good)
 ```
 
-> **Note on screenshots**: The screenshot tool we used renders at desktop width by default, so the captures in `screenshots/` show the desktop layout. The web's mobile layout is essentially the **single-column stack** of the same components — each `.md` spec lists the exact mobile layout grid. When in doubt, run the preview URL on your phone (`https://dining-pass-scan.preview.emergentagent.com/`) for an exact mobile reference.
+> **Note on screenshots**: The screenshot tool we used renders at desktop width by default, so the captures in `screenshots/` show the desktop layout. The web's mobile layout is essentially the **single-column stack** of the same components — each `.md` spec lists the exact mobile layout grid. When in doubt, run the preview URL on your phone (`https://dining-atomics.preview.emergentagent.com/`) for an exact mobile reference.
 
 ---
 

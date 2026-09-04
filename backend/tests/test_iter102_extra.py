@@ -12,7 +12,7 @@ import requests
 
 sys.path.insert(0, "/app/backend")
 
-API = os.environ.get("API_URL", "https://dining-pass-scan.preview.emergentagent.com/api")
+API = os.environ.get("API_URL", "https://dining-atomics.preview.emergentagent.com/api")
 ADMIN_PHONE = "9970705391"
 
 

@@ -1,6 +1,55 @@
-# eFoodCare — PRD
+# efoodtech — PRD
 
-> *ghar se achha khana*
+> *User Management System · multi-tenant SaaS for messes across India*
+> (formerly efoodcare · rebranded iter-143)
+
+
+## iter-143 — efoodtech SaaS rebrand · multi-tenant login · per-mess Razorpay + plans (2026-02-04)
+**Status: DONE — Phase 1 (SaaS foundation) shipped, user verification pending.**
+
+**Scope:** Pivot from single-brand efoodcare app → multi-tenant SaaS platform `efoodtech · User Management System`. Any mess in India can now onboard with their own mess_id, plans, logo, tagline, and Razorpay account.
+
+**Backend (server.py, routes/auth.py, routes/plans.py, new routes/mess_owner.py)**
+- `MessIn` model gained SaaS fields: `owner_phone`, `owner_email`, `logo_url`, `hero_title`, `hero_subtitle`, `tag_chips`, `payment_note`, `razorpay_key_id`, `razorpay_key_secret` (via new `MessSettingsIn` + `MessRazorpayKeysIn` pydantic models).
+- `admin_create_mess` now issues memorable short IDs (`MESS-A7C3`) instead of `mess_xxxxxxxxxx`.
+- `VerifyOtpRequest` accepts optional `mess_id`. `verify_otp` validates the mess exists + is active, tags user on first login, and **rejects cross-mess re-logins** (`403 · Your account is registered under a different mess`).
+- `_create_order_record` now resolves Razorpay keys **per-mess**. If the user's mess has its own keys stored, the client is instantiated with those keys so subscription payments land directly in the mess owner's account. Order documents record `razorpay_mode: "mess" | "platform" | "mock"` for audit.
+- `PlanUpsert` / `Plan` gained `mess_id`. `seed_plans` backfills `mess_id=efoodcare-amravati` on legacy docs. `GET /api/plans` picks the caller's mess (from session) and falls back to the default tenant; `GET /admin/plans` scopes to `franchise_owner`'s mess; `POST /admin/plans` pins new plans to the owner's mess (or default for corporate admin).
+- New mess-owner scoped router (`routes/mess_owner.py`):
+  - `GET /api/mess-owner/me` — own mess doc (secret redacted).
+  - `PATCH /api/mess-owner/settings` — tagline, hero, chips, payment note, contact.
+  - `POST /api/mess-owner/logo` — upload own logo (2 MB WebP-optimised).
+  - `POST /api/mess-owner/razorpay-keys` — validate keys with a live `orders.all` call before saving.
+  - `GET /api/mess-owner/razorpay-status` — live health check.
+  - `DELETE /api/mess-owner/razorpay-keys` — clear (falls back to platform).
+- `DEFAULT_THEME` updated to navy `#0a1f44` primary + royal-blue `#1e40af` secondary; `brand_name="efoodtech"`, `brand_tagline="User Management System"`. `THEME_VERSION` bumped `2 → 3` so `_ensure_theme_version` runs the migration on next boot.
+
+**Frontend**
+- Fully rewrote `pages/Login.jsx` — three-step flow: pick mess (searchable dropdown OR direct `MESS-XXXX` entry) → phone/OTP → verify. Picked mess is cached in `localStorage["efoodtech.mess.picked"]` so PWA users don't re-pick. Ribbon banner on phone step reminds them of the chosen mess.
+- New `pages/MessOwnerSettings.jsx` (mounted at `/mess-owner/settings`, gated to `franchise_owner` + `admin`) — logo upload, branding editor, and full Razorpay key setup with live validation + status pill.
+- `pages/login/loginContentDefaults.js` — mess-agnostic defaults; per-mess "0% Ajinomoto" style pills now come from `mess.tag_chips` (empty by default).
+- `index.css` — navy palette (`primary: 220 74% 15%`, `secondary: 224 71% 40%`).
+- `index.html` — theme color updated, app title → `efoodtech`, pre-paint cache key bumped to `ef_theme_tokens_v143` to invalidate stale red-theme tokens.
+- `manifest.webmanifest` — rebranded (`efoodtech — User Management System`, navy background/theme, updated description).
+- `ThemeContext.jsx` — writes to bumped cache key.
+
+**Verified via curl:**
+- `GET /api/messes` returns 2 tenants (`efoodcare-amravati`, `efoodcare-yavatmal`).
+- `GET /api/plans` scopes correctly — returns 3 plans tagged `mess_id=efoodcare-amravati`.
+- `POST /api/auth/verify-otp` with `mess_id=efoodcare-yavatmal` tags user + returns their new mess.
+- Same phone re-logging with `mess_id=efoodcare-amravati` → 403 "registered under a different mess".
+- Unknown `mess_id=MESS-NOPE` → 400.
+- `GET /api/mess-owner/me` unauthenticated → 401.
+- `GET /api/theme` after migration → navy primary + secondary confirmed.
+
+**Screenshot verified:** Login page renders navy hero, mess picker lists both messes with mess_ids, direct-ID input works, picked mess ribbon shows on step 2. Powered-by footer says "efoodtech · Secure OTP · Multi-tenant SaaS".
+
+**Not yet in Phase 1 (backlog / future):**
+- Super-admin dashboard for creating messes with owner phone/email (currently uses existing `/admin/messes` — needs owner-assignment UI). AdminMesses.jsx form should surface new SaaS fields.
+- Per-mess menu, subscription notifications, kiosk logo scoping to sub-tenant.
+- Landing.jsx / SEO.jsx / SplashScreen.jsx / TrustChipsMarquee.jsx still carry legacy "ghar se accha khana" copy — acceptable while efoodcare-amravati remains the primary tenant, but should become per-mess in Phase 2.
+- Server.py refactor (>6000 lines).
+
 
 
 

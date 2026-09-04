@@ -1,5 +1,5 @@
 {
-  "base": "https://dining-pass-scan.preview.emergentagent.com",
+  "base": "https://dining-atomics.preview.emergentagent.com",
   "tokens": {
     "dining": "test_iter108_dining_90c6c4ab9d",
     "legacy": "test_iter108_legacy_7985450846",

@@ -10,7 +10,7 @@ This is the contract for the **pass-scan-mobile** app to talk to the same eFoodC
 
 ```
 PRODUCTION:  https://efoodcare.in/api
-STAGING:     https://dining-pass-scan.preview.emergentagent.com/api
+STAGING:     https://dining-atomics.preview.emergentagent.com/api
 ```
 
 All endpoints below are prefixed with `/api`. CORS is wildcard-open (`allow_origins=*`), so the mobile app can call directly with no proxy.

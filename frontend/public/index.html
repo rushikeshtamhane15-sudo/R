@@ -3,10 +3,10 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#a02323" />
+        <meta name="theme-color" content="#0a1f44" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="efoodcare" />
+        <meta name="apple-mobile-web-app-title" content="efoodtech" />
         <link rel="manifest" href="/manifest.webmanifest" />
 
         <!-- iter-55 #6: pre-paint theme bootstrap. Applies CSS variables from
@@ -20,12 +20,15 @@
         <script>
           (function () {
             try {
-              var raw = window.localStorage.getItem("ef_theme_tokens");
+              // iter-143 · efoodtech rebrand — bump cache key so stale red-theme tokens
+              // from the previous brand don't survive first paint.
+              var CACHE_KEY = "ef_theme_tokens_v143";
+              try { window.localStorage.removeItem("ef_theme_tokens"); } catch (e) {}
+              var raw = window.localStorage.getItem(CACHE_KEY);
               if (!raw) { document.documentElement.classList.add("theme-loaded"); return; }
               var t = JSON.parse(raw);
               var map = {background:"--background",foreground:"--foreground",card:"--card",card_foreground:"--card-foreground",popover:"--popover",popover_foreground:"--popover-foreground",primary:"--primary",primary_foreground:"--primary-foreground",secondary:"--secondary",secondary_foreground:"--secondary-foreground",muted:"--muted",muted_foreground:"--muted-foreground",accent:"--accent",accent_foreground:"--accent-foreground",destructive:"--destructive",destructive_foreground:"--destructive-foreground",border:"--border",input:"--input",ring:"--ring",radius:"--radius"};
               for (var k in t) { if (map[k] && t[k]) document.documentElement.style.setProperty(map[k], t[k]); }
-              // Ready: fade in immediately, ThemeContext refresh later patches any drift.
               document.documentElement.classList.add("theme-loaded");
             } catch (e) { document.documentElement.classList.add("theme-loaded"); }
           })();
@@ -54,7 +57,7 @@
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" type="image/png" href="/favicon.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-        <link rel="mask-icon" href="/favicon.png" color="#a02323" />
+        <link rel="mask-icon" href="/favicon.png" color="#0a1f44" />
 
         <!-- =================================================================
              Open Graph + Twitter card — managed per-page by Helmet (see

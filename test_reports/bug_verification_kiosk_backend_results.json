@@ -1,5 +1,5 @@
 {
-  "base_url": "https://dining-pass-scan.preview.emergentagent.com",
+  "base_url": "https://dining-atomics.preview.emergentagent.com",
   "date_ist": "2026-08-01",
   "checks": [
     "admin OTP login works and role=admin",

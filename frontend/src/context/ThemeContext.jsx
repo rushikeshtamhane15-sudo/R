@@ -37,7 +37,8 @@ export function applyTokens(tokens) {
   // index.html can apply them BEFORE React mounts on the next page load —
   // eliminates the "flash of old theme" on reload / PWA cold start.
   try {
-    window.localStorage.setItem("ef_theme_tokens", JSON.stringify(tokens));
+    // iter-143: bumped cache key to invalidate stale red-theme tokens from prior brand.
+    window.localStorage.setItem("ef_theme_tokens_v143", JSON.stringify(tokens));
   } catch { /* non-critical: storage unavailable */ }
 }
 

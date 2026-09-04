@@ -30,32 +30,34 @@ body {
 
 @layer base {
     :root {
-        /* Palette: red / white / green / blue — NO black, NO yellow. */
+        /* efoodtech · SaaS mess management — navy blue primary on white dominant. */
         --background: 0 0% 100%;
-        --foreground: 220 55% 22%;
+        --foreground: 220 55% 15%;
         --card: 0 0% 100%;
-        --card-foreground: 220 55% 22%;
+        --card-foreground: 220 55% 15%;
         --popover: 0 0% 100%;
-        --popover-foreground: 220 55% 22%;
-        --primary: 142 50% 35%;
+        --popover-foreground: 220 55% 15%;
+        /* Deep navy #0a1f44 → hsl(220 74% 15%) */
+        --primary: 220 74% 15%;
         --primary-foreground: 0 0% 100%;
-        --secondary: 220 70% 50%;
+        /* Accent royal blue #1e40af → hsl(224 71% 40%) */
+        --secondary: 224 71% 40%;
         --secondary-foreground: 0 0% 100%;
         --muted: 220 25% 96%;
         --muted-foreground: 220 20% 40%;
-        --accent: 142 30% 95%;
-        --accent-foreground: 142 50% 35%;
+        --accent: 220 60% 96%;
+        --accent-foreground: 220 74% 15%;
         --destructive: 0 70% 50%;
         --destructive-foreground: 0 0% 100%;
         --border: 220 20% 90%;
         --input: 220 20% 90%;
-        --ring: 142 50% 35%;
+        --ring: 224 71% 40%;
         --radius: 0.75rem;
-        --chart-1: 142 50% 35%;
-        --chart-2: 220 70% 50%;
-        --chart-3: 0 70% 50%;
-        --chart-4: 200 70% 45%;
-        --chart-5: 142 30% 60%;
+        --chart-1: 220 74% 15%;
+        --chart-2: 224 71% 40%;
+        --chart-3: 214 88% 55%;
+        --chart-4: 210 55% 65%;
+        --chart-5: 220 30% 80%;
     }
 }
 

@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import base64
 import uuid
+from typing import Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
 from shared import server
 
@@ -39,27 +40,70 @@ def _clean_bullets(items):
 
 
 @router.get("/plans")
-async def get_plans():
+async def get_plans(request: Request, mess_id: Optional[str] = None):
     await server.seed_plans()
-    plans = await server.db.plans.find({"active": True}, {"_id": 0}).sort("sort_order", 1).to_list(100)
-    return {"plans": plans}
+    # iter-143 · efoodtech: multi-tenant plan scoping.
+    #   • Explicit ?mess_id=... wins.
+    #   • Else use the logged-in user's mess_id (from session cookie / Bearer).
+    #   • Else return DEFAULT (efoodcare-amravati) so unauthenticated visitors
+    #     still see something instead of an empty list.
+    target_mess_id: Optional[str] = mess_id or None
+    if not target_mess_id:
+        try:
+            token = request.cookies.get("session_token")
+            if not token:
+                auth_h = request.headers.get("Authorization", "")
+                if auth_h.startswith("Bearer "):
+                    token = auth_h[7:]
+            if token:
+                session = await server.db.user_sessions.find_one({"session_token": token}, {"_id": 0})
+                if session:
+                    u = await server.db.users.find_one({"user_id": session["user_id"]}, {"_id": 0, "mess_id": 1})
+                    if u and u.get("mess_id"):
+                        target_mess_id = u["mess_id"]
+        except Exception:  # noqa: BLE001
+            pass
+    q: dict = {"active": True}
+    if target_mess_id:
+        q["mess_id"] = target_mess_id
+    else:
+        q["mess_id"] = server.DEFAULT_MESS_ID
+    plans = await server.db.plans.find(q, {"_id": 0}).sort("sort_order", 1).to_list(100)
+    return {"plans": plans, "mess_id": target_mess_id or server.DEFAULT_MESS_ID}
 
 
 @router.get("/admin/plans")
 async def admin_list_plans(user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
-    plans = await server.db.plans.find({}, {"_id": 0}).sort("sort_order", 1).to_list(100)
+    # iter-143 · efoodtech: franchise owners see only their mess's plans
+    q: dict = {}
+    if user.role == "franchise_owner":
+        m = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+        if not m:
+            return {"plans": []}
+        q["mess_id"] = m["mess_id"]
+    plans = await server.db.plans.find(q, {"_id": 0}).sort("sort_order", 1).to_list(100)
     return {"plans": plans}
 
 
 @router.post("/admin/plans")
 async def admin_upsert_plan(payload: server.PlanUpsert, user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     plan_id = payload.plan_id or f"plan_{uuid.uuid4().hex[:8]}"
+    # iter-143 · efoodtech: pin plan to the owner's mess so it can't cross tenants
+    target_mess_id = (payload.mess_id or "").strip() or None
+    if user.role == "franchise_owner":
+        m = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+        if not m:
+            raise HTTPException(status_code=403, detail="No mess assigned to this account")
+        target_mess_id = m["mess_id"]
+    if not target_mess_id:
+        target_mess_id = server.DEFAULT_MESS_ID
     doc = {
         "plan_id": plan_id,
+        "mess_id": target_mess_id,
         "name": payload.name,
         "description": payload.description,
         "amount": float(payload.amount),

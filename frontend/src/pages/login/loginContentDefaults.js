@@ -1,13 +1,14 @@
 // Default CMS content for the Login page — overridable via /api/content/login.
-// Extracted from Login.jsx (iter-123) so the page file stays focused on
-// state + behaviour; admin content lives separately for clarity.
+// iter-143 · efoodtech: rebranded from efoodcare with mess-agnostic defaults.
+// Per-mess overrides (e.g. custom tagline chips) live on each mess document
+// and are picked up after mess selection.
 
 export const LOGIN_DEFAULTS = {
-  title_line1: "Login or",
-  title_line2: "Sign up",
-  form_overline: "Enter your details",
-  form_heading: "India's smartest tiffin pass.",
-  form_subheading: "Login with your phone number to continue.",
+  title_line1: "Welcome to",
+  title_line2: "efoodtech",
+  form_overline: "Pick your mess to continue",
+  form_heading: "User Management System",
+  form_subheading: "Enter your phone number to log in.",
   phone_label: "Phone number",
   phone_placeholder: "Enter 10-digit number",
   name_label: "Your name",
@@ -25,24 +26,13 @@ export const LOGIN_DEFAULTS = {
   resend_label: "Resend OTP",
 
   // === Login icon (admin-editable) ===
-  // The small badge above the form. Defaults to a soft cream/pink gradient
-  // with brand-red foreground so the icon reads warm-and-inviting rather
-  // than the older corporate navy shield. Admin can override these via
-  // /admin/content/login or set icon_show=false to hide the badge entirely.
-  icon_bg_color_start: "#fff4ee",
-  icon_bg_color_end:   "#ffd9c8",
-  icon_color:          "#a02323",
+  // Soft navy gradient badge for the SaaS platform brand.
+  icon_bg_color_start: "#e0e8ff",
+  icon_bg_color_end:   "#c7d2fe",
+  icon_color:          "#0a1f44",
   icon_show: true,
 
-  // === BadStuffMarquee (admin-editable, iter-51) ===
-  // The full-bleed "0% bad stuff" scroller below the red header. Admin
-  // can change pill list, colors, and speed from /admin/content/login.
-  marquee_show: true,
-  marquee_bg_color:          "#a02323",
-  marquee_text_color:        "#a02323",
-  marquee_pill_bg_color:     "#ffffff",
-  marquee_pill_border_color: "rgba(255,255,255,0.95)",
-  marquee_pill_text_color:   "#a02323",
-  marquee_speed_seconds:     12,
-  marquee_pills: "0% Ajinomoto|0% Maida|0% Artificial Flavours|0% Artificial Colours|0% Polished Grains|0% Refined Oil|0% Palm Oil|0% Pre-made Gravy",
+  // Bad-stuff marquee is now per-mess — leave blank on the platform default.
+  marquee_show: false,
+  marquee_pills: "",
 };

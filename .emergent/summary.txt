@@ -1,0 +1,130 @@
+<analysis>**original_problem_statement**: Suggest a mess management / dining subscription app (efoodcare) for users coming for 30 days. Needs QR and Face-based attendance tracking, subscription logic, payment integration, and a full restaurant ordering system. PRODUCT REQUIREMENTS: React + FastAPI + MongoDB. 
+
+**User's preferred language**: English (INSTRUCT next agent to respond in English only)
+
+**what currently exists?**: A mature, full-stack mess management application featuring multi-tenant routing, PWA capabilities, 30-day/60-meal subscriptions, Razorpay, Meta WhatsApp Cloud integration, OTP-less login, and a highly customized Wall Kiosk mode with live face-scan check-ins using . The subscription cron engine and wallet math have been heavily stabilized in the recent session, incorporating atomic concurrency locks to prevent race conditions during automated deductions.
+
+**Last working item**:
+    - Last item agent was working: Implementing lazy backfill for the  ledger row. The user reported the newly added Joining Ribbon wasn't visible for legacy users. The agent updated the  endpoint and backend startup script to automatically generate the missing joining row on-the-fly.
+    - Status: USER VERIFICATION PENDING
+    - Agent Testing Done: Y
+    - Which testing method agent to use? Screenshot tool / Python pytest (Self-testing was done; backend tests all pass).
+    - User Testing Done: N
+
+**All Pending/In progress Issue list**:
+  *(No critical bugs are currently pending; the agent systematically resolved all P0 bugs raised in the session. See Upcoming Tasks for tech debt).*
+
+**In progress Task List**: 
+  *(None active, awaiting user confirmation on the last fix).*
+
+**Upcoming and Future Tasks**:
+    - P1: Split the massive  into , , and  (Crucial to reduce context weight).
+    - P1: Refactor . It has exceeded 6,000 lines. The cron and wallet deduction logic needs to be extracted into dedicated service files.
+    - P2: Implement Weekly Kiosk check-in summary that WhatsApps the owner every Monday morning (total scans, face vs. QR ratio, top hours).
+    - P3: Integrate Custom Food Contamination Insurance via Acko (Awaiting B2B specs).
+    - P3: Turn the meal-streak tile into a real reward (e.g., 7-day streak = ₹50 credit, 30 days = leaderboard badge).
+
+**Completed work in this session**:
+  - Kiosk voice bug fixed ( plays single language). (DONE)
+  - P0 Wallet double-deduction bug fixed (Cron tick now ignores the current day). (DONE)
+  - Admin Refund Tool created to retroactively reconcile double deductions. (DONE)
+  - Face Check-in Ring UX sped up (adjusted box tolerances, lowered tick to 400ms). (DONE)
+  - Fixed Days vs. Meals UI drift (added coherency clamp: ). (DONE)
+  - Fixed Residual wallet balance bug (Expired subs with positive balances now show correctly in wallet). (DONE)
+  - Fixed P0 Concurrency Race Condition (4 simultaneous requests caused 4x same-day cron debits. Fixed using Mongo  locks and  operators). (DONE)
+  - Created Nuclear Factory Reset Tool for admins with danger modal and dry-run preview. (DONE)
+  - Added Joining Date ledger entry and a Joining Ribbon to the Subscriber Wallet UI, complete with lazy backfill. (DONE)
+  - Added massive suite of >40 pytest cases for cron/wallet logic (). (DONE)
+
+**Earlier issues found/mentioned but not fixed**:
+  - None (All user-reported screenshots and bugs were addressed).
+
+**Known issue recurrence from previous fork**:
+  - Issue recurrence in previous fork: None tracking right now.
+
+**Code Architecture**:
+/app
+├── backend/
+│   ├── routes/ (wallet, subscription, mess_menu_poster, admin, etc.)
+│   ├── tests/ (Contains extensive wallet/cron tests: )
+│   ├── server.py (CRITICAL: Contains massive legacy cron, attendance, and wallet deduction logic. Heavily modified this session).
+├── frontend/
+│   ├── src/components/ (KioskFaceScan, WalletPill)
+│   ├── src/pages/ (AdminUsers, WalletPage, SubscriberDashboard)
+│   ├── src/lib/ (faceApi.js, notify.js)
+
+**Key Technical Concepts**:
+React, FastAPI, MongoDB,  (facial recognition), Atomic MongoDB Operations (, concurrent safe ), Timezone logic (IST), Wallet/Meal Ledger Math.
+
+**key DB schema**:
+  - : Includes 
+  - : , , , , , 
+  - : Ledger tracking (, , , )
+  - : Tracks  and .
+
+**changes in tech stack**:
+  - None.
+
+**All files of reference**: 
+  -  (Cron engine, atomic locks, factory reset).
+  -  (Lazy backfill logic for joining rows).
+  -  (Joining Ribbon UI).
+  -  (Meals/Days coherency clamp).
+  -  (Face detection ring logic).
+
+**Areas that need refactoring**: 
+  - : Massively bloated (>6000 lines). High risk for future regressions. Needs modularization.
+  - : Needs to be split into separate tracking files.
+
+**key api endpoints**:
+  -  (Refund tool)
+  -  (Nuclear wallet wipe/re-assign)
+  -  (Retrieves ledger + lazy backfills joining credit)
+
+**Critical Info for New Agent**:
+- **Concurrency & Atomic Locks**: The backend subscription cron ( in ) is highly sensitive to race conditions. Do NOT remove  or  locks. If editing wallet logic, ensure atomic DB operations are used.
+- **Production Environment Warning**: The user frequently tests on a live production deployment (). Ensure they know your code changes only apply to the Preview environment (accessed via ).
+- **Meals/Days Coherency**: The app forces 2 meals per day. When rendering meals left, ALWAYS use the clamp:  to prevent UI drift.
+
+**documents and test reports created in this job**:
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+
+**Last 10 User Messages and any pending HUMAN messages**:
+ 1. (Latest) User: Complained that the Joining Ribbon isn't visible for active users and the joining credit entry isn't showing in the transaction history.
+ 2. User: Asked to add meals left to the new Joining Ribbon (e.g., 14 days · 28 meals left).
+ 3. User: Requested a Joining Ribbon at the top of the wallet page.
+ 4. User: Requested to add a joining date/amount entry into the wallet transaction history for all active users.
+ 5. User: Requested a Factory Reset to reset wallets to zero, wipe histories, and cleanly re-assign subscriptions accurately based on the start date, allowing manual adjustments to extend days/meals symmetrically.
+ 6. User: Reported a concurrency bug showing 4 identical automated daily deductions for a single date.
+ 7. User: Reported that after admin manual assignment, remaining amount/meals disappeared and showed zero balance.
+ 8. User: Pointed out Days vs. Meals mismatch (20 days left should strictly mean 40 meals left, not 42).
+ 9. User: Approved the plan to fix the refund tool math and speed up the face-check-in green ring.
+ 10. User: Initial message reporting Double Deduction bug, Voice Kiosk overlapping bug, and Days/Meals mismatch logic.
+
+**Project Health Check:**
+- Broken: None currently known.
+- Mocked: OTP generation (dev mode).
+
+**3rd Party Integrations**:
+- Emergent Google Auth — requires User API Key
+- Razorpay (Payments) — requires User API Key
+- Meta WhatsApp Cloud API — requires User API Key
+- Gemini Vision — uses Emergent LLM Key
+
+**Testing status**:
+  - Testing agent used after significant changes: YES (Iterations 140, 141, 142).
+  - Troubleshoot agent used after agent stuck in loop: NO
+  - Test files created: 
+  - Known regressions: None currently.
+
+**Credentials to test flow:**
+Available in .
+
+**What agent forgot to execute**:
+Nothing. The agent successfully addressed every bug report, built the requested features, implemented lazy backfills, and passed all 44 regression tests. Ensure you ask the user if the lazy-backfill fixed their UI issue before picking up new tasks.</analysis>

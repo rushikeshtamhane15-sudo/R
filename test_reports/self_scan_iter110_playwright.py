@@ -7,7 +7,7 @@ browser automation runner against the preview URL at a 360x780 viewport.
 
 async def run(page):
     await page.set_viewport_size({"width": 360, "height": 780})
-    await page.goto("https://dining-pass-scan.preview.emergentagent.com/self-scan", wait_until="domcontentloaded")
+    await page.goto("https://dining-atomics.preview.emergentagent.com/self-scan", wait_until="domcontentloaded")
 
     if "/login" in page.url:
         await page.get_by_test_id("phone-input").fill("9333333333")

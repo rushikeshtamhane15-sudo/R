@@ -162,6 +162,7 @@ class Plan(BaseModel):
 
 class PlanUpsert(BaseModel):
     plan_id: Optional[str] = None
+    mess_id: Optional[str] = None   # iter-143 · efoodtech: which mess this plan belongs to
     name: str
     description: str
     amount: float
@@ -216,6 +217,7 @@ class VerifyOtpRequest(BaseModel):
     phone: str
     otp: str
     name: Optional[str] = None
+    mess_id: Optional[str] = None   # iter-143 · efoodtech: tag user with their mess on first login
 
 
 class CreateOrderRequest(BaseModel):
@@ -263,15 +265,26 @@ async def seed_plans():
     for p in DEFAULT_PLANS:
         existing = await db.plans.find_one({"plan_id": p["plan_id"]}, {"_id": 0})
         if not existing:
-            doc = {**p, "created_at": iso(now_utc()), "updated_at": iso(now_utc())}
+            doc = {**p, "mess_id": DEFAULT_MESS_ID, "created_at": iso(now_utc()), "updated_at": iso(now_utc())}
             await db.plans.insert_one(doc)
         else:
             # One-shot migration: ensure new delivery fields exist on existing rows
             patch = {k: v for k, v in p.items() if k in ("plan_type", "service_type", "tiffin_size", "tiffins_per_day", "name", "description") and existing.get(k) != v}
+            # iter-143 · efoodtech: also backfill mess_id on legacy plans
+            if not existing.get("mess_id"):
+                patch["mess_id"] = DEFAULT_MESS_ID
             if patch:
                 patch["updated_at"] = iso(now_utc())
                 await db.plans.update_one({"plan_id": p["plan_id"]}, {"$set": patch})
                 logger.info(f"[PLAN MIGRATION] {p['plan_id']} updated with {list(patch.keys())}")
+    # iter-143 · efoodtech: backfill mess_id on ANY plan doc missing it (legacy)
+    try:
+        await db.plans.update_many(
+            {"$or": [{"mess_id": {"$exists": False}}, {"mess_id": None}, {"mess_id": ""}]},
+            {"$set": {"mess_id": DEFAULT_MESS_ID}},
+        )
+    except Exception:  # noqa: BLE001
+        pass
 
 
 # ---------------------------
@@ -544,6 +557,30 @@ async def validate_razorpay_keys() -> dict:
 # Razorpay routes → routes/payments.py (admin status, order, custom-order, preview, verify, webhook)
 
 
+async def _resolve_razorpay_for_user(user_doc) -> tuple:
+    """iter-143 · efoodtech: return (client, key_id, is_custom_per_mess).
+
+    If the user's mess has custom Razorpay keys stored, use those so payment
+    lands directly in that mess owner's Razorpay account. Otherwise fall back
+    to the platform-wide keys.
+    """
+    mess_id = (user_doc or {}).get("mess_id") if user_doc else None
+    if mess_id:
+        try:
+            m = await db.messes.find_one(
+                {"mess_id": mess_id},
+                {"_id": 0, "razorpay_key_id": 1, "razorpay_key_secret": 1},
+            )
+            if m and (m.get("razorpay_key_id") or "").strip() and (m.get("razorpay_key_secret") or "").strip():
+                key_id = m["razorpay_key_id"].strip()
+                key_secret = m["razorpay_key_secret"].strip()
+                client = razorpay.Client(auth=(key_id, key_secret))
+                return client, key_id, True
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"[RZP MESS] custom key init failed for mess={mess_id} · {e}")
+    return rzp_client, RZP_KEY_ID, False
+
+
 async def _create_order_record(*, user, user_doc, plan_id, plan_name, amount, currency, duration_days, meals, custom, service_type=None, tiffin_size=None, plan_type=None):
     # Platform fee on top of plan amount — recovers payment-gateway cost
     base_amount = round(float(amount), 2)
@@ -552,15 +589,20 @@ async def _create_order_record(*, user, user_doc, plan_id, plan_name, amount, cu
     total_amount = round(base_amount + platform_fee, 2)
     amount_paise = int(round(total_amount * 100))
     receipt = f"rcpt_{uuid.uuid4().hex[:16]}"
+    # iter-143 · efoodtech: resolve per-mess Razorpay keys so payments go to mess owner directly
+    active_client, active_key_id, using_mess_keys = await _resolve_razorpay_for_user(user_doc)
+    active_enabled = active_client is not None
     rzp_order = None
-    if RZP_ENABLED:
+    if active_enabled:
         try:
-            rzp_order = rzp_client.order.create({
+            rzp_order = active_client.order.create({
                 "amount": amount_paise, "currency": currency, "receipt": receipt,
                 "payment_capture": 1,
                 "notes": {
                     "plan_id": plan_id, "user_id": user.user_id, "custom": str(custom).lower(),
                     "base_amount": str(base_amount), "platform_fee": str(platform_fee),
+                    "mess_id": (user_doc or {}).get("mess_id") or "",
+                    "mess_keys": "1" if using_mess_keys else "0",
                 },
             })
         except razorpay.errors.BadRequestError as e:
@@ -591,6 +633,8 @@ async def _create_order_record(*, user, user_doc, plan_id, plan_name, amount, cu
         "service_type": service_type,
         "tiffin_size": tiffin_size,
         "plan_type": plan_type,
+        "mess_id": (user_doc or {}).get("mess_id"),
+        "razorpay_mode": "mess" if using_mess_keys else ("platform" if active_enabled else "mock"),
         "created_at": iso(now_utc()),
     })
 
@@ -602,7 +646,7 @@ async def _create_order_record(*, user, user_doc, plan_id, plan_name, amount, cu
         "platform_fee": platform_fee,
         "platform_fee_pct": fee_pct,
         "currency": currency,
-        "key_id": RZP_KEY_ID if RZP_ENABLED else "rzp_test_MOCK",
+        "key_id": active_key_id if active_enabled else "rzp_test_MOCK",
         "mock": mock,
         "plan_name": plan_name,
         "duration_days": duration_days,
@@ -1373,30 +1417,30 @@ async def run_expiry_reminders() -> dict:
 # Theme settings (admin-editable design tokens)
 # ---------------------------
 DEFAULT_THEME = {
-    "brand_name": "efoodcare",
-    "brand_tagline": "ghar se achha khana",
+    "brand_name": "efoodtech",
+    "brand_tagline": "User Management System",
     "tokens": {
         "background": "0 0% 100%",
-        "foreground": "220 55% 22%",
+        "foreground": "220 55% 15%",
         "card": "0 0% 100%",
-        "card_foreground": "220 55% 22%",
-        "primary": "0 65% 38%",
+        "card_foreground": "220 55% 15%",
+        "primary": "220 74% 15%",
         "primary_foreground": "0 0% 100%",
-        "secondary": "220 70% 50%",
+        "secondary": "224 71% 40%",
         "secondary_foreground": "0 0% 100%",
-        "accent": "0 40% 96%",
-        "accent_foreground": "0 65% 38%",
+        "accent": "220 60% 96%",
+        "accent_foreground": "220 74% 15%",
         "destructive": "0 70% 50%",
         "destructive_foreground": "0 0% 100%",
         "muted": "220 25% 96%",
         "muted_foreground": "220 20% 40%",
         "border": "220 20% 90%",
         "input": "220 20% 90%",
-        "ring": "0 65% 38%",
+        "ring": "224 71% 40%",
         "radius": "0.75rem",
     },
 }
-THEME_VERSION = 2
+THEME_VERSION = 3   # iter-143 · efoodtech navy rebrand — bump to force migration
 
 
 class ThemeUpdate(BaseModel):
@@ -1422,7 +1466,7 @@ async def _ensure_theme_version():
             {"$set": {**DEFAULT_THEME, "_version": THEME_VERSION, "updated_at": iso(now_utc())}},
             upsert=True,
         )
-        logger.info(f"[THEME MIGRATION] Theme upgraded to version {THEME_VERSION} (dark red)")
+        logger.info(f"[THEME MIGRATION] Theme upgraded to version {THEME_VERSION} (efoodtech navy)")
 
 
 @api_router.get("/theme")
@@ -1793,6 +1837,32 @@ class MessIn(BaseModel):
     fssai_number: Optional[str] = ""
     capacity_lunch: int = Field(default=100, ge=1, le=10000)
     capacity_dinner: int = Field(default=100, ge=1, le=10000)
+    # efoodtech multi-tenant SaaS fields (iter-143)
+    owner_phone: Optional[str] = ""           # for mess-owner login
+    owner_email: Optional[str] = ""
+    logo_url: Optional[str] = ""              # mess-specific logo (data URL)
+    hero_title: Optional[str] = ""            # per-mess marketing title
+    hero_subtitle: Optional[str] = ""
+    tag_chips: Optional[List[str]] = None     # e.g. ["0% Ajinomoto","0% Maida"]
+    payment_note: Optional[str] = ""          # shown on checkout receipt
+
+
+class MessSettingsIn(BaseModel):
+    """iter-143 · mess-owner-editable branding + copy for their own mess."""
+    tagline: Optional[str] = None
+    hero_title: Optional[str] = None
+    hero_subtitle: Optional[str] = None
+    tag_chips: Optional[List[str]] = None
+    logo_url: Optional[str] = None
+    payment_note: Optional[str] = None
+    manager_name: Optional[str] = None
+    manager_phone: Optional[str] = None
+    manager_email: Optional[str] = None
+
+
+class MessRazorpayKeysIn(BaseModel):
+    razorpay_key_id: str = Field(..., min_length=8, max_length=64)
+    razorpay_key_secret: str = Field(..., min_length=8, max_length=128)
 
 
 class FranchiseApplyIn(BaseModel):
@@ -2012,9 +2082,13 @@ async def admin_create_mess(payload: MessIn, user: User = Depends(get_current_us
         raise HTTPException(status_code=403, detail="Admin only")
     if await db.messes.find_one({"slug": payload.slug}):
         raise HTTPException(status_code=400, detail="Slug already in use")
+    # iter-143 · efoodtech: generate a memorable short mess_id like MESS-A7C3
+    mess_id = f"MESS-{uuid.uuid4().hex[:4].upper()}"
+    while await db.messes.find_one({"mess_id": mess_id}):
+        mess_id = f"MESS-{uuid.uuid4().hex[:4].upper()}"
     doc = {
         **payload.model_dump(),
-        "mess_id": f"mess_{uuid.uuid4().hex[:10]}",
+        "mess_id": mess_id,
         "owner_user_id": None,
         "is_corporate": not payload.is_franchise,
         "status": "active",
@@ -5613,6 +5687,7 @@ from routes.branding import router as _branding_router
 from routes.auth_google import router as _auth_google_router
 from routes.testimonials import router as _testimonials_router
 from routes.plans import router as _plans_router
+from routes.mess_owner import router as _mess_owner_router
 from routes.wallet import router as _wallet_router
 from routes.subscription import router as _subscription_router
 from routes.tiffin_prefs_admin import router as _tiffin_prefs_router
@@ -5643,6 +5718,7 @@ api_router.include_router(_promotions_router)
 api_router.include_router(_branding_router)
 api_router.include_router(_testimonials_router)
 api_router.include_router(_plans_router)
+api_router.include_router(_mess_owner_router)
 api_router.include_router(_wallet_router)
 api_router.include_router(_subscription_router)
 api_router.include_router(_tiffin_prefs_router)

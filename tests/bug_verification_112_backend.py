@@ -16,7 +16,7 @@ from pymongo import MongoClient
 
 APP = Path("/app")
 BACKEND_ENV = APP / "backend" / ".env"
-BACKEND_URL = "https://dining-pass-scan.preview.emergentagent.com"
+BACKEND_URL = "https://dining-atomics.preview.emergentagent.com"
 
 
 def read_env(path: Path) -> dict:

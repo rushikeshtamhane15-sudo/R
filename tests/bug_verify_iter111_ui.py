@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-API = 'https://dining-pass-scan.preview.emergentagent.com/api'
+API = 'https://dining-atomics.preview.emergentagent.com/api'
 PHONE_ACTIVE = '9333333333'
 PHONE_INACTIVE = '9333333334'
 

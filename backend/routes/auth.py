@@ -120,8 +120,32 @@ async def verify_otp(payload: server.VerifyOtpRequest, response: Response):
         await server.db.otp_codes.update_one({"phone": phone}, {"$inc": {"attempts": 1}})
         raise HTTPException(status_code=400, detail="Incorrect OTP")
     await server.db.otp_codes.delete_one({"phone": phone})
+    # iter-143 · efoodtech: validate mess_id BEFORE creating user so we don't leak accounts across messes.
+    picked_mess_id = (payload.mess_id or "").strip() or None
+    if picked_mess_id:
+        picked = await server.db.messes.find_one(
+            {"mess_id": picked_mess_id, "status": "active"},
+            {"_id": 0, "mess_id": 1, "name": 1, "owner_phone": 1},
+        )
+        if not picked:
+            raise HTTPException(status_code=400, detail="Selected mess is not active or does not exist")
+        picked_mess_id = picked["mess_id"]
     name = (payload.name or f"User {phone[-4:]}").strip()
     user = await server.create_or_get_user(email=None, phone=phone, name=name)
+    # Tag user with mess_id: only on first login, or when it matches an existing one.
+    if picked_mess_id:
+        existing_mess = user.get("mess_id")
+        if existing_mess and existing_mess != picked_mess_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Your account is registered under a different mess. Please pick your correct mess to continue.",
+            )
+        if not existing_mess:
+            await server.db.users.update_one(
+                {"user_id": user["user_id"]},
+                {"$set": {"mess_id": picked_mess_id, "mess_assigned_at": server.iso(server.now_utc())}},
+            )
+            user["mess_id"] = picked_mess_id
     token = await server.issue_session(user["user_id"], response)
     return {"user": {k: v for k, v in user.items() if k != "_id"}, "session_token": token}
 

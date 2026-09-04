@@ -1,4 +1,4 @@
-BASE = 'https://dining-pass-scan.preview.emergentagent.com'
+BASE = 'https://dining-atomics.preview.emergentagent.com'
 PHONE_ACTIVE = '9333333333'
 
 async def collect_errors(page):

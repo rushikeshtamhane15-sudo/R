@@ -1,6 +1,6 @@
 """Focused Playwright verification for bug iter 113.
 
-Run target: https://dining-pass-scan.preview.emergentagent.com
+Run target: https://dining-atomics.preview.emergentagent.com
 Scope: wall kiosk fullscreen route, admin discovery link, redesigned kiosk mess-menu card.
 This file mirrors the script body passed to the browser automation tool.
 """
@@ -12,7 +12,7 @@ async def run(page):
     await page.set_viewport_size({"width": 1400, "height": 900})
     try:
         print("STEP 1: Login as admin and open /admin/kiosk")
-        await page.goto("https://dining-pass-scan.preview.emergentagent.com/login?next=%2Fadmin%2Fkiosk", wait_until="domcontentloaded")
+        await page.goto("https://dining-atomics.preview.emergentagent.com/login?next=%2Fadmin%2Fkiosk", wait_until="domcontentloaded")
         await page.wait_for_timeout(1000)
 
         if await page.get_by_test_id("phone-input").count() > 0:
@@ -28,7 +28,7 @@ async def run(page):
             await page.get_by_test_id("verify-otp-button").click()
             await page.wait_for_url(re.compile(r".*/admin/kiosk.*"), timeout=20000)
         else:
-            await page.goto("https://dining-pass-scan.preview.emergentagent.com/admin/kiosk", wait_until="domcontentloaded")
+            await page.goto("https://dining-atomics.preview.emergentagent.com/admin/kiosk", wait_until="domcontentloaded")
 
         await page.wait_for_selector('[data-testid="admin-kiosk-page"]', timeout=20000)
         print("PASS: Admin kiosk page loaded")

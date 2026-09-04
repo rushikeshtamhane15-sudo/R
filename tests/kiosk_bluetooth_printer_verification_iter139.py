@@ -22,7 +22,7 @@ both runs passed 100%.
 import json
 import re
 
-BASE = "https://dining-pass-scan.preview.emergentagent.com"
+BASE = "https://dining-atomics.preview.emergentagent.com"
 
 MOCK_UNKNOWN_SERVICE = """
 (() => {

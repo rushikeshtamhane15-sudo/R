@@ -79,6 +79,7 @@ import AdminCashAnalytics from "./pages/AdminCashAnalytics";
 import AdminKitchenSettings from "./pages/AdminKitchenSettings";
 import AdminVoiceSettings from "./pages/AdminVoiceSettings";
 import AdminBroadcast from "./pages/AdminBroadcast";
+import MessOwnerSettings from "./pages/MessOwnerSettings";
 import AdminFaceEnroll from "./pages/AdminFaceEnroll";
 import AdminMesses from "./pages/AdminMesses";
 import AdminRestaurantHours from "./pages/AdminRestaurantHours";
@@ -175,6 +176,7 @@ function AppRoutes() {
           <Route path="/contact" element={<Contact />} />
           <Route path="/about" element={<About />} />
           <Route path="/franchise" element={<RequireAuth roles={["franchise_owner", "admin"]}><FranchisePortal /></RequireAuth>} />
+          <Route path="/mess-owner/settings" element={<RequireAuth roles={["franchise_owner", "admin"]}><MessOwnerSettings /></RequireAuth>} />
           <Route path="/branch/:slug" element={<BranchContact />} />
           <Route path="/partners" element={<PartnerPortal />} />
 

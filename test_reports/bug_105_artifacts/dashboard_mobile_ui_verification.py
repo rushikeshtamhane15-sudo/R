@@ -1,6 +1,6 @@
 """
 Focused Playwright verification script for user-reported dashboard/header mobile UI bug.
-Executed through mcp_browser_automation against https://dining-pass-scan.preview.emergentagent.com at 360x844.
+Executed through mcp_browser_automation against https://dining-atomics.preview.emergentagent.com at 360x844.
 Covered:
 - OTP login as tiffin subscriber 8888888888 and dining subscriber 7777777777
 - header computed font sizes, no overflow, wallet drawer opens

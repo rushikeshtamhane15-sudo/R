@@ -10,7 +10,7 @@ from pathlib import Path
 
 import requests
 
-BASE = os.environ.get("EFC_BASE_URL", "https://dining-pass-scan.preview.emergentagent.com").rstrip("/")
+BASE = os.environ.get("EFC_BASE_URL", "https://dining-atomics.preview.emergentagent.com").rstrip("/")
 API = f"{BASE}/api"
 ADMIN_PHONE = os.environ.get("EFC_ADMIN_PHONE", "9970705391")
 SUB_PHONE = os.environ.get("EFC_SUB_PHONE", "9123456789")
