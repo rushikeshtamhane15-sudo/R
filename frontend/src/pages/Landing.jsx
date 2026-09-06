@@ -13,6 +13,7 @@ import HeroParticles from "../components/HeroParticles";
 import * as Icons from "lucide-react";
 
 const DEFAULT_HERO = "https://images.unsplash.com/photo-1600488999806-8efb986d87b1?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600";
+const LS_MESS_KEY = "efoodtech.mess.picked";
 
 // Pick an icon by name from lucide-react; fall back to BadgeCheck if unknown
 function Icon({ name, className, strokeWidth = 1.75 }) {
@@ -31,6 +32,11 @@ export default function Landing() {
   // iter-59 #5: hydrate from localStorage cache on first paint so the
   // page renders with the admin's saved hero text immediately.
   const [content, setContent] = useState(() => readCmsCache("/content/landing"));
+  // iter-144 · efoodtech: overlay per-mess hero copy + tag chips.
+  const [pickedMess, setPickedMess] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(LS_MESS_KEY) || "null"); }
+    catch { return null; }
+  });
   const { user } = useAuth();
   const ctaTarget = user
     ? user.role === "admin" ? "/admin" : user.role === "staff" ? "/staff/scanner" : "/dashboard"
@@ -49,8 +55,30 @@ export default function Landing() {
     })();
   }, []);
 
+  // iter-144: refresh picked mess doc from server so its hero copy stays fresh
+  useEffect(() => {
+    const id = pickedMess?.mess_id;
+    if (!id) return;
+    (async () => {
+      try {
+        const r = await api.get(`/messes/${encodeURIComponent(pickedMess.slug || id)}`);
+        if (r.data?.mess_id) {
+          setPickedMess(r.data);
+          try { localStorage.setItem(LS_MESS_KEY, JSON.stringify(r.data)); } catch {}
+        }
+      } catch { /* stale cache is fine */ }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickedMess?.mess_id]);
+
   const c = content || {};
   const heroImg = c.hero_image_url || DEFAULT_HERO;
+
+  // iter-144 · efoodtech: per-mess overrides (fall back to CMS content).
+  const heroTitleLine1 = (pickedMess?.hero_title || "").trim() || c.hero_title_line1 || "ghar se achha khana,";
+  const heroTitleLine2 = pickedMess?.hero_title ? "" : (c.hero_title_line2 || "ab ek e-Meal Pass pe.");
+  const heroSubtitle   = (pickedMess?.hero_subtitle || "").trim() || c.hero_subtitle || "30-day tiffin subscriptions with a smart wallet. Pay once by UPI, check-in by QR, skip a few days — we pause your wallet, no meals wasted.";
+  const messChips = Array.isArray(pickedMess?.tag_chips) ? pickedMess.tag_chips.filter(Boolean) : [];
 
   const alwaysBgClass = useMemo(
     () => ALWAYS_BG_CLASSES[c.healthy_always_bg] || ALWAYS_BG_CLASSES.green,
@@ -60,14 +88,33 @@ export default function Landing() {
   return (
     <div data-testid="landing-page">
       <SEO
-        title="Subscription tiffin · ghar se accha khana"
+        title={pickedMess?.name ? `${pickedMess.name} · efoodtech` : "efoodtech · User Management System"}
         path="/home"
-        description="India's first zero adulteration meal app · 30-day subscription tiffin plans with smart wallet & QR check-in. No Ajinomoto, No Maida, No Refined or Palm oil. Subscribe in minutes via UPI."
+        description={pickedMess?.hero_subtitle || "efoodtech — SaaS mess management platform. 30-day meal passes with QR + face check-in and wallet."}
       />
+      {/* Per-mess ribbon */}
+      {pickedMess?.mess_id && (
+        <div className="w-full bg-primary/5 border-b border-primary/10 py-2" data-testid="landing-mess-ribbon">
+          <div className="max-w-7xl mx-auto px-6 md:px-8 lg:px-12 flex items-center gap-3">
+            {pickedMess.logo_url ? (
+              <img src={pickedMess.logo_url} alt="" className="h-7 w-7 rounded-lg object-cover border border-primary/20" />
+            ) : (
+              <div className="h-7 w-7 rounded-lg bg-primary/15 text-primary flex items-center justify-center"><Icons.Building2 className="h-3.5 w-3.5" /></div>
+            )}
+            <div className="flex-1 min-w-0 text-xs">
+              <span className="font-bold text-primary">{pickedMess.name}</span>
+              <span className="text-slate-500 mx-2">·</span>
+              <span className="font-mono text-slate-500">{pickedMess.mess_id}</span>
+              {pickedMess.city && <><span className="text-slate-500 mx-2">·</span><span className="text-slate-600">{pickedMess.city}</span></>}
+            </div>
+            <Link to="/login" className="text-[11px] font-semibold text-secondary hover:underline">Change mess</Link>
+          </div>
+        </div>
+      )}
+
       {/* Hero — iter-64 #1: full-viewport landing hero with serviceability
           pill anchored at the TOP, generous spacing, fluid type so the whole
-          hero card fits one screen on mobile.
-          iter-65 #1: CSS-only steam + floating PURE VEG chips behind the hero. */}
+          hero card fits one screen on mobile. */}
       <section
         className="relative overflow-hidden min-h-[calc(100svh-64px)] md:min-h-[calc(100svh-72px)] flex flex-col"
         onMouseMove={(e) => {
@@ -81,32 +128,40 @@ export default function Landing() {
           <div className="absolute inset-0 bg-background/85"></div>
         </div>
         <HeroParticles />
-        {/* iter-64 #1 + iter-73 #7 + iter-74 #7: ServiceabilityPill sits
-            extremely tight against the announcement bar above (pt-0.5) and
-            the headline (py-1 sm:py-3) — minimal whitespace to draw the eye
-            straight into the H1. */}
         <div className="pt-0.5">
           <ServiceabilityPill />
         </div>
-        {/* iter-75 #2: align content to TOP (was items-center) so the
-            overline sits immediately under the location pill instead of
-            floating in the vertical middle of the hero. */}
         <div className="flex-1 flex items-start">
           <div className="w-full max-w-7xl mx-auto px-6 md:px-8 lg:px-12 pt-2 pb-1 sm:pt-3 sm:pb-3 md:py-5">
           <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="text-xs sm:text-sm tracking-overline uppercase font-bold text-secondary mt-4 sm:mt-5 mb-6 sm:mb-8">
-            {c.hero_overline || "UPI · WALLET · E-MEAL PASS"}
+            {pickedMess?.tagline || c.hero_overline || "UPI · WALLET · E-MEAL PASS"}
           </motion.p>
           <motion.h1 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="font-display font-extrabold text-[34px] leading-[1.02] sm:text-6xl lg:text-7xl tracking-tight max-w-4xl">
-            <span className="text-primary">{c.hero_title_line1 || "ghar se achha khana,"}</span>{" "}
-            <br className="hidden md:block" />
-            {c.hero_title_line2 || "ab ek e-Meal Pass pe."}
+            <span className="text-primary">{heroTitleLine1}</span>{" "}
+            {heroTitleLine2 && <>
+              <br className="hidden md:block" />
+              {heroTitleLine2}
+            </>}
           </motion.h1>
           <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mt-5 sm:mt-7 text-[17px] sm:text-2xl max-w-2xl text-muted-foreground leading-relaxed font-semibold">
-            {c.hero_subtitle || "30-day tiffin subscriptions with a smart wallet. Pay once by UPI, check-in by QR, skip a few days — we pause your wallet, no meals wasted."}
+            {heroSubtitle}
           </motion.p>
+
+          {/* Per-mess tag chips row */}
+          {messChips.length > 0 && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}
+              className="mt-6 flex flex-wrap gap-2" data-testid="mess-hero-chips">
+              {messChips.map((chip, i) => (
+                <span key={i} className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs sm:text-sm font-bold px-3 py-1.5"
+                  data-testid={`mess-chip-${i}`}>
+                  <Icons.BadgeCheck className="h-3.5 w-3.5" />
+                  {chip}
+                </span>
+              ))}
+            </motion.div>
+          )}
+
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mt-10 sm:mt-12 flex flex-wrap gap-3 sm:gap-4">
-            {/* iter-64 #3: 'Get your e-Meal Pass' should always go to /plans
-                so users can compare and choose before sign-up. */}
             <Link to="/plans" data-testid="hero-cta-start">
               <Button size="lg" className="rounded-full bg-primary hover:bg-primary/90 px-7 sm:px-8 h-11 sm:h-12 text-sm sm:text-base">{ctaLabelOverride || c.hero_cta_primary || "Get your e-Meal Pass"}</Button>
             </Link>
@@ -114,8 +169,6 @@ export default function Landing() {
               <Button size="lg" variant="outline" className="rounded-full px-7 sm:px-8 h-11 sm:h-12 text-sm sm:text-base">{c.hero_cta_secondary || (user ? "Go to dashboard" : "Sign in")}</Button>
             </Link>
           </motion.div>
-          {/* iter-65 #5 + iter-73 #8 + iter-74 #8 / iter-86 #6: nudged
-              downward, more breathing room from the CTA buttons. */}
           <motion.div
             initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}
             className="mt-7 sm:mt-9 flex flex-row justify-center gap-2"

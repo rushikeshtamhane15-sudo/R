@@ -135,8 +135,18 @@ async def admin_upsert_plan(payload: server.PlanUpsert, user: server.User = Depe
 
 @router.delete("/admin/plans/{plan_id}")
 async def admin_delete_plan(plan_id: str, user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
+    # iter-144: franchise owners may only delete plans from their own mess.
+    if user.role == "franchise_owner":
+        m = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+        if not m:
+            raise HTTPException(status_code=403, detail="No mess assigned to this account")
+        plan = await server.db.plans.find_one({"plan_id": plan_id}, {"_id": 0, "mess_id": 1})
+        if not plan:
+            raise HTTPException(status_code=404, detail="Plan not found")
+        if plan.get("mess_id") != m["mess_id"]:
+            raise HTTPException(status_code=403, detail="You can only delete plans that belong to your mess.")
     result = await server.db.plans.delete_one({"plan_id": plan_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Plan not found")

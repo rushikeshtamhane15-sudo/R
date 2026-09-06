@@ -4,6 +4,33 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-144 — Super-admin onboarding · per-mess landing · scoped plans editor (2026-02-04)
+**Status: DONE — three requested SaaS enhancements shipped, curl + screenshots green.**
+
+**1. Super-admin onboarding page (`/super-admin/messes`)**
+- Backend: `MessIn` gained `mess_id_custom` (optional). `POST /api/admin/messes` now:
+  - Uses custom Mess ID if provided (validated: 3-40 chars, alphanumeric + `-`/`_`, uppercased, unique).
+  - Auto-generates `MESS-XXXX` short IDs when custom omitted.
+  - If `owner_phone` matches an existing efoodtech user's phone (with `+91` prefix tolerance), auto-promotes them to `franchise_owner` and stamps `owner_user_id` + `mess_id` in one call. Response includes `promoted_owner_user_id`.
+- Frontend: new `pages/SuperAdminMesses.jsx` mounted at `/super-admin/messes` (admin-only). One-shot form: mess name, custom ID, owner phone/email, city, address, tagline, FSSAI, franchise flag. Table of all messes with mess_id copy, status pill, own-Razorpay indicator, and one-click suspend/activate. Success ribbon copies the new Mess ID.
+- Verified via curl: custom ID accepted (`MUMBAI-KHAR-42`), duplicate rejected, invalid chars rejected, auto-gen works, ribbon + form render correctly in screenshot.
+
+**2. Per-mess landing hero**
+- Frontend: `pages/Landing.jsx` now reads `localStorage["efoodtech.mess.picked"]` (set by the Login mess picker) and refreshes it from `/api/messes/{slug}` on mount. Overrides `hero_title`, `hero_subtitle`, `tagline` (as overline), and injects `tag_chips` as a chip row under the sub-headline. Falls back to CMS defaults when no mess picked. Adds a top ribbon showing the current tenant with a "Change mess" link. SEO title also switches to the picked mess name.
+- Backend: uses existing `GET /api/messes/{slug}` — no changes needed. Verified `hero_title="Home food, Mumbai style"` + chips round-trip.
+
+**3. Scoped plan editor for mess owners**
+- Backend: `admin_upsert_plan` was already franchise-scoped in iter-143. `admin_delete_plan` extended to allow `franchise_owner` role but only for plans belonging to their own mess (`plan.mess_id == owner.mess_id`).
+- Frontend: `pages/AdminPlans.jsx` now reads `useAuth()`. For `franchise_owner`:
+  - Overline switches to "Mess Owner · Plans", copy explains "goes straight to your Razorpay account".
+  - Hides the platform `RazorpayStatusCard` + `WebhookEventsPanel`.
+  - Shows a scope banner with the current mess name + a live indicator: green "connected" if their Razorpay keys exist, else amber deep-link to `/mess-owner/settings`.
+- Backend already scoped list/create by mess_id (iter-143). Route mounted under the same `/admin/plans` in AdminLayout (already accessible to franchise_owner).
+
+**Not touched:** legacy `Landing.jsx` copy fallback (`ghar se achha khana`) stays for the DEFAULT_MESS_ID tenant when no mess is picked. Landing per-mess overrides only fire when the user has picked a mess.
+
+
+
 ## iter-143 — efoodtech SaaS rebrand · multi-tenant login · per-mess Razorpay + plans (2026-02-04)
 **Status: DONE — Phase 1 (SaaS foundation) shipped, user verification pending.**
 

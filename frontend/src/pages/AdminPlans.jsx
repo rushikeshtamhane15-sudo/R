@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
+import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
@@ -193,6 +194,9 @@ function WebhookEventsPanel() {
 }
 
 export default function AdminPlans() {
+  const { user } = useAuth();
+  const isMessOwner = user?.role === "franchise_owner";
+  const [ownMess, setOwnMess] = useState(null);
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -200,6 +204,14 @@ export default function AdminPlans() {
   const [saving, setSaving] = useState(false);
   // Iter-51: category filter tabs (dining | tiffin | all)
   const [categoryTab, setCategoryTab] = useState("dining");
+
+  useEffect(() => {
+    if (!isMessOwner) return;
+    (async () => {
+      try { const r = await api.get("/mess-owner/me"); setOwnMess(r.data?.mess || null); }
+      catch { /* silent */ }
+    })();
+  }, [isMessOwner]);
 
   const load = async () => {
     setLoading(true);
@@ -272,17 +284,42 @@ export default function AdminPlans() {
     <div data-testid="admin-plans-page">
       <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
         <div>
-          <p className="text-xs tracking-overline uppercase font-bold text-secondary">Admin</p>
+          <p className="text-xs tracking-overline uppercase font-bold text-secondary">
+            {isMessOwner ? "Mess Owner · Plans" : "Admin"}
+          </p>
           <h1 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-2">Subscription plans</h1>
-          <p className="text-muted-foreground mt-2 text-sm">Create, edit and disable plans. Changes go live immediately.</p>
+          <p className="text-muted-foreground mt-2 text-sm">
+            {isMessOwner
+              ? "Edit YOUR mess's plans. Every subscription bought here goes straight to your Razorpay account."
+              : "Create, edit and disable plans. Changes go live immediately."}
+          </p>
         </div>
         <Button onClick={openNew} className="rounded-full bg-primary hover:bg-primary/90" data-testid="new-plan-button">
           <Plus className="h-4 w-4 mr-2" /> New plan
         </Button>
       </div>
 
-      <RazorpayStatusCard />
-      <WebhookEventsPanel />
+      {/* iter-144 · efoodtech: mess-owner scope banner — hides platform-only cards */}
+      {isMessOwner ? (
+        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 flex items-start gap-3 mb-6" data-testid="mess-scope-banner">
+          <ShieldCheck className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-bold text-primary">
+              Scoped to your mess{ownMess?.name ? ` · ${ownMess.name}` : ""} <span className="font-mono text-[11px] ml-1">{ownMess?.mess_id || ""}</span>
+            </div>
+            <div className="text-xs text-slate-600 mt-1">
+              Only your mess's plans show here. Your subscribers pay via <b>your Razorpay keys</b> (
+              {ownMess?.razorpay_key_id ? <span className="text-emerald-700 font-semibold">connected</span> : <a href="/mess-owner/settings" className="text-secondary underline font-semibold">not yet configured — set up</a>}
+              ).
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          <RazorpayStatusCard />
+          <WebhookEventsPanel />
+        </>
+      )}
 
       {/* Iter-51: category tabs to bifurcate dining vs tiffin plans */}
       <div className="flex flex-wrap items-center gap-2 mb-4" data-testid="plan-category-tabs">

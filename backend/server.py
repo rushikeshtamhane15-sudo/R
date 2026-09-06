@@ -1845,6 +1845,8 @@ class MessIn(BaseModel):
     hero_subtitle: Optional[str] = ""
     tag_chips: Optional[List[str]] = None     # e.g. ["0% Ajinomoto","0% Maida"]
     payment_note: Optional[str] = ""          # shown on checkout receipt
+    # iter-144: super-admin can override the auto-generated mess_id at create time
+    mess_id_custom: Optional[str] = None      # e.g. "MUMBAI-KHAR-42"; if omitted → auto-generate
 
 
 class MessSettingsIn(BaseModel):
@@ -2082,14 +2084,36 @@ async def admin_create_mess(payload: MessIn, user: User = Depends(get_current_us
         raise HTTPException(status_code=403, detail="Admin only")
     if await db.messes.find_one({"slug": payload.slug}):
         raise HTTPException(status_code=400, detail="Slug already in use")
-    # iter-143 · efoodtech: generate a memorable short mess_id like MESS-A7C3
-    mess_id = f"MESS-{uuid.uuid4().hex[:4].upper()}"
-    while await db.messes.find_one({"mess_id": mess_id}):
+    # iter-144 · efoodtech SaaS: super-admin may supply a custom Mess ID
+    custom_id = (payload.mess_id_custom or "").strip().upper()
+    if custom_id:
+        if len(custom_id) < 3 or len(custom_id) > 40 or not all(c.isalnum() or c in "-_" for c in custom_id):
+            raise HTTPException(status_code=400, detail="Custom Mess ID must be 3–40 chars: letters, numbers, '-' or '_' only.")
+        if await db.messes.find_one({"mess_id": custom_id}):
+            raise HTTPException(status_code=400, detail="Mess ID already exists — pick another.")
+        mess_id = custom_id
+    else:
         mess_id = f"MESS-{uuid.uuid4().hex[:4].upper()}"
+        while await db.messes.find_one({"mess_id": mess_id}):
+            mess_id = f"MESS-{uuid.uuid4().hex[:4].upper()}"
+    body = payload.model_dump()
+    body.pop("mess_id_custom", None)
+    # iter-144: if owner_phone provided AND matches an existing user, auto-assign as franchise_owner in one shot.
+    promoted_owner_user_id: Optional[str] = None
+    owner_phone_norm = "".join(c for c in (body.get("owner_phone") or "") if c.isdigit())
+    if owner_phone_norm:
+        candidates = [owner_phone_norm]
+        if owner_phone_norm.startswith("91") and len(owner_phone_norm) == 12:
+            candidates.append(owner_phone_norm[2:])
+        elif len(owner_phone_norm) == 10:
+            candidates.append("91" + owner_phone_norm)
+        owner_doc = await db.users.find_one({"phone": {"$in": candidates}}, {"_id": 0, "user_id": 1})
+        if owner_doc:
+            promoted_owner_user_id = owner_doc["user_id"]
     doc = {
-        **payload.model_dump(),
+        **body,
         "mess_id": mess_id,
-        "owner_user_id": None,
+        "owner_user_id": promoted_owner_user_id,
         "is_corporate": not payload.is_franchise,
         "status": "active",
         "currency": "INR",
@@ -2097,8 +2121,14 @@ async def admin_create_mess(payload: MessIn, user: User = Depends(get_current_us
         "updated_at": iso(now_utc()),
     }
     await db.messes.insert_one(doc)
-    out = await db.messes.find_one({"mess_id": doc["mess_id"]}, {"_id": 0})
-    return out
+    # Promote the owner's role if we linked them
+    if promoted_owner_user_id:
+        await db.users.update_one(
+            {"user_id": promoted_owner_user_id, "role": {"$ne": "admin"}},
+            {"$set": {"role": "franchise_owner", "mess_id": mess_id}},
+        )
+    out = await db.messes.find_one({"mess_id": mess_id}, {"_id": 0})
+    return {**out, "promoted_owner_user_id": promoted_owner_user_id}
 
 
 @api_router.put("/admin/messes/{mess_id}")
