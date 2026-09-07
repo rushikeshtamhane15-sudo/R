@@ -151,22 +151,17 @@ export default function Login() {
     <div className="min-h-screen bg-white flex flex-col" data-testid="login-page">
       <SEO title="Login · efoodtech" path="/login" description="Login to efoodtech. Type your mess name to find it — one-step login." />
 
-      <div className="relative overflow-hidden bg-primary text-white">
-        <div className="max-w-md mx-auto w-full px-6 pt-8 pb-8 text-center">
-          <h1 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight leading-tight">efoodtech</h1>
-          <p className="text-white/85 text-sm mt-1 font-medium">User Management System · for messes across India</p>
-        </div>
-      </div>
+      {/* iter-149: hero block removed per user — brand identity already shown in the site header above. */}
 
-      {/* iter-148 · Super-admin editable announcement bar between header + form */}
+      {/* iter-148 · Super-admin editable announcement bar */}
       {(c.announcement_bar || "").trim() && (
         <div className="bg-amber-100 border-y border-amber-200 text-amber-900 py-2 px-4 text-center text-xs sm:text-sm font-semibold" data-testid="login-announcement-bar">
           {c.announcement_bar}
         </div>
       )}
 
-      <div className="bg-white flex-1 px-4 sm:px-6 pb-16">
-        <div className="max-w-md mx-auto w-full -mt-6 relative z-10">
+      <div className="bg-white flex-1 px-4 sm:px-6 pt-6 pb-16">
+        <div className="max-w-md mx-auto w-full relative z-10">
           <div className="bg-white rounded-2xl px-5 py-6 sm:px-7 sm:py-7 shadow-xl border border-slate-200" data-testid="login-form-card">
             <AnimatePresence mode="wait">
               {!otpMode ? (
