@@ -19,7 +19,7 @@ import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
 import {
   Building2, Save, Upload, CheckCircle2, AlertTriangle, ShieldCheck,
-  Trash2, KeyRound, Loader2, Plus, X, RefreshCcw,
+  Trash2, KeyRound, Loader2, Plus, X, RefreshCcw, Sparkles,
 } from "lucide-react";
 
 export default function MessOwnerSettings() {
@@ -339,6 +339,170 @@ export default function MessOwnerSettings() {
           )}
         </div>
       </section>
+
+      {/* iter-147 · Per-mess CMS editors (footer, announcement, contact, kiosk voice) */}
+      <PerMessCMSEditors mess={mess} onSave={load} />
+
+      {/* iter-147 · Featured slot-1 payment (₹499 · 30 days) */}
+      <FeaturedPromoCard mess={mess} onDone={load} />
     </div>
+  );
+}
+
+function PerMessCMSEditors({ mess, onSave }) {
+  const [footer, setFooter] = useState(mess?.footer_text || "");
+  const [announce, setAnnounce] = useState(mess?.announcement_text || "");
+  const [cPhone, setCPhone] = useState(mess?.contact_phone || "");
+  const [cEmail, setCEmail] = useState(mess?.contact_email || "");
+  const [cAddr, setCAddr] = useState(mess?.contact_address || "");
+  const [cHours, setCHours] = useState(mess?.contact_hours || "");
+  const [voice, setVoice] = useState(mess?.kiosk_voice_name || "");
+  const [lang, setLang] = useState(mess?.kiosk_voice_lang || "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setFooter(mess?.footer_text || "");
+    setAnnounce(mess?.announcement_text || "");
+    setCPhone(mess?.contact_phone || "");
+    setCEmail(mess?.contact_email || "");
+    setCAddr(mess?.contact_address || "");
+    setCHours(mess?.contact_hours || "");
+    setVoice(mess?.kiosk_voice_name || "");
+    setLang(mess?.kiosk_voice_lang || "");
+  }, [mess]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await api.patch("/mess-owner/settings", {
+        footer_text: footer.trim(),
+        announcement_text: announce.trim(),
+        contact_phone: cPhone.trim(), contact_email: cEmail.trim(),
+        contact_address: cAddr.trim(), contact_hours: cHours.trim(),
+        kiosk_voice_name: voice.trim(), kiosk_voice_lang: lang.trim(),
+      });
+      toast.success("CMS saved");
+      onSave?.();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Save failed"); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <section className="rounded-2xl bg-white border border-slate-200 p-5 space-y-4" data-testid="per-mess-cms-editors">
+      <h3 className="font-display font-extrabold text-lg text-slate-900">Your page copy</h3>
+      <p className="text-xs text-slate-500 -mt-2">Only affects your mess. Falls back to platform default when empty.</p>
+
+      <div>
+        <label className="block text-[10px] tracking-widest uppercase font-bold text-slate-500">Announcement bar</label>
+        <Input value={announce} onChange={(e) => setAnnounce(e.target.value)} placeholder="e.g. Diwali sweets free tomorrow!"
+          className="mt-1 rounded-xl" data-testid="announce-input" />
+      </div>
+
+      <div>
+        <label className="block text-[10px] tracking-widest uppercase font-bold text-slate-500">Footer text</label>
+        <Textarea value={footer} onChange={(e) => setFooter(e.target.value)} rows={2}
+          placeholder="© 2026 Your Mess · Made with 💛 in Pune" className="mt-1 rounded-xl"
+          data-testid="footer-input" />
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-[10px] tracking-widest uppercase font-bold text-slate-500">Contact phone</label>
+          <Input value={cPhone} onChange={(e) => setCPhone(e.target.value)} className="mt-1 rounded-xl" data-testid="contact-phone-input" />
+        </div>
+        <div>
+          <label className="block text-[10px] tracking-widest uppercase font-bold text-slate-500">Contact email</label>
+          <Input value={cEmail} onChange={(e) => setCEmail(e.target.value)} className="mt-1 rounded-xl" data-testid="contact-email-input" />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="block text-[10px] tracking-widest uppercase font-bold text-slate-500">Contact address</label>
+          <Textarea value={cAddr} onChange={(e) => setCAddr(e.target.value)} rows={2} className="mt-1 rounded-xl" data-testid="contact-address-input" />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="block text-[10px] tracking-widest uppercase font-bold text-slate-500">Contact hours</label>
+          <Input value={cHours} onChange={(e) => setCHours(e.target.value)} placeholder="Mon-Sat · 9am-10pm" className="mt-1 rounded-xl" data-testid="contact-hours-input" />
+        </div>
+        <div>
+          <label className="block text-[10px] tracking-widest uppercase font-bold text-slate-500">Kiosk voice</label>
+          <Input value={voice} onChange={(e) => setVoice(e.target.value)} placeholder="e.g. en-IN-NeerjaNeural" className="mt-1 rounded-xl" data-testid="kiosk-voice-input" />
+        </div>
+        <div>
+          <label className="block text-[10px] tracking-widest uppercase font-bold text-slate-500">Kiosk language</label>
+          <Input value={lang} onChange={(e) => setLang(e.target.value)} placeholder="en-IN | hi-IN | mr-IN" className="mt-1 rounded-xl" data-testid="kiosk-lang-input" />
+        </div>
+      </div>
+
+      <Button onClick={save} disabled={saving} className="w-full rounded-xl bg-primary hover:bg-primary/90 text-white font-semibold h-11" data-testid="save-cms-btn">
+        {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+        Save page copy
+      </Button>
+    </section>
+  );
+}
+
+function FeaturedPromoCard({ mess, onDone }) {
+  const [busy, setBusy] = useState(false);
+  const featuredUntil = mess?.featured_until ? new Date(mess.featured_until).toLocaleDateString() : null;
+
+  const buy = async () => {
+    setBusy(true);
+    try {
+      const r = await api.post("/mess-owner/featured/create-order");
+      const orderResp = r.data;
+      // If Razorpay SDK is available in-page (it is on other checkout screens),
+      // open checkout. Else fall back to a devMock verify path.
+      if (window.Razorpay && !orderResp.mock) {
+        const rzp = new window.Razorpay({
+          key: orderResp.key_id, amount: orderResp.amount_paise, currency: orderResp.currency,
+          name: "efoodtech · Featured slot", description: `Featured for ${orderResp.plan_days} days`,
+          order_id: orderResp.order_id, prefill: orderResp.prefill,
+          handler: async (resp) => {
+            try {
+              await api.post("/mess-owner/featured/verify", { order_id: orderResp.order_id, payment_id: resp.razorpay_payment_id, signature: resp.razorpay_signature });
+              toast.success("You're featured! 🎉");
+              onDone?.();
+            } catch (e) { toast.error(e?.response?.data?.detail || "Verification failed"); }
+          },
+          theme: { color: "#a02323" },
+        });
+        rzp.open();
+      } else {
+        // dev / mock path — verify immediately with the mock order
+        await api.post("/mess-owner/featured/verify", { order_id: orderResp.order_id });
+        toast.success("Featured activated (dev mode)");
+        onDone?.();
+      }
+    } catch (e) { toast.error(e?.response?.data?.detail || "Order failed"); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5" data-testid="featured-promo-card">
+      <div className="flex items-start gap-3">
+        <div className="h-10 w-10 rounded-xl bg-amber-500 text-white flex items-center justify-center">
+          <Sparkles className="h-5 w-5" />
+        </div>
+        <div className="flex-1">
+          <h3 className="font-display font-extrabold text-lg text-slate-900">Get pinned to slot #1</h3>
+          <p className="text-xs text-slate-600 mt-1">Featured messes always show at the TOP of the Nearby page for users in your area — a proven boost for new subscriptions.</p>
+          {mess?.is_featured && featuredUntil ? (
+            <div className="mt-3 inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-1.5" data-testid="featured-until-badge">
+              ✓ Featured until {featuredUntil}
+            </div>
+          ) : (
+            <div className="mt-3 flex items-center gap-3">
+              <div>
+                <div className="text-2xl font-extrabold text-slate-900">₹499</div>
+                <div className="text-[10px] uppercase font-bold text-slate-500 tracking-widest">for 30 days</div>
+              </div>
+              <Button onClick={buy} disabled={busy} className="rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold" data-testid="buy-featured-btn">
+                {busy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                Get featured now
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }

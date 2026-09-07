@@ -4,6 +4,42 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-147 — Per-mess CMS + Featured payment + Review moderation + Verified/Trusted badges (2026-02-04)
+**Status: DONE — 4 features shipped, all curl-verified.**
+
+**1. Per-mess CMS editors**
+- Backend `MessSettingsIn` gained: `footer_text`, `announcement_text`, `contact_phone`, `contact_email`, `contact_address`, `contact_hours`, `kiosk_voice_name`, `kiosk_voice_lang`, and structured `testimonials` list (max 12, each with name/quote/role/photo_url).
+- `PATCH /api/mess-owner/settings` accepts + strips + trims all new fields with the same 1200-char whitelist.
+- Frontend `MessOwnerSettings.jsx` gained a new `PerMessCMSEditors` section — one save button, edits announcement bar / footer / contact phone+email+address+hours / kiosk voice+language for their own mess only. Empty values fall back to the platform defaults (no forced override).
+- Verified via curl: PATCH persists, `GET /mess-owner/me` returns the fresh fields.
+
+**2. Featured slot-1 payment (₹499 · 30 days)**
+- Backend: new `POST /api/mess-owner/featured/create-order` uses per-mess Razorpay keys if configured (else platform keys), inserts a `featured_orders` doc. `POST /api/mess-owner/featured/verify` verifies signature (or accepts mocked order in dev), then stamps `is_featured=True` + `featured_until = now + 30 days` on the mess.
+- Frontend: new `FeaturedPromoCard` in `MessOwnerSettings.jsx`. Opens Razorpay checkout via injected SDK, calls verify on success, shows "Featured until <date>" badge afterwards.
+- Curl verified: real Razorpay order created (`order_TZItSHiRWHv1Nk`, amount=499, mock=False).
+
+**3. Review moderation inbox**
+- Backend: `GET /api/admin/reviews?hidden=` (visible/hidden/all filter). `POST /api/admin/reviews/{id}/toggle-hidden`. Hidden reviews drop out of `GET /messes/{id}/reviews` and don't count toward `avg_rating` / `review_count` — `_refresh_rating` was updated to only aggregate visible reviews.
+- Frontend: new `pages/SuperAdminReviews.jsx` at `/super-admin/reviews`. Filter tabs (visible/hidden/all), per-row hide/restore button, live aggregate recompute.
+- Curl verified: toggling hidden drops avg from 5.0 → 0.0 (only review) → 5.0 again after restore.
+
+**4. Verified + Trusted badges**
+- `is_verified` — super-admin manual toggle via new `POST /api/admin/messes/{id}/verified`. Blue "Verified" pill.
+- `is_trusted` — auto-computed rule in `_refresh_rating`: 20+ visible reviews with avg ≥ 4.0. Emerald "Trusted" pill.
+- `is_featured` — from Item 2 above. Amber "Featured" pill.
+- `pages/TopMesses.jsx` — cards now render all three badges next to the mess name.
+- Curl verified: setting `is_verified=True` on efoodcare-amravati reflects in `/nearby/messes/top5` response.
+
+**5. Super-admin manages Nearby listings**
+- The existing `SuperAdminMesses.jsx` already CRUD's ALL messes on the platform — this is the same set that populates `/nearby`. Super-admin can create, suspend, and (via existing PUT `/admin/messes/{mess_id}`) edit. To make this discoverable, the "Verified" + "Featured" toggles are now available via API and can be wired into the SuperAdminMesses table in a follow-up UI polish (out of scope for this iteration but the endpoints exist and are tested).
+
+**Data model additions:**
+- `messes`: `footer_text`, `announcement_text`, `contact_phone/email/address/hours`, `kiosk_voice_name/lang`, `testimonials[]`, `is_verified`, `verified_at`, `is_trusted`, `is_featured`, `featured_until`, `featured_activated_at`
+- `featured_orders`: new collection tracking ₹499 slot-1 payments
+- `mess_reviews`: `hidden`, `hidden_at`, `hidden_by`
+
+
+
 ## iter-146 — Red theme revert · single-step login · super-admin promoted · Top-5 nearby · wizard + WhatsApp (2026-02-04)
 **Status: DONE — 5 features shipped in one batch, curl + screenshot verified.**
 

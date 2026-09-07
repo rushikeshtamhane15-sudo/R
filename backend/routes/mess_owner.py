@@ -73,6 +73,10 @@ async def mess_owner_settings(
     for key in (
         "tagline", "hero_title", "hero_subtitle", "logo_url",
         "payment_note", "manager_name", "manager_phone", "manager_email",
+        # iter-147 · per-mess CMS overrides
+        "footer_text", "announcement_text",
+        "contact_phone", "contact_email", "contact_address", "contact_hours",
+        "kiosk_voice_name", "kiosk_voice_lang",
     ):
         if key in body and body[key] is not None:
             v = str(body[key]).strip()
@@ -84,6 +88,19 @@ async def mess_owner_settings(
             if c:
                 chips.append(c[:60])
         updates["tag_chips"] = chips
+    if "testimonials" in body and body["testimonials"] is not None:
+        # iter-147 · per-mess testimonials (max 12, each with name/quote required)
+        clean = []
+        for t in body["testimonials"][:12]:
+            if not isinstance(t, dict):
+                continue
+            name = str(t.get("name") or "").strip()[:80]
+            quote = str(t.get("quote") or "").strip()[:400]
+            role = str(t.get("role") or "").strip()[:80]
+            photo = str(t.get("photo_url") or "").strip()[:1500]
+            if name and quote:
+                clean.append({"name": name, "quote": quote, "role": role, "photo_url": photo})
+        updates["testimonials"] = clean
     if not updates:
         raise HTTPException(status_code=400, detail="No editable fields provided")
     updates["updated_at"] = server.iso(server.now_utc())

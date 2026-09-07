@@ -11,7 +11,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
-import { Star, MapPin, Phone, Navigation, Building2, Sparkles, Loader2, Send, X, Locate } from "lucide-react";
+import { Star, MapPin, Phone, Navigation, Building2, Sparkles, Loader2, Send, X, Locate, BadgeCheck, ShieldCheck } from "lucide-react";
 
 function StarRow({ value = 0, onChange, size = 4 }) {
   return (
@@ -140,7 +140,19 @@ export default function TopMesses() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
-                    <h3 className="text-base font-bold text-slate-900 truncate">{m.name}</h3>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h3 className="text-base font-bold text-slate-900 truncate">{m.name}</h3>
+                      {m.is_verified && (
+                        <span className="inline-flex items-center gap-0.5 rounded-full bg-blue-100 text-blue-700 text-[9px] font-bold px-1.5 py-0.5 uppercase tracking-wider" data-testid={`verified-${m.mess_id}`}>
+                          <BadgeCheck className="h-3 w-3" /> Verified
+                        </span>
+                      )}
+                      {m.is_trusted && (
+                        <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-bold px-1.5 py-0.5 uppercase tracking-wider" data-testid={`trusted-${m.mess_id}`}>
+                          <ShieldCheck className="h-3 w-3" /> Trusted
+                        </span>
+                      )}
+                    </div>
                     <span className="font-mono text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded shrink-0">{m.mess_id}</span>
                   </div>
                   {m.tagline && <p className="text-xs text-slate-500 truncate mt-0.5">{m.tagline}</p>}

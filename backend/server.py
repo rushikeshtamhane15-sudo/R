@@ -1860,6 +1860,16 @@ class MessSettingsIn(BaseModel):
     manager_name: Optional[str] = None
     manager_phone: Optional[str] = None
     manager_email: Optional[str] = None
+    # iter-147: per-mess CMS overrides (footer, announcement, contact, kiosk voice, testimonials)
+    footer_text: Optional[str] = None
+    announcement_text: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
+    contact_address: Optional[str] = None
+    contact_hours: Optional[str] = None
+    kiosk_voice_name: Optional[str] = None      # e.g. "en-IN-NeerjaNeural"
+    kiosk_voice_lang: Optional[str] = None       # e.g. "en-IN" | "hi-IN" | "mr-IN"
+    testimonials: Optional[List[dict]] = None    # [{name, quote, role, photo_url}]
 
 
 class MessRazorpayKeysIn(BaseModel):
