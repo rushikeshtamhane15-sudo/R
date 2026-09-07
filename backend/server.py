@@ -1631,6 +1631,9 @@ DEFAULT_CONTENT = {
         "verify_cta_label": "Verify & Continue",
         "resend_prompt": "Didn't get it?",
         "resend_label": "Resend OTP",
+        # iter-148 · super-admin editable announcement bar shown between the
+        # site header and the login form.
+        "announcement_bar": "India's first Fully technologically advanced user management software for mess and restaurants",
     },
     # iter-75 #3: full CMS for the About-us page so admin can change copy,
     # colours, stats etc. without redeploying.

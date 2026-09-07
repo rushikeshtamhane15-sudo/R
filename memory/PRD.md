@@ -4,6 +4,17 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-148 — Login polish · admin bypass · strict prefix search · announcement bar · Google removed (2026-02-04)
+**Status: DONE — all 4 items shipped, screenshot green.**
+
+- **Admin bypass:** Continue button on `/login` no longer requires a picked mess. `9175560211` types phone + hits Continue → OTP → lands directly on `/admin` (backend verify-otp already promotes admin phones). Non-admin subscribers who skip mess pick are redirected to `/nearby` with a toast prompt after verify.
+- **Texts:** "One-step login" → **"Enter your details"** · "Log in to continue" → **"User Management System · for messes across India"**.
+- **Announcement bar:** New `announcement_bar` field on `DEFAULT_CONTENT["login"]`. Default text: *"India's first Fully technologically advanced user management software for mess and restaurants"*. Super-admin editable via `POST /api/admin/content/login { data: { announcement_bar: "..." } }`. Frontend renders it between the navy header and the form card, amber pill styling.
+- **Emergent Google removed:** `emergent-google-btn` + `@react-oauth/google` `GoogleLogin` component + `handleGoogleCredential` handler all deleted from Login.jsx.
+- **Strict prefix search:** Autocomplete now returns ONLY messes whose **name's first letter** OR **mess_id's first character** matches the first character of the query. No substring, city, or slug matching. Verified: `'e'` → 2 matches (Amravati + Yavatmal both start with 'e'), `'z'` → 0.
+
+
+
 ## iter-147 — Per-mess CMS + Featured payment + Review moderation + Verified/Trusted badges (2026-02-04)
 **Status: DONE — 4 features shipped, all curl-verified.**
 

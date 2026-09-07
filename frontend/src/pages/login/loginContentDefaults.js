@@ -26,11 +26,14 @@ export const LOGIN_DEFAULTS = {
   resend_label: "Resend OTP",
 
   // === Login icon (admin-editable) ===
-  // Soft navy gradient badge for the SaaS platform brand.
-  icon_bg_color_start: "#e0e8ff",
-  icon_bg_color_end:   "#c7d2fe",
-  icon_color:          "#0a1f44",
+  // Soft red gradient badge for the SaaS platform brand.
+  icon_bg_color_start: "#fee2e2",
+  icon_bg_color_end:   "#fecaca",
+  icon_color:          "#a02323",
   icon_show: true,
+
+  // iter-148: Super-admin editable announcement bar between header + form.
+  announcement_bar: "India's first Fully technologically advanced user management software for mess and restaurants",
 
   // Bad-stuff marquee is now per-mess — leave blank on the platform default.
   marquee_show: false,

@@ -2,13 +2,15 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../lib/api";
+import { readCmsCache, writeCmsCache } from "../lib/cms-cache";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
 import { ArrowRight, KeyRound, Search, Building2, MapPin, ShieldCheck, X, Check } from "lucide-react";
-import { GoogleLogin } from "@react-oauth/google";
 import SEO from "../components/SEO";
+
+import { LOGIN_DEFAULTS } from "./login/loginContentDefaults";
 
 /**
  * efoodtech — iter-146 single-step login with typed-autocomplete mess picker.
@@ -47,6 +49,8 @@ export default function Login() {
 
   const [messes, setMesses] = useState([]);
   const [messQuery, setMessQuery] = useState("");
+  const [content, setContent] = useState(() => ({ ...LOGIN_DEFAULTS, ...(readCmsCache("/content/login") || {}) }));
+  const c = content;
   const [picked, setPicked] = useState(() => {
     try { return JSON.parse(localStorage.getItem(LS_MESS_KEY) || "null"); }
     catch { return null; }
@@ -64,22 +68,26 @@ export default function Login() {
       try { const r = await api.get("/messes"); setMesses(r.data?.messes || []); }
       catch (e) { console.warn("[Login] /messes fetch failed", e); }
     })();
+    (async () => {
+      try {
+        const r = await api.get("/content/login");
+        setContent({ ...LOGIN_DEFAULTS, ...r.data });
+        writeCmsCache("/content/login", r.data);
+      } catch (e) { /* keep defaults */ }
+    })();
   }, []);
 
-  // Typed-prefix + substring match: appears ONLY when user types.
+  // Strict prefix match — first letter of name OR first character of mess_id.
+  // Nothing else (no city, no substring, no slug).
   const matches = useMemo(() => {
     const q = messQuery.trim().toLowerCase();
     if (!q) return [];
-    const starts = [], contains = [];
-    for (const m of messes) {
-      const name = (m.name || "").toLowerCase();
-      const city = (m.city || "").toLowerCase();
-      const id = (m.mess_id || "").toLowerCase();
-      const slug = (m.slug || "").toLowerCase();
-      if (name.startsWith(q) || id.startsWith(q)) starts.push(m);
-      else if (name.includes(q) || city.includes(q) || id.includes(q) || slug.includes(q)) contains.push(m);
-    }
-    return [...starts, ...contains].slice(0, 10);
+    const firstChar = q[0];
+    return messes.filter((m) => {
+      const nameFirst = (m.name || "").trim().charAt(0).toLowerCase();
+      const idFirst = (m.mess_id || "").trim().charAt(0).toLowerCase();
+      return nameFirst === firstChar || idFirst === firstChar;
+    }).slice(0, 10);
   }, [messes, messQuery]);
 
   const chooseMess = (m) => {
@@ -95,7 +103,10 @@ export default function Login() {
   };
 
   const sendOtp = async () => {
-    if (!picked?.mess_id) { toast.error("Please pick your mess first"); return; }
+    // iter-148: super-admin identified by ADMIN_PHONES doesn't need to pick a mess.
+    // For non-admin subscribers, the mess pick is still enforced (we can't know
+    // the role up-front, so we let the OTP verify decide — if user turns out to
+    // be a subscriber without a mess, we bounce them to /nearby to pick one).
     const p = phone.trim();
     if (p.length < 10) { toast.error("Enter a valid 10-digit phone number"); return; }
     setSubmitting(true);
@@ -119,27 +130,21 @@ export default function Login() {
         mess_id: picked?.mess_id || undefined,
       });
       verifiedHereRef.current = true;
-      const dest = computeNext(r.data.user);
-      setUser(r.data.user);
-      toast.success(`Welcome to ${picked?.name || "efoodtech"}`);
-      navigate(dest, { replace: true, state: { user: r.data.user } });
+      const u = r.data.user;
+      // iter-148: admin bypass — no mess required. Subscribers without mess → bounce to Nearby to pick one.
+      if (u.role === "subscriber" && !u.mess_id) {
+        setUser(u);
+        toast.success("Logged in — please pick your mess to continue");
+        navigate("/nearby", { replace: true, state: { user: u } });
+        return;
+      }
+      const dest = computeNext(u);
+      setUser(u);
+      toast.success(`Welcome to ${picked?.name || u.role === "admin" ? "efoodtech admin" : "efoodtech"}`);
+      navigate(dest, { replace: true, state: { user: u } });
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Verification failed");
     } finally { setSubmitting(false); }
-  };
-
-  const handleGoogleCredential = async (credentialResponse) => {
-    if (!picked?.mess_id) { toast.error("Please pick your mess first"); return; }
-    const credential = credentialResponse?.credential;
-    if (!credential) { toast.error("No credential from Google"); return; }
-    try {
-      const r = await api.post("/auth/google/verify", { credential, mess_id: picked.mess_id });
-      verifiedHereRef.current = true;
-      const dest = computeNext(r.data.user);
-      setUser(r.data.user);
-      toast.success(`Welcome to ${picked?.name || "efoodtech"}`);
-      navigate(dest, { replace: true, state: { user: r.data.user } });
-    } catch (e) { toast.error(e?.response?.data?.detail || "Google sign-in failed"); }
   };
 
   return (
@@ -148,13 +153,17 @@ export default function Login() {
 
       <div className="relative overflow-hidden bg-primary text-white">
         <div className="max-w-md mx-auto w-full px-6 pt-8 pb-8 text-center">
-          <div className="inline-flex items-center justify-center h-12 w-12 rounded-2xl bg-white/10 backdrop-blur border border-white/20 mb-3">
-            <Building2 className="h-6 w-6" strokeWidth={2.2} />
-          </div>
           <h1 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight leading-tight">efoodtech</h1>
           <p className="text-white/85 text-sm mt-1 font-medium">User Management System · for messes across India</p>
         </div>
       </div>
+
+      {/* iter-148 · Super-admin editable announcement bar between header + form */}
+      {(c.announcement_bar || "").trim() && (
+        <div className="bg-amber-100 border-y border-amber-200 text-amber-900 py-2 px-4 text-center text-xs sm:text-sm font-semibold" data-testid="login-announcement-bar">
+          {c.announcement_bar}
+        </div>
+      )}
 
       <div className="bg-white flex-1 px-4 sm:px-6 pb-16">
         <div className="max-w-md mx-auto w-full -mt-6 relative z-10">
@@ -162,8 +171,8 @@ export default function Login() {
             <AnimatePresence mode="wait">
               {!otpMode ? (
                 <motion.div key="single" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} data-testid="login-single-step">
-                  <p className="text-[11px] tracking-overline uppercase font-bold text-secondary">One-step login</p>
-                  <h2 className="font-display font-extrabold text-xl sm:text-2xl tracking-tight mt-1 leading-tight text-slate-900">Log in to continue</h2>
+                  <p className="text-[11px] tracking-overline uppercase font-bold text-secondary">Enter your details</p>
+                  <h2 className="font-display font-extrabold text-xl sm:text-2xl tracking-tight mt-1 leading-tight text-slate-900">User Management System · for messes across India</h2>
 
                   {/* Mess autocomplete */}
                   <label className="block text-[10px] tracking-overline uppercase font-bold text-slate-500 mt-5">Your mess</label>
@@ -245,40 +254,10 @@ export default function Login() {
                   <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Aman Gupta"
                     className="mt-1 rounded-2xl h-11 px-4 text-base" data-testid="name-input" />
 
-                  <Button onClick={sendOtp} disabled={submitting || phone.length < 10 || !picked}
+                  <Button onClick={sendOtp} disabled={submitting || phone.length < 10}
                     className="w-full h-12 mt-5 rounded-2xl bg-primary hover:bg-primary/90 font-semibold text-base disabled:opacity-50 text-white"
                     data-testid="send-otp-button">
                     {submitting ? "Sending OTP…" : (<>Continue <ArrowRight className="h-4 w-4 ml-1.5" /></>)}
-                  </Button>
-
-                  {process.env.REACT_APP_GOOGLE_CLIENT_ID && (
-                    <>
-                      <div className="flex items-center gap-3 my-4">
-                        <span className="flex-1 h-px bg-slate-200"></span>
-                        <span className="text-[10px] tracking-overline uppercase font-bold text-slate-400">Or</span>
-                        <span className="flex-1 h-px bg-slate-200"></span>
-                      </div>
-                      <div className="w-full h-11 rounded-2xl overflow-hidden" data-testid="google-login-button">
-                        <GoogleLogin onSuccess={handleGoogleCredential} onError={() => toast.error("Google sign-in failed")}
-                          useOneTap={false} theme="outline" size="large" width="100%" text="continue_with" shape="rectangular" />
-                      </div>
-                    </>
-                  )}
-
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      if (!picked?.mess_id) { toast.error("Please pick your mess first"); return; }
-                      // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-                      const redirectUrl = window.location.origin + "/dashboard";
-                      window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
-                    }}
-                    variant="outline"
-                    className="w-full h-11 rounded-2xl border-slate-300 hover:bg-slate-50 text-slate-900 font-semibold text-sm mt-2"
-                    data-testid="emergent-google-btn"
-                  >
-                    <svg viewBox="0 0 24 24" className="h-4 w-4 mr-2" aria-hidden><path fill="#EA4335" d="M12 10.2v3.9h5.5c-.24 1.4-1.7 4.1-5.5 4.1-3.3 0-6-2.7-6-6.1s2.7-6.1 6-6.1c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.7 3.4 14.6 2.4 12 2.4 6.7 2.4 2.4 6.7 2.4 12s4.3 9.6 9.6 9.6c5.5 0 9.2-3.9 9.2-9.4 0-.6-.1-1.1-.2-1.6H12z"/></svg>
-                    Continue with Google <span className="ml-2 text-[10px] font-normal text-slate-500">via Emergent</span>
                   </Button>
 
                   <p className="text-[11px] text-slate-500 text-center mt-5 leading-relaxed">
