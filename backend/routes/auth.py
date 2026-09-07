@@ -46,6 +46,29 @@ async def auth_session(request: Request, response: Response):
         email=data["email"], phone=None,
         name=data.get("name", data["email"]), picture=data.get("picture"),
     )
+    # iter-145 · efoodtech: multi-tenant mess tagging for Emergent Google Auth.
+    # Mirrors the verify-otp behavior — validate mess_id, reject cross-mess re-login,
+    # tag on first login only.
+    picked_mess_id = (body.get("mess_id") or "").strip() or None
+    if picked_mess_id:
+        picked = await server.db.messes.find_one(
+            {"mess_id": picked_mess_id, "status": "active"},
+            {"_id": 0, "mess_id": 1},
+        )
+        if not picked:
+            raise HTTPException(status_code=400, detail="Selected mess is not active or does not exist")
+        existing_mess = user.get("mess_id")
+        if existing_mess and existing_mess != picked["mess_id"]:
+            raise HTTPException(
+                status_code=403,
+                detail="Your account is registered under a different mess. Please pick your correct mess to continue.",
+            )
+        if not existing_mess:
+            await server.db.users.update_one(
+                {"user_id": user["user_id"]},
+                {"$set": {"mess_id": picked["mess_id"], "mess_assigned_at": server.iso(server.now_utc())}},
+            )
+            user["mess_id"] = picked["mess_id"]
     token = data.get("session_token") or f"sess_{uuid.uuid4().hex}"
     expires_at = server.now_utc() + timedelta(days=7)
     await server.db.user_sessions.insert_one({

@@ -33,7 +33,14 @@ export default function AuthCallback() {
 
     (async () => {
       try {
-        const res = await api.post("/auth/session", { session_id: sessionId });
+        // iter-145 · efoodtech: forward the picked mess_id (from Login step 1)
+        // so the Emergent Google Auth flow lands the user inside the right tenant.
+        let messId;
+        try {
+          const cached = JSON.parse(localStorage.getItem("efoodtech.mess.picked") || "null");
+          messId = cached?.mess_id;
+        } catch { /* ignore */ }
+        const res = await api.post("/auth/session", { session_id: sessionId, mess_id: messId });
         const user = res.data.user;
         setUser(user);
         navigate(computeDest(user), { replace: true, state: { user } });

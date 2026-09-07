@@ -4,6 +4,35 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-145 — Emergent-managed Google Auth (multi-tenant aware) (2026-02-04)
+**Status: DONE — wired end-to-end, backend + curl verified, screenshot green.**
+
+**Backend (`routes/auth.py` · `/api/auth/session`)**
+- Now accepts optional `mess_id` in body alongside `session_id`.
+- Same multi-tenant validation as `/verify-otp`:
+  - Rejects unknown/inactive `mess_id` with 400.
+  - Rejects cross-mess re-login (403) if the user already has a different `mess_id`.
+  - Tags `mess_id` + `mess_assigned_at` on first Google sign-in only.
+- Cookie flow unchanged: `session_token` cookie set with `path=/`, `secure=True`, `samesite=none`, 7-day expiry — matches the Emergent Auth playbook.
+
+**Frontend**
+- `pages/AuthCallback.jsx` — reads `localStorage["efoodtech.mess.picked"]` and forwards its `mess_id` in the `/auth/session` POST so the callback lands the user inside the right tenant.
+- `pages/Login.jsx` — added a dedicated **Continue with Google (Emergent)** button under Step 2. Comment includes the required REMINDER string. Button:
+  - Gated on `picked?.mess_id` — if the user hasn't picked their mess, we bump them back to Step 1.
+  - Uses `window.location.origin + "/dashboard"` (never hard-coded) as `redirect`.
+  - Sits below the existing direct `@react-oauth/google` button so both flows co-exist. Both flows are equally mess-aware.
+- Router (`App.js` + `AuthContext.jsx`) already had synchronous `session_id=` fragment detection + `checkAuth` bypass — no changes needed.
+
+**Verified via curl:**
+- `POST /api/auth/session` with missing body → `{"detail":"session_id required"}`
+- Invalid `session_id` short-circuits to 401 (Emergent rejects) before mess validation, as expected.
+
+**Screenshot verified:** Login Step 2 shows the new "Continue with Google · via Emergent" button beneath the mess ribbon; button copy + Emergent tag rendered.
+
+**Test playbook** committed to `/app/auth_testing.md`.
+
+
+
 ## iter-144 — Super-admin onboarding · per-mess landing · scoped plans editor (2026-02-04)
 **Status: DONE — three requested SaaS enhancements shipped, curl + screenshots green.**
 

@@ -1,72 +1,74 @@
-# Auth Testing Playbook
+# Auth Testing Playbook — efoodtech (iter-145 Emergent Google Auth)
 
-## Step 1: Seed test user + session
+## Multi-tenant twist
+This app is a multi-tenant SaaS. Every non-admin user carries a `mess_id`.
+The Emergent Google Auth flow now honours this — a user MUST pick a mess
+(via the Login page step 1) before hitting "Continue with Google", and
+their `mess_id` is passed to `POST /api/auth/session` so the session
+gets tagged to the right tenant.
+
+The frontend (`AuthCallback.jsx`) reads
+`localStorage["efoodtech.mess.picked"]` and forwards its `.mess_id` in
+the body. Backend enforces:
+1. If `mess_id` doesn't exist / isn't active → 400
+2. If user already has a different `mess_id` → 403
+3. Else tag it on first login only.
+
+## Step 1 · Create test session directly in Mongo (bypass Emergent Auth for CI)
+
 ```
-mongosh --eval "
-use('test_database');
+mongosh $MONGO_URL --eval "
+use('$DB_NAME');
 var userId = 'test-user-' + Date.now();
 var sessionToken = 'test_session_' + Date.now();
-var qrToken = 'qr_test_' + Date.now();
 db.users.insertOne({
   user_id: userId,
   email: 'test.user.' + Date.now() + '@example.com',
-  name: 'Test Subscriber',
-  picture: null,
+  name: 'Test User',
+  picture: 'https://via.placeholder.com/150',
   role: 'subscriber',
-  qr_token: qrToken,
-  created_at: new Date().toISOString()
+  mess_id: 'efoodcare-amravati',
+  created_at: new Date()
 });
 db.user_sessions.insertOne({
   user_id: userId,
   session_token: sessionToken,
-  expires_at: new Date(Date.now() + 7*24*60*60*1000).toISOString(),
-  created_at: new Date().toISOString()
+  expires_at: new Date(Date.now() + 7*24*60*60*1000),
+  created_at: new Date()
 });
-print('TOKEN=' + sessionToken);
-print('USER=' + userId);
-print('QR=' + qrToken);
+print('Session token: ' + sessionToken);
 "
 ```
 
-## Step 2: Backend API testing
+## Step 2 · Backend endpoints
+
 ```
-curl -H "Authorization: Bearer <TOKEN>" $REACT_APP_BACKEND_URL/api/auth/me
-curl -H "Authorization: Bearer <TOKEN>" $REACT_APP_BACKEND_URL/api/plans
-curl -H "Authorization: Bearer <TOKEN>" $REACT_APP_BACKEND_URL/api/my/qr
-curl -H "Authorization: Bearer <TOKEN>" $REACT_APP_BACKEND_URL/api/my/subscription
-curl -H "Authorization: Bearer <TOKEN>" $REACT_APP_BACKEND_URL/api/my/attendance
-curl -H "Authorization: Bearer <TOKEN>" $REACT_APP_BACKEND_URL/api/menu/today
+curl -X GET "$API/api/auth/me" -H "Authorization: Bearer $TOKEN"
+curl -X GET "$API/api/plans" -H "Authorization: Bearer $TOKEN"
+
+curl -X POST "$API/api/auth/session" \
+  -H "Content-Type: application/json" \
+  -d '{"session_id":"$EMERGENT_SESSION_ID","mess_id":"efoodcare-yavatmal"}'
 ```
 
-## Step 3: Promote to staff/admin (for role-gated tests)
-Directly in Mongo: `db.users.updateOne({user_id: USER}, {$set: {role: 'admin'}})`
-Or via API by an existing admin: `POST /api/admin/role {email, role}`
+## Step 3 · Browser E2E
+- Open `/login`, pick a mess (Amravati OR Yavatmal)
+- Click **Continue with Google (Emergent)** → redirects to `auth.emergentagent.com`
+- After Google consent, lands on `/dashboard#session_id=...`
+- `AuthCallback` reads fragment + picked mess → POSTs `/api/auth/session` → cookie set → role-based redirect
 
-## Step 4: Seed active subscription for attendance tests
-```
-db.subscriptions.insertOne({
-  sub_id: 'sub_test',
-  user_id: USER,
-  plan_id: 'monthly_60',
-  plan_name: 'Monthly Pass',
-  meals_total: 60,
-  meals_used: 0,
-  start_date: new Date().toISOString(),
-  end_date: new Date(Date.now() + 30*24*60*60*1000).toISOString(),
-  status: 'active',
-  created_at: new Date().toISOString()
-});
-```
+## Success indicators
+- ✅ `/api/auth/me` returns user WITH `mess_id`
+- ✅ `/api/plans` returns ONLY that mess's plans
+- ✅ Cross-mess Google sign-in on a returning user → 403
+- ✅ Fresh Gmail account first-time picked mess → tagged and persists
 
-## Step 5: Attendance flow tests
-- Staff scan: `POST /api/attendance/scan` with body `{qr_token, meal_type}`
-- Self-scan (subscriber): first fetch counter code via `GET /api/counter/qr` (as staff/admin), then `POST /api/attendance/self-scan` with `{counter_code, meal_type}`
-- Duplicate prevention: same (user, date, meal_type) returns 409
+## Failure indicators
+- ❌ 401 on `/auth/me` after redirect → cookie not set (check `samesite=None`, `secure=True`)
+- ❌ User sees plans from wrong mess → mess_id not being passed through
+- ❌ Callback screen stuck spinning → `useLocation().hash` not reactive or `session_id` missing
 
-## Cleanup
-```
-db.users.deleteMany({email: /test\.user\./});
-db.user_sessions.deleteMany({session_token: /test_session/});
-db.subscriptions.deleteMany({sub_id: 'sub_test'});
-db.attendance.deleteMany({user_id: /test-user/});
-```
+## Test identities used
+- Super admin: phone `9970705391` (from `ADMIN_PHONES` in backend/.env)
+- Regular subscriber: any phone via OTP dev mode (backend echoes `dev_otp`)
+- Google test accounts: use your own Google account (Emergent Auth doesn't need whitelisting)
