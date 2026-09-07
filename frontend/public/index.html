@@ -3,7 +3,7 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#0a1f44" />
+        <meta name="theme-color" content="#a02323" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="efoodtech" />
@@ -22,8 +22,8 @@
             try {
               // iter-143 · efoodtech rebrand — bump cache key so stale red-theme tokens
               // from the previous brand don't survive first paint.
-              var CACHE_KEY = "ef_theme_tokens_v143";
-              try { window.localStorage.removeItem("ef_theme_tokens"); } catch (e) {}
+              var CACHE_KEY = "ef_theme_tokens_v146";
+              try { window.localStorage.removeItem("ef_theme_tokens"); window.localStorage.removeItem("ef_theme_tokens_v143"); } catch (e) {}
               var raw = window.localStorage.getItem(CACHE_KEY);
               if (!raw) { document.documentElement.classList.add("theme-loaded"); return; }
               var t = JSON.parse(raw);
@@ -57,7 +57,7 @@
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" type="image/png" href="/favicon.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-        <link rel="mask-icon" href="/favicon.png" color="#0a1f44" />
+        <link rel="mask-icon" href="/favicon.png" color="#a02323" />
 
         <!-- =================================================================
              Open Graph + Twitter card — managed per-page by Helmet (see

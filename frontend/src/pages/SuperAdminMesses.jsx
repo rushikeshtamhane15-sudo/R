@@ -124,31 +124,41 @@ export default function SuperAdminMesses() {
         </div>
       </div>
 
-      {/* Last created ribbon */}
+          {/* Last created ribbon + WhatsApp welcome */}
       {lastCreated && (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 flex items-start gap-3" data-testid="last-created-ribbon">
-          <BadgeCheck className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-bold text-emerald-900">Onboarded — {lastCreated.name}</div>
-            <div className="text-xs text-emerald-800 mt-1 flex items-center gap-2 flex-wrap">
-              <span>Mess ID:</span>
-              <span className="font-mono font-bold bg-white px-2 py-0.5 rounded border border-emerald-200">{lastCreated.mess_id}</span>
-              <button onClick={() => copyId(lastCreated.mess_id)} className="text-emerald-700 hover:text-emerald-900" data-testid="copy-mess-id">
-                <Copy className="h-3.5 w-3.5" />
-              </button>
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4" data-testid="last-created-ribbon">
+          <div className="flex items-start gap-3">
+            <BadgeCheck className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-bold text-emerald-900">Step 3 · Mess is live — {lastCreated.name}</div>
+              <div className="text-xs text-emerald-800 mt-1 flex items-center gap-2 flex-wrap">
+                <span>Mess ID:</span>
+                <span className="font-mono font-bold bg-white px-2 py-0.5 rounded border border-emerald-200">{lastCreated.mess_id}</span>
+                <button onClick={() => copyId(lastCreated.mess_id)} className="text-emerald-700 hover:text-emerald-900" data-testid="copy-mess-id">
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
+              </div>
               {lastCreated.promoted_owner_user_id ? (
-                <span className="ml-2 text-emerald-700">✓ Owner promoted automatically. Ask them to log out + log back in.</span>
-              ) : (
-                lastCreated.owner_phone ? (
-                  <span className="ml-2 text-amber-700">⚠ Owner phone <b>{lastCreated.owner_phone}</b> has no efoodtech account yet — they'll be auto-promoted once they log in with this Mess ID.</span>
-                ) : null
+                <div className="text-emerald-700 text-xs mt-1">✓ Owner promoted automatically. Ask them to log out + log back in.</div>
+              ) : lastCreated.owner_phone ? (
+                <div className="text-amber-700 text-xs mt-1">⚠ Owner phone <b>{lastCreated.owner_phone}</b> has no account yet — they'll be auto-promoted once they log in with this Mess ID.</div>
+              ) : null}
+              {lastCreated.owner_phone && (
+                <a
+                  href={`https://wa.me/91${(lastCreated.owner_phone || "").replace(/[^0-9]/g, "").slice(-10)}?text=${encodeURIComponent(`Hi! You're now the mess owner on efoodtech.\n\nMess: ${lastCreated.name}\nYour Mess ID: ${lastCreated.mess_id}\n\nLogin here: ${window.location.origin}/login\nJust type "${lastCreated.mess_id}" or "${lastCreated.name}" to find your mess and log in with this phone.\n\nAfter login, open Owner Settings to upload your logo, tagline, and Razorpay keys so payments land straight in your account.`)}`}
+                  target="_blank" rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 mt-3 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5"
+                  data-testid="whatsapp-welcome-btn"
+                >
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor"><path d="M20.52 3.48A11.9 11.9 0 0012 0C5.37 0 0 5.37 0 12c0 2.11.55 4.16 1.6 5.97L0 24l6.2-1.63A11.94 11.94 0 0012 24c6.63 0 12-5.37 12-12 0-3.2-1.25-6.21-3.48-8.52zM12 22c-1.9 0-3.75-.5-5.37-1.45l-.38-.23-3.68.97.98-3.59-.25-.37A9.94 9.94 0 012 12c0-5.52 4.48-10 10-10s10 4.48 10 10-4.48 10-10 10z"/></svg>
+                  Send WhatsApp welcome
+                </a>
               )}
             </div>
-            <div className="text-[11px] text-emerald-700 mt-2">Share this Mess ID with subscribers — they enter it on the login page to reach this mess.</div>
+            <button onClick={() => setLastCreated(null)} className="text-emerald-700 hover:text-emerald-900" aria-label="Dismiss">
+              <X className="h-4 w-4" />
+            </button>
           </div>
-          <button onClick={() => setLastCreated(null)} className="text-emerald-700 hover:text-emerald-900" aria-label="Dismiss">
-            <X className="h-4 w-4" />
-          </button>
         </div>
       )}
 

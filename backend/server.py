@@ -1421,26 +1421,26 @@ DEFAULT_THEME = {
     "brand_tagline": "User Management System",
     "tokens": {
         "background": "0 0% 100%",
-        "foreground": "220 55% 15%",
+        "foreground": "220 55% 22%",
         "card": "0 0% 100%",
-        "card_foreground": "220 55% 15%",
-        "primary": "220 74% 15%",
+        "card_foreground": "220 55% 22%",
+        "primary": "0 65% 38%",
         "primary_foreground": "0 0% 100%",
-        "secondary": "224 71% 40%",
+        "secondary": "220 70% 50%",
         "secondary_foreground": "0 0% 100%",
-        "accent": "220 60% 96%",
-        "accent_foreground": "220 74% 15%",
+        "accent": "0 40% 96%",
+        "accent_foreground": "0 65% 38%",
         "destructive": "0 70% 50%",
         "destructive_foreground": "0 0% 100%",
         "muted": "220 25% 96%",
         "muted_foreground": "220 20% 40%",
         "border": "220 20% 90%",
         "input": "220 20% 90%",
-        "ring": "224 71% 40%",
+        "ring": "0 65% 38%",
         "radius": "0.75rem",
     },
 }
-THEME_VERSION = 3   # iter-143 · efoodtech navy rebrand — bump to force migration
+THEME_VERSION = 4   # iter-146 · revert to efoodcare red on white (keep efoodtech brand name)
 
 
 class ThemeUpdate(BaseModel):
@@ -5718,6 +5718,7 @@ from routes.auth_google import router as _auth_google_router
 from routes.testimonials import router as _testimonials_router
 from routes.plans import router as _plans_router
 from routes.mess_owner import router as _mess_owner_router
+from routes.mess_reviews import router as _mess_reviews_router
 from routes.wallet import router as _wallet_router
 from routes.subscription import router as _subscription_router
 from routes.tiffin_prefs_admin import router as _tiffin_prefs_router
@@ -5749,6 +5750,7 @@ api_router.include_router(_branding_router)
 api_router.include_router(_testimonials_router)
 api_router.include_router(_plans_router)
 api_router.include_router(_mess_owner_router)
+api_router.include_router(_mess_reviews_router)
 api_router.include_router(_wallet_router)
 api_router.include_router(_subscription_router)
 api_router.include_router(_tiffin_prefs_router)

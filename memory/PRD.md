@@ -4,6 +4,36 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-146 — Red theme revert · single-step login · super-admin promoted · Top-5 nearby · wizard + WhatsApp (2026-02-04)
+**Status: DONE — 5 features shipped in one batch, curl + screenshot verified.**
+
+- **Super-admin promoted (Item 3):** `9175560211` added to `ADMIN_PHONES`; `rushikeshtamhane5@gmail.com` added to `ADMIN_EMAILS` in `/app/backend/.env`. Verified `/api/auth/me` returns `role=admin` after OTP login on that phone.
+- **Theme reverted to efoodcare red (Item 4a):** `DEFAULT_THEME` rolled back to `primary: 0 65% 38%` (dark red); `THEME_VERSION` bumped 3→4 so `_ensure_theme_version` re-migrates existing DBs. `index.css`, `index.html` theme-color, `manifest.webmanifest`, and localStorage cache key (`ef_theme_tokens_v146`) all synced. Screenshot confirms red hero + red primary button.
+- **Single-step login with typed autocomplete (Item 2):** `pages/Login.jsx` rewritten as one form (mess search + phone + name). Mess dropdown appears **only when user types** — prefix matches first, then substring — max 10 results. No scroll list on load. Once matched user clicks a row, mess pins to a compact chip with a clear-X. Screenshot confirms empty state ("Start typing…") + typeahead firing on 5 chars.
+- **Top-5 nearby messes + reviews (Item 1 full v1):**
+  - New `routes/mess_reviews.py`:
+    - `POST /api/messes/{mess_id}/reviews` (1-5 star + text, one per user, upserts)
+    - `GET /api/messes/{mess_id}/reviews` (list latest + rolling avg + count)
+    - `GET /api/nearby/messes/top5` — moved off `/messes/*` to avoid the `/messes/{slug}` catch-all. Params: `lat`+`lng`+`radius_km` (default 2km, strict Haversine) OR `pincode`, else top-rated fallback. Sort: featured pin → rating desc → distance asc → review-count desc.
+    - `POST /api/mess-owner/promote-featured` — records intent (payment in v2).
+    - `POST /api/admin/messes/{mess_id}/featured` — super-admin toggle.
+  - `pages/TopMesses.jsx` at `/nearby` — 2 km search bar (pincode input + "My location" GPS), ranked cards with photo, distance, mobile, address, star rating, `Call`/`Directions`/`Join`/`Rate & review` buttons, and a mess-owner "Get featured in slot 1" nudge.
+  - `BottomNav.jsx` injects a Star-icon "Nearby" tile for subscribers + guests (persists across CMS-configured bottom nav).
+  - Curl verified: `POST review` returns id + updates aggregate; `GET top5` returns 3 messes ranked by rating with proper `search_mode="top-rated"` when no coords.
+- **3-step wizard + WhatsApp welcome (Item 5):** `SuperAdminMesses.jsx` success ribbon now shows Step 3 confirmation with a **Send WhatsApp welcome** button that opens `wa.me/91<owner_phone>?text=<pre-filled welcome message including Mess ID + login URL + owner-settings tip>`. Requires no Meta template — sends from the super-admin's WhatsApp. Fully deep-linked, no API cost.
+
+**Deferred (Item 4 remainder — mess-owner CMS editors):** Full per-mess CMS scoping (footer, announcement bar, contact-us, testimonials, restaurant page editor, kiosk voice, home page) requires per-mess schema on `app_settings` — currently all global. Existing `MessOwnerSettings.jsx` already covers per-mess brand/logo/tagline/hero/chips/payment note + Razorpay keys — the highest-value editors. Full per-mess editor suite queued for iter-147.
+
+**Verified via curl:**
+- `admin` role for 9175560211 ✓
+- `theme.primary = 0 65% 38%` (red) ✓
+- Review POST → returned `review_id`, `avg_rating=5.0`, `review_count=1` on Amravati mess ✓
+- `/nearby/messes/top5` returned 3 ranked messes in top-rated fallback mode ✓
+
+**Screenshots:** login page shows red hero + one-step form; typing "efood" opens dropdown with matching messes only.
+
+
+
 ## iter-145 — Emergent-managed Google Auth (multi-tenant aware) (2026-02-04)
 **Status: DONE — wired end-to-end, backend + curl verified, screenshot green.**
 

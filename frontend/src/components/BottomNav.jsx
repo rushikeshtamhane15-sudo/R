@@ -76,6 +76,16 @@ export default function BottomNav() {
   if (isFranchise && items.length === 0) items = FRANCHISE_FALLBACK;
   if (items.length === 0) return null;
 
+  // iter-146 · efoodtech: inject "Nearby" (Top 5 messes) as a discovery tile
+  // for subscribers + guests. Placed after Home when possible.
+  if (role === "subscriber" || role === "guest") {
+    const hasNearby = items.some((it) => it.to === "/nearby");
+    if (!hasNearby) {
+      const nearbyItem = { id: "nearby", label: "Nearby", icon: "Star", to: "/nearby", visible: true };
+      items = [items[0], nearbyItem, ...items.slice(1)].slice(0, 5);
+    }
+  }
+
   // iter-131.26: subscribers WITHOUT an active plan see "Orders" in the slot
   // where valid subscribers see "Dashboard" — the CMS default keeps Dashboard
   // and this swap is done client-side so admin editability is preserved.

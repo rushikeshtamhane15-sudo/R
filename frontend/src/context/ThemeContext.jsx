@@ -38,7 +38,7 @@ export function applyTokens(tokens) {
   // eliminates the "flash of old theme" on reload / PWA cold start.
   try {
     // iter-143: bumped cache key to invalidate stale red-theme tokens from prior brand.
-    window.localStorage.setItem("ef_theme_tokens_v143", JSON.stringify(tokens));
+    window.localStorage.setItem("ef_theme_tokens_v146", JSON.stringify(tokens));
   } catch { /* non-critical: storage unavailable */ }
 }
 
