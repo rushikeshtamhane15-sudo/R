@@ -4,6 +4,16 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-150 — 3D marquee announcement · splash rebrand · admin login verified (2026-02-04)
+**Status: DONE — testing_agent verified 100% frontend pass.**
+
+- **3D marquee announcement bar** on `/login` — parent has `perspective:500px`, child spans have `rotateY(-10deg) rotateX(4deg)` + CSS `efc-marquee-3d` animation (22s linear infinite, horizontal scroll). Amber background. Text repeats 4× for seamless loop. Super-admin still edits via `POST /api/admin/content/login { data: { announcement_bar: "…" } }`.
+- **Splash rebrand** in `components/SplashScreen.jsx` — brand h1 `efoodcare` → `efoodtech`, tagline `ghar se accha khana` → `User Management System`. Logo remains driven by `useBranding().splashLogoUrl` (already super-admin editable via `/admin/branding`).
+- **Bug #2 verified as NOT broken** — admin login with `9175560211` correctly navigates to `/admin` and renders full AdminLayout (sidebar + Overview KPIs). Testing agent replayed the full click journey and confirmed.
+- Fixed operator-precedence nit in Login.jsx welcome toast (flagged by testing_agent).
+
+
+
 ## iter-148 — Login polish · admin bypass · strict prefix search · announcement bar · Google removed (2026-02-04)
 **Status: DONE — all 4 items shipped, screenshot green.**
 

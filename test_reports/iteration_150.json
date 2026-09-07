@@ -1,0 +1,26 @@
+{
+  "summary": "Frontend-only verification for iter-150. All three items confirmed via Playwright browser flow against the public REACT_APP_BACKEND_URL. (1) Super-admin OTP login end-to-end works: entering phone 9175560211 -> Continue -> OTP echoed as dev_otp (467102 in this run) auto-filled -> Verify & Continue navigates to /admin and renders AdminLayout with 'Control Room · Overview' heading, sidebar (Dashboard, Plans, Users & Roles, Rider applications, Restaurant tracking, Take-away tiffins, Brand logo, etc.) and KPI tiles (Total Users 441, Active subs 1). (2) Marquee announcement bar renders at [data-testid=login-announcement-bar] with perspective:500px on parent, child element carries CSS animation-name 'efc-marquee-3d', and inner span has 3D matrix3d transform (rotateY(-10deg) rotateX(4deg) confirmed via computed matrix). Amber background between site header and form card. Text 'India's first Fully technologically advanced user management software for mess and restaurants' present and repeated for seamless scroll. (3) Splash screen on cold load (sessionStorage cleared) shows 'efoodtech' as h1 and 'User Management System' as tagline; old strings 'efoodcare' and 'ghar se accha khana' are NOT present. (4) Login page no longer has the removed hero block — only the marquee sits between header and the form card.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/admin overview", "issues": ["Recharts warning: 'The width(-1) and height(-1) of chart should be greater than 0' logged on first paint — cosmetic, chart re-measures and renders correctly. Consider setting minWidth/minHeight on ResponsiveContainer parent to silence."]},
+      {"screen": "/login", "issues": ["Two 401 responses on initial load (likely /auth/me before login) — expected but noisy in console."]}
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iter150/01_splash.jpeg", "/app/test_reports/iter150/02_login_marquee.jpeg", "/app/test_reports/iter150/03_admin_landed.jpeg"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Login.jsx toast string on line 143: `Welcome to ${picked?.name || u.role === 'admin' ? 'efoodtech admin' : 'efoodtech'}` — operator precedence bug. `||` binds tighter than `?:`, so this evaluates as `(picked?.name || u.role === 'admin') ? 'efoodtech admin' : 'efoodtech'`. If a subscriber picks a mess, the toast will always say 'Welcome to efoodtech admin' regardless of role. Should be wrapped: `Welcome to ${picked?.name || (u.role === 'admin' ? 'efoodtech admin' : 'efoodtech')}`.",
+    "Login.jsx line 189: form heading duplicates 'User Management System · for messes across India' — worth confirming with product that this is intentional given the splash already carries the same tagline."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not tested", "frontend": "100%"},
+  "test_credentials": "Super-admin phone 9175560211 (dev OTP echoed in send-otp response and rendered in [data-testid=otp-echo-code]).",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter-150 fully verified via Playwright browser flow. If re-running, remember to sessionStorage.clear() before reload to trigger splash (key: efc_splash_seen_v2). Admin bypass on /login works only for phones listed in backend ADMIN_PHONES env — currently includes 9175560211. Note the string-interpolation bug flagged in Login.jsx line 143 (welcome toast) for main agent's attention.",
+  "rca of the issue": "Bug #2 (super-admin panel not appearing after mobile login) is RESOLVED. Verified: verify-otp response returns user with role='admin' (promoted via ADMIN_PHONES); Login.verifyOtp calls setUser(u) then navigate('/admin'); RequireAuth allows role 'admin'; AdminLayout renders with AdminOverview via <Outlet />. Landed successfully at https://dining-atomics.preview.emergentagent.com/admin with full sidebar and overview widgets."
+}

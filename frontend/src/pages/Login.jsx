@@ -140,7 +140,7 @@ export default function Login() {
       }
       const dest = computeNext(u);
       setUser(u);
-      toast.success(`Welcome to ${picked?.name || u.role === "admin" ? "efoodtech admin" : "efoodtech"}`);
+      toast.success(`Welcome to ${picked?.name || (u.role === "admin" ? "efoodtech admin" : "efoodtech")}`);
       navigate(dest, { replace: true, state: { user: u } });
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Verification failed");
@@ -153,10 +153,29 @@ export default function Login() {
 
       {/* iter-149: hero block removed per user — brand identity already shown in the site header above. */}
 
-      {/* iter-148 · Super-admin editable announcement bar */}
+      {/* iter-148 · Super-admin editable 3D marquee announcement bar */}
       {(c.announcement_bar || "").trim() && (
-        <div className="bg-amber-100 border-y border-amber-200 text-amber-900 py-2 px-4 text-center text-xs sm:text-sm font-semibold" data-testid="login-announcement-bar">
-          {c.announcement_bar}
+        <div className="relative overflow-hidden bg-amber-100 border-y border-amber-200 text-amber-900 py-2" data-testid="login-announcement-bar" style={{ perspective: "500px" }}>
+          <div
+            className="whitespace-nowrap font-bold text-xs sm:text-sm inline-block"
+            style={{
+              animation: "efc-marquee-3d 22s linear infinite",
+              transformStyle: "preserve-3d",
+            }}
+          >
+            {Array.from({ length: 4 }).map((_, i) => (
+              <span key={i} className="inline-block px-6" style={{ transform: "rotateY(-10deg) rotateX(4deg)", textShadow: "1px 1px 0 rgba(160,35,35,0.35), 2px 2px 4px rgba(0,0,0,0.15)" }}>
+                {c.announcement_bar}
+                <span className="mx-4 opacity-60">·</span>
+              </span>
+            ))}
+          </div>
+          <style>{`
+            @keyframes efc-marquee-3d {
+              0%   { transform: translate3d(0, 0, 0); }
+              100% { transform: translate3d(-50%, 0, 0); }
+            }
+          `}</style>
         </div>
       )}
 

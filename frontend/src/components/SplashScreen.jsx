@@ -93,7 +93,7 @@ export default function SplashScreen() {
         />
         <img
           src={splashLogoUrl}
-          alt="efoodcare"
+          alt="efoodtech"
           width={72}
           height={72}
           style={{
@@ -122,7 +122,7 @@ export default function SplashScreen() {
           animation: "efc-rise 700ms ease-out 120ms both",
         }}
       >
-        efoodcare
+        efoodtech
       </h1>
 
       <p
@@ -139,7 +139,7 @@ export default function SplashScreen() {
           animation: "efc-rise 700ms ease-out 240ms both",
         }}
       >
-        ghar se accha khana
+        User Management System
       </p>
 
       <style>{`
