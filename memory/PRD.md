@@ -4,6 +4,29 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-155 — Super-admin role migration · fresh efoodtech landing (2026-02-04)
+**Status: DONE — screenshot green, DB migration verified.**
+
+**1. Super-admin migration:**
+- Removed `9175560211` from `ADMIN_PHONES` env (now `9970705391` only). Backend restarted so the change took effect.
+- Downgraded `9175560211` DB record from `role=admin` → `role=subscriber`.
+- Verified `rushikeshtamhane5@gmail.com` DB record is `role=admin` (ADMIN_EMAILS already contains it from iter-146).
+- Net effect: only `9970705391` (phone) and `rushikeshtamhane5@gmail.com` (email) are super-admins now.
+
+**2. Fresh Landing page for efoodtech:**
+- Completely rewrote `pages/Landing.jsx` — dropped the old efoodcare tiffin marketing.
+- New sections (all data-testid'd):
+  - Hero: "Run your mess like a tech company" with dual CTAs — **"Onboard my mess"** (→ `/login` for guests, `/admin` for owners) and **"Find messes near me"** (→ `/nearby`). Multi-tenant SaaS badge, 3 trust bullets.
+  - 4 stat cards: total messes on platform (live from `/nearby/messes/top5`), 30-day meal passes, QR + Face check-in modes, "Direct to mess" payment routing.
+  - Why efoodtech: 6-card feature grid (own tenant, per-mess wallet+Razorpay, QR+face check-in, 30-day meal passes, Trusted/Verified badges, ₹499 featured slot).
+  - How it works: 3-step onboarding narrative.
+  - Featured messes strip: live top-3 with Verified + Trusted badges + star rating.
+  - Final CTA banner with phone (+91 99707 05391).
+- Kept SEO component, PromotionPopup, existing header/footer via layout wrapper.
+- Screenshot verified: red hero + stat cards + Why section render correctly at 1280×900.
+
+
+
 ## iter-153/154 — Phone-strip bug on /profile fixed · admin login unblocked (2026-02-04)
 **Status: DONE — testing_agent certified 100% on critical bug + no regressions.**
 

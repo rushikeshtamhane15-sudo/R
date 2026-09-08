@@ -1,386 +1,230 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { api } from "../lib/api";
-import { readCmsCache, writeCmsCache } from "../lib/cms-cache";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
-import TestimonialsSection from "../components/TestimonialsSection";
-import PromotionPopup from "../components/PromotionPopup";
 import SEO from "../components/SEO";
-import ServiceabilityPill from "../components/ServiceabilityPill";
-import HeroParticles from "../components/HeroParticles";
-import * as Icons from "lucide-react";
+import PromotionPopup from "../components/PromotionPopup";
+import {
+  Building2, Sparkles, ShieldCheck, ScanFace, QrCode, Wallet, Rocket,
+  ArrowRight, BadgeCheck, Star, MapPin, Store, PhoneCall, ChevronRight,
+} from "lucide-react";
 
-const DEFAULT_HERO = "https://images.unsplash.com/photo-1600488999806-8efb986d87b1?crop=entropy&cs=srgb&fm=jpg&q=85&w=1600";
-const LS_MESS_KEY = "efoodtech.mess.picked";
-
-// Pick an icon by name from lucide-react; fall back to BadgeCheck if unknown
-function Icon({ name, className, strokeWidth = 1.75 }) {
-  const Cmp = (name && Icons[name]) || Icons.BadgeCheck;
-  return <Cmp className={className} strokeWidth={strokeWidth} />;
-}
-
-const ALWAYS_BG_CLASSES = {
-  green: "bg-emerald-700 text-white",
-  red: "bg-primary text-primary-foreground",
-  blue: "bg-blue-700 text-white",
-  amber: "bg-amber-600 text-white",
-};
-
+/**
+ * efoodtech — fresh SaaS landing (iter-155).
+ * Old efoodcare tiffin marketing replaced with multi-tenant "mess management
+ * software for India" positioning. Two audiences up-top:
+ *   1. Subscribers → find and join a mess near them
+ *   2. Mess owners → onboard their mess and run it end-to-end
+ */
 export default function Landing() {
-  // iter-59 #5: hydrate from localStorage cache on first paint so the
-  // page renders with the admin's saved hero text immediately.
-  const [content, setContent] = useState(() => readCmsCache("/content/landing"));
-  // iter-144 · efoodtech: overlay per-mess hero copy + tag chips.
-  const [pickedMess, setPickedMess] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(LS_MESS_KEY) || "null"); }
-    catch { return null; }
-  });
   const { user } = useAuth();
-  const ctaTarget = user
-    ? user.role === "admin" ? "/admin" : user.role === "staff" ? "/staff/scanner" : "/dashboard"
-    : "/login";
-  const ctaLabelOverride = user ? "Go to dashboard" : null;
+  const [messCount, setMessCount] = useState(null);
+  const [featured, setFeatured] = useState([]);
 
   useEffect(() => {
     (async () => {
       try {
-        const r = await api.get("/content/landing");
-        setContent(r.data);
-        writeCmsCache("/content/landing", r.data);
-      } catch (e) {
-        console.warn("[Landing] CMS /content/landing fetch failed (using cache)", e);
-      }
+        const r = await api.get("/nearby/messes/top5");
+        const messes = r.data?.messes || [];
+        setMessCount(r.data?.total_in_radius || messes.length);
+        setFeatured(messes.slice(0, 3));
+      } catch { /* silent */ }
     })();
   }, []);
 
-  // iter-144: refresh picked mess doc from server so its hero copy stays fresh
-  useEffect(() => {
-    const id = pickedMess?.mess_id;
-    if (!id) return;
-    (async () => {
-      try {
-        const r = await api.get(`/messes/${encodeURIComponent(pickedMess.slug || id)}`);
-        if (r.data?.mess_id) {
-          setPickedMess(r.data);
-          try { localStorage.setItem(LS_MESS_KEY, JSON.stringify(r.data)); } catch {}
-        }
-      } catch { /* stale cache is fine */ }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pickedMess?.mess_id]);
-
-  const c = content || {};
-  const heroImg = c.hero_image_url || DEFAULT_HERO;
-
-  // iter-144 · efoodtech: per-mess overrides (fall back to CMS content).
-  const heroTitleLine1 = (pickedMess?.hero_title || "").trim() || c.hero_title_line1 || "ghar se achha khana,";
-  const heroTitleLine2 = pickedMess?.hero_title ? "" : (c.hero_title_line2 || "ab ek e-Meal Pass pe.");
-  const heroSubtitle   = (pickedMess?.hero_subtitle || "").trim() || c.hero_subtitle || "30-day tiffin subscriptions with a smart wallet. Pay once by UPI, check-in by QR, skip a few days — we pause your wallet, no meals wasted.";
-  const messChips = Array.isArray(pickedMess?.tag_chips) ? pickedMess.tag_chips.filter(Boolean) : [];
-
-  const alwaysBgClass = useMemo(
-    () => ALWAYS_BG_CLASSES[c.healthy_always_bg] || ALWAYS_BG_CLASSES.green,
-    [c.healthy_always_bg]
-  );
+  const ownerCta = user?.role === "franchise_owner" || user?.role === "admin" ? "/admin" : "/login";
+  const subscriberCta = user ? "/nearby" : "/nearby";
 
   return (
-    <div data-testid="landing-page">
-      <SEO
-        title={pickedMess?.name ? `${pickedMess.name} · efoodtech` : "efoodtech · User Management System"}
+    <div className="bg-white" data-testid="landing-page">
+      <SEO title="efoodtech · User Management System for Messes across India"
         path="/home"
-        description={pickedMess?.hero_subtitle || "efoodtech — SaaS mess management platform. 30-day meal passes with QR + face check-in and wallet."}
-      />
-      {/* Per-mess ribbon */}
-      {pickedMess?.mess_id && (
-        <div className="w-full bg-primary/5 border-b border-primary/10 py-2" data-testid="landing-mess-ribbon">
-          <div className="max-w-7xl mx-auto px-6 md:px-8 lg:px-12 flex items-center gap-3">
-            {pickedMess.logo_url ? (
-              <img src={pickedMess.logo_url} alt="" className="h-7 w-7 rounded-lg object-cover border border-primary/20" />
-            ) : (
-              <div className="h-7 w-7 rounded-lg bg-primary/15 text-primary flex items-center justify-center"><Icons.Building2 className="h-3.5 w-3.5" /></div>
-            )}
-            <div className="flex-1 min-w-0 text-xs">
-              <span className="font-bold text-primary">{pickedMess.name}</span>
-              <span className="text-slate-500 mx-2">·</span>
-              <span className="font-mono text-slate-500">{pickedMess.mess_id}</span>
-              {pickedMess.city && <><span className="text-slate-500 mx-2">·</span><span className="text-slate-600">{pickedMess.city}</span></>}
-            </div>
-            <Link to="/login" className="text-[11px] font-semibold text-secondary hover:underline">Change mess</Link>
-          </div>
-        </div>
-      )}
+        description="India's multi-tenant SaaS for messes: QR + face check-in, wallet, per-mess plans and Razorpay payments. Onboard your mess in minutes." />
 
-      {/* Hero — iter-64 #1: full-viewport landing hero with serviceability
-          pill anchored at the TOP, generous spacing, fluid type so the whole
-          hero card fits one screen on mobile. */}
-      <section
-        className="relative overflow-hidden min-h-[calc(100svh-64px)] md:min-h-[calc(100svh-72px)] flex flex-col"
-        onMouseMove={(e) => {
-          const r = e.currentTarget.getBoundingClientRect();
-          e.currentTarget.style.setProperty("--px", String(((e.clientX - r.left) / r.width) - 0.5));
-          e.currentTarget.style.setProperty("--py", String(((e.clientY - r.top) / r.height) - 0.5));
-        }}
-      >
-        <div className="absolute inset-0 -z-10">
-          <img src={heroImg} alt="dining" className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-background/85"></div>
-        </div>
-        <HeroParticles />
-        <div className="pt-0.5">
-          <ServiceabilityPill />
-        </div>
-        <div className="flex-1 flex items-start">
-          <div className="w-full max-w-7xl mx-auto px-6 md:px-8 lg:px-12 pt-2 pb-1 sm:pt-3 sm:pb-3 md:py-5">
-          <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="text-xs sm:text-sm tracking-overline uppercase font-bold text-secondary mt-4 sm:mt-5 mb-6 sm:mb-8">
-            {pickedMess?.tagline || c.hero_overline || "UPI · WALLET · E-MEAL PASS"}
-          </motion.p>
-          <motion.h1 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="font-display font-extrabold text-[34px] leading-[1.02] sm:text-6xl lg:text-7xl tracking-tight max-w-4xl">
-            <span className="text-primary">{heroTitleLine1}</span>{" "}
-            {heroTitleLine2 && <>
-              <br className="hidden md:block" />
-              {heroTitleLine2}
-            </>}
-          </motion.h1>
-          <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mt-5 sm:mt-7 text-[17px] sm:text-2xl max-w-2xl text-muted-foreground leading-relaxed font-semibold">
-            {heroSubtitle}
-          </motion.p>
-
-          {/* Per-mess tag chips row */}
-          {messChips.length > 0 && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}
-              className="mt-6 flex flex-wrap gap-2" data-testid="mess-hero-chips">
-              {messChips.map((chip, i) => (
-                <span key={i} className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs sm:text-sm font-bold px-3 py-1.5"
-                  data-testid={`mess-chip-${i}`}>
-                  <Icons.BadgeCheck className="h-3.5 w-3.5" />
-                  {chip}
-                </span>
-              ))}
-            </motion.div>
-          )}
-
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mt-10 sm:mt-12 flex flex-wrap gap-3 sm:gap-4">
-            <Link to="/plans" data-testid="hero-cta-start">
-              <Button size="lg" className="rounded-full bg-primary hover:bg-primary/90 px-7 sm:px-8 h-11 sm:h-12 text-sm sm:text-base">{ctaLabelOverride || c.hero_cta_primary || "Get your e-Meal Pass"}</Button>
-            </Link>
-            <Link to={ctaTarget} data-testid="hero-cta-plans">
-              <Button size="lg" variant="outline" className="rounded-full px-7 sm:px-8 h-11 sm:h-12 text-sm sm:text-base">{c.hero_cta_secondary || (user ? "Go to dashboard" : "Sign in")}</Button>
-            </Link>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}
-            className="mt-7 sm:mt-9 flex flex-row justify-center gap-2"
-            data-testid="hero-contact-pills"
-          >
-            <a
-              href={`tel:${(c.support_phone || "+919175560211").replace(/\s/g, "")}`}
-              data-testid="hero-call-btn"
-              className="inline-flex items-center gap-1.5 rounded-full pl-1 pr-3 py-1 bg-primary text-primary-foreground shadow-md hover:shadow-lg transition-shadow text-[11px] font-bold"
-            >
-              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-primary">
-                <Icons.Phone className="h-3 w-3" />
-              </span>
-              Call us
-            </a>
-            <a
-              href={`https://wa.me/91${(c.support_phone || "9175560211").replace(/\D/g, "").slice(-10)}?text=${encodeURIComponent("Hi efoodcare, I would like to know about meal subscriptions.")}`}
-              target="_blank" rel="noreferrer noopener"
-              data-testid="hero-whatsapp-btn"
-              className="inline-flex items-center gap-1.5 rounded-full pl-1 pr-3 py-1 bg-emerald-600 text-white shadow-md hover:shadow-lg transition-shadow text-[11px] font-bold"
-            >
-              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-emerald-600">
-                <Icons.MessageCircle className="h-3 w-3" />
-              </span>
-              WhatsApp
-            </a>
-          </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section className="max-w-7xl mx-auto px-6 md:px-8 lg:px-12 py-20 md:py-28">
-        <div className="grid md:grid-cols-12 gap-10 lg:gap-12 items-center">
-          <div className="md:col-span-6">
-            <p className="text-xs tracking-overline uppercase font-bold text-secondary mb-4">{c.how_overline || "How it works"}</p>
-            <h2 className="font-display font-extrabold text-3xl sm:text-4xl lg:text-5xl tracking-tight leading-[1.05]">
-              {c.how_title || "Pay once. Eat for 30 days. Pause when you travel."}
-            </h2>
-            <p className="mt-6 text-muted-foreground leading-relaxed max-w-lg whitespace-pre-line">
-              {c.how_body || "Money loads into your wallet on day one. Every day you eat, a small amount ticks down."}
-            </p>
-            <div className="mt-10 space-y-6">
-              {(c.how_features || []).map((f, i) => (
-                <div key={`${f.title || 'feature'}-${i}`} className="flex gap-5 items-start" data-testid={`how-feature-${i}`}>
-                  <div className="h-12 w-12 rounded-xl bg-accent flex items-center justify-center shrink-0">
-                    <Icon name={f.icon} className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="font-display font-bold text-lg leading-tight">{f.title}</p>
-                    <p className="text-muted-foreground text-sm mt-1">{f.body}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="md:col-span-6 grid grid-cols-2 gap-4">
-            {c.how_image_1 && <img src={c.how_image_1} alt="meal" className="surface-3d rounded-2xl aspect-[4/5] object-cover w-full border border-border" />}
-            {c.how_image_2 && <img src={c.how_image_2} alt="qr scan" className="surface-3d rounded-2xl aspect-[4/5] object-cover w-full border border-border mt-10" />}
-          </div>
-        </div>
-      </section>
-
-      {/* Features band */}
-      <section className="bg-accent/60 border-y border-border">
-        <div className="max-w-7xl mx-auto px-6 md:px-8 lg:px-12 py-20 md:py-24">
-          <div className="mb-12">
-            <p className="text-xs tracking-overline uppercase font-bold text-secondary mb-3">{c.band_overline || "Built for modern tiffin halls"}</p>
-            <h2 className="font-display font-extrabold text-3xl sm:text-4xl lg:text-5xl tracking-tight max-w-xl leading-[1.05]">
-              {c.band_title || "The wallet that eats with you."}
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {(c.band_items || []).map((f, i) => (
-              <div key={`${f.title || 'band'}-${i}`} className="surface-3d tile-3d bg-card rounded-2xl border border-border p-8 transition-all hover:-translate-y-1" data-testid={`feature-card-${i}`}>
-                <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center mb-6">
-                  <Icon name={f.icon} className="h-5 w-5 text-primary" />
-                </div>
-                <p className="font-display font-bold text-xl">{f.title}</p>
-                <p className="text-muted-foreground text-sm mt-2 leading-relaxed">{f.body}</p>
+      {/* HERO */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-primary via-primary to-red-800 text-white" data-testid="hero">
+        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "radial-gradient(circle at 25% 25%, #ffffff 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
+        <div className="relative max-w-7xl mx-auto px-6 md:px-10 pt-16 md:pt-24 pb-20 md:pb-28">
+          <div className="grid lg:grid-cols-[1.15fr_0.85fr] gap-10 items-center">
+            <div>
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
+                className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 backdrop-blur px-3 py-1.5 mb-5"
+                data-testid="hero-badge">
+                <Sparkles className="h-3.5 w-3.5" />
+                <span className="text-xs font-semibold uppercase tracking-widest">Multi-tenant SaaS · India</span>
+              </motion.div>
+              <motion.h1 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
+                className="font-display font-extrabold text-4xl sm:text-5xl lg:text-6xl leading-[1.05] tracking-tight">
+                Run your mess like a{" "}
+                <span className="text-white/90 underline decoration-white/40 decoration-4 underline-offset-4">tech company</span>.
+              </motion.h1>
+              <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }}
+                className="mt-5 text-lg sm:text-xl text-white/85 max-w-2xl leading-relaxed">
+                <b>efoodtech</b> is the User Management System messes across India use to run 30-day meal passes, QR + face check-ins, subscriber wallets and per-mess Razorpay payments — all in one app your subscribers already love.
+              </motion.p>
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}
+                className="mt-8 flex flex-wrap gap-3">
+                <Link to={ownerCta} data-testid="hero-cta-owner">
+                  <Button size="lg" className="rounded-full bg-white text-primary hover:bg-white/90 px-7 h-12 text-base font-bold">
+                    <Store className="h-4 w-4 mr-2" /> Onboard my mess
+                  </Button>
+                </Link>
+                <Link to={subscriberCta} data-testid="hero-cta-subscriber">
+                  <Button size="lg" variant="outline" className="rounded-full border-white/40 hover:bg-white/10 text-white px-7 h-12 text-base font-semibold bg-transparent">
+                    Find messes near me <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </Link>
+              </motion.div>
+              <div className="mt-8 flex flex-wrap gap-6 text-xs sm:text-sm text-white/80">
+                <div className="flex items-center gap-1.5"><BadgeCheck className="h-4 w-4" /> Setup in under 10 minutes</div>
+                <div className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4" /> Payments land in your bank directly</div>
+                <div className="flex items-center gap-1.5"><Star className="h-4 w-4 fill-white" /> Trusted by messes across India</div>
               </div>
+            </div>
+
+            {/* Stat cards */}
+            <div className="grid grid-cols-2 gap-4" data-testid="hero-stats">
+              <StatCard label="Messes on platform" value={messCount ?? "—"} icon={Building2} />
+              <StatCard label="Meal passes / month" value="30-day" icon={QrCode} />
+              <StatCard label="Check-in modes" value="QR + Face" icon={ScanFace} />
+              <StatCard label="Payment routing" value="Direct to mess" icon={Wallet} />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* WHY EFOODTECH */}
+      <section className="max-w-7xl mx-auto px-6 md:px-10 py-20" data-testid="why-section">
+        <div className="text-center mb-14">
+          <p className="text-xs uppercase tracking-widest font-bold text-secondary">Why efoodtech</p>
+          <h2 className="font-display font-extrabold text-3xl sm:text-4xl mt-2">A full mess kitchen, in one dashboard.</h2>
+          <p className="text-muted-foreground mt-3 max-w-2xl mx-auto">Every module a modern mess owner asks for — pre-built, per-tenant, ready to launch.</p>
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <Feature icon={Building2} title="Your own tenant" copy="Custom Mess ID, logo, tagline, tag chips, hero copy — every subscriber sees YOUR brand." />
+          <Feature icon={Wallet} title="Per-mess wallet + Razorpay" copy="Plug in your Razorpay keys once. Every subscription payment lands in YOUR bank, minus zero platform fees." />
+          <Feature icon={ScanFace} title="QR + Face check-in" copy="Wall kiosk with camera, WhatsApp receipts, and automatic 2-meals-per-day wallet math. Grandma-proof." />
+          <Feature icon={Rocket} title="30-day meal passes" copy="Sell it once, cron does the rest — daily debits, streaks, auto-pause, wallet rollovers. Zero manual work." />
+          <Feature icon={ShieldCheck} title="Trusted + Verified badges" copy="Real ratings from your subscribers roll up to a Trusted pill (20 reviews · 4.0+ avg). Super-admin manually verifies premium tenants." />
+          <Feature icon={Sparkles} title="Featured slot #1" copy="₹499 for 30 days pins your mess to the top of the Nearby discovery page. Slot 1 in your area, guaranteed." />
+        </div>
+      </section>
+
+      {/* HOW IT WORKS */}
+      <section className="bg-accent/30 py-20" data-testid="how-section">
+        <div className="max-w-7xl mx-auto px-6 md:px-10">
+          <div className="text-center mb-14">
+            <p className="text-xs uppercase tracking-widest font-bold text-secondary">How it works</p>
+            <h2 className="font-display font-extrabold text-3xl sm:text-4xl mt-2">From onboarding to first meal — 3 steps.</h2>
+          </div>
+          <ol className="grid md:grid-cols-3 gap-6">
+            {[
+              { n: 1, t: "Onboard", c: "Super-admin creates your mess in one form. You get your Mess ID over WhatsApp instantly." },
+              { n: 2, t: "Set up", c: "Upload your logo, tagline and Razorpay keys from /mess-owner/settings. Add your plans." },
+              { n: 3, t: "Go live", c: "Share your Mess ID. Subscribers type it on /login, subscribe, and start checking in via QR + face." },
+            ].map((s) => (
+              <li key={s.n} className="rounded-2xl bg-white border border-slate-200 p-6 relative overflow-hidden">
+                <span className="absolute -top-3 -left-3 text-[100px] font-black text-primary/5 leading-none">{s.n}</span>
+                <div className="relative">
+                  <div className="h-9 w-9 rounded-lg bg-primary text-white flex items-center justify-center font-bold mb-3">{s.n}</div>
+                  <h3 className="font-display font-extrabold text-xl text-slate-900">{s.t}</h3>
+                  <p className="text-sm text-slate-600 mt-1.5 leading-relaxed">{s.c}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      {/* FEATURED MESSES */}
+      {featured.length > 0 && (
+        <section className="max-w-7xl mx-auto px-6 md:px-10 py-20" data-testid="featured-messes-section">
+          <div className="flex items-end justify-between flex-wrap gap-4 mb-8">
+            <div>
+              <p className="text-xs uppercase tracking-widest font-bold text-secondary">Live on efoodtech</p>
+              <h2 className="font-display font-extrabold text-3xl sm:text-4xl mt-2">Messes already serving on our platform.</h2>
+            </div>
+            <Link to="/nearby" className="text-primary font-semibold text-sm inline-flex items-center gap-1 hover:underline" data-testid="featured-see-all">
+              See all <ChevronRight className="h-4 w-4" />
+            </Link>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {featured.map((m) => (
+              <Link to="/nearby" key={m.mess_id} className="rounded-2xl border border-slate-200 bg-white p-5 hover:shadow-md transition group"
+                data-testid={`landing-mess-${m.mess_id}`}>
+                <div className="flex items-center gap-3">
+                  {m.logo_url ? (
+                    <img src={m.logo_url} alt="" className="h-12 w-12 rounded-xl object-cover border border-slate-200" />
+                  ) : (
+                    <div className="h-12 w-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center"><Building2 className="h-6 w-6" /></div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h3 className="text-base font-bold text-slate-900 truncate">{m.name}</h3>
+                      {m.is_verified && <BadgeCheck className="h-4 w-4 text-blue-600 shrink-0" />}
+                      {m.is_trusted && <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />}
+                    </div>
+                    <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                      <MapPin className="h-3 w-3" /> {m.city}
+                      <span className="ml-auto font-mono text-primary">{m.mess_id}</span>
+                    </div>
+                  </div>
+                </div>
+                {m.tagline && <p className="text-xs text-slate-600 mt-3 line-clamp-2">{m.tagline}</p>}
+                <div className="flex items-center gap-1 mt-3 text-xs text-slate-500">
+                  {[1,2,3,4,5].map((n) => <Star key={n} className={`h-3 w-3 ${n <= Math.round(m.avg_rating||0) ? "text-amber-500 fill-amber-500" : "text-slate-300"}`} strokeWidth={1.5} />)}
+                  <span className="ml-1">{(m.avg_rating||0).toFixed(1)} · {m.review_count||0} reviews</span>
+                </div>
+              </Link>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* Admin-editable custom sections */}
-      {(c.sections || []).map((s, i) => (
-        <section key={`${s.heading || 'section'}-${i}`} className="max-w-7xl mx-auto px-6 md:px-8 lg:px-12 py-14 md:py-20" data-testid={`custom-section-${i}`}>
-          {s.align === "none" || !s.image_url ? (
-            <div className="max-w-3xl">
-              <h2 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight leading-[1.1]">{s.heading}</h2>
-              <div className="mt-5 text-muted-foreground leading-relaxed whitespace-pre-wrap">{s.body}</div>
-            </div>
-          ) : (
-            <div className={`grid md:grid-cols-12 gap-10 items-center ${s.align === "right" ? "md:[&>div:first-child]:order-2" : ""}`}>
-              <div className="md:col-span-6">
-                <img src={s.image_url} alt={s.heading} className="rounded-2xl w-full aspect-[4/3] object-cover border border-border" />
-              </div>
-              <div className="md:col-span-6">
-                <h2 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight leading-[1.1]">{s.heading}</h2>
-                <div className="mt-5 text-muted-foreground leading-relaxed whitespace-pre-wrap">{s.body}</div>
-              </div>
-            </div>
-          )}
         </section>
-      ))}
+      )}
 
-      <HealthyPromise c={c} alwaysBgClass={alwaysBgClass} />
-
-      <TestimonialsSection />
-
-      {/* Final CTA */}
-      <section className="max-w-7xl mx-auto px-6 md:px-8 lg:px-12 py-16 md:py-20">
-        <div className="bg-primary rounded-3xl p-10 md:p-16 flex flex-col md:flex-row items-start md:items-center justify-between gap-8 text-primary-foreground">
-          <div>
-            <h3 className="font-display font-extrabold text-3xl md:text-4xl lg:text-5xl tracking-tight leading-[1.05]">
-              {c.cta_title_line1 || "ghar se achha khana,"} <br />
-              {c.cta_title_line2 || "ab UPI pe."}
-            </h3>
-            <p className="mt-4 text-primary-foreground/80 max-w-lg">{c.cta_subtitle || "Plans start at ₹1,800 for 30 days."}</p>
+      {/* FINAL CTA */}
+      <section className="relative overflow-hidden bg-primary text-white" data-testid="final-cta-section">
+        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "radial-gradient(circle at 80% 30%, #ffffff 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
+        <div className="relative max-w-4xl mx-auto px-6 md:px-10 py-20 md:py-24 text-center">
+          <h2 className="font-display font-extrabold text-4xl sm:text-5xl leading-tight">Ready to onboard your mess?</h2>
+          <p className="mt-5 text-white/85 text-lg max-w-2xl mx-auto">Join the multi-tenant SaaS trusted by messes across India. Under 10 minutes to go live. Payments direct to your bank.</p>
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            <Link to={ownerCta} data-testid="final-cta-owner">
+              <Button size="lg" className="rounded-full bg-white text-primary hover:bg-white/90 px-8 h-12 text-base font-bold">
+                <Store className="h-4 w-4 mr-2" /> Get started for your mess
+              </Button>
+            </Link>
+            <a href="tel:+919970705391" className="inline-flex items-center gap-2 rounded-full border border-white/40 hover:bg-white/10 px-7 h-12 font-semibold" data-testid="final-cta-call">
+              <PhoneCall className="h-4 w-4" /> +91 99707 05391
+            </a>
           </div>
-          <Link to={ctaTarget} data-testid="cta-footer">
-            <Button size="lg" className="rounded-full bg-white text-primary hover:bg-white/90 px-8 h-12 text-base font-bold">
-              {ctaLabelOverride || c.cta_button_label || "Start with OTP"}
-            </Button>
-          </Link>
         </div>
       </section>
+
       <PromotionPopup />
     </div>
   );
 }
 
-function HealthyPromise({ c, alwaysBgClass }) {
-  const never = c.healthy_never_items || [];
-  const always = c.healthy_always_items || [];
+function StatCard({ label, value, icon: Icon }) {
   return (
-    <section className="relative overflow-hidden border-y border-border" data-testid="healthy-promise-section">
-      <div className="absolute inset-0 -z-10 bg-gradient-to-br from-accent/40 via-background to-secondary/5"></div>
-      <div className="max-w-7xl mx-auto px-6 md:px-8 lg:px-12 py-20 md:py-28">
-        <div className="max-w-3xl">
-          <p className="text-xs tracking-overline uppercase font-bold text-secondary mb-3 flex items-center gap-1.5" data-testid="healthy-promise-overline">
-            <Icons.Sparkles className="h-3.5 w-3.5" /> {c.healthy_overline || "Our kitchen promise"}
-          </p>
-          <h2 className="font-display font-extrabold text-3xl sm:text-4xl lg:text-5xl tracking-tight leading-[1.05]">
-            {c.healthy_title_part_1 || "What's "}
-            <span className="text-primary">{c.healthy_title_highlight_1 || "NOT"}</span>
-            {c.healthy_title_part_2 || " in your tiffin matters as much as "}
-            <span className="text-primary">{c.healthy_title_highlight_2 || "what is"}</span>
-            {c.healthy_title_part_3 || "."}
-          </h2>
-          <p className="mt-5 text-muted-foreground leading-relaxed max-w-2xl whitespace-pre-line">
-            {c.healthy_subtitle || "Real ghar ka khana means clean, honest ingredients."}
-          </p>
-        </div>
+    <div className="rounded-2xl bg-white/10 border border-white/20 backdrop-blur p-4">
+      <Icon className="h-5 w-5 text-white/80 mb-2" strokeWidth={2} />
+      <div className="text-2xl font-extrabold leading-none">{value}</div>
+      <div className="text-[11px] uppercase tracking-widest font-semibold text-white/70 mt-1.5">{label}</div>
+    </div>
+  );
+}
 
-        <div className="mt-12 grid lg:grid-cols-2 gap-6 lg:gap-8">
-          {/* NEVER list */}
-          <div className="surface-3d rounded-3xl bg-card border border-border p-7 md:p-9 relative overflow-hidden" data-testid="never-card">
-            <div className="flex items-center gap-3 mb-2">
-              <span className="inline-flex h-11 w-11 rounded-xl bg-destructive/10 text-destructive items-center justify-center">
-                <Icons.Ban className="h-5 w-5" strokeWidth={2} />
-              </span>
-              <div>
-                <p className="text-[10px] tracking-overline uppercase font-bold text-destructive">{c.healthy_never_title || "Never on your plate"}</p>
-                <h3 className="font-display font-extrabold text-2xl leading-tight mt-1">{c.healthy_never_heading || "0% the bad stuff"}</h3>
-              </div>
-            </div>
-            <ul className="mt-6 divide-y divide-border">
-              {never.map((it, i) => (
-                <li key={`${it.label || 'never'}-${i}`} className="flex items-start gap-4 py-4" data-testid={`never-item-${i}`}>
-                  <span className="font-display font-extrabold text-xl text-destructive shrink-0 w-12">0%</span>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-sm">{it.label}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{it.note}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* ALWAYS list — admin-selectable bg */}
-          <div className={`surface-3d rounded-3xl p-7 md:p-9 relative overflow-hidden ${alwaysBgClass}`} data-testid="always-card">
-            <div className="flex items-center gap-3 mb-2">
-              <span className="inline-flex h-11 w-11 rounded-xl bg-white/15 text-white items-center justify-center">
-                <Icons.BadgeCheck className="h-5 w-5" strokeWidth={2} />
-              </span>
-              <div>
-                <p className="text-[10px] tracking-overline uppercase font-bold text-white/80">{c.healthy_always_title || "Always on your plate"}</p>
-                <h3 className="font-display font-extrabold text-2xl leading-tight mt-1">{c.healthy_always_heading || "100% the good stuff"}</h3>
-              </div>
-            </div>
-            <ul className="mt-6 divide-y divide-white/15">
-              {always.map((it, i) => (
-                <li key={`${it.label || 'always'}-${i}`} className="flex items-start gap-4 py-4" data-testid={`always-item-${i}`}>
-                  <span className="font-display font-extrabold text-xl shrink-0 w-12">100%</span>
-                  <div className="min-w-0 flex items-start gap-3">
-                    <span className="inline-flex h-7 w-7 shrink-0 rounded-full bg-white/15 items-center justify-center mt-0.5">
-                      <Icon name={it.icon} className="h-3.5 w-3.5" strokeWidth={2} />
-                    </span>
-                    <div>
-                      <p className="font-semibold text-sm">{it.label}</p>
-                      <p className="text-xs text-white/80 mt-0.5">{it.note}</p>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
+function Feature({ icon: Icon, title, copy }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 hover:shadow-md transition-shadow group" data-testid={`feature-${title.toLowerCase().replace(/\s+/g,'-')}`}>
+      <div className="h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-white transition-colors">
+        <Icon className="h-5 w-5" strokeWidth={2} />
       </div>
-    </section>
+      <h3 className="font-display font-extrabold text-lg text-slate-900">{title}</h3>
+      <p className="text-sm text-slate-600 mt-1.5 leading-relaxed">{copy}</p>
+    </div>
   );
 }
