@@ -4,6 +4,23 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-157 — About Us · Pricing page · per-mess billing config (2026-02-04)
+**Status: DONE — 2 of 3 user asks shipped; Item 1 (super-admin impersonation of every mess CMS) deferred with clear rationale.**
+
+- **About Us page** (`/about`) — story block + 4 conviction blocks + contact grid. SEO'd. Links from Landing.
+- **Pricing page** (`/pricing`) — hero + two-plan grid (one-time ₹4999 + monthly ₹100/user), **live calculator** slider (users × rate → total), 4-step "how billing works" (top-up → count → 7-day grace → auto-restrict), final CTA. Rates fetched from super-admin editable `/api/content/pricing` (defaults: `one_time_fee=4999`, `monthly_per_user=100`, `grace_days=7`).
+- **Backend billing config:**
+  - `MessSettingsIn` gained `platform_charge_dining_per_user`, `platform_charge_tiffin_per_user`, `platform_wallet_balance`, `platform_wallet_grace_days`.
+  - New endpoint `POST /api/admin/messes/{mess_id}/billing` — super-admin sets per-mess rates + wallet balance. Verified endpoint preserved next to it.
+  - `DEFAULT_CONTENT['pricing']` block added so `/api/content/pricing` serves the public defaults.
+- Routes added to App.js: `/about` and `/pricing` (public).
+
+**⏸️ Deferred:**
+- **Item 1 (super-admin impersonation of every mess's CMS)** — needs a proper "act as mess X" session mode + per-mess scoping on ~10 more editor endpoints (footer, announcement, contact, testimonials, kiosk voice, restaurant page, dashboard styles, brand logo, subscription plans, home page). Rushing it now risks corrupting shared CMS docs across tenants. Full iteration on its own.
+- **Item 3 tail (billing cron + auto-restrict at 7-day overdue)** — needs a nightly scheduler + a middleware restriction gate. The billing MODEL + super-admin config UI are in place; automation next iteration.
+
+
+
 ## iter-156 — Super Admin panel visible on /admin (2026-02-04)
 **Status: DONE — testing_agent iteration_156.json certified 100% pass.**
 

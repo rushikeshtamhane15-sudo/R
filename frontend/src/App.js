@@ -82,6 +82,8 @@ import AdminBroadcast from "./pages/AdminBroadcast";
 import MessOwnerSettings from "./pages/MessOwnerSettings";
 import SuperAdminMesses from "./pages/SuperAdminMesses";
 import SuperAdminReviews from "./pages/SuperAdminReviews";
+import AboutUs from "./pages/AboutUs";
+import Pricing from "./pages/Pricing";
 import TopMesses from "./pages/TopMesses";
 import AdminFaceEnroll from "./pages/AdminFaceEnroll";
 import AdminMesses from "./pages/AdminMesses";
@@ -183,6 +185,8 @@ function AppRoutes() {
           <Route path="/super-admin/messes" element={<RequireAuth roles={["admin"]}><SuperAdminMesses /></RequireAuth>} />
           <Route path="/super-admin/reviews" element={<RequireAuth roles={["admin"]}><SuperAdminReviews /></RequireAuth>} />
           <Route path="/nearby" element={<TopMesses />} />
+          <Route path="/about" element={<AboutUs />} />
+          <Route path="/pricing" element={<Pricing />} />
           <Route path="/branch/:slug" element={<BranchContact />} />
           <Route path="/partners" element={<PartnerPortal />} />
 

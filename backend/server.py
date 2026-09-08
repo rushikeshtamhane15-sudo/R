@@ -1513,6 +1513,12 @@ DEFAULT_CONTENT = {
         "website": "https://efoodcare.in",
         "email": "hello@efoodcare.in",
     },
+    # iter-157 · Pricing page defaults — super-admin editable via /admin/content/pricing.
+    "pricing": {
+        "one_time_fee": 4999,
+        "monthly_per_user": 100,
+        "grace_days": 7,
+    },
     "landing": {
         "hero_overline": "UPI · WALLET · E-MEAL PASS",
         "hero_title_line1": "ghar se achha khana,",
@@ -1874,6 +1880,11 @@ class MessSettingsIn(BaseModel):
     kiosk_voice_name: Optional[str] = None      # e.g. "en-IN-NeerjaNeural"
     kiosk_voice_lang: Optional[str] = None       # e.g. "en-IN" | "hi-IN" | "mr-IN"
     testimonials: Optional[List[dict]] = None    # [{name, quote, role, photo_url}]
+    # iter-157 · platform billing config (super-admin editable per mess).
+    platform_charge_dining_per_user: Optional[float] = None    # ₹/user/month for dining
+    platform_charge_tiffin_per_user: Optional[float] = None    # ₹/user/month for tiffin
+    platform_wallet_balance: Optional[float] = None            # top-up balance
+    platform_wallet_grace_days: Optional[int] = None            # override default 7
 
 
 class MessRazorpayKeysIn(BaseModel):

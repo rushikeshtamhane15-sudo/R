@@ -337,6 +337,37 @@ async def admin_toggle_review_hidden(review_id: str, user: server.User = Depends
 # ============================================================================
 # iter-147 · Verified badge — super-admin manual verify.
 # ============================================================================
+@router.post("/admin/messes/{mess_id}/billing")
+async def admin_set_billing(
+    mess_id: str,
+    payload: server.MessSettingsIn,
+    user: server.User = Depends(server.get_current_user),
+):
+    """iter-157 · Super-admin sets per-mess platform billing rates + wallet.
+
+    Any of `platform_charge_dining_per_user`, `platform_charge_tiffin_per_user`,
+    `platform_wallet_balance`, `platform_wallet_grace_days` can be updated.
+    Ignores the branding/CMS fields on `MessSettingsIn`."""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    mess = await server.db.messes.find_one({"mess_id": mess_id}, {"_id": 0})
+    if not mess:
+        raise HTTPException(status_code=404, detail="Mess not found")
+    body = payload.model_dump(exclude_unset=True)
+    updates = {k: v for k, v in body.items() if k in (
+        "platform_charge_dining_per_user",
+        "platform_charge_tiffin_per_user",
+        "platform_wallet_balance",
+        "platform_wallet_grace_days",
+    ) and v is not None}
+    if not updates:
+        raise HTTPException(status_code=400, detail="No billing fields provided")
+    updates["platform_billing_updated_at"] = server.iso(server.now_utc())
+    await server.db.messes.update_one({"mess_id": mess_id}, {"$set": updates})
+    fresh = await server.db.messes.find_one({"mess_id": mess_id}, {"_id": 0})
+    return {"ok": True, "mess": fresh}
+
+
 @router.post("/admin/messes/{mess_id}/verified")
 async def admin_set_verified(mess_id: str, on: bool = True, user: server.User = Depends(server.get_current_user)):
     if user.role != "admin":
