@@ -1,0 +1,35 @@
+{
+  "summary": "Iter-153 phone-strip bug verification (frontend only). CRITICAL: The claimed fix has NOT been applied to /app/frontend/src/pages/Profile.jsx. The `strip91()` helper described in the review request does not exist anywhere in the file (grep -n 'strip91' returns 0 hits). All three sites (line 217 hero badge, line 291 phone input value, line 514 AccountHub hero-card phone) still contain the naive regex `replace(/^\\+?91/, \"\")`. Reproduced the mangling behaviour with Node: `\"9175560211\".replace(/^\\+?91/, \"\")` returns `\"75560211\"` — exactly the bug the user is reporting. Non-91 phones (9998887766) are unaffected. A real 12-digit country-code phone (919999888877) coincidentally collapses to the correct 10-digit (9999888877), but only because the naive regex also strips the false-positive leading '91' from 10-digit numbers starting with 91 — which is precisely the bug. E1 must actually implement the strip91() helper (only strip when phone starts with '91' AND is 12 digits, or when it starts with '+91') and replace the 3 call-sites. Skipped full playwright run because (a) source-level defect is definitive, (b) send-otp is rate-limited 1/10min per admin phone so another live login attempt would burn the OTP window.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Profile.jsx hero badge (edit mode)", "issue": "Line 217 still uses `(form.phone || user.phone).replace(/^\\+?91/, \"\")` — renders admin phone 9175560211 as '+91 75560211'.", "selector": "[data-testid=profile-hero] p.tabular-nums", "priority": "CRITICAL"},
+      {"component": "Profile.jsx phone input value", "issue": "Line 291 still uses `form.phone.replace(/^\\+?91/, \"\").replace(/\\D/g, \"\").slice(0, 10)` — displays '75560211' for admin phone in [data-testid=profile-phone] input.", "selector": "[data-testid=profile-phone]", "priority": "CRITICAL"},
+      {"component": "Profile.jsx AccountHub hero card", "issue": "Line 514 still uses `(user.phone).replace(/^\\+?91/, \"\")` — hub view shows '+91 75560211' for admin.", "selector": "[data-testid=hub-hero-card] p.tabular-nums", "priority": "CRITICAL"}
+    ],
+    "integration_issues": [
+      {"flow": "Admin login → profile display", "issue": "Because AuthContext user.phone stores '9175560211' verbatim and the render layer strips the leading '91' unconditionally, both the /profile edit form and the AccountHub hero show a 8-digit mangled number. If the user hits Save after seeing the mangled 8-digit value in the input, the state (which mirrors the mangled display) will overwrite user.phone on the backend to '75560211', breaking ADMIN_PHONES membership permanently for that user.", "affected_selectors": ["[data-testid=profile-phone]", "[data-testid=profile-hero]", "[data-testid=hub-hero-card]"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "ACTUALLY apply the strip91() helper in /app/frontend/src/pages/Profile.jsx. Suggested implementation:\n```js\nconst strip91 = (p) => {\n  if (!p) return \"\";\n  const s = String(p).trim();\n  if (s.startsWith(\"+91\")) return s.slice(3).replace(/\\D/g, \"\");\n  const digits = s.replace(/\\D/g, \"\");\n  if (digits.length === 12 && digits.startsWith(\"91\")) return digits.slice(2);\n  return digits.slice(-10); // safest: keep last 10\n};\n```\nThen replace the three regex call-sites at L217, L291, L514 with `strip91(form.phone || user?.phone)` / `strip91(form.phone)` / `strip91(user.phone)` respectively.",
+    "Also fix the onChange handler at line 292 which currently strips only non-digits — that part is fine, but ensure the initial `useEffect` on line 91-102 sanitises user.phone through strip91() when populating form.phone so downstream save() posts the normalised 10-digit value.",
+    "After deploy, retest: (a) admin login with 9175560211 → /profile?edit=1 → verify [data-testid=profile-phone] value === '9175560211'. (b) verify hero badge text === '+91 9175560211'. (c) POST /auth/profile with phone '9175560211' persists as '9175560211' (curl /api/auth/me).",
+    "Consider centralising strip91 in /app/frontend/src/lib/phone.js so Login.jsx, checkout, kiosk and any other surface use the same normaliser."
+  ],
+  "critical_code_review_comments": [
+    "Profile.jsx is now 627 lines — split AccountHub, edit form, and delete modal into separate files (>700 line threshold approaching).",
+    "The same buggy regex `replace(/^\\+?91/, \"\")` is likely duplicated in other components (Login/Dashboard/checkout). grep the repo and centralise. Silent 8-digit truncation on any 10-digit phone starting with '91' will hit ~1% of Indian users, not just admins.",
+    "AuthContext.user.phone should be canonicalised (10-digit stripped) on set so render layer never has to know the format. Doing the strip on both the input and display layers is fragile."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "n/a", "frontend": "0% (claimed fix not applied)" },
+  "test_credentials": "Admin 9175560211 dev_otp via POST /api/auth/send-otp (rate-limited 1/10min).",
+  "seed_data_creation": "None.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "The main agent's iter-153 diff was a NO-OP — grep -n 'strip91' /app/frontend/src/pages/Profile.jsx returns zero results and all three L217/L291/L514 sites still contain the naive `replace(/^\\+?91/, \"\")` regex. Before re-testing via playwright, first confirm the file has actually been edited (`grep -c strip91 /app/frontend/src/pages/Profile.jsx` should be >= 4). Only then burn an OTP by doing the admin login flow. Node repro of the bug: `node -e \"console.log('9175560211'.replace(/^\\\\+?91/, ''))\"` prints '75560211'.",
+  "rca of the issue": "Root cause is a false-positive prefix strip. The regex `/^\\+?91/` matches the leading digits '91' of ANY 10-digit Indian phone that happens to start with 91 (e.g. 9175560211, 9198765432, etc.), because it does not check the total length. The intended semantics were 'strip the +91 country code prefix from a 12-digit international-formatted phone', not 'chop the first two digits off every phone'. Correct guard: only strip when input starts with '+91' OR when input is exactly 12 digits starting with '91'. The main agent claimed to add this guard as `strip91()` in iter-153 but the file was never modified — verified by (a) grep 'strip91' returns 0, (b) all 3 target lines unchanged, (c) Node repro reproduces the mangling. Mitigation: apply the helper described in action_items, add a unit test for strip91('9175560211') === '9175560211', and grep the repo for other occurrences of the naive regex."
+}

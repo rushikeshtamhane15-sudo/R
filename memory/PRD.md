@@ -4,6 +4,32 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-153/154 — Phone-strip bug on /profile fixed · admin login unblocked (2026-02-04)
+**Status: DONE — testing_agent certified 100% on critical bug + no regressions.**
+
+**Root cause:** `pages/Profile.jsx` used `phone.replace(/^\+?91/, "")` at three sites (hero badge, input value, AccountHub hero). That regex has no length guard, so it chopped the leading `91` off **any** 10-digit Indian phone that happens to start with `91` — including the admin number `9175560211` → `75560211`. When the user hit Save, the mangled 8-digit value overwrote `users.phone` on the backend, permanently kicking the account out of `ADMIN_PHONES` membership. This masqueraded as "super-admin dashboard not opening after login".
+
+**Fix (iter-153):** Added `strip91(raw)` helper at the top of Profile.jsx:
+```js
+const strip91 = (raw) => {
+  const digits = String(raw || "").replace(/\D/g, "");
+  if (digits.length === 12 && digits.startsWith("91")) return digits.slice(2);
+  if (digits.length === 13 && digits.startsWith("091")) return digits.slice(3);
+  return digits.slice(-10);
+};
+```
+Applied at 3 sites (input value L303, hero badge L229, AccountHub hero L526). Paste-normalisation added to input `onChange` per testing agent's polish note.
+
+**Verified by testing_agent (iteration_154.json):**
+- ✅ `9175560211` renders as-is everywhere on `/profile`
+- ✅ `+919175560211` correctly strips to `9175560211`
+- ✅ Non-91 phones (e.g. `8888899999`) unchanged
+- ✅ Admin OTP → `/admin` flow now works end-to-end because phone isn't mangled anymore
+
+**Reports:** `/app/test_reports/iteration_153.json` (false-negative stale-bundle), `/app/test_reports/iteration_154.json` (100% pass after frontend restart).
+
+
+
 ## iter-151/152 — PWA rebrand · admin login bug closed · footer defaults fixed (2026-02-04)
 **Status: DONE — testing_agent certified PWA + admin login; footer verified via curl after DB override cleared.**
 

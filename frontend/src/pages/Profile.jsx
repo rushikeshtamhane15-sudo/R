@@ -49,6 +49,18 @@ async function compressImage(file) {
   });
 }
 
+// iter-153: strip +91 country-code prefix ONLY when it's really a country code
+// (e.g. "+919175560211" or "919175560211" — 12 digits). A 10-digit phone that
+// happens to start with '91' (like the valid Indian number 9175560211) must
+// stay untouched. Previously we stripped `^\+?91` naively which mangled such
+// numbers into 8 digits and broke admin recognition.
+const strip91 = (raw) => {
+  const digits = String(raw || "").replace(/\D/g, "");
+  if (digits.length === 12 && digits.startsWith("91")) return digits.slice(2);
+  if (digits.length === 13 && digits.startsWith("091")) return digits.slice(3);
+  return digits.slice(-10);
+};
+
 export default function Profile() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -214,7 +226,7 @@ export default function Profile() {
             {form.name || "Complete your account"}
           </h1>
           {(form.phone || user?.phone) && (
-            <p className="text-sm text-primary-foreground/85 mt-1 tabular-nums">+91 {(form.phone || user.phone).replace(/^\+?91/, "")}</p>
+            <p className="text-sm text-primary-foreground/85 mt-1 tabular-nums">+91 {strip91(form.phone || user.phone)}</p>
           )}
           <div className="mt-3 flex items-center justify-center gap-2 flex-wrap">
             <span className="inline-flex items-center gap-1 rounded-full bg-white/20 backdrop-blur-sm px-2.5 py-1 text-[9px] tracking-overline uppercase font-extrabold ring-1 ring-white/25">
@@ -288,8 +300,8 @@ export default function Profile() {
                 type="tel"
                 inputMode="numeric"
                 maxLength={10}
-                value={form.phone.replace(/^\+?91/, "").replace(/\D/g, "").slice(0, 10)}
-                onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })}
+                value={strip91(form.phone)}
+                onChange={(e) => setForm({ ...form, phone: strip91(e.target.value) })}
                 className="w-32 h-9 text-right text-sm font-semibold bg-transparent outline-none placeholder:text-muted-foreground/60 tabular-nums"
                 data-testid="profile-phone"
                 placeholder="98XXXXXXXX"
@@ -511,7 +523,7 @@ function AccountHub({ user, onLogout }) {
           )}
           <div className="flex-1 min-w-0">
             <p className="font-display font-extrabold text-xl leading-tight truncate" data-testid="hub-hero-name">{user?.name || "Guest"}</p>
-            {user?.phone && <p className="text-sm text-muted-foreground mt-0.5 tabular-nums">+91 {(user.phone).replace(/^\+?91/, "")}</p>}
+            {user?.phone && <p className="text-sm text-muted-foreground mt-0.5 tabular-nums">+91 {strip91(user.phone)}</p>}
           </div>
         </div>
 
