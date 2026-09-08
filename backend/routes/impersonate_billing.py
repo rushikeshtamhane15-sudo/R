@@ -67,14 +67,18 @@ class TopupIn(BaseModel):
     amount: int = Field(..., ge=99, le=200000)
 
 
-async def _resolve_current_mess(user: server.User) -> dict:
-    """Return the mess the caller is acting on: impersonated for admin, owned for franchise_owner."""
+async def _resolve_current_mess(user: server.User, *, require_impersonation_for_admin: bool = False) -> dict:
+    """Return the mess the caller is acting on: impersonated for admin, owned for franchise_owner.
+    If `require_impersonation_for_admin` is True, admin MUST be impersonating — no default fallback
+    (prevents accidental cross-mess writes when the admin forgets to select a mess)."""
     if user.role == "admin":
         s = await server.db.user_sessions.find_one({"user_id": user.user_id, "impersonate_mess_id": {"$exists": True}}, {"_id": 0, "impersonate_mess_id": 1})
         if s:
             m = await server.db.messes.find_one({"mess_id": s["impersonate_mess_id"]}, {"_id": 0})
             if m:
                 return m
+        if require_impersonation_for_admin:
+            raise HTTPException(status_code=400, detail="Pick a mess first (Act as …) before running this action")
         m = await server.db.messes.find_one({"mess_id": server.DEFAULT_MESS_ID}, {"_id": 0})
         if m:
             return m
@@ -89,7 +93,7 @@ async def _resolve_current_mess(user: server.User) -> dict:
 async def wallet_topup_order(payload: TopupIn, user: server.User = Depends(server.get_current_user)):
     if user.role not in ("admin", "franchise_owner"):
         raise HTTPException(status_code=403, detail="Mess-owner only")
-    mess = await _resolve_current_mess(user)
+    mess = await _resolve_current_mess(user, require_impersonation_for_admin=True)
     active_client, key_id, _mode = await server._resolve_razorpay_for_user({"mess_id": mess["mess_id"]})
     amount_paise = int(payload.amount) * 100
     receipt = f"pw_{uuid.uuid4().hex[:12]}"
@@ -127,8 +131,10 @@ async def wallet_topup_verify(payload: TopupVerifyIn, user: server.User = Depend
         raise HTTPException(status_code=404, detail="Order not found")
     if order.get("user_id") != user.user_id and user.role != "admin":
         raise HTTPException(status_code=403, detail="Not your order")
-    # Signature check for real orders
-    if not order.get("mock") and payload.signature:
+    # Signature check for real orders — REQUIRED, no bypass
+    if not order.get("mock"):
+        if not payload.signature or not payload.payment_id:
+            raise HTTPException(status_code=400, detail="Missing Razorpay signature/payment_id")
         import hmac
         import hashlib
         mess = await server.db.messes.find_one({"mess_id": order["mess_id"]}, {"_id": 0, "razorpay_key_secret": 1})

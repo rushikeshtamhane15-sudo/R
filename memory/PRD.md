@@ -4,6 +4,15 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-158b — Impersonation + Wallet UI verified & security-hardened (2026-02-05)
+**Status: DONE — testing_agent iter-157 report: backend 5/5, frontend 12/13. Two security holes flagged in code review and fixed same turn.**
+
+- **UI verified end-to-end** on Preview (`/super-admin/messes` → 'Act as' button → impersonation session set → `/mess-owner/settings` → WalletTopUpCard renders → mock top-up flow crediting balance ₹500→₹1000).
+- **Security fix 1 (topup-verify)**: non-mock Razorpay orders now REQUIRE `payment_id` + `signature`; the old code silently skipped signature check when signature was empty, letting anyone who knew an `order_id` credit the wallet. Now returns 400 with 'Missing Razorpay signature/payment_id'.
+- **Security fix 2 (_resolve_current_mess)**: super-admin without impersonation used to fall back to `DEFAULT_MESS_ID` (`efoodcare-amravati`) and could accidentally credit the wrong mess. Wallet top-up now passes `require_impersonation_for_admin=True` → returns 400 'Pick a mess first (Act as …) before running this action'.
+- **Pytest**: `/app/backend/tests/test_iter158_impersonate_wallet.py` — 4 passed / 1 skipped (skip is real-Razorpay path w/o test signature).
+
+
 ## iter-158 — Impersonation · Wallet top-up · Billing cron (2026-02-04)
 **Status: BACKEND SHIPPED — all 3 endpoints curl-verified on Preview.**
 

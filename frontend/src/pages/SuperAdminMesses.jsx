@@ -15,7 +15,7 @@
  * onboarding path.
  */
 import React, { useCallback, useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
@@ -24,7 +24,7 @@ import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
 import {
   Building2, Plus, Save, X, Loader2, ShieldCheck, PowerOff, Power,
-  Phone, Hash, MapPin, BadgeCheck, AlertTriangle, Copy,
+  Phone, Hash, MapPin, BadgeCheck, AlertTriangle, Copy, UserCog,
 } from "lucide-react";
 
 const EMPTY = {
@@ -36,6 +36,7 @@ const EMPTY = {
 
 export default function SuperAdminMesses() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [messes, setMesses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -282,6 +283,15 @@ export default function SuperAdminMesses() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <Button size="sm" onClick={async () => {
+                    try {
+                      await api.post(`/admin/impersonate/${encodeURIComponent(m.mess_id)}`);
+                      toast.success(`Acting as ${m.name}`);
+                      navigate("/mess-owner/settings");
+                    } catch (e) { toast.error(e?.response?.data?.detail || "Impersonation failed"); }
+                  }} className="rounded-xl bg-primary hover:bg-primary/90 text-white" data-testid={`impersonate-${m.mess_id}`}>
+                    <UserCog className="h-3.5 w-3.5 mr-1" /> Act as
+                  </Button>
                   <Button size="sm" variant="outline" onClick={() => toggleStatus(m)} className="rounded-xl" data-testid={`toggle-${m.mess_id}`}>
                     {m.status === "active" ? (<><PowerOff className="h-3.5 w-3.5 mr-1" /> Suspend</>) : (<><Power className="h-3.5 w-3.5 mr-1" /> Activate</>)}
                   </Button>

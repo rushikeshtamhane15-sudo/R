@@ -345,7 +345,86 @@ export default function MessOwnerSettings() {
 
       {/* iter-147 · Featured slot-1 payment (₹499 · 30 days) */}
       <FeaturedPromoCard mess={mess} onDone={load} />
+
+      {/* iter-158 · Platform wallet top-up */}
+      <WalletTopUpCard mess={mess} onDone={load} />
     </div>
+  );
+}
+
+function WalletTopUpCard({ mess, onDone }) {
+  const [amount, setAmount] = useState(500);
+  const [busy, setBusy] = useState(false);
+  const balance = Number(mess?.platform_wallet_balance || 0);
+
+  const topup = async () => {
+    if (amount < 99) { toast.error("Minimum ₹99"); return; }
+    setBusy(true);
+    try {
+      const r = await api.post("/mess-owner/platform-wallet/topup-order", { amount });
+      const o = r.data;
+      if (window.Razorpay && !o.mock) {
+        const rzp = new window.Razorpay({
+          key: o.key_id, amount: o.amount_paise, currency: o.currency,
+          name: "efoodtech · Platform wallet", description: `Top-up ₹${o.amount}`,
+          order_id: o.order_id, prefill: o.prefill,
+          handler: async (resp) => {
+            try {
+              await api.post("/mess-owner/platform-wallet/topup-verify", { order_id: o.order_id, payment_id: resp.razorpay_payment_id, signature: resp.razorpay_signature });
+              toast.success(`Wallet topped up · +₹${o.amount}`);
+              onDone?.();
+            } catch (e) { toast.error(e?.response?.data?.detail || "Verify failed"); }
+          },
+          theme: { color: "#a02323" },
+        });
+        rzp.open();
+      } else {
+        await api.post("/mess-owner/platform-wallet/topup-verify", { order_id: o.order_id });
+        toast.success("Wallet topped up (dev mock)");
+        onDone?.();
+      }
+    } catch (e) { toast.error(e?.response?.data?.detail || "Order failed"); }
+    finally { setBusy(false); }
+  };
+
+  const bal = balance >= 0 ? balance.toFixed(2) : `-${Math.abs(balance).toFixed(2)}`;
+  const isNeg = balance < 0;
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 space-y-3" data-testid="wallet-topup-card">
+      <div className="flex items-center gap-3">
+        <div className="h-10 w-10 rounded-xl bg-secondary/10 text-secondary flex items-center justify-center">
+          <Save className="h-5 w-5" />
+        </div>
+        <div className="flex-1">
+          <h3 className="font-display font-extrabold text-lg text-slate-900">Platform wallet</h3>
+          <p className="text-xs text-slate-500">Auto-deducted at the start of each month based on your active users × per-user rate. Top up any time.</p>
+        </div>
+      </div>
+      <div className={`rounded-xl p-4 flex items-center justify-between ${isNeg ? "bg-red-50 border border-red-200" : "bg-emerald-50 border border-emerald-200"}`} data-testid="wallet-balance">
+        <div>
+          <div className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Current balance</div>
+          <div className={`text-2xl font-extrabold ${isNeg ? "text-red-700" : "text-emerald-700"}`}>₹{bal}</div>
+        </div>
+        {isNeg && <div className="text-[11px] text-red-700 font-semibold">Please top up to avoid restriction</div>}
+      </div>
+      <div className="flex gap-2 items-end">
+        <div className="flex-1">
+          <label className="block text-[10px] uppercase tracking-widest font-bold text-slate-500">Top up amount (₹)</label>
+          <Input type="number" min={99} max={200000} value={amount} onChange={(e) => setAmount(+e.target.value || 0)}
+            className="mt-1 rounded-xl font-mono" data-testid="topup-amount-input" />
+        </div>
+        <Button onClick={topup} disabled={busy || amount < 99} className="rounded-xl bg-primary hover:bg-primary/90 text-white h-11 px-5" data-testid="topup-btn">
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Top up"}
+        </Button>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {[500, 1000, 5000, 10000].map((v) => (
+          <button key={v} onClick={() => setAmount(v)} className="rounded-full border border-slate-200 text-slate-700 text-xs font-semibold px-3 py-1 hover:bg-slate-50" data-testid={`quick-${v}`}>
+            ₹{v}
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 
