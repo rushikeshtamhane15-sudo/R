@@ -1,0 +1,33 @@
+{
+  "summary": "Iter-151 close-out retest (frontend only). PWA prompt heading correctly reads 'Install efoodtech' — verified in source AND rendered card (synthetic beforeinstallprompt dispatched, screenshot captured). Admin end-to-end login with phone 9175560211 works: fresh session -> verify-otp -> hard nav to /admin -> AdminLayout with full sidebar (dashboard/control-tower/plans/users-roles/etc.) rendered, header shows 'efoodtech'. Footer rebrand DID NOT land — GET /api/content/footer still returns brand_name='efoodcare', copyright='copyright © efoodcare.in all rights reserved', promise mentions efoodcare. Root cause identified: /app/backend/server.py DEFAULT_CONTENT['footer'] (lines 1503-1518) has DUPLICATE keys — 'brand_name' is set to 'efoodtech' on line 1506 then re-assigned to 'efoodcare' on line 1513; 'promise' is similarly re-assigned to the efoodcare copy on line 1514. Python dict literal keeps only the last assignment, so defaults resolve to efoodcare. Additionally the site_content DB doc may hold a stale override that shadows even a corrected default.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "/api/content/footer", "issue": "Returns efoodcare values (brand_name, copyright, promise) despite iter-151 rebrand. DEFAULT_CONTENT footer dict has duplicate 'brand_name' and 'promise' keys (server.py L1506+L1513 and L1508+L1514) where the second assignment (efoodcare) overrides the first (efoodtech). Also possible stale DB override in site_content collection.", "priority": "HIGH"}
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Footer render", "issue": "Footer component pulls from /api/content/footer which still serves efoodcare-branded strings — user-visible copyright/brand/promise remain stale until server-side default is fixed AND DB override cleared.", "affected_selectors": ["footer"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/pwa_prompt.png", "/app/test_reports/admin_final.png"],
+  "action_items": [
+    "Fix /app/backend/server.py DEFAULT_CONTENT['footer'] duplicate keys — remove the second 'brand_name' (efoodcare) and 'promise' (efoodcare) assignments on ~L1513-L1514 so the efoodtech values persist.",
+    "After fixing defaults, either delete the site_content doc for key='footer' in Mongo OR POST /api/admin/content/footer/reset (admin auth) so overrides don't shadow the new defaults. Verify GET /api/content/footer returns brand_name='efoodtech', copyright starts with 'copyright © efoodtech'."
+  ],
+  "critical_code_review_comments": [
+    "DEFAULT_CONTENT['footer'] literal has duplicate keys (brand_name, promise, website, email) — silent overwrite is a footgun; run a linter (ruff F601) or consolidate into a single set of keys to prevent this class of bug.",
+    "Login OTP rate limit (1 send / 10 min / phone) is aggressive for testing/admin flows; consider bumping to 3/min or bypassing for ADMIN_PHONES in dev_mode to make iterative retesting less painful."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only run)", "frontend": "67% (2/3 items pass; footer rebrand fails)"},
+  "test_credentials": "Admin phones: 9175560211, 9970705391 (both verified admin role via /api/auth/verify-otp; dev_otp echoed in response). Note: /api/auth/send-otp is rate-limited 1/10min per phone.",
+  "seed_data_creation": "None",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "PWA (Install efoodtech) and admin login (9175560211 -> /admin with AdminLayout sidebar) are CERTIFIED CLOSED for iter-151. Only remaining blocker is footer defaults duplicate-key bug in server.py DEFAULT_CONTENT['footer']. After main agent fixes L1513-1514 and clears/updates the site_content DB row, retest with a single curl: `curl -s $REACT_APP_BACKEND_URL/api/content/footer` and confirm brand_name='efoodtech', copyright starts with 'copyright © efoodtech', promise contains 'efoodtech'. OTP rate limit is 1/10min per phone — plan test cadence accordingly (or use verify-otp directly with a fresh dev_otp).",
+  "rca of the issue": "Python dict literal duplicate-key silent overwrite. In /app/backend/server.py the DEFAULT_CONTENT['footer'] dict literal declares brand_name twice (L1506 'efoodtech', L1513 'efoodcare') and promise twice (L1508 efoodtech copy, L1514 efoodcare copy). Python evaluates the literal by inserting each key in order, so the FIRST value is discarded and the SECOND (efoodcare) wins. That's why the API returns efoodcare even though the iter-151 diff added the efoodtech values. Mitigation: (1) delete the duplicate 'brand_name'/'promise'/'website'/'email' entries from the second half of the literal, keeping only the efoodtech copies; (2) either drop the site_content doc for key='footer' in Mongo or call POST /api/admin/content/footer/reset after backend restart so no stale override survives; (3) add a ruff/flake8 F601 check to CI to catch dict duplicate keys in future rebrand PRs."
+}

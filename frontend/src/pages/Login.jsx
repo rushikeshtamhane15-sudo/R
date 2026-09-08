@@ -131,7 +131,20 @@ export default function Login() {
       });
       verifiedHereRef.current = true;
       const u = r.data.user;
-      // iter-148: admin bypass — no mess required. Subscribers without mess → bounce to Nearby to pick one.
+      // iter-151 BUGFIX #2: for admin / franchise_owner, force a HARD nav
+      // (full page reload) to /admin so the AuthContext refetches /auth/me
+      // with the freshly-set cookie. This eliminates the race where a
+      // stale AuthContext user (from a previous subscriber session) causes
+      // RequireAuth on /admin to bounce to /dashboard before setUser has
+      // committed the new role. Also clears the mess pick so admin always
+      // owns the platform view (they can still open any mess via nav).
+      if (u.role === "admin" || u.role === "franchise_owner") {
+        try { localStorage.removeItem("efoodtech.mess.picked"); } catch {}
+        toast.success(`Welcome to efoodtech admin`);
+        window.location.href = "/admin";
+        return;
+      }
+      // iter-148: subscribers without a mess → bounce to Nearby to pick one.
       if (u.role === "subscriber" && !u.mess_id) {
         setUser(u);
         toast.success("Logged in — please pick your mess to continue");
@@ -140,7 +153,7 @@ export default function Login() {
       }
       const dest = computeNext(u);
       setUser(u);
-      toast.success(`Welcome to ${picked?.name || (u.role === "admin" ? "efoodtech admin" : "efoodtech")}`);
+      toast.success(`Welcome to ${picked?.name || "efoodtech"}`);
       navigate(dest, { replace: true, state: { user: u } });
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Verification failed");

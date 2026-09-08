@@ -4,6 +4,18 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-151/152 — PWA rebrand · admin login bug closed · footer defaults fixed (2026-02-04)
+**Status: DONE — testing_agent certified PWA + admin login; footer verified via curl after DB override cleared.**
+
+- **PWA install prompt** — `components/PWAInstallPrompt.jsx` line 87 now reads **"Install efoodtech"** (was efoodcare). Testing agent verified rendered card via synthetic `beforeinstallprompt` event.
+- **BUG #2 fully closed (admin login):** Login.jsx `verifyOtp` now issues a **hard `window.location.href = "/admin"`** for admin + franchise_owner roles (was SPA `navigate`). This forces `AuthContext` to re-hydrate `/auth/me` with the fresh cookie, eliminating any stale-user race. Also clears `localStorage["efoodtech.mess.picked"]` on admin login so the admin always owns the platform view. Testing agent re-verified fresh-session flow — `9175560211` lands cleanly on `/admin` with AdminLayout + full sidebar rendering.
+- **Splash logo uploader UI** — confirmed already lives at `/admin/branding` under the "Splash mark" row (`admin-branding-card-splash`). No new UI needed. Endpoint already wired to `useBranding().splashLogoUrl`.
+- **Footer rebrand fixed:** removed duplicate keys in `server.py DEFAULT_CONTENT["footer"]` (Python silently dropped the efoodtech values behind the efoodcare re-assignments). Cleared stale override docs (`app_content` + `site_content` collections). `GET /api/content/footer` now returns `brand_name=efoodtech`, `copyright="copyright © efoodtech · all rights reserved"`, `tagline="User Management System"`, `promise` mentions efoodtech.
+
+**Test reports:** `/app/test_reports/iteration_151.json`, `/app/test_reports/iteration_152.json` — both bug items certified closed.
+
+
+
 ## iter-150 — 3D marquee announcement · splash rebrand · admin login verified (2026-02-04)
 **Status: DONE — testing_agent verified 100% frontend pass.**
 

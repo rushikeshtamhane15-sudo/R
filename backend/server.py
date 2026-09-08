@@ -1502,11 +1502,12 @@ async def reset_theme(user: User = Depends(get_current_user)):
 # ---------------------------
 DEFAULT_CONTENT = {
     "footer": {
-        "copyright": "copyright © efoodcare.in all rights reserved",
-        "tagline": "ghar se achha khana",
+        "copyright": "copyright © efoodtech · all rights reserved",
+        "tagline": "User Management System",
         # iter-72 #1: full brand identity block — admin editable
-        "brand_name": "efoodcare",
-        "promise": "India's first zero meal adulteration app — proudly made by the genius team of efoodcare.",
+        "brand_name": "efoodtech",
+        "brand_tagline": "User Management System",
+        "promise": "efoodtech is India's multi-tenant SaaS user management platform for messes across India — QR + face check-in, wallet, per-mess plans and payments.",
         "corporate_address": "shilangan Road, behind bhaktidham mandir, sai nagar, Amravati 444607, Maharashtra",
         "support_phone": "+91 91755 60211",
         "website": "https://efoodcare.in",
