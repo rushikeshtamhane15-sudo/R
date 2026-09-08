@@ -30,11 +30,20 @@ _LOGO_MIME_EXT = {"image/jpeg": ".jpg", "image/jpg": ".jpg", "image/png": ".png"
 
 
 async def _get_owned_mess(user: server.User) -> dict:
-    """Resolve the mess owned by the current user. 403 if none."""
+    """Resolve the mess owned by the current user. 403 if none.
+    iter-158: super-admin impersonation takes precedence — if the admin's
+    session has an `impersonate_mess_id`, act on THAT mess."""
     if user.role not in ("franchise_owner", "admin"):
         raise HTTPException(status_code=403, detail="Mess-owner portal only")
-    # admin acting on efoodcare-amravati is a corporate mess owner — allow
-    # via owner_user_id match; otherwise franchise_owner match.
+    if user.role == "admin":
+        s = await server.db.user_sessions.find_one(
+            {"user_id": user.user_id, "impersonate_mess_id": {"$exists": True}},
+            {"_id": 0, "impersonate_mess_id": 1},
+        )
+        if s:
+            m = await server.db.messes.find_one({"mess_id": s["impersonate_mess_id"]}, {"_id": 0})
+            if m:
+                return m
     mess = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0})
     if mess:
         return mess

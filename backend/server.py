@@ -5744,6 +5744,7 @@ from routes.testimonials import router as _testimonials_router
 from routes.plans import router as _plans_router
 from routes.mess_owner import router as _mess_owner_router
 from routes.mess_reviews import router as _mess_reviews_router
+from routes.impersonate_billing import router as _imp_bill_router
 from routes.wallet import router as _wallet_router
 from routes.subscription import router as _subscription_router
 from routes.tiffin_prefs_admin import router as _tiffin_prefs_router
@@ -5776,6 +5777,7 @@ api_router.include_router(_testimonials_router)
 api_router.include_router(_plans_router)
 api_router.include_router(_mess_owner_router)
 api_router.include_router(_mess_reviews_router)
+api_router.include_router(_imp_bill_router)
 api_router.include_router(_wallet_router)
 api_router.include_router(_subscription_router)
 api_router.include_router(_tiffin_prefs_router)

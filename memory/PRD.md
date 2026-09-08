@@ -4,6 +4,32 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-158 — Impersonation · Wallet top-up · Billing cron (2026-02-04)
+**Status: BACKEND SHIPPED — all 3 endpoints curl-verified on Preview.**
+
+**Impersonation (Item 1 foundation):**
+- New `POST /api/admin/impersonate/{mess_id}`, `DELETE /api/admin/impersonate`, `GET /api/admin/impersonate` in `routes/impersonate_billing.py`.
+- Stores `impersonate_mess_id` + timestamp on the admin's session doc.
+- `_get_owned_mess()` in `routes/mess_owner.py` now prefers the impersonated mess for admins. So super-admin flipping impersonation → all `/mess-owner/*` endpoints (branding, Razorpay, logo, testimonials, footer, announcement, contact, kiosk voice, featured payment) auto-scope to that mess. Verified: after `POST /admin/impersonate/efoodcare-yavatmal`, `/mess-owner/me` returned Yavatmal instead of the default Amravati. Verified clear too.
+
+**Wallet top-up (Item 3 UI enabler):**
+- `POST /api/mess-owner/platform-wallet/topup-order` (min ₹99, max ₹200k) creates a real Razorpay order using the mess's own keys if configured.
+- `POST /api/mess-owner/platform-wallet/topup-verify` verifies the signature (or accepts mocked orders in dev) and does `$inc: {platform_wallet_balance: amount}` atomically on the mess doc. Verified: order returned live Razorpay `order_TZfeuff6VAnUiN` at ₹500 with `mock=False`.
+
+**Billing cron (Item 2):**
+- `run_platform_billing_once()` counts active subscriptions per mess (splits by `plan_type == "tiffin"` vs everything else), computes `bill = dining_users * dining_rate + tiffin_users * tiffin_rate`, deducts from `platform_wallet_balance` atomically, writes a `platform_bills` audit record.
+- Once-per-calendar-month guard via `platform_billed_month` — reruns for messes already restricted so grace can expire.
+- If wallet goes negative and stays that way for `platform_wallet_grace_days` (default 7), mess `status` flips to `payment_pending`. If wallet recovers, status auto-restores to `active`.
+- Super-admin trigger: `POST /api/admin/billing/run-now`. Verified: processed 3 messes, charged ₹100 total, 0 restricted (all wallets were flush).
+- Uses defaults `platform_charge_dining_per_user=100` and `platform_charge_tiffin_per_user=100` when a mess hasn't been given custom rates by super-admin.
+
+**UI hooks (follow-up):**
+- SuperAdminMesses table needs an "Act as this mess" button per row that calls `POST /admin/impersonate/{id}` and then navigates to `/mess-owner/settings`.
+- MessOwnerSettings needs a "Top up platform wallet" card wired to the topup-order/verify pair with a Razorpay checkout.
+- Add nightly scheduler tick (cron at 00:05 IST) — currently the billing cron is only fired manually via `/admin/billing/run-now`.
+
+
+
 ## iter-157 — About Us · Pricing page · per-mess billing config (2026-02-04)
 **Status: DONE — 2 of 3 user asks shipped; Item 1 (super-admin impersonation of every mess CMS) deferred with clear rationale.**
 
