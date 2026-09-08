@@ -4,6 +4,24 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-156 — Super Admin panel visible on /admin (2026-02-04)
+**Status: DONE — testing_agent iteration_156.json certified 100% pass.**
+
+**Root cause of the confusion:** In this codebase `role=admin` IS super-admin — there's no separate role tier. The user thought /admin was a "regular admin" view because there was no visual cue distinguishing platform-wide super-admin controls from mess-scoped ones.
+
+**Fix (AdminDashboard.jsx):**
+- Reads `useAuth().user.role`. If `admin`, renders a prominent gradient red panel `[data-testid=super-admin-panel]` at the TOP of the /admin page with:
+  - "Super Admin" heading + Sparkles icon
+  - 3 quick-tile links: `super-admin-tile-messes` → `/super-admin/messes`, `super-admin-tile-reviews` → `/super-admin/reviews`, `super-admin-tile-branding` → `/admin/branding`
+- Overline flips from "Control room" to "**Super Admin · Control room**" for admins.
+- Franchise-owner + subscriber roles do NOT see the panel (regression verified — subscribers hitting /admin are bounced to /dashboard by RequireAuth).
+
+**Verified by testing_agent:** admin login → /admin renders panel + 3 tiles + updated overline + tile navigation works. Non-admin regression clean. Screenshot proof at `/app/test_reports/iter156_admin_top.png`.
+
+⚠️ Production `efoodtech.in` still runs old code — user needs to deploy Preview to production for this fix to reach their live site.
+
+
+
 ## iter-155 — Super-admin role migration · fresh efoodtech landing (2026-02-04)
 **Status: DONE — screenshot green, DB migration verified.**
 

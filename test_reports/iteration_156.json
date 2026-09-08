@@ -1,0 +1,22 @@
+{
+  "summary": "RETEST of iter-156 Super Admin panel — ALL PASS. Grep on AdminDashboard.jsx confirms code changes (isSuperAdmin line 18, super-admin-panel line 89, 3 super-admin-tile-* testids, 'Super Admin · Control room' overline line 127). Admin login (9970705391) via dev OTP → /admin renders [data-testid=super-admin-panel] with red gradient (bg-gradient-to-br from-primary via-primary to-red-800), 'Super Admin' heading with Sparkles icon, all 3 tiles (messes/reviews/branding) present, overline 'SUPER ADMIN · CONTROL ROOM' visible, and clicking super-admin-tile-messes navigates to /super-admin/messes showing 4 tenant rows (Auto Gen, Mumbai Khar, Amravati, Yavatmal). Non-admin regression: subscriber (9175560211, role=subscriber) attempting /admin is redirected to /dashboard by RequireAuth — panel NOT rendered. iter-155 was indeed a false-negative from stale bundle read.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/super-admin/messes", "issues": ["Mess list uses card layout, not an HTML <table>. Not a bug (looks great), just clarifying the acceptance criterion 'mess table renders' resolves to the mess list cards."]}
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iter156_admin_top.png", "/app/test_reports/iter156_messes.png", "/app/test_reports/iter156_subscriber_admin.png"],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "test_credentials": "Admin: 9970705391 (dev_otp from POST /api/auth/send-otp). Subscriber: 9175560211 (role=subscriber verified).",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Super Admin panel is fully working. Auth uses session_token (not token) key from /api/auth/verify-otp response. Non-admin users hitting /admin are redirected to /dashboard by RequireAuth guard.",
+  "rca of the issue": "iter-155 reported 0% pass because it read a stale JS bundle before frontend restart. After supervisor restart+cache-bust query param, the panel renders correctly on first load. No code change needed."
+}

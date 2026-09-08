@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { Users, Calendar, IndianRupee, Check, RefreshCw, AlertTriangle, Phone, MessageCircle } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { Users, Calendar, IndianRupee, Check, RefreshCw, AlertTriangle, Phone, MessageCircle, Building2, ShieldCheck, MessageSquare, ArrowRight, Sparkles } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
 import KioskHealthTile from "../components/KioskHealthTile";
 
@@ -12,6 +14,8 @@ const PERIODS = [
 ];
 
 export default function AdminOverview() {
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === "admin";
   const [stats, setStats] = useState(null);
   const [attendance, setAttendance] = useState([]);
   const [expiring, setExpiring] = useState([]);
@@ -78,9 +82,49 @@ export default function AdminOverview() {
 
   return (
     <div data-testid="admin-dashboard">
+      {/* iter-156 · SUPER ADMIN panel — visible only for role=admin. Gives platform owners
+          a clear entry point to the multi-tenant tools. Fixes user confusion that /admin
+          looked like a "regular mess admin" view rather than the top-level super-admin one. */}
+      {isSuperAdmin && (
+        <div className="mb-6 rounded-3xl bg-gradient-to-br from-primary via-primary to-red-800 text-white p-5 sm:p-6 shadow-lg" data-testid="super-admin-panel">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="h-11 w-11 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center">
+              <ShieldCheck className="h-6 w-6" strokeWidth={2.2} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] uppercase tracking-widest font-bold text-white/70">Logged in as</div>
+              <div className="text-xl font-extrabold flex items-center gap-2">
+                Super Admin <Sparkles className="h-4 w-4 text-amber-300 fill-amber-300" />
+              </div>
+              <div className="text-[11px] text-white/70 mt-0.5">Platform-wide controls · you can see every mess</div>
+            </div>
+          </div>
+          <div className="grid sm:grid-cols-3 gap-3">
+            <Link to="/super-admin/messes" data-testid="super-admin-tile-messes"
+              className="rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 p-4 transition group">
+              <Building2 className="h-5 w-5 mb-2" strokeWidth={2} />
+              <div className="text-sm font-bold flex items-center justify-between">Manage messes <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" /></div>
+              <div className="text-[11px] text-white/70 mt-1">Onboard, suspend, verify, feature.</div>
+            </Link>
+            <Link to="/super-admin/reviews" data-testid="super-admin-tile-reviews"
+              className="rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 p-4 transition group">
+              <MessageSquare className="h-5 w-5 mb-2" strokeWidth={2} />
+              <div className="text-sm font-bold flex items-center justify-between">Moderate reviews <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" /></div>
+              <div className="text-[11px] text-white/70 mt-1">Hide abusive reviews platform-wide.</div>
+            </Link>
+            <Link to="/admin/branding" data-testid="super-admin-tile-branding"
+              className="rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 p-4 transition group">
+              <Sparkles className="h-5 w-5 mb-2" strokeWidth={2} />
+              <div className="text-sm font-bold flex items-center justify-between">Site branding <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" /></div>
+              <div className="text-[11px] text-white/70 mt-1">Splash logo, brand mark, theme.</div>
+            </Link>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-xs tracking-overline uppercase font-bold text-secondary">Control room</p>
+          <p className="text-xs tracking-overline uppercase font-bold text-secondary">{isSuperAdmin ? "Super Admin · Control room" : "Control room"}</p>
           <h1 className="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-2">Overview</h1>
           {stats?.scope === "branch" && (
             <p className="text-[11px] mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300 px-2.5 h-6 font-bold" data-testid="overview-branch-scope">
