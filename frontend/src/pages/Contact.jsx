@@ -181,7 +181,7 @@ export default function Contact() {
 
   const title = cms?.title || "We're a phone call away";
   const overline = cms?.overline || "We're here for you";
-  const intro = cms?.intro || "Reach out for orders, support or franchise enquiries — we usually reply within an hour.";
+  const intro = cms?.intro || "Reach out for orders, support or partnership enquiries — we usually reply within an hour.";
   const hours = cms?.hours || "Mon–Sun · 09:00–22:00 IST";
   const nearestLabel = cms?.nearest_label || "Your nearest branch:";
   const defaultLabel = cms?.default_label || "Showing default branch:";

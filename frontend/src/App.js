@@ -86,10 +86,8 @@ import AboutUs from "./pages/AboutUs";
 import Pricing from "./pages/Pricing";
 import TopMesses from "./pages/TopMesses";
 import AdminFaceEnroll from "./pages/AdminFaceEnroll";
-import AdminMesses from "./pages/AdminMesses";
 import AdminRestaurantHours from "./pages/AdminRestaurantHours";
 import AdminWalletTopup from "./pages/AdminWalletTopup";
-import AdminFranchiseOnboarding from "./pages/AdminFranchiseOnboarding";
 import AdminKitchenRadius from "./pages/AdminKitchenRadius";
 import { AdminMessMetrics, FranchisePortal } from "./pages/AdminMessMetrics";
 import { Privacy, Refund } from "./pages/PolicyPage";
@@ -232,11 +230,12 @@ function AppRoutes() {
             <Route path="whatsapp" element={<AdminWhatsAppOutbox />} />
             <Route path="deliveries-today" element={<StaffDeliveries />} />
             <Route path="content/:contentKey" element={<AdminContent />} />
-            <Route path="messes" element={<AdminMesses />} />
+            {/* iter-158c: legacy eFoodCare franchise screens removed — redirect to onboarded messes */}
+            <Route path="messes" element={<Navigate to="/super-admin/messes" replace />} />
             <Route path="messes/:messId/metrics" element={<AdminMessMetrics />} />
             <Route path="restaurant-hours" element={<AdminRestaurantHours />} />
             <Route path="wallet-topup" element={<AdminWalletTopup />} />
-            <Route path="franchise-onboarding" element={<AdminFranchiseOnboarding />} />
+            <Route path="franchise-onboarding" element={<Navigate to="/super-admin/messes" replace />} />
             <Route path="kitchen-radius" element={<AdminKitchenRadius />} />
           </Route>
 

@@ -4,6 +4,24 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-158c — Franchise concept fully removed from eFoodTech (2026-02-05)
+**Status: DONE — legacy eFoodCare franchise UI stripped; onboarded messes now the single source of truth.**
+
+**What user reported:** Super admin was landing on "eFoodCare Franchise Partners" screen (`/admin/messes`) and couldn't find their newly-onboarded messes. Franchise concept doesn't apply to eFoodTech — every mess is independently owned.
+
+**Fixes:**
+- Deleted `/app/frontend/src/pages/AdminMesses.jsx` and `/app/frontend/src/pages/AdminFranchiseOnboarding.jsx` (dead pages).
+- Sidebar (`AdminLayout.jsx`): removed "Messes & franchise" + "Franchise onboarding" links → single new link "Onboarded messes" → `/super-admin/messes`.
+- Legacy routes `/admin/messes` and `/admin/franchise-onboarding` now redirect to `/super-admin/messes` (so any bookmarks still work).
+- Rebranded workspace label for mess owners: "Franchise Console · independent branch" → "Mess Console · your own mess". Sidebar short label: "Franchise" → "Owner". (DB role `franchise_owner` unchanged — no migration needed.)
+- Removed public header link "Contact for Franchisee".
+- Contact page default intro: "franchise enquiries" → "partnership enquiries".
+
+**What's preserved:**
+- The `franchise_owner` role in the DB — still represents the individual mess owner.
+- All impersonation, wallet top-up, and billing flows shipped in iter-158/158b.
+
+
 ## iter-158b — Impersonation + Wallet UI verified & security-hardened (2026-02-05)
 **Status: DONE — testing_agent iter-157 report: backend 5/5, frontend 12/13. Two security holes flagged in code review and fixed same turn.**
 

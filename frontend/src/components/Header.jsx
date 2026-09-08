@@ -13,7 +13,6 @@ import { LogOut, Menu, X, Wallet, Home, LayoutDashboard, Package, User as UserIc
 const DEFAULT_INFO = [
   { id: "about",      label: "About us",               to: "/about",                    visible: true, icon: Info },
   { id: "contact",    label: "Contact",                to: "/contact",                  visible: true, icon: Phone },
-  { id: "franchise",  label: "Contact for Franchisee", to: "/contact?subject=franchise", visible: true, icon: Handshake },
   { id: "privacy",    label: "Privacy Policy",         to: "/privacy",                  visible: true, icon: Lock },
   { id: "refund",     label: "Refund Policy",          to: "/refund",                   visible: true, icon: RefreshCw },
 ];

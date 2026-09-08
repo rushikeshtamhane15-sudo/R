@@ -73,8 +73,7 @@ const SECTIONS = [
       { to: "/admin/content/refund", label: "Refund Policy", icon: FileText, roles: ["admin"] },
       { to: "/admin/content/contact", label: "Contact Us", icon: MapPin, roles: ["admin"] },
       { to: "/admin/content/footer", label: "Footer", icon: FootprintsIcon, roles: ["admin"] },
-      { to: "/admin/messes", label: "Messes & franchise", icon: UtensilsCrossed, roles: ["admin"] },
-      { to: "/admin/franchise-onboarding", label: "Franchise onboarding", icon: UserPlus, roles: ["admin"] },
+      { to: "/super-admin/messes", label: "Onboarded messes", icon: UtensilsCrossed, roles: ["admin"] },
       { to: "/admin/theme", label: "Design tokens", icon: Palette, roles: ["admin"] },
     ],
   },
@@ -230,10 +229,11 @@ export default function AdminLayout() {
   }, [role, asMessId]);
 
   const current = filteredSections.flatMap((s) => s.items).find((it) => location.pathname === it.to || (location.pathname.startsWith(it.to) && it.to !== "/admin"));
-  // iter-85: helper to label the workspace by role — franchise owners see
-  // "Franchise Console", staff see "Staff workspace", admins see "Admin".
-  const workspaceLabel = role === "franchise_owner" ? "Franchise Console" : role === "staff" ? "Staff workspace" : "Admin";
-  const workspaceShort = role === "franchise_owner" ? "Franchise" : role === "staff" ? "Staff" : "Admin";
+  // iter-158c: mess owners see "Mess Console", staff see "Staff workspace",
+  // super-admins see "Admin". (Legacy franchise labels removed — eFoodTech
+  // has no franchise concept; every mess is independently owned.)
+  const workspaceLabel = role === "franchise_owner" ? "Mess Console" : role === "staff" ? "Staff workspace" : "Admin";
+  const workspaceShort = role === "franchise_owner" ? "Owner" : role === "staff" ? "Staff" : "Admin";
   const currentLabel = current?.label || workspaceLabel;
 
   return (
@@ -275,8 +275,8 @@ export default function AdminLayout() {
         </p>
       )}
       {role === "franchise_owner" && (
-        <p className="text-xs tracking-overline uppercase font-bold text-secondary mb-3 hidden lg:inline-flex items-center gap-1.5" data-testid="franchise-mode-tag">
-          <Shield className="h-3.5 w-3.5" /> Franchise Console · independent branch
+        <p className="text-xs tracking-overline uppercase font-bold text-secondary mb-3 hidden lg:inline-flex items-center gap-1.5" data-testid="mess-owner-mode-tag">
+          <Shield className="h-3.5 w-3.5" /> Mess Console · your own mess
         </p>
       )}
 
