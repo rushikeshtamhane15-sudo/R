@@ -32,9 +32,11 @@ export const LOGIN_DEFAULTS = {
   icon_color:          "#a02323",
   icon_show: true,
 
-  // === Legacy hero visuals (iter-158f) — restore the old eFoodCare card feel ===
-  // Green nutrient chip row above the card. Comma-separated so admin can add/remove.
-  chips: "NO REFINED & PALM OIL, 0% POLISHED GRAINS, 100% FRESH VEGETABLES",
+  // === Legacy hero visuals (iter-158f) ===
+  // iter-158h: chip row removed by default per user — leave empty so the
+  // row does not render. Super-admin can re-enable via CMS by adding
+  // comma-separated labels (e.g. "FRESH DAILY, NO ADULTERATION").
+  chips: "",
   // Red delivery ribbon below the card — kept short/mobile-first.
   delivery_banner: "One step away from ghar se accha khana",
   // Avatar bubble on the card

@@ -21,7 +21,7 @@ NONADMIN_PHONE = "9876543211"
 CACHE = Path("/tmp/iter158_tokens.json")
 
 
-def _login(phone: str) -> str:
+def _login(phone: str, mess_id: str | None = None) -> str:
     cache = {}
     if CACHE.exists():
         try:
@@ -41,9 +41,18 @@ def _login(phone: str) -> str:
         assert r.status_code == 200, f"send-otp {r.status_code} {r.text}"
         otp = r.json().get("dev_otp")
         assert otp
+        # iter-158h: non-admin phones MUST pick a mess. Try to auto-pick one if not passed.
+        if not mess_id and phone != ADMIN_PHONE:
+            rl = requests.get(f"{BASE_URL}/api/messes", timeout=10)
+            arr = (rl.json() or {}).get("messes", [])
+            if arr:
+                mess_id = arr[0]["mess_id"]
+        payload = {"phone": phone, "otp": otp, "name": f"Tester {phone[-4:]}"}
+        if mess_id:
+            payload["mess_id"] = mess_id
         r2 = requests.post(
             f"{BASE_URL}/api/auth/verify-otp",
-            json={"phone": phone, "otp": otp, "name": f"Tester {phone[-4:]}"},
+            json=payload,
             timeout=15,
         )
         assert r2.status_code == 200, r2.text

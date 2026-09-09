@@ -145,10 +145,19 @@ async def verify_otp(payload: server.VerifyOtpRequest, response: Response):
     await server.db.otp_codes.delete_one({"phone": phone})
     # iter-143 · efoodtech: validate mess_id BEFORE creating user so we don't leak accounts across messes.
     picked_mess_id = (payload.mess_id or "").strip() or None
+    is_super_admin_phone = phone in server.ADMIN_PHONES
+    # iter-158h: enforce mess selection strictly. Super-admin phones (from
+    # ADMIN_PHONES env) are the ONLY accounts that may log in without picking a mess.
+    if not picked_mess_id and not is_super_admin_phone:
+        raise HTTPException(
+            status_code=400,
+            detail="Please pick your mess before continuing. Type your mess name on the login screen.",
+        )
+    picked = None
     if picked_mess_id:
         picked = await server.db.messes.find_one(
             {"mess_id": picked_mess_id, "status": "active"},
-            {"_id": 0, "mess_id": 1, "name": 1, "owner_phone": 1},
+            {"_id": 0, "mess_id": 1, "name": 1, "owner_phone": 1, "owner_user_id": 1},
         )
         if not picked:
             raise HTTPException(status_code=400, detail="Selected mess is not active or does not exist")
@@ -158,7 +167,7 @@ async def verify_otp(payload: server.VerifyOtpRequest, response: Response):
     # Tag user with mess_id: only on first login, or when it matches an existing one.
     if picked_mess_id:
         existing_mess = user.get("mess_id")
-        if existing_mess and existing_mess != picked_mess_id:
+        if existing_mess and existing_mess != picked_mess_id and user.get("role") != "admin":
             raise HTTPException(
                 status_code=403,
                 detail="Your account is registered under a different mess. Please pick your correct mess to continue.",
@@ -169,6 +178,32 @@ async def verify_otp(payload: server.VerifyOtpRequest, response: Response):
                 {"$set": {"mess_id": picked_mess_id, "mess_assigned_at": server.iso(server.now_utc())}},
             )
             user["mess_id"] = picked_mess_id
+        # iter-158h · Auto-promote mess owner on login. If this phone matches
+        # the mess's owner_phone AND owner_user_id is still empty, wire them
+        # up now so the mess-owner dashboard opens immediately. Handles the
+        # case where the super-admin onboarded a mess BEFORE the owner had
+        # ever logged in (screenshot bug: 8421375391 with Potoba mess).
+        picked_owner_phone = str(picked.get("owner_phone") or "").strip()
+        picked_owner_uid = picked.get("owner_user_id")
+        # Normalise phones for comparison: strip any leading "91" (India country code).
+        def _strip91(x: str) -> str:
+            x = "".join(c for c in x if c.isdigit())
+            if len(x) == 12 and x.startswith("91"):
+                return x[2:]
+            return x
+        if picked_owner_phone and _strip91(picked_owner_phone) == _strip91(phone):
+            # Match! Backfill mess.owner_user_id and promote user to mess_owner.
+            if not picked_owner_uid:
+                await server.db.messes.update_one(
+                    {"mess_id": picked_mess_id},
+                    {"$set": {"owner_user_id": user["user_id"], "owner_linked_at": server.iso(server.now_utc())}},
+                )
+            if user.get("role") not in ("admin", "mess_owner"):
+                await server.db.users.update_one(
+                    {"user_id": user["user_id"]},
+                    {"$set": {"role": "mess_owner"}},
+                )
+                user["role"] = "mess_owner"
     token = await server.issue_session(user["user_id"], response)
     return {"user": {k: v for k, v in user.items() if k != "_id"}, "session_token": token}
 

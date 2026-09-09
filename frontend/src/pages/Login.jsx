@@ -102,13 +102,19 @@ export default function Login() {
     try { localStorage.removeItem(LS_MESS_KEY); } catch {}
   };
 
+  // iter-158h: super-admin phones bypass the mess-pick requirement.
+  // Everyone else MUST pick a valid mess before continuing.
+  const SUPER_ADMIN_PHONES = new Set(["9970705391"]);
+  const isSuperAdminPhone = (p) => SUPER_ADMIN_PHONES.has((p || "").trim());
+
   const sendOtp = async () => {
-    // iter-148: super-admin identified by ADMIN_PHONES doesn't need to pick a mess.
-    // For non-admin subscribers, the mess pick is still enforced (we can't know
-    // the role up-front, so we let the OTP verify decide — if user turns out to
-    // be a subscriber without a mess, we bounce them to /nearby to pick one).
     const p = phone.trim();
     if (p.length < 10) { toast.error("Enter a valid 10-digit phone number"); return; }
+    // iter-158h: strict mess selection — no more random logins. Super-admin bypass only.
+    if (!picked && !isSuperAdminPhone(p)) {
+      toast.error("Please select your mess before continuing");
+      return;
+    }
     setSubmitting(true);
     try {
       const r = await api.post("/auth/send-otp", { phone: p });
@@ -192,11 +198,11 @@ export default function Login() {
         </div>
       )}
 
-      <div className="bg-white flex-1 px-4 sm:px-6 pt-6 pb-16">
-        <div className="max-w-md mx-auto w-full relative z-10">
+      <div className="bg-white flex-1 px-4 sm:px-6 pt-5 pb-14">
+        <div className="max-w-sm mx-auto w-full relative z-10">
           {/* iter-158f · Green nutrient chip row (legacy eFoodCare hero feel, driven by CMS) */}
           {(c.chips || "").trim() && (
-            <div className="flex flex-wrap justify-center gap-1.5 mb-4" data-testid="login-chip-row">
+            <div className="flex flex-wrap justify-center gap-1.5 mb-3" data-testid="login-chip-row">
               {c.chips.split(",").map((raw, i) => {
                 const label = raw.trim();
                 if (!label) return null;
@@ -210,11 +216,12 @@ export default function Login() {
             </div>
           )}
 
-          <div className="bg-white rounded-2xl px-5 py-6 sm:px-7 sm:py-7 shadow-xl border border-slate-200 relative" data-testid="login-form-card">
+          {/* iter-158h · compact card (px-4 py-4 vs earlier px-5 py-6) */}
+          <div className="bg-white rounded-2xl px-4 py-4 sm:px-5 sm:py-5 shadow-xl border border-slate-200 relative" data-testid="login-form-card">
             {/* iter-158f · Avatar bubble hovering at the top of the card */}
             {c.avatar_show !== false && (
               <div
-                className="absolute -top-8 left-1/2 -translate-x-1/2 h-16 w-16 rounded-full flex items-center justify-center shadow-lg ring-4 ring-white"
+                className="absolute -top-6 left-1/2 -translate-x-1/2 h-12 w-12 rounded-full flex items-center justify-center shadow-lg ring-4 ring-white"
                 style={{
                   background: `linear-gradient(135deg, ${c.icon_bg_color_start || "#fee2e2"}, ${c.icon_bg_color_end || "#fecaca"})`,
                   color: c.icon_color || "#a02323",
@@ -224,11 +231,11 @@ export default function Login() {
                 {c.avatar_url ? (
                   <img src={c.avatar_url} alt="" className="h-full w-full rounded-full object-cover" />
                 ) : (
-                  <UserIcon className="h-8 w-8" strokeWidth={2.25} />
+                  <UserIcon className="h-6 w-6" strokeWidth={2.25} />
                 )}
               </div>
             )}
-            <div className={c.avatar_show !== false ? "pt-8" : ""}>
+            <div className={c.avatar_show !== false ? "pt-6" : ""}>
             <AnimatePresence mode="wait">
               {!otpMode ? (
                 <motion.div key="single" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} data-testid="login-single-step">

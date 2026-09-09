@@ -295,45 +295,80 @@ export default function SuperAdminMesses() {
         ) : (
           <div className="divide-y divide-slate-100">
             {messes.map((m) => (
-              <div key={m.mess_id} className="p-4 flex items-center gap-4 hover:bg-slate-50 transition" data-testid={`mess-row-${m.mess_id}`}>
-                {m.logo_url ? (
-                  <img src={m.logo_url} alt="" className="h-11 w-11 rounded-xl object-cover border border-slate-200" />
-                ) : (
-                  <div className="h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center"><Building2 className="h-5 w-5" /></div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <div className="text-sm font-bold text-slate-900 truncate">{m.name}</div>
-                    <button onClick={() => copyId(m.mess_id)} className="inline-flex items-center gap-1 font-mono font-bold text-[11px] text-primary bg-primary/10 rounded-full px-2 py-0.5 hover:bg-primary/20" title="Copy mess ID">
+              <div key={m.mess_id} className="p-4" data-testid={`mess-row-${m.mess_id}`}>
+                {/* iter-158h · Redesigned card: header row (logo + name + status) then
+                    two-column details grid, then bottom action strip. Prevents the
+                    mobile overlap between ID pill and action buttons. */}
+                <div className="flex items-start gap-3">
+                  {m.logo_url ? (
+                    <img src={m.logo_url} alt="" className="h-12 w-12 rounded-xl object-cover border border-slate-200 shrink-0" />
+                  ) : (
+                    <div className="h-12 w-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0"><Building2 className="h-6 w-6" /></div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="text-base font-extrabold text-slate-900 leading-tight break-words">{m.name}</div>
+                      <StatusPill status={m.status} />
+                    </div>
+                    <button onClick={() => copyId(m.mess_id)} className="mt-1 inline-flex items-center gap-1 font-mono font-bold text-[11px] text-primary bg-primary/10 rounded-md px-1.5 py-0.5 hover:bg-primary/20" title="Copy mess ID" data-testid={`copy-id-${m.mess_id}`}>
                       <Hash className="h-3 w-3" /> {m.mess_id}
+                      <Copy className="h-3 w-3 ml-0.5 opacity-60" />
                     </button>
-                    <StatusPill status={m.status} />
                   </div>
-                  <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-3 flex-wrap">
-                    <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" /> {m.city}{m.state ? ` · ${m.state}` : ""}</span>
-                    {m.owner_phone && <span className="inline-flex items-center gap-1"><Phone className="h-3 w-3" /> {m.owner_phone}</span>}
-                    {m.razorpay_key_id ? (
-                      <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold">✓ Own Razorpay</span>
+                </div>
+
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[12px]">
+                  <div className="flex items-start gap-1.5 text-slate-600">
+                    <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0 text-slate-400" />
+                    <span>{m.city}{m.state ? `, ${m.state}` : ""}{m.pincode ? ` · ${m.pincode}` : ""}</span>
+                  </div>
+                  <div className="flex items-start gap-1.5">
+                    <Phone className="h-3.5 w-3.5 mt-0.5 shrink-0 text-slate-400" />
+                    {m.owner_phone ? (
+                      <div className="min-w-0">
+                        <div className="font-mono font-bold text-slate-800">+91 {m.owner_phone}</div>
+                        <div className="text-[10px] text-slate-500 flex items-center gap-1">
+                          Owner
+                          {m.owner_user_id ? (
+                            <span className="inline-flex items-center gap-0.5 text-emerald-700 font-semibold"><BadgeCheck className="h-3 w-3" /> linked</span>
+                          ) : (
+                            <span className="inline-flex items-center gap-0.5 text-amber-700 font-semibold"><AlertTriangle className="h-3 w-3" /> not logged in yet</span>
+                          )}
+                        </div>
+                      </div>
                     ) : (
-                      <span className="text-amber-600">Platform Razorpay</span>
+                      <span className="text-amber-700 italic">No owner phone set</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px]">
+                    {m.razorpay_key_id ? (
+                      <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold bg-emerald-50 rounded-full px-2 py-0.5">✓ Own Razorpay</span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-amber-700 font-semibold bg-amber-50 rounded-full px-2 py-0.5">Platform Razorpay</span>
+                    )}
+                    {typeof m.platform_wallet_balance === "number" && (
+                      <span className="inline-flex items-center gap-1 text-slate-600 bg-slate-100 rounded-full px-2 py-0.5">
+                        Wallet ₹{m.platform_wallet_balance}
+                      </span>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap justify-end">
+
+                <div className="mt-3 flex flex-wrap gap-2">
                   <Button size="sm" onClick={async () => {
                     try {
                       await api.post(`/admin/impersonate/${encodeURIComponent(m.mess_id)}`);
                       toast.success(`Acting as ${m.name}`);
-                      navigate("/mess-owner/settings");
+                      navigate("/admin");
                     } catch (e) { toast.error(e?.response?.data?.detail || "Impersonation failed"); }
-                  }} className="rounded-xl bg-primary hover:bg-primary/90 text-white" data-testid={`impersonate-${m.mess_id}`}>
-                    <UserCog className="h-3.5 w-3.5 mr-1" /> Act as
+                  }} className="flex-1 min-w-[7.5rem] rounded-xl bg-primary hover:bg-primary/90 text-white" data-testid={`impersonate-${m.mess_id}`}>
+                    <UserCog className="h-3.5 w-3.5 mr-1.5" /> Act as
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => openPagesEditor(m)} className="rounded-xl" data-testid={`pages-${m.mess_id}`}>
-                    <ListChecks className="h-3.5 w-3.5 mr-1" /> Pages
+                  <Button size="sm" variant="outline" onClick={() => openPagesEditor(m)} className="flex-1 min-w-[7.5rem] rounded-xl" data-testid={`pages-${m.mess_id}`}>
+                    <ListChecks className="h-3.5 w-3.5 mr-1.5" /> Pages
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => toggleStatus(m)} className="rounded-xl" data-testid={`toggle-${m.mess_id}`}>
-                    {m.status === "active" ? (<><PowerOff className="h-3.5 w-3.5 mr-1" /> Suspend</>) : (<><Power className="h-3.5 w-3.5 mr-1" /> Activate</>)}
+                  <Button size="sm" variant="outline" onClick={() => toggleStatus(m)} className="flex-1 min-w-[7.5rem] rounded-xl" data-testid={`toggle-${m.mess_id}`}>
+                    {m.status === "active" ? (<><PowerOff className="h-3.5 w-3.5 mr-1.5" /> Suspend</>) : (<><Power className="h-3.5 w-3.5 mr-1.5" /> Activate</>)}
                   </Button>
                 </div>
               </div>

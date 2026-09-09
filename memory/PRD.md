@@ -4,6 +4,35 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-158h — Strict mess selection · Auto-promote owner · Messes page redesign (2026-02-05)
+**Status: DONE — 15 pytest / 1 skip (all previous + 3 new).**
+
+### 1. Login card slimmed + green chips removed
+- `LOGIN_DEFAULTS.chips = ""` (empty → chip row does not render). Super-admin can re-enable per-mess via CMS.
+- Card compacted: `px-4 py-4 sm:px-5 sm:py-5` (was `px-5 py-6 sm:px-7 sm:py-7`), avatar bubble 48px (was 64px), max-width `max-w-sm` (was `max-w-md`).
+
+### 2. Strict mess selection at login
+- Client (`Login.jsx`): reject `sendOtp` when no mess picked AND phone is not in the super-admin allow-list — toast: *"Please select your mess before continuing"*.
+- Server (`auth.py verify-otp`): identical guard using `ADMIN_PHONES` env. Returns HTTP 400 with actionable message.
+- Extra safety: cross-mess account collision now ignored for admins (they can view any mess).
+
+### 3. Auto-promote mess owner on first login
+- When a phone matches `messes.owner_phone` AND `owner_user_id` is empty, the login flow now:
+  - Backfills `owner_user_id = user.user_id` on the mess doc.
+  - Promotes the user to `role = "mess_owner"`.
+- Fixes the "Mess not found" screenshot bug — owner 8421375391 with Potoba mess will now open their dashboard immediately after login.
+
+### 4. `/super-admin/messes` layout redesign
+- Row restructured into header + details-grid + action strip so mobile no longer overlaps the ID pill with action buttons.
+- Explicitly shows owner phone (`+91 XXXXXXXXXX`) with a "linked" or "not logged in yet" badge based on `owner_user_id` presence.
+- Razorpay chip + Wallet chip inline.
+
+### Tests
+- `test_iter158h_strict_mess_login.py` — 3 tests (reject without mess, allow admin, auto-promote).
+- Existing `test_iter158ef_pages.py` + `test_iter158_impersonate_wallet.py` still pass (fixtures updated to auto-pick a mess for non-admin logins).
+- **Combined: 15 passed / 1 skipped.**
+
+
 ## iter-158e-g — Login redesign · Mess Owner full admin rights · Per-mess Pages editor (2026-02-05)
 **Status: DONE — all 3 user asks shipped and 100% verified (14/14 backend, 100% frontend end-to-end).**
 
