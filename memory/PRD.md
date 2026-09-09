@@ -4,6 +4,34 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-158e-g — Login redesign · Mess Owner full admin rights · Per-mess Pages editor (2026-02-05)
+**Status: DONE — all 3 user asks shipped and 100% verified (14/14 backend, 100% frontend end-to-end).**
+
+### 1. Login page visual redesign (content stays eFoodTech)
+- Green nutrient chip row above card (`login-chip-row`) — 3 chips, CMS-editable via `chips` (comma-separated).
+- Avatar bubble hovering at the top of the card (`login-avatar-bubble`) — soft-red gradient, optional avatar_url image, fallback to lucide User icon. Colors driven by existing `icon_bg_color_start/end/color` CMS fields.
+- Red delivery ribbon below the card (`login-delivery-banner`) — CMS field `delivery_banner`.
+- Mess picker + phone + OTP flow untouched.
+
+### 2. Mess owner = full admin for their own mess
+- Widened `roles` on ~20 sidebar items in `AdminLayout.jsx` via new `OWNER_VIEW = ['admin','mess_owner']` helper: Plans, Rider apps, Restaurant editor, Brand logo, Home page, Subscriber dashboard, Bottom nav & sound, Hamburger menu, Testimonials, Tiffin preferences, Announcement bar, Login page CMS, About us, Privacy, Refund, Contact, Footer, Restaurant menu, Manual wallet top-up, WhatsApp outbox, Face enrol, Kitchen & radius.
+- Only truly platform-wide items stay admin-only: `/super-admin/messes` and `/admin/theme` (Design tokens).
+
+### 3. Super-admin per-mess Pages whitelist editor
+- New button `pages-<mess_id>` on every row of `/super-admin/messes`.
+- Opens a Dialog (`pages-editor`) with ~46 checkboxes (full admin surface). Bulk Enable-all / Disable-all buttons. Live counter. Save persists to `messes.franchise_visible_pages` via `PATCH /api/admin/messes/{id}/franchise-pages`.
+- **Sidebar honors whitelist during super-admin impersonation** (iter-158g fix). `franchise_my_visible_pages` reads `user_sessions.impersonate_mess_id` FIRST; only un-impersonated admins get the full catalog. `AdminLayout.jsx` now fetches for both admin+mess_owner and preserves platform-only paths (`PLATFORM_ONLY_PATHS` Set) so super-admin can always jump back.
+
+### Related cleanup
+- Deleted legacy franchise pages, redirected old routes (iter-158c).
+- DB role rename `franchise_owner` → `mess_owner` (iter-158d, idempotent startup migration, 2 users renamed live).
+
+### Tests
+- `/app/backend/tests/test_iter158ef_pages.py` — 9 tests (catalog, PATCH, impersonation-aware GET).
+- `/app/backend/tests/test_iter158_impersonate_wallet.py` — 4 passed / 1 skipped (real-Razorpay signature).
+- Combined: **13 passed / 1 skipped**.
+
+
 ## iter-158d — DB role rename franchise_owner → mess_owner (2026-02-05)
 **Status: DONE — migration ran on boot; 2 users renamed live on Preview; codebase 100% clean.**
 

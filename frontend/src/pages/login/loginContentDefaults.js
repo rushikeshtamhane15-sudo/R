@@ -32,6 +32,15 @@ export const LOGIN_DEFAULTS = {
   icon_color:          "#a02323",
   icon_show: true,
 
+  // === Legacy hero visuals (iter-158f) — restore the old eFoodCare card feel ===
+  // Green nutrient chip row above the card. Comma-separated so admin can add/remove.
+  chips: "NO REFINED & PALM OIL, 0% POLISHED GRAINS, 100% FRESH VEGETABLES",
+  // Red delivery ribbon below the card — kept short/mobile-first.
+  delivery_banner: "One step away from ghar se accha khana",
+  // Avatar bubble on the card
+  avatar_show: true,
+  avatar_url: "",   // fallback to lucide User icon when blank
+
   // iter-148: Super-admin editable announcement bar between header + form.
   announcement_bar: "India's first Fully technologically advanced user management software for mess and restaurants",
 

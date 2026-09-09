@@ -6,11 +6,14 @@ import { api } from "../lib/api";
 import BranchSwitcher, { PillChevron } from "./BranchSwitcher";
 import { LayoutDashboard, Package, Truck, ScanLine, QrCode, Utensils, Users, Palette, Home, Shield, FileText, MapPin, FootprintsIcon, LogIn, Megaphone, Radio, Layout, Wheat, ClipboardList, Menu, MessageSquareQuote, UtensilsCrossed, MessageCircle, ChefHat, Bike, AlertTriangle, X, Clock, Wallet, UserPlus, Volume2, ScanFace } from "lucide-react";
 
-// `roles`: which roles can see the item. Default: admin only.
-// iter-78 #2: helper that grants mess_owner read-only access to the
-// listed sections. Used in Overview + Operations sections so franchise
-// owners see "their admin panel" without editing platform-wide content.
-const FRANCHISE_VIEW = ["admin", "staff", "mess_owner"];
+// iter-158e: mess owners now get FULL admin rights over their own mess
+// (content, design, ops). Every mess-scoped page is available to them by
+// default — super-admin narrows it per-mess via the "Pages" modal on
+// /super-admin/messes. The only items that STAY admin-only are true
+// platform-wide global controls (Design tokens, Onboarded messes list).
+const OWNER_VIEW = ["admin", "mess_owner"];
+const OWNER_STAFF = ["admin", "staff", "mess_owner"];
+const FRANCHISE_VIEW = OWNER_STAFF; // legacy alias — same as OWNER_STAFF now
 
 const SECTIONS = [
   {
@@ -18,13 +21,13 @@ const SECTIONS = [
     items: [
       { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true, roles: FRANCHISE_VIEW },
       { to: "/admin/control-tower", label: "Control Tower", icon: Radio, roles: FRANCHISE_VIEW },
-      { to: "/admin/plans", label: "Plans", icon: Package, roles: ["admin"] },
+      { to: "/admin/plans", label: "Plans", icon: Package, roles: OWNER_VIEW },
       { to: "/admin/users", label: "Users & Roles", icon: Users, roles: FRANCHISE_VIEW },
-      { to: "/admin/rider-applications", label: "Rider applications", icon: Bike, roles: ["admin"] },
+      { to: "/admin/rider-applications", label: "Rider applications", icon: Bike, roles: OWNER_VIEW },
       { to: "/admin/restaurant-tracking", label: "Restaurant tracking", icon: Truck, roles: FRANCHISE_VIEW },
       { to: "/admin/restaurant-takeaway", label: "Take-away tiffins", icon: Package, roles: FRANCHISE_VIEW },
-      { to: "/admin/restaurant-theme", label: "Restaurant page editor", icon: Palette, roles: ["admin"] },
-      { to: "/admin/branding", label: "Brand logo", icon: Palette, roles: ["admin"] },
+      { to: "/admin/restaurant-theme", label: "Restaurant page editor", icon: Palette, roles: OWNER_VIEW },
+      { to: "/admin/branding", label: "Brand logo", icon: Palette, roles: OWNER_VIEW },
     ],
   },
   {
@@ -36,22 +39,21 @@ const SECTIONS = [
       { to: "/admin/cash-collections", label: "Cash collections", icon: ClipboardList, roles: FRANCHISE_VIEW },
       { to: "/admin/cash-analytics", label: "Cash analytics", icon: ClipboardList, roles: FRANCHISE_VIEW },
       { to: "/admin/partial-payments", label: "Partial payments", icon: ClipboardList, roles: FRANCHISE_VIEW },
-      { to: "/admin/kitchen-settings", label: "Kitchen & radius", icon: MapPin, roles: ["admin"] },
-      { to: "/admin/kitchen-radius", label: "My kitchen & radius", icon: MapPin, roles: ["mess_owner"] },
+      { to: "/admin/kitchen-radius", label: "My kitchen & radius", icon: MapPin, roles: OWNER_VIEW },
       { to: "/admin/pnl", label: "Profit & loss", icon: ClipboardList, roles: FRANCHISE_VIEW },
-      { to: "/admin/restaurant", label: "Restaurant menu", icon: ChefHat, roles: ["admin"] },
+      { to: "/admin/restaurant", label: "Restaurant menu", icon: ChefHat, roles: OWNER_VIEW },
       { to: "/admin/restaurant-orders", label: "Restaurant orders", icon: ChefHat, roles: FRANCHISE_VIEW },
       { to: "/admin/restaurant-hours", label: "Restaurant hours / capacity", icon: Clock, roles: FRANCHISE_VIEW },
       { to: "/admin/meal-slots", label: "Meal slot windows", icon: Clock, roles: FRANCHISE_VIEW },
-      { to: "/admin/wallet-topup", label: "Manual wallet top-up", icon: Wallet, roles: ["admin"] },
-      { to: "/admin/whatsapp", label: "WhatsApp outbox", icon: MessageCircle, roles: ["admin"] },
+      { to: "/admin/wallet-topup", label: "Manual wallet top-up", icon: Wallet, roles: OWNER_VIEW },
+      { to: "/admin/whatsapp", label: "WhatsApp outbox", icon: MessageCircle, roles: OWNER_VIEW },
       { to: "/admin/broadcast", label: "WhatsApp broadcast", icon: Megaphone, roles: FRANCHISE_VIEW },
       { to: "/admin/delivery", label: "Tiffin delivery", icon: Truck, roles: FRANCHISE_VIEW },
       { to: "/admin/live", label: "Live tracking", icon: Radio, roles: FRANCHISE_VIEW },
       { to: "/admin/scanner", label: "QR Scanner", icon: ScanLine, roles: FRANCHISE_VIEW },
       { to: "/admin/kiosk", label: "Wall Kiosk", icon: ScanLine, roles: FRANCHISE_VIEW },
       { to: "/admin/voice-settings", label: "Kiosk voice", icon: Volume2, roles: FRANCHISE_VIEW },
-      { to: "/admin/face-enroll", label: "Face enrol batch", icon: ScanFace, roles: ["admin", "mess_owner"] },
+      { to: "/admin/face-enroll", label: "Face enrol batch", icon: ScanFace, roles: OWNER_VIEW },
       { to: "/admin/counter", label: "Counter QR", icon: QrCode, roles: FRANCHISE_VIEW },
       { to: "/admin/menu", label: "Daily Menu", icon: Utensils, roles: FRANCHISE_VIEW },
       { to: "/admin/mess-menu", label: "Mess Menu Calendar", icon: ClipboardList, roles: FRANCHISE_VIEW },
@@ -60,19 +62,19 @@ const SECTIONS = [
   {
     title: "Content & design",
     items: [
-      { to: "/admin/landing", label: "Home page", icon: Home, roles: ["admin"] },
-      { to: "/admin/dashboard-editor", label: "Subscriber dashboard", icon: Layout, roles: ["admin"] },
-      { to: "/admin/bottom-nav", label: "Bottom nav & sound", icon: Megaphone, roles: ["admin"] },
-      { to: "/admin/header-menu", label: "Hamburger menu", icon: Menu, roles: ["admin"] },
-      { to: "/admin/testimonials", label: "Testimonials", icon: MessageSquareQuote, roles: ["admin"] },
-      { to: "/admin/tiffin-preferences", label: "Tiffin food preferences", icon: UtensilsCrossed, roles: ["admin"] },
-      { to: "/admin/content/announcement", label: "Announcement bar", icon: Megaphone, roles: ["admin"] },
-      { to: "/admin/content/login", label: "Login page", icon: LogIn, roles: ["admin"] },
-      { to: "/admin/content/about", label: "About us page", icon: ChefHat, roles: ["admin"] },
-      { to: "/admin/content/privacy", label: "Privacy Policy", icon: Shield, roles: ["admin"] },
-      { to: "/admin/content/refund", label: "Refund Policy", icon: FileText, roles: ["admin"] },
-      { to: "/admin/content/contact", label: "Contact Us", icon: MapPin, roles: ["admin"] },
-      { to: "/admin/content/footer", label: "Footer", icon: FootprintsIcon, roles: ["admin"] },
+      { to: "/admin/landing", label: "Home page", icon: Home, roles: OWNER_VIEW },
+      { to: "/admin/dashboard-editor", label: "Subscriber dashboard", icon: Layout, roles: OWNER_VIEW },
+      { to: "/admin/bottom-nav", label: "Bottom nav & sound", icon: Megaphone, roles: OWNER_VIEW },
+      { to: "/admin/header-menu", label: "Hamburger menu", icon: Menu, roles: OWNER_VIEW },
+      { to: "/admin/testimonials", label: "Testimonials", icon: MessageSquareQuote, roles: OWNER_VIEW },
+      { to: "/admin/tiffin-preferences", label: "Tiffin food preferences", icon: UtensilsCrossed, roles: OWNER_VIEW },
+      { to: "/admin/content/announcement", label: "Announcement bar", icon: Megaphone, roles: OWNER_VIEW },
+      { to: "/admin/content/login", label: "Login page", icon: LogIn, roles: OWNER_VIEW },
+      { to: "/admin/content/about", label: "About us page", icon: ChefHat, roles: OWNER_VIEW },
+      { to: "/admin/content/privacy", label: "Privacy Policy", icon: Shield, roles: OWNER_VIEW },
+      { to: "/admin/content/refund", label: "Refund Policy", icon: FileText, roles: OWNER_VIEW },
+      { to: "/admin/content/contact", label: "Contact Us", icon: MapPin, roles: OWNER_VIEW },
+      { to: "/admin/content/footer", label: "Footer", icon: FootprintsIcon, roles: OWNER_VIEW },
       { to: "/super-admin/messes", label: "Onboarded messes", icon: UtensilsCrossed, roles: ["admin"] },
       { to: "/admin/theme", label: "Design tokens", icon: Palette, roles: ["admin"] },
     ],
@@ -128,17 +130,20 @@ export default function AdminLayout() {
   // iter-90: franchise owners load their per-mess page whitelist so the
   // sidebar only shows what HQ admin has granted them.
   useEffect(() => {
-    if (role !== "mess_owner") return;
+    if (role !== "mess_owner" && role !== "admin") return;
     let mounted = true;
     const fetchPages = async () => {
       try {
+        // iter-158g: admin also fetches; backend returns full catalog for
+        // un-impersonated admins and the impersonated mess's whitelist
+        // otherwise. Filtering below is a no-op when whitelist is complete.
         const r = await api.get("/franchise/me/visible-pages");
         if (mounted) setFranchisePages(r.data?.visible_pages || []);
       } catch (_e) { if (mounted) setFranchisePages([]); }
     };
     fetchPages();
     return () => { mounted = false; };
-  }, [role]);
+  }, [role, asMessId]);
 
   // iter-88 #1: franchise owners MUST complete their profile (name + phone +
   // address) before they can access the console. If any are missing, bounce
@@ -179,17 +184,26 @@ export default function AdminLayout() {
 
   const showBanner = !bannerDismissed && pendingDeposit && pendingDeposit.show && role !== "subscriber";
 
+  // iter-158g: platform-wide admin pages that are NEVER in the per-mess
+  // catalog and should always stay visible to super-admins (even while
+  // impersonating a mess so they can jump back).
+  const PLATFORM_ONLY_PATHS = new Set([
+    "/super-admin/messes",
+    "/admin/theme",
+    "/admin/kitchen-settings",
+  ]);
+
   // Filter sections per role; hide a section when it ends up with zero visible items.
-  // iter-90: when role is mess_owner, ALSO filter by the per-mess
-  // page whitelist (admin-controlled). While the whitelist is still loading
-  // (franchisePages === null) we render role-allowed items so the sidebar
-  // doesn't flash empty — we narrow once the fetch resolves.
+  // - mess_owner: narrow to whitelist.
+  // - admin (un-impersonated): backend returns full catalog → filter is a no-op.
+  // - admin (impersonating): whitelist shrinks; platform-only paths still shown.
   const filteredSections = SECTIONS
     .map((sec) => ({
       ...sec,
       items: sec.items.filter((it) => {
         if (!(it.roles || ["admin"]).includes(role)) return false;
-        if (role === "mess_owner" && Array.isArray(franchisePages)) {
+        if (Array.isArray(franchisePages) && franchisePages.length > 0 && (role === "mess_owner" || role === "admin")) {
+          if (PLATFORM_ONLY_PATHS.has(it.to)) return true;
           return franchisePages.includes(it.to);
         }
         return true;

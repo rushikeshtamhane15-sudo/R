@@ -24,8 +24,9 @@ import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
 import {
   Building2, Plus, Save, X, Loader2, ShieldCheck, PowerOff, Power,
-  Phone, Hash, MapPin, BadgeCheck, AlertTriangle, Copy, UserCog,
+  Phone, Hash, MapPin, BadgeCheck, AlertTriangle, Copy, UserCog, ListChecks,
 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../components/ui/dialog";
 
 const EMPTY = {
   name: "", slug: "", mess_id_custom: "", owner_phone: "", owner_email: "",
@@ -43,6 +44,9 @@ export default function SuperAdminMesses() {
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
   const [lastCreated, setLastCreated] = useState(null);
+  // iter-158e · Per-mess page whitelist editor (super-admin only).
+  const [pagesEditor, setPagesEditor] = useState(null); // { messId, name, catalog[], selected[Set] }
+  const [pagesBusy, setPagesBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -102,6 +106,39 @@ export default function SuperAdminMesses() {
   };
 
   const suggestSlug = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
+
+  const openPagesEditor = async (m) => {
+    try {
+      const r = await api.get(`/admin/messes/${encodeURIComponent(m.mess_id)}/franchise-pages`);
+      setPagesEditor({
+        messId: m.mess_id, name: m.name,
+        catalog: r.data.catalog || [],
+        selected: new Set(r.data.visible_pages || []),
+      });
+    } catch (e) { toast.error(e?.response?.data?.detail || "Failed to load pages"); }
+  };
+  const togglePage = (key) => {
+    setPagesEditor((s) => {
+      if (!s) return s;
+      const next = new Set(s.selected);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return { ...s, selected: next };
+    });
+  };
+  const savePagesEditor = async () => {
+    if (!pagesEditor) return;
+    setPagesBusy(true);
+    try {
+      await api.patch(`/admin/messes/${encodeURIComponent(pagesEditor.messId)}/franchise-pages`, {
+        visible_pages: Array.from(pagesEditor.selected),
+      });
+      toast.success(`Page access saved for ${pagesEditor.name}`);
+      setPagesEditor(null);
+    } catch (e) { toast.error(e?.response?.data?.detail || "Save failed"); }
+    finally { setPagesBusy(false); }
+  };
+  const allOn = () => setPagesEditor((s) => s ? { ...s, selected: new Set(s.catalog.map((p) => p.key)) } : s);
+  const allOff = () => setPagesEditor((s) => s ? { ...s, selected: new Set() } : s);
 
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-6" data-testid="super-admin-messes">
@@ -282,7 +319,7 @@ export default function SuperAdminMesses() {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap justify-end">
                   <Button size="sm" onClick={async () => {
                     try {
                       await api.post(`/admin/impersonate/${encodeURIComponent(m.mess_id)}`);
@@ -291,6 +328,9 @@ export default function SuperAdminMesses() {
                     } catch (e) { toast.error(e?.response?.data?.detail || "Impersonation failed"); }
                   }} className="rounded-xl bg-primary hover:bg-primary/90 text-white" data-testid={`impersonate-${m.mess_id}`}>
                     <UserCog className="h-3.5 w-3.5 mr-1" /> Act as
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => openPagesEditor(m)} className="rounded-xl" data-testid={`pages-${m.mess_id}`}>
+                    <ListChecks className="h-3.5 w-3.5 mr-1" /> Pages
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => toggleStatus(m)} className="rounded-xl" data-testid={`toggle-${m.mess_id}`}>
                     {m.status === "active" ? (<><PowerOff className="h-3.5 w-3.5 mr-1" /> Suspend</>) : (<><Power className="h-3.5 w-3.5 mr-1" /> Activate</>)}
@@ -303,9 +343,57 @@ export default function SuperAdminMesses() {
       </section>
 
       <div className="text-[11px] text-slate-500 text-center">
-        Need finer control (page access, franchise pages)? Use{" "}
-        <a href="/admin/messes" className="text-primary font-semibold underline">/admin/messes</a>.
+        Each mess owner logs in with their own phone and gets full admin rights
+        over their own mess. Toggle which pages they can see per mess via the
+        "Pages" button.
       </div>
+
+      {/* iter-158e · Per-mess page whitelist editor */}
+      <Dialog open={!!pagesEditor} onOpenChange={(o) => !o && setPagesEditor(null)}>
+        <DialogContent className="max-w-2xl" data-testid="pages-editor">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ListChecks className="h-5 w-5 text-primary" />
+              Page access · {pagesEditor?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Choose which admin pages this mess owner can see in their sidebar.
+              Untick to hide, tick to grant access. Applies immediately on save.
+            </DialogDescription>
+          </DialogHeader>
+          {pagesEditor && (
+            <>
+              <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                <button onClick={allOn} className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-900" data-testid="pages-all-on">Enable all</button>
+                <span className="text-slate-300">·</span>
+                <button onClick={allOff} className="text-[11px] font-semibold text-red-700 hover:text-red-900" data-testid="pages-all-off">Disable all</button>
+                <span className="ml-auto text-[11px] text-slate-500">
+                  {pagesEditor.selected.size} / {pagesEditor.catalog.length} enabled
+                </span>
+              </div>
+              <div className="max-h-[55vh] overflow-y-auto grid sm:grid-cols-2 gap-1 py-2">
+                {pagesEditor.catalog.map((p) => {
+                  const on = pagesEditor.selected.has(p.key);
+                  return (
+                    <label key={p.key} className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-slate-50 ${on ? "bg-emerald-50/50" : ""}`} data-testid={`page-toggle-${p.key}`}>
+                      <input type="checkbox" checked={on} onChange={() => togglePage(p.key)} className="h-4 w-4 accent-primary" />
+                      <span className="flex-1 min-w-0 text-sm text-slate-800 truncate">{p.label}</span>
+                      <span className="font-mono text-[10px] text-slate-400 truncate">{p.key}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setPagesEditor(null)} className="rounded-xl">Cancel</Button>
+                <Button onClick={savePagesEditor} disabled={pagesBusy} className="rounded-xl bg-primary hover:bg-primary/90 text-white" data-testid="pages-save-btn">
+                  {pagesBusy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                  Save
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

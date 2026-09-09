@@ -6095,30 +6095,58 @@ FRANCHISE_SECTIONS_CATALOG = [
 
 # iter-90: list of admin nav pages a franchise owner can be granted per-mess.
 # Keep in sync with AdminLayout.jsx FRANCHISE_VIEW items.
+# iter-158e: expanded catalog — mess owner now gets full admin rights over
+# THEIR OWN mess (content, design, ops), gated per-mess by this whitelist.
 FRANCHISE_PAGES = [
+    # --- Overview ---
     {"key": "/admin",                       "label": "Dashboard"},
     {"key": "/admin/control-tower",         "label": "Control Tower"},
+    {"key": "/admin/plans",                 "label": "Plans"},
     {"key": "/admin/users",                 "label": "Users & Roles"},
+    {"key": "/admin/rider-applications",    "label": "Rider applications"},
     {"key": "/admin/restaurant-tracking",   "label": "Restaurant tracking"},
     {"key": "/admin/restaurant-takeaway",   "label": "Take-away tiffins"},
+    {"key": "/admin/restaurant-theme",      "label": "Restaurant page editor"},
+    {"key": "/admin/branding",              "label": "Brand logo"},
+    # --- Operations ---
     {"key": "/admin/deliveries-today",      "label": "Today's deliveries"},
     {"key": "/admin/raw-materials",         "label": "Raw materials"},
     {"key": "/admin/tiffin-stock",          "label": "Tiffin stock"},
-    {"key": "/admin/meal-slots",            "label": "Meal slot windows"},
     {"key": "/admin/cash-collections",      "label": "Cash collections"},
     {"key": "/admin/cash-analytics",        "label": "Cash analytics"},
     {"key": "/admin/partial-payments",      "label": "Partial payments"},
+    {"key": "/admin/kitchen-radius",        "label": "My kitchen & radius"},
     {"key": "/admin/pnl",                   "label": "Profit & loss"},
+    {"key": "/admin/restaurant",            "label": "Restaurant menu"},
     {"key": "/admin/restaurant-orders",     "label": "Restaurant orders"},
     {"key": "/admin/restaurant-hours",      "label": "Restaurant hours / capacity"},
-    {"key": "/admin/kitchen-radius",        "label": "My kitchen & radius"},
+    {"key": "/admin/meal-slots",            "label": "Meal slot windows"},
+    {"key": "/admin/wallet-topup",          "label": "Manual wallet top-up"},
+    {"key": "/admin/whatsapp",              "label": "WhatsApp outbox"},
+    {"key": "/admin/broadcast",             "label": "WhatsApp broadcast"},
     {"key": "/admin/delivery",              "label": "Tiffin delivery"},
     {"key": "/admin/live",                  "label": "Live tracking"},
     {"key": "/admin/scanner",               "label": "QR Scanner"},
     {"key": "/admin/kiosk",                 "label": "Wall Kiosk"},
+    {"key": "/admin/voice-settings",        "label": "Kiosk voice"},
+    {"key": "/admin/face-enroll",           "label": "Face enrol batch"},
     {"key": "/admin/counter",               "label": "Counter QR"},
     {"key": "/admin/menu",                  "label": "Daily Menu"},
     {"key": "/admin/mess-menu",             "label": "Mess Menu Calendar"},
+    # --- Content & design ---
+    {"key": "/admin/landing",               "label": "Home page"},
+    {"key": "/admin/dashboard-editor",      "label": "Subscriber dashboard"},
+    {"key": "/admin/bottom-nav",            "label": "Bottom nav & sound"},
+    {"key": "/admin/header-menu",           "label": "Hamburger menu"},
+    {"key": "/admin/testimonials",          "label": "Testimonials"},
+    {"key": "/admin/tiffin-preferences",    "label": "Tiffin food preferences"},
+    {"key": "/admin/content/announcement",  "label": "Announcement bar"},
+    {"key": "/admin/content/login",         "label": "Login page"},
+    {"key": "/admin/content/about",         "label": "About us page"},
+    {"key": "/admin/content/privacy",       "label": "Privacy Policy"},
+    {"key": "/admin/content/refund",        "label": "Refund Policy"},
+    {"key": "/admin/content/contact",       "label": "Contact Us"},
+    {"key": "/admin/content/footer",        "label": "Footer"},
 ]
 FRANCHISE_PAGE_KEYS = {p["key"] for p in FRANCHISE_PAGES}
 
@@ -6234,12 +6262,26 @@ async def admin_set_franchise_pages(mess_id: str, payload: FranchisePagesIn, use
 
 @api_router.get("/franchise/me/visible-pages")
 async def franchise_my_visible_pages(user: User = Depends(get_current_user)):
-    """Franchise owner reads the page list they're allowed to see in the admin nav."""
+    """Franchise/mess owner reads the page list they're allowed to see in
+    the admin nav. iter-158g: when a super-admin is impersonating a mess,
+    return THAT mess's whitelist (so the sidebar reflects what the owner
+    would see). Only unimpersonated super-admins get the full catalog."""
     if user.role not in ("mess_owner", "admin"):
         raise HTTPException(status_code=403, detail="Franchise portal only")
+    target_mess_id = None
     if user.role == "admin":
-        return {"visible_pages": [p["key"] for p in FRANCHISE_PAGES]}
-    mess = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "franchise_visible_pages": 1})
+        s = await db.user_sessions.find_one(
+            {"user_id": user.user_id, "impersonate_mess_id": {"$exists": True}},
+            {"_id": 0, "impersonate_mess_id": 1},
+        )
+        if s and s.get("impersonate_mess_id"):
+            target_mess_id = s["impersonate_mess_id"]
+        else:
+            return {"visible_pages": [p["key"] for p in FRANCHISE_PAGES]}
+    if not target_mess_id:  # role == mess_owner
+        mess = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1, "franchise_visible_pages": 1})
+    else:
+        mess = await db.messes.find_one({"mess_id": target_mess_id}, {"_id": 0, "franchise_visible_pages": 1})
     pages = (mess or {}).get("franchise_visible_pages")
     if pages is None:
         pages = [p["key"] for p in FRANCHISE_PAGES]

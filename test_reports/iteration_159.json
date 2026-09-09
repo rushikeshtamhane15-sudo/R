@@ -1,0 +1,33 @@
+{
+  "summary": "iter-158g retest: sidebar-enforcement fix during super-admin impersonation VERIFIED. Backend franchise_my_visible_pages now honors user_sessions.impersonate_mess_id BEFORE the admin short-circuit; frontend AdminLayout now fetches visible-pages for admin too and applies whitelist filter unless path is in PLATFORM_ONLY_PATHS. All 3 sidebar scenarios pass end-to-end via live UI + API. Backend pytest: 14 passed, 1 skipped (pre-existing Razorpay real-key skip). Added a new pytest for visible-pages-under-impersonation. Login visual regression still intact.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter158ef_pages.py",
+    "/app/backend/tests/test_iter158_impersonate_wallet.py",
+    "/app/test_reports/pytest/iter158g.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py L6263-6288: fix is correct — checks impersonate_mess_id first, then short-circuits for un-impersonated admins. Also correctly falls through to catalog default when franchise_visible_pages is None on a mess.",
+    "AdminLayout.jsx L200-210: PLATFORM_ONLY_PATHS Set ensures /super-admin/messes, /admin/theme, /admin/kitchen-settings are always shown regardless of whitelist — verified via DOM (Onboarded messes + Design tokens visible during impersonation).",
+    "Minor a11y warning from earlier report (SuperAdminMesses DialogContent missing Description) is unchanged — not blocking, defer."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter158ef_pages.py (added test_visible_pages_reflects_impersonation; also made test_franchise_me_visible_pages_admin_returns_all clear any prior impersonation first)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Super Admin phone 9970705391 (dev OTP echo, cached token at /tmp/iter158_tokens.json); Non-admin: 9876543211.",
+  "seed_data_creation": "None — used existing mess MESS-C0A9 for PATCH/impersonate/restore cycles. Whitelist is restored to full catalog at end of every test.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Live verification: PATCH mess to a narrow whitelist (drop /admin/plans and /admin/landing), POST /api/admin/impersonate/{mess}, GET /admin sidebar → Plans/Home page hidden but Onboarded messes + Design tokens visible. DELETE /api/admin/impersonate → sidebar restored. Backend GET /api/franchise/me/visible-pages honors impersonation session for admin. All key data-testids and login visuals intact.",
+  "rca of the issue": "Previously fixed. Root cause was two-fold: (1) server.py franchise_my_visible_pages short-circuited to full catalog for any admin, ignoring impersonate_mess_id; (2) AdminLayout.jsx only fetched visible-pages when role==='mess_owner'. Both are now corrected — backend detects impersonation first, frontend fetches for admin+mess_owner and filters non-platform paths."
+}

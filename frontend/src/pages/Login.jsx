@@ -7,7 +7,7 @@ import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
-import { ArrowRight, KeyRound, Search, Building2, MapPin, ShieldCheck, X, Check } from "lucide-react";
+import { ArrowRight, KeyRound, Search, Building2, MapPin, ShieldCheck, X, Check, User as UserIcon, Truck } from "lucide-react";
 import SEO from "../components/SEO";
 
 import { LOGIN_DEFAULTS } from "./login/loginContentDefaults";
@@ -194,7 +194,41 @@ export default function Login() {
 
       <div className="bg-white flex-1 px-4 sm:px-6 pt-6 pb-16">
         <div className="max-w-md mx-auto w-full relative z-10">
-          <div className="bg-white rounded-2xl px-5 py-6 sm:px-7 sm:py-7 shadow-xl border border-slate-200" data-testid="login-form-card">
+          {/* iter-158f · Green nutrient chip row (legacy eFoodCare hero feel, driven by CMS) */}
+          {(c.chips || "").trim() && (
+            <div className="flex flex-wrap justify-center gap-1.5 mb-4" data-testid="login-chip-row">
+              {c.chips.split(",").map((raw, i) => {
+                const label = raw.trim();
+                if (!label) return null;
+                return (
+                  <span key={i} className="inline-flex items-center gap-1 rounded-full bg-emerald-600 text-white text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 shadow-sm" data-testid={`login-chip-${i}`}>
+                    <Check className="h-3 w-3 -ml-0.5" strokeWidth={3} />
+                    {label}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="bg-white rounded-2xl px-5 py-6 sm:px-7 sm:py-7 shadow-xl border border-slate-200 relative" data-testid="login-form-card">
+            {/* iter-158f · Avatar bubble hovering at the top of the card */}
+            {c.avatar_show !== false && (
+              <div
+                className="absolute -top-8 left-1/2 -translate-x-1/2 h-16 w-16 rounded-full flex items-center justify-center shadow-lg ring-4 ring-white"
+                style={{
+                  background: `linear-gradient(135deg, ${c.icon_bg_color_start || "#fee2e2"}, ${c.icon_bg_color_end || "#fecaca"})`,
+                  color: c.icon_color || "#a02323",
+                }}
+                data-testid="login-avatar-bubble"
+              >
+                {c.avatar_url ? (
+                  <img src={c.avatar_url} alt="" className="h-full w-full rounded-full object-cover" />
+                ) : (
+                  <UserIcon className="h-8 w-8" strokeWidth={2.25} />
+                )}
+              </div>
+            )}
+            <div className={c.avatar_show !== false ? "pt-8" : ""}>
             <AnimatePresence mode="wait">
               {!otpMode ? (
                 <motion.div key="single" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} data-testid="login-single-step">
@@ -322,7 +356,19 @@ export default function Login() {
                 </motion.div>
               )}
             </AnimatePresence>
+            </div>
           </div>
+          {/* iter-158f · Red delivery ribbon below the card (legacy eFoodCare feel) */}
+          {(c.delivery_banner || "").trim() && (
+            <div
+              className="mt-4 rounded-2xl px-4 py-3 flex items-center gap-2.5 shadow-md text-white font-extrabold text-xs sm:text-sm text-center"
+              style={{ background: "linear-gradient(90deg,#b91c1c,#dc2626,#ef4444)" }}
+              data-testid="login-delivery-banner"
+            >
+              <Truck className="h-5 w-5 shrink-0" strokeWidth={2.5} />
+              <span className="flex-1 tracking-wide">{c.delivery_banner}</span>
+            </div>
+          )}
           <div className="mt-4 flex items-center justify-center gap-2 text-[11px] text-slate-500">
             <ShieldCheck className="h-3.5 w-3.5 text-secondary" />
             <span>Powered by <span className="font-bold text-primary">efoodtech</span> · Secure OTP · Multi-tenant SaaS</span>
