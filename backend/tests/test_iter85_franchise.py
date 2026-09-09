@@ -1,12 +1,12 @@
-"""iter-85 franchise_owner role unlocks — Batch testing.
+"""iter-85 mess_owner role unlocks — Batch testing.
 
 Covers:
- - tiffin-stock: GET/POST topup/GET history reachable for franchise_owner
+ - tiffin-stock: GET/POST topup/GET history reachable for mess_owner
  - tiffin-stock: POST adjust + PUT threshold (review request says reachable; code review check)
- - mess_menu_cal: upsert/bulk/delete/get month/get config/put config for franchise_owner
- - mess_menu_push: get/put cfg + preview + send-now for franchise_owner
+ - mess_menu_cal: upsert/bulk/delete/get month/get config/put config for mess_owner
+ - mess_menu_push: get/put cfg + preview + send-now for mess_owner
  - restaurant_hours: per-branch scope + GET status fallback behavior
- - wallet-adjust: franchise_owner MUST get 403
+ - wallet-adjust: mess_owner MUST get 403
 """
 from __future__ import annotations
 
@@ -65,7 +65,7 @@ def _seed_session(user_id: str) -> str:
 
 @pytest.fixture(scope="module")
 def franchise_session():
-    """Create a franchise_owner via send-otp / verify-otp, promote role,
+    """Create a mess_owner via send-otp / verify-otp, promote role,
     assign mess ownership, then create a session cookie for it."""
     s = requests.Session()
     # 1) send OTP
@@ -84,7 +84,7 @@ def franchise_session():
         u = _db.users.find_one({"phone": "+91" + TEST_PHONE})
     assert u, f"could not find user for phone {TEST_PHONE}"
     user_id = u["user_id"]
-    _db.users.update_one({"user_id": user_id}, {"$set": {"role": "franchise_owner"}})
+    _db.users.update_one({"user_id": user_id}, {"$set": {"role": "mess_owner"}})
     # Ensure target mess exists, then assign owner_user_id
     if not _db.messes.find_one({"mess_id": "efoodcare-amravati"}):
         _db.messes.insert_one({
@@ -139,14 +139,14 @@ class TestTiffinStockFranchise:
         assert isinstance(data["rows"], list)
 
     def test_adjust_franchise_should_be_allowed(self, franchise_session):
-        """Review request says adjust should be reachable for franchise_owner.
+        """Review request says adjust should be reachable for mess_owner.
         Current code at line 135 still has `if user.role != 'admin'`."""
         s = franchise_session["session"]
         r = s.post(f"{BASE_URL}/api/admin/tiffin-stock/adjust",
                    json={"delta": 0, "reason": "TEST"}, timeout=10)
         # According to review request this should NOT be 403.
         assert r.status_code != 403, (
-            f"BUG: adjust returns 403 for franchise_owner but review request requires access. "
+            f"BUG: adjust returns 403 for mess_owner but review request requires access. "
             f"tiffin_stock.py line 135 still has 'if user.role != admin'. Body: {r.text}"
         )
 
@@ -155,7 +155,7 @@ class TestTiffinStockFranchise:
         r = s.put(f"{BASE_URL}/api/admin/tiffin-stock/threshold",
                   json={"threshold": 25}, timeout=10)
         assert r.status_code != 403, (
-            f"BUG: threshold returns 403 for franchise_owner but review request requires access. "
+            f"BUG: threshold returns 403 for mess_owner but review request requires access. "
             f"tiffin_stock.py line 169 still has 'if user.role != admin'. Body: {r.text}"
         )
 
@@ -297,4 +297,4 @@ class TestWalletAdjustNegative:
         target_uid = franchise_session["user_id"]
         r = s.post(f"{BASE_URL}/api/admin/users/{target_uid}/wallet-adjust",
                    json={"delta": 100, "reason": "TEST"}, timeout=10)
-        assert r.status_code == 403, f"BUG: wallet-adjust must be 403 for franchise_owner, got {r.status_code} {r.text}"
+        assert r.status_code == 403, f"BUG: wallet-adjust must be 403 for mess_owner, got {r.status_code} {r.text}"

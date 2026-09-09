@@ -1,6 +1,6 @@
 """iter-89 backend tests:
 1) Bottom-nav CMS now has 'franchise' role key + PUT accepts it.
-2) GET /admin/users + POST /admin/role unlocked for franchise_owner
+2) GET /admin/users + POST /admin/role unlocked for mess_owner
    (scoped to their branch, with FRANCHISE_ASSIGNABLE_ROLES whitelist).
 """
 from __future__ import annotations
@@ -78,9 +78,9 @@ def franchise_session(cleanup_state):
     suffix = str(int(time.time() * 1000) + 1)[-9:]
     phone = "8" + suffix
     tok, uid = _otp_login(phone, "TEST_IT89_franchise")
-    # Promote to franchise_owner + create their mess
+    # Promote to mess_owner + create their mess
     branch_id = f"test_branch_it89_{suffix}"
-    db.users.update_one({"user_id": uid}, {"$set": {"role": "franchise_owner", "mess_id": branch_id}})
+    db.users.update_one({"user_id": uid}, {"$set": {"role": "mess_owner", "mess_id": branch_id}})
     db.messes.insert_one({
         "mess_id": branch_id,
         "owner_user_id": uid,
@@ -186,12 +186,12 @@ class TestAdminUsersScoping:
         users = r.json()["users"]
         assert len(users) > 1  # global
 
-    def test_franchise_owner_scoped(self, franchise_session, subscriber_session, other_branch_users):
+    def test_mess_owner_scoped(self, franchise_session, subscriber_session, other_branch_users):
         r = requests.get(f"{BASE_URL}/api/admin/users", headers=_hdr(franchise_session["token"]), timeout=15)
         assert r.status_code == 200, r.text
         users = r.json()["users"]
         ids = {u.get("user_id") for u in users}
-        # Must include franchise_owner themselves + the in-branch subscriber
+        # Must include mess_owner themselves + the in-branch subscriber
         assert franchise_session["user_id"] in ids
         assert subscriber_session["user_id"] in ids
         # Must NOT include the out-of-branch admin
@@ -226,18 +226,18 @@ class TestAdminRoleAssignment:
         assert r.status_code == 403, r.text
         assert "Franchise can only assign:" in r.json().get("detail", ""), r.text
 
-    def test_franchise_cannot_assign_franchise_owner(self, franchise_session, subscriber_session):
+    def test_franchise_cannot_assign_mess_owner(self, franchise_session, subscriber_session):
         r = requests.post(
             f"{BASE_URL}/api/admin/role",
             headers=_hdr(franchise_session["token"]),
-            json={"phone": subscriber_session["phone"], "role": "franchise_owner"},
+            json={"phone": subscriber_session["phone"], "role": "mess_owner"},
             timeout=10,
         )
         assert r.status_code == 403, r.text
         assert "Franchise can only assign:" in r.json().get("detail", ""), r.text
 
     def test_franchise_cannot_touch_admin_target(self, franchise_session, other_branch_users, admin_session):
-        # Try to demote an existing admin to subscriber as franchise_owner
+        # Try to demote an existing admin to subscriber as mess_owner
         # Use the admin's user_id → look them up by their email pattern
         admin_doc = db.users.find_one({"user_id": other_branch_users["other_admin_id"]}, {"_id": 0, "phone": 1})
         assert admin_doc and admin_doc.get("phone")

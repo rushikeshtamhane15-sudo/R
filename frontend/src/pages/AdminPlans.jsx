@@ -195,7 +195,7 @@ function WebhookEventsPanel() {
 
 export default function AdminPlans() {
   const { user } = useAuth();
-  const isMessOwner = user?.role === "franchise_owner";
+  const isMessOwner = user?.role === "mess_owner";
   const [ownMess, setOwnMess] = useState(null);
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);

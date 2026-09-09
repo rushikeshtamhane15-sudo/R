@@ -107,7 +107,7 @@ function RequireAuth({ children, roles }) {
 function AdminIndex() {
   const { user } = useAuth();
   if (user?.role === "staff") return <Navigate to="/admin/deliveries-today" replace />;
-  // iter-92 #2: franchise_owner now renders the AdminOverview Dashboard,
+  // iter-92 #2: mess_owner now renders the AdminOverview Dashboard,
   // auto-scoped to their branch by the backend (was previously routed to
   // /admin/control-tower because the Dashboard wasn't role-aware).
   return <AdminOverview />;
@@ -118,7 +118,7 @@ function HomeRoute() {
   // (replaces the consumer-facing Restaurant home). Everyone else continues
   // to see the existing Restaurant homepage.
   const { user } = useAuth();
-  if (user?.role === "franchise_owner") return <PartnerPortal />;
+  if (user?.role === "mess_owner") return <PartnerPortal />;
   return <Restaurant />;
 }
 
@@ -143,7 +143,7 @@ function AppRoutes() {
   // iter-92 #1: franchise owners get a clean B2B shell — suppress the
   // consumer-facing red Header + Hindi adulteration marquee on every page
   // they see (their app is the Partner Portal + the franchise admin area).
-  const isFranchise = user?.role === "franchise_owner";
+  const isFranchise = user?.role === "mess_owner";
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -165,21 +165,21 @@ function AppRoutes() {
           <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
           <Route path="/wallet" element={<RequireAuth><WalletPage /></RequireAuth>} />
           {/* iter-131.28: fullscreen kiosk mode — renders AdminKiosk outside the AdminLayout so no sidebar chrome. */}
-          <Route path="/kiosk" element={<RequireAuth roles={["admin", "staff", "franchise_owner"]}><AdminKiosk /></RequireAuth>} />
+          <Route path="/kiosk" element={<RequireAuth roles={["admin", "staff", "mess_owner"]}><AdminKiosk /></RequireAuth>} />
           <Route path="/plans" element={<Plans />} />
           <Route path="/checkout/:planId" element={<RequireAuth><Checkout /></RequireAuth>} />
           <Route path="/self-scan" element={<RequireAuth><SelfScan /></RequireAuth>} />
           <Route path="/track" element={<RequireAuth><Track /></RequireAuth>} />
           <Route path="/boy" element={<RequireAuth roles={["delivery_boy"]}><DeliveryBoyDashboard /></RequireAuth>} />
-          <Route path="/staff/dispatch" element={<RequireAuth roles={["admin", "staff", "franchise_owner"]}><StaffDispatch /></RequireAuth>} />
+          <Route path="/staff/dispatch" element={<RequireAuth roles={["admin", "staff", "mess_owner"]}><StaffDispatch /></RequireAuth>} />
 
           {/* Public information pages */}
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/refund" element={<Refund />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/about" element={<About />} />
-          <Route path="/franchise" element={<RequireAuth roles={["franchise_owner", "admin"]}><FranchisePortal /></RequireAuth>} />
-          <Route path="/mess-owner/settings" element={<RequireAuth roles={["franchise_owner", "admin"]}><MessOwnerSettings /></RequireAuth>} />
+          <Route path="/franchise" element={<RequireAuth roles={["mess_owner", "admin"]}><FranchisePortal /></RequireAuth>} />
+          <Route path="/mess-owner/settings" element={<RequireAuth roles={["mess_owner", "admin"]}><MessOwnerSettings /></RequireAuth>} />
           <Route path="/super-admin/messes" element={<RequireAuth roles={["admin"]}><SuperAdminMesses /></RequireAuth>} />
           <Route path="/super-admin/reviews" element={<RequireAuth roles={["admin"]}><SuperAdminReviews /></RequireAuth>} />
           <Route path="/nearby" element={<TopMesses />} />
@@ -189,7 +189,7 @@ function AppRoutes() {
           <Route path="/partners" element={<PartnerPortal />} />
 
           {/* Admin / staff */}
-          <Route path="/admin" element={<RequireAuth roles={["admin", "staff", "franchise_owner"]}><AdminLayout /></RequireAuth>}>
+          <Route path="/admin" element={<RequireAuth roles={["admin", "staff", "mess_owner"]}><AdminLayout /></RequireAuth>}>
             <Route index element={<AdminIndex />} />
             <Route path="control-tower" element={<AdminControlTower />} />
             <Route path="mess-menu" element={<AdminMessMenuCalendar />} />

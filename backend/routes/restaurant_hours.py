@@ -46,9 +46,9 @@ def _settings_key_for_mess(mess_id: str | None) -> str:
 
 
 async def _resolve_caller_mess_id(user: "server.User") -> str | None:
-    """Look up the mess_id owned by a franchise_owner. Admins return None
+    """Look up the mess_id owned by a mess_owner. Admins return None
     so they keep using the global config (or pass mess_id explicitly)."""
-    if user.role != "franchise_owner":
+    if user.role != "mess_owner":
         return None
     doc = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
     return (doc or {}).get("mess_id")
@@ -189,7 +189,7 @@ class HoursConfigIn(BaseModel):
 
 @router.get("/admin/restaurant/hours")
 async def admin_get_hours(mess_id: str | None = None, user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     # iter-86 #2: HQ admin can pass ?mess_id= to peek at a specific branch's
     # config. Franchise owner is always pinned to their own branch.
@@ -208,7 +208,7 @@ async def admin_get_hours(mess_id: str | None = None, user: server.User = Depend
 
 @router.post("/admin/restaurant/hours")
 async def admin_set_hours(payload: HoursConfigIn, mess_id: str | None = None, user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     if _hhmm_to_time(payload.open_time) >= _hhmm_to_time(payload.close_time):
         raise HTTPException(status_code=400, detail="open_time must be before close_time")

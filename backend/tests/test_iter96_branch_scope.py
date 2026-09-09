@@ -1,8 +1,8 @@
 """iter-96 backend tests: branch-scope for takeaway-pendency & restaurant orders,
-plus franchise_owner write-protection on /admin/messes endpoints.
+plus mess_owner write-protection on /admin/messes endpoints.
 
 Bugs fixed in iter-96:
-  (1) /admin/messes UI showed HQ-only controls to franchise_owner — backend
+  (1) /admin/messes UI showed HQ-only controls to mess_owner — backend
       already returns 403 on POST/PATCH/PUT (we re-verify).
   (2) /admin/restaurant/takeaway-pendency was global — now branch-scoped by
       user_id ∈ users-in-mess. FR cross-branch collect → 403.
@@ -74,7 +74,7 @@ def world(mongo):
     yavatmal_existed_before = bool(mongo.messes.find_one({"mess_id": MESS_B}))
 
     admin_uid, admin_tok = _seed_user(mongo, role="admin")
-    fr_uid, fr_tok = _seed_user(mongo, role="franchise_owner", mess_id=MESS_A)
+    fr_uid, fr_tok = _seed_user(mongo, role="mess_owner", mess_id=MESS_A)
 
     # Make sure both messes exist; rebind MESS_A owner to our FR
     mongo.messes.update_one({"mess_id": MESS_A},
@@ -273,7 +273,7 @@ class TestRestaurantOrdersScope:
 
 
 # ---------------------------------------------------------------------------
-# (4) /admin/messes write-protection for franchise_owner
+# (4) /admin/messes write-protection for mess_owner
 # ---------------------------------------------------------------------------
 class TestFranchiseMessWriteProtection:
     # iter-96: a payload that satisfies MessIn's pydantic validation so the

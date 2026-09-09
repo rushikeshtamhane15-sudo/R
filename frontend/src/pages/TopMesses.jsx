@@ -206,7 +206,7 @@ export default function TopMesses() {
       <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900" data-testid="promote-card">
         <div className="font-bold flex items-center gap-1.5"><Sparkles className="h-4 w-4" /> Mess owner? Get featured in slot 1.</div>
         <p className="mt-1">Featured messes appear pinned at the top for every user in their area — a proven way to attract new subscribers.</p>
-        {user?.role === "franchise_owner" ? (
+        {user?.role === "mess_owner" ? (
           <Link to="/mess-owner/settings" className="inline-block mt-2 rounded-full bg-amber-600 text-white text-xs font-semibold px-3 py-1.5">Open owner settings</Link>
         ) : (
           <p className="mt-1 italic text-amber-800">Log in as mess owner to request featuring.</p>

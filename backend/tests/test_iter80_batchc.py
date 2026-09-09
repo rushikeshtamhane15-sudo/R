@@ -155,17 +155,17 @@ class TestMetricsSeries:
         assert len(d["total_revenue_series"]) == 90
 
     def test_franchise_me_metrics_has_series(self, admin_token):
-        """Promote the test admin to franchise_owner of efoodcare-amravati so /franchise/me/metrics returns data."""
+        """Promote the test admin to mess_owner of efoodcare-amravati so /franchise/me/metrics returns data."""
         token, admin_uid = admin_token
-        # Try the franchise endpoint as-is. If 403, seed a franchise_owner test user instead.
+        # Try the franchise endpoint as-is. If 403, seed a mess_owner test user instead.
         r = requests.get(f"{BASE_URL}/api/franchise/me/metrics", headers=H(token))
         if r.status_code == 403:
-            # Seed a franchise_owner user owning efoodcare-amravati
+            # Seed a mess_owner user owning efoodcare-amravati
             fuid = "u_test_fr_" + uuid.uuid4().hex[:8]
             db.users.insert_one({
                 "user_id": fuid,
                 "email": f"TEST_fr_{fuid}@example.com",
-                "role": "franchise_owner",
+                "role": "mess_owner",
                 "created_at": iso(now()),
             })
             ftoken = "TEST_FAKE_iter80_fr_" + uuid.uuid4().hex

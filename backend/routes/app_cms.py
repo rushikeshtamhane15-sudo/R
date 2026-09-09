@@ -39,7 +39,7 @@ DEFAULT_BOTTOM_NAV: dict = {
         {"id": "contact",    "label": "Contact",      "icon": "Phone",           "to": "/contact",       "visible": True},
         {"id": "login",      "label": "Login",        "icon": "LogIn",           "to": "__login__",      "visible": True},
     ],
-    # iter-89 #1: franchise_owner default bottom nav — CMS-editable from
+    # iter-89 #1: mess_owner default bottom nav — CMS-editable from
     # /admin/bottom-nav-editor by HQ admin.
     # iter-92 #1: "Home" now lands on `/` (Partner Portal — the franchise
     # owner's homepage), Control Tower is a dedicated tab, and the contact
@@ -215,7 +215,7 @@ async def get_guest_cart(token: str):
 async def list_takeaway_pendency(user: server.User = Depends(server.get_current_user), collected: Optional[bool] = None, as_mess_id: Optional[str] = None):
     # iter-96 #2: branch-scope by user_id ∈ users-in-mess so franchise owners
     # only see their own branch's pendency. Admins can opt-in via ?as_mess_id.
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(403, "Admin or staff only")
     mid = await server.effective_mess_id(user, as_mess_id)
     user_ids = await server._users_in_mess(mid)
@@ -234,13 +234,13 @@ class CollectTakeaway(BaseModel):
 
 @router.post("/admin/restaurant/takeaway-pendency/collect")
 async def collect_takeaway(payload: CollectTakeaway, user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(403, "Admin or staff only")
     rec = await server.db.restaurant_tiffin_pendency.find_one({"pendency_id": payload.pendency_id}, {"_id": 0})
     if not rec:
         raise HTTPException(404, "Pendency not found")
     # iter-96 #2: franchise can only mark THEIR branch's pendency.
-    if user.role == "franchise_owner":
+    if user.role == "mess_owner":
         m = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
         if not m:
             raise HTTPException(403, "No mess assigned")
@@ -265,7 +265,7 @@ async def collect_takeaway(payload: CollectTakeaway, user: server.User = Depends
     # returned the tiffin, add back to inventory. Uses the same mess-scope
     # resolver as topup so the increment lands on the SAME stock doc admins
     # see on the dashboard (LEGACY_KEY / global for admin, franchise's own
-    # mess for franchise_owner). For manual pendency (user_id=None) this
+    # mess for mess_owner). For manual pendency (user_id=None) this
     # ensures we don't accidentally target a phantom mess.
     if n > 0:
         try:
@@ -360,7 +360,7 @@ class ExpenseConfig(BaseModel):
 
 @router.get("/admin/pnl/expenses")
 async def get_expenses(user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(403, "Admin or staff only")
     doc = await server.db.app_config.find_one({"_id": "monthly_expenses"}, {"_id": 0}) or {}
     return {
@@ -397,7 +397,7 @@ async def get_pnl_daily(
     next month, matching the revenue reset cadence. Without `cycle`, falls
     back to the last `days` rows for backwards-compat.
     """
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(403, "Admin or staff only")
 
     from datetime import datetime, timedelta, timezone
@@ -500,7 +500,7 @@ async def get_pnl_daily(
 async def add_manual_takeaway(payload: ManualTakeaway, user: server.User = Depends(server.get_current_user)):
     """Walk-in / unknown user took a steel tiffin (no order in our system).
     Admin captures their details so we can call them back."""
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(403, "Admin or staff only")
     import uuid
     pid = f"rtp_manual_{uuid.uuid4().hex[:10]}"

@@ -5,7 +5,7 @@ Scope:
 - GET  /api/franchise/me/mess   → mess details with scope=branch (FR) / global (admin).
 - PATCH /api/franchise/me/kitchen → lat/lng/radius/address update on own mess.
 - /admin/delivery/* and /admin/restaurant/takeaway-pendency* role gates widened
-  to include franchise_owner.
+  to include mess_owner.
 
 All test artefacts prefixed with TEST_IT94_* and removed in teardown.
 """
@@ -73,7 +73,7 @@ def world(mongo):
     orig_address = orig.get("address")
 
     admin_uid, admin_tok = _seed_user(mongo, role="admin")
-    fr_uid, fr_tok = _seed_user(mongo, role="franchise_owner", mess_id=MESS_A)
+    fr_uid, fr_tok = _seed_user(mongo, role="mess_owner", mess_id=MESS_A)
     sub_uid, sub_tok = _seed_user(mongo, role="subscriber", mess_id=MESS_A)
 
     mongo.messes.update_one({"mess_id": MESS_A},

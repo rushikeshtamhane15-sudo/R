@@ -442,15 +442,15 @@ async def admin_promote_rider(user_id: str, user: server.User = Depends(server.g
 
 @router.post("/admin/restaurant/orders/{order_id}/status")
 async def admin_set_order_status(order_id: str, payload: StatusUpdate, user: server.User = Depends(server.get_current_user)):
-    # iter-92 #3: franchise_owner can transition orders for THEIR branch's customers.
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    # iter-92 #3: mess_owner can transition orders for THEIR branch's customers.
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(403, "Admin or staff only")
     if payload.status not in ("preparing", "ready_for_pickup", "rejected"):
         raise HTTPException(400, "Invalid status — must be preparing | ready_for_pickup | rejected")
     order = await server.db.restaurant_orders.find_one({"order_id": order_id}, {"_id": 0})
     if not order:
         raise HTTPException(404, "Order not found")
-    if user.role == "franchise_owner":
+    if user.role == "mess_owner":
         m = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
         if not m:
             raise HTTPException(403, "No mess assigned")
@@ -468,10 +468,10 @@ async def admin_set_order_status(order_id: str, payload: StatusUpdate, user: ser
 
 @router.post("/admin/restaurant/orders/{order_id}/assign-rider")
 async def admin_assign_rider(order_id: str, payload: AssignRider, user: server.User = Depends(server.get_current_user)):
-    # iter-92 #3: franchise_owner can assign a rider to their branch's orders.
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    # iter-92 #3: mess_owner can assign a rider to their branch's orders.
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(403, "Admin or staff only")
-    if user.role == "franchise_owner":
+    if user.role == "mess_owner":
         m = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
         if not m:
             raise HTTPException(403, "No mess assigned")

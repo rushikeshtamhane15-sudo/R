@@ -162,7 +162,7 @@ class FeatureRequestIn(BaseModel):
 async def request_featured(payload: FeatureRequestIn, user: server.User = Depends(server.get_current_user)):
     """Mess owner records intent to be featured. Payment collection in v2 —
     for now we mark the mess as `featured_requested_at` and admin can approve."""
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Mess-owner portal only")
     if user.role == "admin":
         mess = await server.db.messes.find_one({"mess_id": server.DEFAULT_MESS_ID}, {"_id": 0})
@@ -200,7 +200,7 @@ async def featured_create_order(user: server.User = Depends(server.get_current_u
     """Create a Razorpay order for the ₹499 · 30-day 'featured slot 1' add-on.
     Uses the mess's own Razorpay keys if configured, else platform keys (so
     even messes still on platform keys can buy featuring)."""
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Mess-owner portal only")
     if user.role == "admin":
         mess = await server.db.messes.find_one({"mess_id": server.DEFAULT_MESS_ID}, {"_id": 0})

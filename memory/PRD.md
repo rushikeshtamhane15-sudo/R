@@ -4,6 +4,15 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-158d — DB role rename franchise_owner → mess_owner (2026-02-05)
+**Status: DONE — migration ran on boot; 2 users renamed live on Preview; codebase 100% clean.**
+
+- **DB migration** (in `server.py` on_startup, idempotent): `db.users.update_many({"role":"franchise_owner"}, {"$set":{"role":"mess_owner"}})` → boot log: `[ROLE MIGRATION] renamed 2 users: franchise_owner → mess_owner`.
+- **Code sweep** via sed across `/app/backend/*.py` (137 refs) and `/app/frontend/src/**/*.{jsx,js,mjs}` (54 refs) → all replaced with `mess_owner`.
+- **Verified**: 4/5 pytest passing (1 skip is real-Razorpay signature — unchanged); backend `/api/` returns 200; frontend recompiled clean (0 errors).
+- **Only 3 refs remain**, all inside the migration itself (log message + Mongo query for legacy rows on future backups).
+
+
 ## iter-158c — Franchise concept fully removed from eFoodTech (2026-02-05)
 **Status: DONE — legacy eFoodCare franchise UI stripped; onboarded messes now the single source of truth.**
 

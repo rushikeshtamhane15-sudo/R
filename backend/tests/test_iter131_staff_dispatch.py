@@ -10,7 +10,7 @@ API = f"{BASE_URL}/api"
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("DB_NAME", "test_database")
 
-FR_PHONE = "9999999999"       # franchise_owner (seeded)
+FR_PHONE = "9999999999"       # mess_owner (seeded)
 SUB_PHONE = "8888888888"      # will be created as subscriber
 
 
@@ -59,7 +59,7 @@ class TestDispatchToday:
         r = sub_client.get(f"{API}/staff/dispatch/today")
         assert r.status_code == 403
 
-    def test_franchise_owner_schema(self, fr_client):
+    def test_mess_owner_schema(self, fr_client):
         r = fr_client.get(f"{API}/staff/dispatch/today")
         assert r.status_code == 200, r.text
         data = r.json()

@@ -74,11 +74,11 @@ async def get_plans(request: Request, mess_id: Optional[str] = None):
 
 @router.get("/admin/plans")
 async def admin_list_plans(user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     # iter-143 · efoodtech: franchise owners see only their mess's plans
     q: dict = {}
-    if user.role == "franchise_owner":
+    if user.role == "mess_owner":
         m = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
         if not m:
             return {"plans": []}
@@ -89,12 +89,12 @@ async def admin_list_plans(user: server.User = Depends(server.get_current_user))
 
 @router.post("/admin/plans")
 async def admin_upsert_plan(payload: server.PlanUpsert, user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     plan_id = payload.plan_id or f"plan_{uuid.uuid4().hex[:8]}"
     # iter-143 · efoodtech: pin plan to the owner's mess so it can't cross tenants
     target_mess_id = (payload.mess_id or "").strip() or None
-    if user.role == "franchise_owner":
+    if user.role == "mess_owner":
         m = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
         if not m:
             raise HTTPException(status_code=403, detail="No mess assigned to this account")
@@ -135,10 +135,10 @@ async def admin_upsert_plan(payload: server.PlanUpsert, user: server.User = Depe
 
 @router.delete("/admin/plans/{plan_id}")
 async def admin_delete_plan(plan_id: str, user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     # iter-144: franchise owners may only delete plans from their own mess.
-    if user.role == "franchise_owner":
+    if user.role == "mess_owner":
         m = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
         if not m:
             raise HTTPException(status_code=403, detail="No mess assigned to this account")

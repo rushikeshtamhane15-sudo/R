@@ -2,9 +2,9 @@
  * SuperAdminMesses — iter-144 · efoodtech platform onboarding.
  *
  * Single-page shell for the platform super-admin (role=admin, not
- * franchise_owner) to:
+ * mess_owner) to:
  *   • Onboard a new mess in ONE flow: name, custom Mess ID, owner phone,
- *     address, tagline, etc. Auto-promotes the owner to `franchise_owner`
+ *     address, tagline, etc. Auto-promotes the owner to `mess_owner`
  *     the moment their phone matches an existing efoodtech user.
  *   • See all messes at a glance: mess_id, owner, status, city.
  *   • Activate / suspend a mess with one click.
@@ -187,7 +187,7 @@ export default function SuperAdminMesses() {
               <Input value={form.mess_id_custom} onChange={(e) => setForm({ ...form, mess_id_custom: e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, "") })}
                 placeholder="e.g. MUMBAI-KHAR-42" className="font-mono tracking-widest" data-testid="field-custom-id" />
             </Field>
-            <Field label="Owner phone (10 digits)" hint="Auto-promotes them to franchise_owner if they've logged in before.">
+            <Field label="Owner phone (10 digits)" hint="Auto-promotes them to mess_owner if they've logged in before.">
               <Input value={form.owner_phone} onChange={(e) => setForm({ ...form, owner_phone: e.target.value.replace(/[^0-9]/g, "").slice(0, 10) })}
                 inputMode="numeric" placeholder="9876543210" data-testid="field-owner-phone" />
             </Field>

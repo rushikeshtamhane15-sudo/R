@@ -35,7 +35,7 @@ export default function Login() {
     const next = searchParams.get("next");
     if (next && next.startsWith("/") && !next.startsWith("/login")) return next;
     if (u?.role === "admin") return "/admin";
-    if (u?.role === "franchise_owner") return "/admin";
+    if (u?.role === "mess_owner") return "/admin";
     if (u?.role === "staff") return "/admin/deliveries-today";
     if (u?.role === "rider") return "/rider";
     return "/dashboard";
@@ -131,14 +131,14 @@ export default function Login() {
       });
       verifiedHereRef.current = true;
       const u = r.data.user;
-      // iter-151 BUGFIX #2: for admin / franchise_owner, force a HARD nav
+      // iter-151 BUGFIX #2: for admin / mess_owner, force a HARD nav
       // (full page reload) to /admin so the AuthContext refetches /auth/me
       // with the freshly-set cookie. This eliminates the race where a
       // stale AuthContext user (from a previous subscriber session) causes
       // RequireAuth on /admin to bounce to /dashboard before setUser has
       // committed the new role. Also clears the mess pick so admin always
       // owns the platform view (they can still open any mess via nav).
-      if (u.role === "admin" || u.role === "franchise_owner") {
+      if (u.role === "admin" || u.role === "mess_owner") {
         try { localStorage.removeItem("efoodtech.mess.picked"); } catch {}
         toast.success(`Welcome to efoodtech admin`);
         window.location.href = "/admin";

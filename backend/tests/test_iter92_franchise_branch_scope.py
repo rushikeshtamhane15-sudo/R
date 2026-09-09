@@ -1,4 +1,4 @@
-"""iter-92 — Backend tests for franchise_owner branch-scoping across:
+"""iter-92 — Backend tests for mess_owner branch-scoping across:
 
 * GET   /api/admin/stats?period=cycle                      → scope=branch + mess_id
 * GET   /api/admin/attendance/today                        → subset only
@@ -9,7 +9,7 @@
 * GET   /api/admin/users/{id}/wallet-history               → 403 cross-branch
 * PATCH /api/admin/refunds/{refund_id}                     → 403 cross-branch
 
-Seeds ephemeral admin + 2 franchise_owners + 2 subscriber users + a secondary
+Seeds ephemeral admin + 2 mess_owners + 2 subscriber users + a secondary
 mess, runs the assertions, then deletes everything and restores the original
 `efoodcare-amravati` owner_user_id (= user_bb39434e1a5c).
 """
@@ -85,13 +85,13 @@ def world(mongo):
     admin_uid, admin_tok = _seed_user(mongo, role="admin")
 
     # FR_A — owns MESS_A
-    fr_a_uid, fr_a_tok = _seed_user(mongo, role="franchise_owner",
+    fr_a_uid, fr_a_tok = _seed_user(mongo, role="mess_owner",
                                     mess_id=MESS_A,
                                     extra={"phone": "9000000091"})
     mongo.messes.update_one({"mess_id": MESS_A}, {"$set": {"owner_user_id": fr_a_uid}})
 
     # FR_B — owns NEW MESS_B
-    fr_b_uid, fr_b_tok = _seed_user(mongo, role="franchise_owner",
+    fr_b_uid, fr_b_tok = _seed_user(mongo, role="mess_owner",
                                     mess_id=MESS_B,
                                     extra={"phone": "9000000092"})
     mongo.messes.insert_one({
@@ -153,7 +153,7 @@ def world(mongo):
     mongo.user_sessions.delete_many({"session_token": {"$regex": "^TEST_IT92_sess_"}})
     mongo.restaurant_orders.delete_many({"order_id": {"$in": [order_a, order_b]}})
     mongo.refund_requests.delete_many({"refund_id": {"$in": [refund_a, refund_b]}})
-    # Restore default franchise_owner user fields (problem statement note)
+    # Restore default mess_owner user fields (problem statement note)
     mongo.users.update_one(
         {"user_id": ORIG_OWNER_A},
         {"$set": {

@@ -7,10 +7,10 @@ Covers:
   * Hard clamp: meals_used clamped to [0, meals_total]
   * Validation: 400 when all of (delta, extend_days, meals_delta, restore_meals) zero
   * Audit doc in db.wallet_overrides records meals_delta (signed) + restore_meals (max(0, .))
-  * iter-92 regression: franchise_owner cross-branch wallet-adjust returns 403
+  * iter-92 regression: mess_owner cross-branch wallet-adjust returns 403
   * iter-92 regression: delta ±, extend_days still work alongside meals_delta
 
-Seeds an ephemeral admin + franchise_owner + 2 subscriber users (one per branch)
+Seeds an ephemeral admin + mess_owner + 2 subscriber users (one per branch)
 and an active subscription with meals_total=60, meals_used=0. Tears down everything.
 """
 import os
@@ -78,10 +78,10 @@ def world(mongo):
     admin_uid, admin_tok = _seed_user(mongo, role="admin")
 
     # Franchise owners
-    fr_a_uid, fr_a_tok = _seed_user(mongo, role="franchise_owner", mess_id=MESS_A)
+    fr_a_uid, fr_a_tok = _seed_user(mongo, role="mess_owner", mess_id=MESS_A)
     mongo.messes.update_one({"mess_id": MESS_A}, {"$set": {"owner_user_id": fr_a_uid}})
 
-    fr_b_uid, fr_b_tok = _seed_user(mongo, role="franchise_owner", mess_id=MESS_B)
+    fr_b_uid, fr_b_tok = _seed_user(mongo, role="mess_owner", mess_id=MESS_B)
     mongo.messes.insert_one({
         "mess_id": MESS_B, "name": "Iter98 Branch B",
         "owner_user_id": fr_b_uid, "city": "Testville",

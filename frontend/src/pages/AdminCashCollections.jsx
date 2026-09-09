@@ -43,7 +43,7 @@ export default function AdminCashCollections() {
       setStaff(staffR.data.staff || []);
       setMe(meR.data);
       // iter-134.n — kiosk-staff cash pendency (admin only)
-      if (meR.data?.role === "admin" || meR.data?.role === "franchise_owner") {
+      if (meR.data?.role === "admin" || meR.data?.role === "mess_owner") {
         try {
           setKioskLoading(true);
           const kR = await api.get("/admin/kiosk/staff-cash-pendency");

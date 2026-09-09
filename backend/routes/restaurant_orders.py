@@ -238,9 +238,9 @@ async def my_orders(user: server.User = Depends(server.get_current_user), limit:
 
 @router.get("/admin/restaurant/orders")
 async def admin_orders(user: server.User = Depends(server.get_current_user), limit: int = 50, as_mess_id: str | None = None):
-    # iter-92 #3 / iter-96 #3: franchise_owner sees their branch's orders;
+    # iter-92 #3 / iter-96 #3: mess_owner sees their branch's orders;
     # HQ admin can view-as a branch via ?as_mess_id=...
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     limit = max(1, min(500, int(limit)))
     mid = await server.effective_mess_id(user, as_mess_id)

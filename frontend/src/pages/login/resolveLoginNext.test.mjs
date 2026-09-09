@@ -23,7 +23,7 @@ const tests = [
   ["staff · no next → /admin/deliveries-today",         { role: "staff" },           null,           "/admin/deliveries-today"],
   ["rider · no next → /rider",                          { role: "rider" },           null,           "/rider"],
   ["rider · ?next=/dashboard → /rider (override)",      { role: "rider" },           "/dashboard",   "/rider"],
-  ["franchise_owner → /admin",                          { role: "franchise_owner" }, null,           "/admin"],
+  ["mess_owner → /admin",                          { role: "mess_owner" }, null,           "/admin"],
   ["delivery_boy → /boy",                               { role: "delivery_boy" },    null,           "/boy"],
 ];
 

@@ -6,7 +6,7 @@
  *  • Not logged in        → shows a purple-themed marketing + login funnel
  *                            (login button pushes /login?next=/partners)
  *  • Logged in subscriber → "You're not a franchise partner yet — apply here"
- *  • franchise_owner       → auto-redirects to /admin/control-tower (their dashboard)
+ *  • mess_owner       → auto-redirects to /admin/control-tower (their dashboard)
  *  • admin                 → can browse /partners as a preview / impersonation
  *
  * Pair this with DNS — point `partners.efoodcare.in` at the same hosting and
@@ -71,7 +71,7 @@ export default function PartnerPortal() {
         </p>
 
         <div className="mt-7 flex flex-wrap gap-2.5">
-          {user?.role === "franchise_owner" ? (
+          {user?.role === "mess_owner" ? (
             <>
               <Link to="/admin" data-testid="partner-go-dashboard" className="inline-flex items-center gap-2 rounded-full bg-white text-fuchsia-700 px-5 h-12 font-extrabold text-sm hover:-translate-y-0.5 transition-transform">
                 Open your dashboard <ArrowRight className="h-4 w-4" />
@@ -96,7 +96,7 @@ export default function PartnerPortal() {
           )}
         </div>
 
-        {user && user.role !== "franchise_owner" && user.role !== "admin" && (
+        {user && user.role !== "mess_owner" && user.role !== "admin" && (
           <div className="mt-6 rounded-2xl bg-white/10 backdrop-blur border border-white/15 p-4 max-w-2xl" data-testid="partner-not-yet">
             <p className="text-xs sm:text-sm">
               You&apos;re logged in as <strong>{user.name || user.phone}</strong> (role: {user.role}) — not a franchise partner yet.

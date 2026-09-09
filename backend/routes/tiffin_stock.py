@@ -4,7 +4,7 @@ Each branch maintains its own stock counter at
 `db.tiffin_stock/_id="active:{mess_id}"`. Legacy singleton `_id="active"` is
 still read as a global fallback so older data is not lost on the first run.
 
-Admin (or staff or franchise_owner) can adjust their own branch's stock; HQ
+Admin (or staff or mess_owner) can adjust their own branch's stock; HQ
 admin can pass `?mess_id=` to operate on any branch.
 
 `decrement_stock_db()` accepts an optional `mess_id` so the delivery flow
@@ -34,7 +34,7 @@ def _stock_id(mess_id: Optional[str]) -> str:
 async def _resolve_mess_for_user(user) -> Optional[str]:
     """Franchise_owner is pinned to their own mess; admin/staff use global by default
     (HQ can override with ?mess_id=)."""
-    if user.role != "franchise_owner":
+    if user.role != "mess_owner":
         return None
     doc = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
     return (doc or {}).get("mess_id")
@@ -130,16 +130,16 @@ class BrokenIn(BaseModel):
 def _admin_or_staff(user):
     # iter-85: franchise owners get full operational control over their own
     # branch — tiffin stock is per-mess, so franchise can read & write here.
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
 
 
 async def _resolve_target_mess(user, mess_id_param: Optional[str]) -> Optional[str]:
     """Determine which branch's stock the caller is touching:
-    - franchise_owner → always their own mess (ignore the query param).
+    - mess_owner → always their own mess (ignore the query param).
     - admin/staff → respect the ?mess_id= param (or None = legacy global).
     """
-    if user.role == "franchise_owner":
+    if user.role == "mess_owner":
         return await _resolve_mess_for_user(user)
     return mess_id_param
 

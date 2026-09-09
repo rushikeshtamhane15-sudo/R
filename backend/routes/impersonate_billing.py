@@ -68,7 +68,7 @@ class TopupIn(BaseModel):
 
 
 async def _resolve_current_mess(user: server.User, *, require_impersonation_for_admin: bool = False) -> dict:
-    """Return the mess the caller is acting on: impersonated for admin, owned for franchise_owner.
+    """Return the mess the caller is acting on: impersonated for admin, owned for mess_owner.
     If `require_impersonation_for_admin` is True, admin MUST be impersonating — no default fallback
     (prevents accidental cross-mess writes when the admin forgets to select a mess)."""
     if user.role == "admin":
@@ -82,7 +82,7 @@ async def _resolve_current_mess(user: server.User, *, require_impersonation_for_
         m = await server.db.messes.find_one({"mess_id": server.DEFAULT_MESS_ID}, {"_id": 0})
         if m:
             return m
-    if user.role == "franchise_owner":
+    if user.role == "mess_owner":
         m = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0})
         if m:
             return m
@@ -91,7 +91,7 @@ async def _resolve_current_mess(user: server.User, *, require_impersonation_for_
 
 @router.post("/mess-owner/platform-wallet/topup-order")
 async def wallet_topup_order(payload: TopupIn, user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Mess-owner only")
     mess = await _resolve_current_mess(user, require_impersonation_for_admin=True)
     active_client, key_id, _mode = await server._resolve_razorpay_for_user({"mess_id": mess["mess_id"]})

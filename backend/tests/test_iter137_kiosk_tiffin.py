@@ -39,7 +39,7 @@ def admin_session():
     assert token
     s.headers.update({"Authorization": f"Bearer {token}"})
     role = r2.json().get("user", {}).get("role")
-    if role not in ("admin", "staff", "franchise_owner"):
+    if role not in ("admin", "staff", "mess_owner"):
         pytest.skip(f"logged-in user role={role} is not admin — cannot exercise kiosk/tiffin endpoints")
     return s
 

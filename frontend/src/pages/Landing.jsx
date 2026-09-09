@@ -34,7 +34,7 @@ export default function Landing() {
     })();
   }, []);
 
-  const ownerCta = user?.role === "franchise_owner" || user?.role === "admin" ? "/admin" : "/login";
+  const ownerCta = user?.role === "mess_owner" || user?.role === "admin" ? "/admin" : "/login";
   const subscriberCta = user ? "/nearby" : "/nearby";
 
   return (

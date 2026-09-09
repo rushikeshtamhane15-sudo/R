@@ -6,7 +6,7 @@ Covers:
 * PATCH /api/admin/messes/{id}/franchise-pages   (subset save + invalid rejection)
 * GET  /api/franchise/me/visible-pages           (admin → all 21; franchise → mess list)
 
-Seeds ephemeral admin + franchise_owner sessions directly in Mongo
+Seeds ephemeral admin + mess_owner sessions directly in Mongo
 (avoids OTP rate-limit). Restores original franchise_visible_pages
 state after the run.
 """
@@ -83,7 +83,7 @@ def franchise_session(mongo):
         "user_id": user_id,
         "email": f"{user_id}@example.com",
         "name": "Iter90 Franchise",
-        "role": "franchise_owner",
+        "role": "mess_owner",
         "mess_id": MESS_ID,
         "created_at": "2026-01-15T00:00:00Z",
     })

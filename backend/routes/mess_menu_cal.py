@@ -55,7 +55,7 @@ def _strip(doc: dict | None) -> dict | None:
 
 @router.post("/admin/mess-menu/upsert")
 async def upsert_one(payload: MessMenuIn, user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     try:
         datetime.fromisoformat(payload.date)
@@ -75,7 +75,7 @@ async def upsert_one(payload: MessMenuIn, user: server.User = Depends(server.get
 
 @router.post("/admin/mess-menu/bulk")
 async def upsert_bulk(payload: BulkIn, user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     if len(payload.items) > 62:
         raise HTTPException(status_code=400, detail="Cap is 62 days per bulk call")
@@ -103,7 +103,7 @@ async def upsert_bulk(payload: BulkIn, user: server.User = Depends(server.get_cu
 
 @router.delete("/admin/mess-menu/{date}")
 async def remove_one(date: str, user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     res = await server.db.mess_menu.delete_one({"date": date})
     return {"ok": True, "deleted": res.deleted_count}
@@ -111,7 +111,7 @@ async def remove_one(date: str, user: server.User = Depends(server.get_current_u
 
 @router.get("/admin/mess-menu")
 async def admin_month(month: str = Query(..., description="YYYY-MM"), user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     try:
         start = datetime.strptime(month + "-01", "%Y-%m-%d").date()
@@ -243,14 +243,14 @@ class MessMenuConfigIn(BaseModel):
 
 @router.get("/admin/mess-menu/config")
 async def admin_get_config(user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     return await _get_config()
 
 
 @router.put("/admin/mess-menu/config")
 async def admin_put_config(payload: MessMenuConfigIn, user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     update = {"key": CONFIG_KEY, **payload.model_dump()}
     await server.db.app_config.update_one({"key": CONFIG_KEY}, {"$set": update}, upsert=True)
@@ -411,7 +411,7 @@ async def kiosk_place_order(payload: KioskOrderIn, user: server.User = Depends(s
     cash / online (Paytm Dynamic QR) / mixed split-payments. Online portion
     is collected by flashing a UPI Dynamic QR pointing at the merchant VPA.
     """
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin or staff only")
     if payload.service not in {"takeaway", "dining"}:
         raise HTTPException(status_code=400, detail="Wall-kiosk supports takeaway/dining only")
@@ -586,7 +586,7 @@ async def kiosk_confirm_payment(payload: KioskPaymentConfirmIn, user: server.Use
     mixed payment are settled, the order transitions to pending_collection
     so the auto-print + counter check-in can proceed normally.
     """
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin or staff only")
     doc = await server.db.mess_menu_orders.find_one({"order_id": payload.order_id})
     if not doc:
@@ -677,7 +677,7 @@ class KioskBtConfigIn(BaseModel):
 
 @router.get("/admin/kiosk/bt-config")
 async def admin_get_kiosk_bt(user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
     doc = await server.db.app_config.find_one({"key": KIOSK_BT_KEY}, {"_id": 0})
     if not doc:
@@ -687,7 +687,7 @@ async def admin_get_kiosk_bt(user: server.User = Depends(server.get_current_user
 
 @router.put("/admin/kiosk/bt-config")
 async def admin_put_kiosk_bt(payload: KioskBtConfigIn, user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     await server.db.app_config.update_one(
         {"key": KIOSK_BT_KEY},
@@ -708,7 +708,7 @@ class KioskQrProviderIn(BaseModel):
 
 @router.get("/admin/kiosk/qr-provider")
 async def admin_get_kiosk_qr_provider(user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
     # iter-131.31: force razorpay + self-heal legacy paytm rows on read.
     doc = await server.db.app_config.find_one({"key": KIOSK_QR_KEY}, {"_id": 0})
@@ -725,7 +725,7 @@ async def admin_get_kiosk_qr_provider(user: server.User = Depends(server.get_cur
 
 @router.put("/admin/kiosk/qr-provider")
 async def admin_put_kiosk_qr_provider(payload: KioskQrProviderIn, user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     # iter-131.31: Paytm retired. Any incoming provider value is coerced to
     # razorpay so legacy admin UIs / persisted configs migrate silently.
@@ -760,7 +760,7 @@ async def kiosk_poll_payment_status(order_id: str, user: server.User = Depends(s
     Auto-marks online_paid=true on match so staff don't need to tap "Mark
     paid" manually.
     """
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
     doc = await server.db.mess_menu_orders.find_one({"order_id": order_id})
     if not doc:
@@ -817,7 +817,7 @@ async def admin_kiosk_orders_today(
     """List today's walk-in kiosk orders (most recent first) so admins can
     reprint a receipt from history. Scoped to a single IST day for clarity.
     """
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
     day = (date or _today_ist()).strip()
     cur = server.db.mess_menu_orders.find(
@@ -839,7 +839,7 @@ async def admin_kiosk_reprint(
     single-use kiosk-token QR PNG). Staff can now hand a customer a fresh
     print of a lost receipt in one tap.
     """
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
     day = (date or _today_ist()).strip()
     doc = await server.db.mess_menu_orders.find_one(
@@ -875,7 +875,7 @@ async def admin_kiosk_send_whatsapp_receipt(
     Replaces the earlier wa.me deep-link that forced a browser/app switch.
     Falls back to stub mode (logged-only) when Meta credentials are missing.
     """
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
 
     doc = await server.db.mess_menu_orders.find_one({"order_id": payload.order_id}, {"_id": 0})
@@ -911,7 +911,7 @@ async def admin_kiosk_daily_report(
     walk-in orders for a given IST day into totals + per-staff breakdown so
     the admin can print or WhatsApp a summary to the owner.
     """
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
     day = (date or _today_ist()).strip()
 

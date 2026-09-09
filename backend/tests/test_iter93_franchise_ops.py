@@ -1,4 +1,4 @@
-"""iter-93 — Backend tests: franchise_owner now has access (200, not 403)
+"""iter-93 — Backend tests: mess_owner now has access (200, not 403)
 on the operational endpoints listed in the iter-93 spec.
 
 Endpoints under test (with FR session token expecting 200):
@@ -86,7 +86,7 @@ def world(mongo):
     orig_owner = orig.get("owner_user_id", "user_bb39434e1a5c")
 
     admin_uid, admin_tok = _seed_user(mongo, role="admin")
-    fr_uid, fr_tok = _seed_user(mongo, role="franchise_owner", mess_id=MESS_A)
+    fr_uid, fr_tok = _seed_user(mongo, role="mess_owner", mess_id=MESS_A)
     sub_uid, sub_tok = _seed_user(mongo, role="subscriber", mess_id=MESS_A)
 
     # Make FR the owner of MESS_A for branch-scoping checks

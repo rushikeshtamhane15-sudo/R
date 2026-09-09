@@ -1,7 +1,7 @@
 """iter-134 backend tests:
 - GET /api/meal-slots (public)
-- GET /api/admin/kiosk/staff-cash-pendency (admin/franchise_owner only)
-- POST /api/admin/kiosk/staff-cash-mark-deposited (admin/franchise_owner only)
+- GET /api/admin/kiosk/staff-cash-pendency (admin/mess_owner only)
+- POST /api/admin/kiosk/staff-cash-mark-deposited (admin/mess_owner only)
 - Staff role allowed on POST /api/admin/kiosk/order (walk-in kiosk cash)
 - Response schema key razorpay_qr_short_url present
 """

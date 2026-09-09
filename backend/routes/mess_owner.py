@@ -1,6 +1,6 @@
 """Mess-owner scoped routes — iter-143 · efoodtech SaaS.
 
-Endpoints exposed to a logged-in mess owner (role=`franchise_owner` or
+Endpoints exposed to a logged-in mess owner (role=`mess_owner` or
 `admin` acting on their own mess). All operations are scoped to the mess
 they own so a mess owner CAN'T see or edit another mess's data.
 
@@ -33,7 +33,7 @@ async def _get_owned_mess(user: server.User) -> dict:
     """Resolve the mess owned by the current user. 403 if none.
     iter-158: super-admin impersonation takes precedence — if the admin's
     session has an `impersonate_mess_id`, act on THAT mess."""
-    if user.role not in ("franchise_owner", "admin"):
+    if user.role not in ("mess_owner", "admin"):
         raise HTTPException(status_code=403, detail="Mess-owner portal only")
     if user.role == "admin":
         s = await server.db.user_sessions.find_one(

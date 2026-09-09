@@ -6,7 +6,7 @@
  * button unlocks (green). Also shows a live Leaflet map with the fastest
  * driving route from the kitchen to every stop via OSRM.
  *
- * Access: admin, staff, franchise_owner (see App.js RequireAuth).
+ * Access: admin, staff, mess_owner (see App.js RequireAuth).
  */
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";

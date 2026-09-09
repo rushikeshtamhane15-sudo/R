@@ -11,9 +11,9 @@ Coverage:
 - GET /api/admin/messes/{id}/metrics: full payload + 403 for subscriber +
   days param clamping (1..365).
 - GET /api/franchise/me/metrics: 403 for plain subscriber; 200 for admin
-  (default fallback); 200 for franchise_owner after PATCH /owner.
+  (default fallback); 200 for mess_owner after PATCH /owner.
 - PATCH /api/admin/messes/{id}/owner: auto-promotes subscriber to
-  franchise_owner; clearing owner_user_id does NOT demote.
+  mess_owner; clearing owner_user_id does NOT demote.
 - Startup backfill: users without mess_id got mess_id=DEFAULT_MESS_ID.
 - Regression: iter-75 default mess public list still ok.
 """
@@ -261,7 +261,7 @@ async def test_franchise_me_metrics_role_gating():
     tok_s, uid_s = await _mk(db, "subscriber")
     try:
         async with httpx.AsyncClient(base_url=BASE_URL, timeout=20.0) as c:
-            # Plain subscriber (not franchise_owner, no owned mess) → 403
+            # Plain subscriber (not mess_owner, no owned mess) → 403
             r = await c.get("/api/franchise/me/metrics",
                             headers={"Authorization": f"Bearer {tok_s}"})
             assert r.status_code == 403, r.text
@@ -303,16 +303,16 @@ async def test_admin_assign_owner_promotes_and_franchise_metrics_works():
             assert create.status_code == 200, create.text
             mess_id = create.json()["mess_id"]
 
-            # Assign owner → auto-promote subscriber to franchise_owner
+            # Assign owner → auto-promote subscriber to mess_owner
             r = await c.patch(f"/api/admin/messes/{mess_id}/owner",
                               headers={"Authorization": f"Bearer {tok_a}"},
                               json={"owner_user_id": uid_owner})
             assert r.status_code == 200, r.text
             assert (r.json().get("mess") or {}).get("owner_user_id") == uid_owner
 
-            # User now has role=franchise_owner
+            # User now has role=mess_owner
             udoc = await db.users.find_one({"user_id": uid_owner}, {"_id": 0, "role": 1})
-            assert udoc.get("role") == "franchise_owner"
+            assert udoc.get("role") == "mess_owner"
 
             # franchise/me/metrics now works for that user, returns their mess
             r2 = await c.get("/api/franchise/me/metrics",
@@ -328,7 +328,7 @@ async def test_admin_assign_owner_promotes_and_franchise_metrics_works():
             assert r3.status_code == 200, r3.text
             assert (r3.json().get("mess") or {}).get("owner_user_id") is None
             udoc2 = await db.users.find_one({"user_id": uid_owner}, {"_id": 0, "role": 1})
-            assert udoc2.get("role") == "franchise_owner", "role must NOT auto-demote"
+            assert udoc2.get("role") == "mess_owner", "role must NOT auto-demote"
     finally:
         if mess_id:
             await db_cli[DB_NAME].messes.delete_one({"mess_id": mess_id})

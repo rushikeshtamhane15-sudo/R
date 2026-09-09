@@ -34,7 +34,7 @@ def _cost_key(mess_id: Optional[str]) -> str:
 
 
 async def _resolve_target(user, mess_id_param: Optional[str]) -> Optional[str]:
-    if user.role == "franchise_owner":
+    if user.role == "mess_owner":
         doc = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
         return (doc or {}).get("mess_id")
     return mess_id_param
@@ -76,7 +76,7 @@ async def _window_revenue(mess_id: Optional[str], days: int) -> dict:
 
 @router.get("/admin/branch-pnl")
 async def branch_pnl(days: int = 30, mess_id: Optional[str] = None, user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     days = max(1, min(90, int(days)))
     target = await _resolve_target(user, mess_id)
@@ -106,7 +106,7 @@ class CostsIn(BaseModel):
 
 @router.get("/admin/branch-pnl/config")
 async def get_pnl_config(mess_id: Optional[str] = None, user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     target = await _resolve_target(user, mess_id)
     return {"mess_id": target, **(await _load_costs(target))}
@@ -116,7 +116,7 @@ async def get_pnl_config(mess_id: Optional[str] = None, user: server.User = Depe
 async def set_pnl_config(payload: CostsIn, mess_id: Optional[str] = None, user: server.User = Depends(server.get_current_user)):
     # iter-86 #5: HQ admin sets per-branch costs (or default); franchise can
     # update only their own branch's costs.
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     target = await _resolve_target(user, mess_id)
     await server.db.app_settings.update_one(

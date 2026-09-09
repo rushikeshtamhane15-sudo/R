@@ -43,12 +43,12 @@ export default function BottomNav() {
     }).catch(() => setHasActiveSub(false));
   }, [user]);
 
-  // iter-88 #1: franchise_owner gets their own bottom nav (Dashboard /
+  // iter-88 #1: mess_owner gets their own bottom nav (Dashboard /
   // Account / Contact / Home / Logout). Other admins/staff/delivery still
   // hide the bottom nav (they use the AdminLayout sidebar).
   if (user && (user.role === "admin" || user.role === "staff" || user.role === "delivery_boy")) return null;
 
-  const isFranchise = user?.role === "franchise_owner";
+  const isFranchise = user?.role === "mess_owner";
   const isRider = user?.role === "rider";
   const role = isFranchise ? "franchise" : isRider ? "rider" : (user ? "subscriber" : "guest");
 

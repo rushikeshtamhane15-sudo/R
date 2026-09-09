@@ -73,7 +73,7 @@ async def _save_patch(patch: dict) -> dict:
 
 
 def _admin(user: server.User) -> None:
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
 
 

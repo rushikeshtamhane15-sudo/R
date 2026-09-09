@@ -26,7 +26,7 @@ def _ist_now() -> datetime:
 # ---------------------------------------------------------------------------
 @router.get("/admin/payments/cash-totals")
 async def cash_totals(user: server.User = Depends(server.get_current_user), as_mess_id: str | None = None):
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
     # iter-95: branch-scope by user_id when caller is franchise or admin-as-branch.
     mid = await server.effective_mess_id(user, as_mess_id)
@@ -76,7 +76,7 @@ async def cash_totals(user: server.User = Depends(server.get_current_user), as_m
 @router.get("/admin/payments/cash-pending-deposit")
 async def cash_pending_deposit(user: server.User = Depends(server.get_current_user), as_mess_id: str | None = None):
     """List collected cash orders that haven't been marked as deposited yet."""
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
     mid = await server.effective_mess_id(user, as_mess_id)
     user_ids = await server._users_in_mess(mid)
@@ -109,7 +109,7 @@ async def kiosk_staff_cash_pendency(user: server.User = Depends(server.get_curre
     surface so admin can see how much cash each staff owes to the till at
     end of day. Sources from `mess_menu_orders` where `kind == "walk_in_kiosk"`
     and `cash_amount > 0`."""
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     pipe = [
         {"$match": {"kind": "walk_in_kiosk", "cash_amount": {"$gt": 0}, "kiosk_cash_deposited": {"$ne": True}}},
@@ -148,7 +148,7 @@ class KioskDepositIn(BaseModel):
 @router.post("/admin/kiosk/staff-cash-mark-deposited")
 async def kiosk_mark_deposited(payload: KioskDepositIn, user: server.User = Depends(server.get_current_user)):
     """Mark all pending kiosk cash orders placed by `staff_user_id` as deposited."""
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     r = await server.db.mess_menu_orders.update_many(
         {"kind": "walk_in_kiosk", "placed_by_admin_id": payload.staff_user_id,
@@ -169,7 +169,7 @@ async def mark_deposited(payload: MarkDepositIn, user: server.User = Depends(ser
     iter-95: franchise can mark their own branch's orders. Admin can override
     via ?as_mess_id=... For both, only orders whose user_id is in scope succeed.
     """
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     mid = await server.effective_mess_id(user, as_mess_id)
     user_ids = await server._users_in_mess(mid)
@@ -200,7 +200,7 @@ class KitchenSettingsIn(BaseModel):
 
 @router.get("/admin/kitchen-settings")
 async def get_kitchen(user: server.User = Depends(server.get_current_user), as_mess_id: str | None = None):
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
     # iter-95: per-mess kitchen settings. mess_id=None ⇒ HQ-global doc.
     mid = await server.effective_mess_id(user, as_mess_id)
@@ -234,7 +234,7 @@ async def public_kitchen():
 
 @router.put("/admin/kitchen-settings")
 async def set_kitchen(payload: KitchenSettingsIn, user: server.User = Depends(server.get_current_user), as_mess_id: str | None = None):
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     mid = await server.effective_mess_id(user, as_mess_id)
     doc_id = mid or "active"

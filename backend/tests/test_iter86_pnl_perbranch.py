@@ -67,7 +67,7 @@ def franchise_session():
     u = _db.users.find_one({"phone": {"$regex": TEST_PHONE_FR + "$"}})
     assert u
     user_id = u["user_id"]
-    _db.users.update_one({"user_id": user_id}, {"$set": {"role": "franchise_owner"}})
+    _db.users.update_one({"user_id": user_id}, {"$set": {"role": "mess_owner"}})
     if not _db.messes.find_one({"mess_id": MESS_ID}):
         _db.messes.insert_one({"mess_id": MESS_ID, "name": "TEST Amravati", "owner_user_id": user_id})
     else:
@@ -188,7 +188,7 @@ class TestPerBranchHoursAdmin:
 
 
 # ============================================================================
-# Backend #3 — kiosk GET unlock for franchise_owner
+# Backend #3 — kiosk GET unlock for mess_owner
 # ============================================================================
 class TestKioskGetUnlock:
     def test_get_bt_config_franchise(self, franchise_session):

@@ -1,4 +1,4 @@
-"""iter-95 backend tests: branch-scoped writes for franchise_owner.
+"""iter-95 backend tests: branch-scoped writes for mess_owner.
 
 Coverage:
   (1) /api/admin/raw-materials — FR auto-seeds per-mess doc, PUT/topup do NOT
@@ -78,7 +78,7 @@ def world(mongo):
     orig_owner_a = orig_a.get("owner_user_id")
 
     admin_uid, admin_tok = _seed_user(mongo, role="admin")
-    fr_uid, fr_tok = _seed_user(mongo, role="franchise_owner", mess_id=MESS_A)
+    fr_uid, fr_tok = _seed_user(mongo, role="mess_owner", mess_id=MESS_A)
 
     # Ensure both messes exist; rebind MESS_A owner to our FR
     mongo.messes.update_one({"mess_id": MESS_A},

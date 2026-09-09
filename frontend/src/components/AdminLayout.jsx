@@ -7,10 +7,10 @@ import BranchSwitcher, { PillChevron } from "./BranchSwitcher";
 import { LayoutDashboard, Package, Truck, ScanLine, QrCode, Utensils, Users, Palette, Home, Shield, FileText, MapPin, FootprintsIcon, LogIn, Megaphone, Radio, Layout, Wheat, ClipboardList, Menu, MessageSquareQuote, UtensilsCrossed, MessageCircle, ChefHat, Bike, AlertTriangle, X, Clock, Wallet, UserPlus, Volume2, ScanFace } from "lucide-react";
 
 // `roles`: which roles can see the item. Default: admin only.
-// iter-78 #2: helper that grants franchise_owner read-only access to the
+// iter-78 #2: helper that grants mess_owner read-only access to the
 // listed sections. Used in Overview + Operations sections so franchise
 // owners see "their admin panel" without editing platform-wide content.
-const FRANCHISE_VIEW = ["admin", "staff", "franchise_owner"];
+const FRANCHISE_VIEW = ["admin", "staff", "mess_owner"];
 
 const SECTIONS = [
   {
@@ -37,7 +37,7 @@ const SECTIONS = [
       { to: "/admin/cash-analytics", label: "Cash analytics", icon: ClipboardList, roles: FRANCHISE_VIEW },
       { to: "/admin/partial-payments", label: "Partial payments", icon: ClipboardList, roles: FRANCHISE_VIEW },
       { to: "/admin/kitchen-settings", label: "Kitchen & radius", icon: MapPin, roles: ["admin"] },
-      { to: "/admin/kitchen-radius", label: "My kitchen & radius", icon: MapPin, roles: ["franchise_owner"] },
+      { to: "/admin/kitchen-radius", label: "My kitchen & radius", icon: MapPin, roles: ["mess_owner"] },
       { to: "/admin/pnl", label: "Profit & loss", icon: ClipboardList, roles: FRANCHISE_VIEW },
       { to: "/admin/restaurant", label: "Restaurant menu", icon: ChefHat, roles: ["admin"] },
       { to: "/admin/restaurant-orders", label: "Restaurant orders", icon: ChefHat, roles: FRANCHISE_VIEW },
@@ -51,7 +51,7 @@ const SECTIONS = [
       { to: "/admin/scanner", label: "QR Scanner", icon: ScanLine, roles: FRANCHISE_VIEW },
       { to: "/admin/kiosk", label: "Wall Kiosk", icon: ScanLine, roles: FRANCHISE_VIEW },
       { to: "/admin/voice-settings", label: "Kiosk voice", icon: Volume2, roles: FRANCHISE_VIEW },
-      { to: "/admin/face-enroll", label: "Face enrol batch", icon: ScanFace, roles: ["admin", "franchise_owner"] },
+      { to: "/admin/face-enroll", label: "Face enrol batch", icon: ScanFace, roles: ["admin", "mess_owner"] },
       { to: "/admin/counter", label: "Counter QR", icon: QrCode, roles: FRANCHISE_VIEW },
       { to: "/admin/menu", label: "Daily Menu", icon: Utensils, roles: FRANCHISE_VIEW },
       { to: "/admin/mess-menu", label: "Mess Menu Calendar", icon: ClipboardList, roles: FRANCHISE_VIEW },
@@ -128,7 +128,7 @@ export default function AdminLayout() {
   // iter-90: franchise owners load their per-mess page whitelist so the
   // sidebar only shows what HQ admin has granted them.
   useEffect(() => {
-    if (role !== "franchise_owner") return;
+    if (role !== "mess_owner") return;
     let mounted = true;
     const fetchPages = async () => {
       try {
@@ -144,7 +144,7 @@ export default function AdminLayout() {
   // address) before they can access the console. If any are missing, bounce
   // them to /profile with a `?next=/admin/control-tower` return param and a
   // toast prompting completion.
-  const profileIncomplete = role === "franchise_owner" && user && (
+  const profileIncomplete = role === "mess_owner" && user && (
     !String(user.name || "").trim() ||
     !String(user.phone || "").trim() ||
     !String(user.address || "").trim()
@@ -180,7 +180,7 @@ export default function AdminLayout() {
   const showBanner = !bannerDismissed && pendingDeposit && pendingDeposit.show && role !== "subscriber";
 
   // Filter sections per role; hide a section when it ends up with zero visible items.
-  // iter-90: when role is franchise_owner, ALSO filter by the per-mess
+  // iter-90: when role is mess_owner, ALSO filter by the per-mess
   // page whitelist (admin-controlled). While the whitelist is still loading
   // (franchisePages === null) we render role-allowed items so the sidebar
   // doesn't flash empty — we narrow once the fetch resolves.
@@ -189,7 +189,7 @@ export default function AdminLayout() {
       ...sec,
       items: sec.items.filter((it) => {
         if (!(it.roles || ["admin"]).includes(role)) return false;
-        if (role === "franchise_owner" && Array.isArray(franchisePages)) {
+        if (role === "mess_owner" && Array.isArray(franchisePages)) {
           return franchisePages.includes(it.to);
         }
         return true;
@@ -206,7 +206,7 @@ export default function AdminLayout() {
   useEffect(() => {
     let mounted = true;
     (async () => {
-      if (role === "franchise_owner") {
+      if (role === "mess_owner") {
         try {
           const r = await api.get("/franchise/me/mess");
           const m = r.data?.mess;
@@ -232,8 +232,8 @@ export default function AdminLayout() {
   // iter-158c: mess owners see "Mess Console", staff see "Staff workspace",
   // super-admins see "Admin". (Legacy franchise labels removed — eFoodTech
   // has no franchise concept; every mess is independently owned.)
-  const workspaceLabel = role === "franchise_owner" ? "Mess Console" : role === "staff" ? "Staff workspace" : "Admin";
-  const workspaceShort = role === "franchise_owner" ? "Owner" : role === "staff" ? "Staff" : "Admin";
+  const workspaceLabel = role === "mess_owner" ? "Mess Console" : role === "staff" ? "Staff workspace" : "Admin";
+  const workspaceShort = role === "mess_owner" ? "Owner" : role === "staff" ? "Staff" : "Admin";
   const currentLabel = current?.label || workspaceLabel;
 
   return (
@@ -274,7 +274,7 @@ export default function AdminLayout() {
           <Shield className="h-3.5 w-3.5" /> Staff workspace
         </p>
       )}
-      {role === "franchise_owner" && (
+      {role === "mess_owner" && (
         <p className="text-xs tracking-overline uppercase font-bold text-secondary mb-3 hidden lg:inline-flex items-center gap-1.5" data-testid="mess-owner-mode-tag">
           <Shield className="h-3.5 w-3.5" /> Mess Console · your own mess
         </p>
@@ -309,18 +309,18 @@ export default function AdminLayout() {
               trigger={({ open, toggle }) => (
                 <button
                   type="button"
-                  onClick={role === "franchise_owner" ? undefined : toggle}
-                  disabled={role === "franchise_owner"}
-                  className={`shrink-0 inline-flex items-center gap-1 rounded-full text-[10px] font-extrabold uppercase tracking-[0.12em] px-2.5 h-7 transition-colors ${branchPill.color === "fuchsia" ? "bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300" : "bg-primary/15 text-primary"} ${role !== "franchise_owner" ? "hover:bg-fuchsia-500/25 cursor-pointer" : "cursor-default"} ${open ? "ring-2 ring-primary/30" : ""}`}
+                  onClick={role === "mess_owner" ? undefined : toggle}
+                  disabled={role === "mess_owner"}
+                  className={`shrink-0 inline-flex items-center gap-1 rounded-full text-[10px] font-extrabold uppercase tracking-[0.12em] px-2.5 h-7 transition-colors ${branchPill.color === "fuchsia" ? "bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300" : "bg-primary/15 text-primary"} ${role !== "mess_owner" ? "hover:bg-fuchsia-500/25 cursor-pointer" : "cursor-default"} ${open ? "ring-2 ring-primary/30" : ""}`}
                   data-testid="branch-pill"
-                  aria-haspopup={role !== "franchise_owner" ? "menu" : undefined}
-                  aria-expanded={role !== "franchise_owner" ? open : undefined}
+                  aria-haspopup={role !== "mess_owner" ? "menu" : undefined}
+                  aria-expanded={role !== "mess_owner" ? open : undefined}
                   title={`Branch context — ${branchPill.label} · ${branchPill.sub}`}
                 >
                   <MapPin className="h-3 w-3" />
                   <span className="truncate max-w-[7rem]">{branchPill.label}</span>
                   <span className="opacity-60 normal-case font-bold tracking-normal">· {branchPill.sub}</span>
-                  {role !== "franchise_owner" && <PillChevron />}
+                  {role !== "mess_owner" && <PillChevron />}
                 </button>
               )}
             />
@@ -336,18 +336,18 @@ export default function AdminLayout() {
               trigger={({ open, toggle }) => (
                 <button
                   type="button"
-                  onClick={role === "franchise_owner" ? undefined : toggle}
-                  disabled={role === "franchise_owner"}
-                  className={`mb-3 inline-flex items-center gap-1.5 rounded-full text-[11px] font-extrabold uppercase tracking-[0.14em] px-3 h-8 transition-colors ${branchPill.color === "fuchsia" ? "bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300" : "bg-primary/15 text-primary"} ${role !== "franchise_owner" ? "hover:bg-fuchsia-500/25 cursor-pointer" : "cursor-default"} ${open ? "ring-2 ring-primary/30" : ""}`}
+                  onClick={role === "mess_owner" ? undefined : toggle}
+                  disabled={role === "mess_owner"}
+                  className={`mb-3 inline-flex items-center gap-1.5 rounded-full text-[11px] font-extrabold uppercase tracking-[0.14em] px-3 h-8 transition-colors ${branchPill.color === "fuchsia" ? "bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300" : "bg-primary/15 text-primary"} ${role !== "mess_owner" ? "hover:bg-fuchsia-500/25 cursor-pointer" : "cursor-default"} ${open ? "ring-2 ring-primary/30" : ""}`}
                   data-testid="branch-pill-desktop"
-                  aria-haspopup={role !== "franchise_owner" ? "menu" : undefined}
-                  aria-expanded={role !== "franchise_owner" ? open : undefined}
+                  aria-haspopup={role !== "mess_owner" ? "menu" : undefined}
+                  aria-expanded={role !== "mess_owner" ? open : undefined}
                   title={`Branch context — ${branchPill.label} · ${branchPill.sub}`}
                 >
                   <MapPin className="h-3.5 w-3.5" />
                   <span className="truncate max-w-[9rem]">{branchPill.label}</span>
                   <span className="opacity-60 normal-case font-bold tracking-normal">· {branchPill.sub}</span>
-                  {role !== "franchise_owner" && <PillChevron />}
+                  {role !== "mess_owner" && <PillChevron />}
                 </button>
               )}
             />

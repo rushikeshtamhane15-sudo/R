@@ -11,7 +11,7 @@ API = f"{BASE_URL}/api"
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("DB_NAME", "test_database")
 
-FR_PHONE = "9999999999"       # franchise_owner
+FR_PHONE = "9999999999"       # mess_owner
 SUB_PHONE = "8888888888"      # subscriber
 
 

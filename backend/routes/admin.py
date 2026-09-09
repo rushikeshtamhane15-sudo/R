@@ -81,7 +81,7 @@ async def admin_stats(
     iter-92 #2 / iter-95: branch scope via effective_mess_id —
     franchise sees only their branch; admin can opt-in with ?as_mess_id=...
     """
-    if user.role not in ("admin", "franchise_owner", "staff"):
+    if user.role not in ("admin", "mess_owner", "staff"):
         raise HTTPException(status_code=403, detail="Admin only")
 
     franchise_mess_id: Optional[str] = await server.effective_mess_id(user, as_mess_id)
@@ -216,9 +216,9 @@ async def admin_stats(
 
 @router.get("/admin/attendance/today")
 async def admin_today_attendance(user: server.User = Depends(server.get_current_user), as_mess_id: Optional[str] = None):
-    # iter-92 #2 / iter-95: franchise_owner sees branch-scoped attendance only;
+    # iter-92 #2 / iter-95: mess_owner sees branch-scoped attendance only;
     # admin can opt-in via ?as_mess_id=...
-    if user.role not in ("admin", "franchise_owner", "staff"):
+    if user.role not in ("admin", "mess_owner", "staff"):
         raise HTTPException(status_code=403, detail="Admin only")
     d = server.today_str()
     q: dict = {"date_str": d}
@@ -255,11 +255,11 @@ async def admin_today_attendance(user: server.User = Depends(server.get_current_
 
 @router.get("/admin/users")
 async def admin_users(user: server.User = Depends(server.get_current_user)):
-    # iter-89 #2: franchise_owner can view users — scoped to their branch.
-    if user.role not in ("admin", "franchise_owner"):
+    # iter-89 #2: mess_owner can view users — scoped to their branch.
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     q: dict = {}
-    if user.role == "franchise_owner":
+    if user.role == "mess_owner":
         mess_doc = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
         branch = (mess_doc or {}).get("mess_id")
         if branch:
@@ -300,19 +300,19 @@ async def admin_users(user: server.User = Depends(server.get_current_user)):
     return {"users": users}
 
 
-# Roles a franchise_owner is allowed to ASSIGN (cannot create admin /
-# franchise_owner, that's HQ-only).
+# Roles a mess_owner is allowed to ASSIGN (cannot create admin /
+# mess_owner, that's HQ-only).
 FRANCHISE_ASSIGNABLE_ROLES = {"subscriber", "staff", "rider", "delivery_boy"}
 
 
 @router.post("/admin/role")
 async def admin_set_role(payload: server.SetRoleRequest, user: server.User = Depends(server.get_current_user)):
-    # iter-89 #2: franchise_owner can assign limited roles within their branch.
-    if user.role not in ("admin", "franchise_owner"):
+    # iter-89 #2: mess_owner can assign limited roles within their branch.
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     if not payload.email and not payload.phone:
         raise HTTPException(status_code=400, detail="email or phone required")
-    if user.role == "franchise_owner" and payload.role not in FRANCHISE_ASSIGNABLE_ROLES:
+    if user.role == "mess_owner" and payload.role not in FRANCHISE_ASSIGNABLE_ROLES:
         raise HTTPException(status_code=403, detail=f"Franchise can only assign: {', '.join(sorted(FRANCHISE_ASSIGNABLE_ROLES))}")
     query = {}
     if payload.email:
@@ -325,13 +325,13 @@ async def admin_set_role(payload: server.SetRoleRequest, user: server.User = Dep
         match = query
     # Franchise can only update users in their own branch — refuse if the
     # target user has a different mess_id or a higher-privilege role.
-    if user.role == "franchise_owner":
+    if user.role == "mess_owner":
         mess_doc = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
         branch = (mess_doc or {}).get("mess_id")
         target = await server.db.users.find_one(match, {"_id": 0, "user_id": 1, "mess_id": 1, "role": 1})
         if not target:
             raise HTTPException(status_code=404, detail="User not found")
-        if target.get("role") in ("admin", "franchise_owner"):
+        if target.get("role") in ("admin", "mess_owner"):
             raise HTTPException(status_code=403, detail="Cannot change role of admin or another franchise owner")
         # Pin the user to this franchise's branch when assigning a role.
         result = await server.db.users.update_one(

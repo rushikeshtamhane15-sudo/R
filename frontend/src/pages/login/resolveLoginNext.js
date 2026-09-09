@@ -41,7 +41,7 @@ export function resolveLoginNext(user, nextParam) {
 
   // Role-based overrides on ?next=
   if (validNext && role === "admin" && !isAdminScoped(raw)) return "/admin";
-  if (validNext && role === "franchise_owner" && !isAdminScoped(raw)) return "/admin";
+  if (validNext && role === "mess_owner" && !isAdminScoped(raw)) return "/admin";
   if (validNext && role === "staff" && !raw.startsWith("/admin")) return "/admin/deliveries-today";
   if (validNext && role === "rider" && !raw.startsWith("/rider")) return "/rider";
 
@@ -60,7 +60,7 @@ export function resolveLoginNext(user, nextParam) {
     if (pending && pending.startsWith("/") && !pending.startsWith("//") && pending !== "/" && !pending.startsWith("/login")) {
       sessionStorage.removeItem("efc_pending_action_v1");
       if (role === "admin" && !isAdminScoped(pending)) return "/admin";
-      if (role === "franchise_owner" && !isAdminScoped(pending)) return "/admin";
+      if (role === "mess_owner" && !isAdminScoped(pending)) return "/admin";
       if (role === "staff" && !pending.startsWith("/admin")) return "/admin/deliveries-today";
       if (role === "rider" && !pending.startsWith("/rider")) return "/rider";
       if ((pending === "/restaurant" || pending.startsWith("/restaurant?")) && hasCartItems) {
@@ -74,7 +74,7 @@ export function resolveLoginNext(user, nextParam) {
 
   if (!user) return "/dashboard";
   if (user.role === "admin") return "/admin";
-  if (user.role === "franchise_owner") return "/admin";
+  if (user.role === "mess_owner") return "/admin";
   if (user.role === "staff") return "/admin/deliveries-today";
   if (user.role === "delivery_boy") return "/boy";
   if (user.role === "rider") return "/rider";

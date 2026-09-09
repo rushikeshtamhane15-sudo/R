@@ -5,7 +5,7 @@ Covers:
 * PATCH /api/admin/messes/{id}/franchise-sections   (subset save + invalid rejection)
 * GET   /api/franchise/me/visible-sections           (regression)
 
-Seeds ephemeral admin + franchise_owner sessions directly in Mongo,
+Seeds ephemeral admin + mess_owner sessions directly in Mongo,
 restores franchise_visible_sections after the run.
 """
 import os
@@ -72,7 +72,7 @@ def franchise_session(mongo):
         "user_id": user_id,
         "email": f"{user_id}@example.com",
         "name": "Iter91 Franchise",
-        "role": "franchise_owner",
+        "role": "mess_owner",
         "mess_id": MESS_ID,
         "phone": "9000091910",
         "address": "Test 1",

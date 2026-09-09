@@ -139,7 +139,7 @@ class User(BaseModel):
     address: Optional[str] = None
     photo_url: Optional[str] = None
     picture: Optional[str] = None
-    role: Literal["admin", "staff", "subscriber", "delivery_boy", "rider", "franchise_owner"] = "subscriber"
+    role: Literal["admin", "staff", "subscriber", "delivery_boy", "rider", "mess_owner"] = "subscriber"
     qr_token: str
     created_at: datetime
     lat: Optional[float] = None
@@ -249,7 +249,7 @@ class SelfScanRequest(BaseModel):
 class SetRoleRequest(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
-    role: Literal["admin", "staff", "subscriber", "delivery_boy", "rider", "franchise_owner"]
+    role: Literal["admin", "staff", "subscriber", "delivery_boy", "rider", "mess_owner"]
 
 
 class MenuUpdateRequest(BaseModel):
@@ -2123,7 +2123,7 @@ async def admin_create_mess(payload: MessIn, user: User = Depends(get_current_us
             mess_id = f"MESS-{uuid.uuid4().hex[:4].upper()}"
     body = payload.model_dump()
     body.pop("mess_id_custom", None)
-    # iter-144: if owner_phone provided AND matches an existing user, auto-assign as franchise_owner in one shot.
+    # iter-144: if owner_phone provided AND matches an existing user, auto-assign as mess_owner in one shot.
     promoted_owner_user_id: Optional[str] = None
     owner_phone_norm = "".join(c for c in (body.get("owner_phone") or "") if c.isdigit())
     if owner_phone_norm:
@@ -2150,7 +2150,7 @@ async def admin_create_mess(payload: MessIn, user: User = Depends(get_current_us
     if promoted_owner_user_id:
         await db.users.update_one(
             {"user_id": promoted_owner_user_id, "role": {"$ne": "admin"}},
-            {"$set": {"role": "franchise_owner", "mess_id": mess_id}},
+            {"$set": {"role": "mess_owner", "mess_id": mess_id}},
         )
     out = await db.messes.find_one({"mess_id": mess_id}, {"_id": 0})
     return {**out, "promoted_owner_user_id": promoted_owner_user_id}
@@ -2188,7 +2188,7 @@ class KitchenRadiusIn(BaseModel):
 async def franchise_update_kitchen(payload: KitchenRadiusIn, user: User = Depends(get_current_user)):
     """iter-94 #2: franchise owners pin their own kitchen lat/lng/radius/address.
     Auto-scoped to their own mess — they cannot edit another branch."""
-    if user.role not in ("franchise_owner", "admin"):
+    if user.role not in ("mess_owner", "admin"):
         raise HTTPException(status_code=403, detail="Franchise portal only")
     if user.role == "admin":
         raise HTTPException(status_code=400, detail="Admins should use /admin/messes/{id} to edit any mess")
@@ -2408,7 +2408,7 @@ async def _mess_metrics(mess_id: str, days: int = 30):
 
 @api_router.get("/admin/messes/{mess_id}/metrics")
 async def admin_mess_metrics(mess_id: str, days: int = 30, user: User = Depends(get_current_user)):
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
     days = max(1, min(int(days or 30), 365))
     return await _mess_metrics(mess_id, days)
@@ -2419,7 +2419,7 @@ async def franchise_my_metrics(days: int = 30, user: User = Depends(get_current_
     """Franchise-portal view — owner sees only THEIR mess (the one where
     mess.owner_user_id == user.user_id). Returns 403 if no mess owned.
     """
-    if user.role not in ("franchise_owner", "admin"):
+    if user.role not in ("mess_owner", "admin"):
         raise HTTPException(status_code=403, detail="Franchise portal only")
     mess = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0})
     if not mess and user.role != "admin":
@@ -2438,7 +2438,7 @@ class MessAssignOwnerIn(BaseModel):
 async def admin_assign_mess_owner(mess_id: str, payload: MessAssignOwnerIn, user: User = Depends(get_current_user)):
     """Iter-76 + 79: assign a franchise owner to a mess. Accepts either
     owner_user_id OR owner_phone (whichever the admin has handy). Promotes
-    the target user to role=franchise_owner.
+    the target user to role=mess_owner.
     """
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
@@ -2470,7 +2470,7 @@ async def admin_assign_mess_owner(mess_id: str, payload: MessAssignOwnerIn, user
         if not target:
             raise HTTPException(status_code=404, detail="User not found")
         if target.get("role") in ("subscriber", "rider", "delivery_boy"):
-            await db.users.update_one({"user_id": target_user_id}, {"$set": {"role": "franchise_owner"}})
+            await db.users.update_one({"user_id": target_user_id}, {"$set": {"role": "mess_owner"}})
     await db.messes.update_one(
         {"mess_id": mess_id},
         {"$set": {"owner_user_id": target_user_id, "updated_at": iso(now_utc())}},
@@ -2669,7 +2669,7 @@ async def _mark_attendance(target_user: dict, meal_type: str, marked_by: str, me
 
 @api_router.post("/attendance/scan")
 async def staff_scan(payload: StaffScanRequest, user: User = Depends(get_current_user)):
-    if user.role not in ("staff", "admin", "franchise_owner"):
+    if user.role not in ("staff", "admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Staff/Admin only")
     token = (payload.qr_token or "").strip()
 
@@ -2875,7 +2875,7 @@ async def admin_face_enroll_list(
     `only_missing=true` (default) filters out users who already have an
     embedding so re-runs don't waste bandwidth.
     """
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     q: dict = {"profile_photo_url": {"$exists": True, "$ne": None}}
     if only_missing:
@@ -2897,10 +2897,10 @@ async def admin_set_face_embedding(
 ):
     """iter-138.a — admin writes a face embedding on behalf of another user
     (during the batch tool run). Same shape as the self-serve endpoint but
-    scoped to admin/franchise_owner and tagged so we know it came from the
+    scoped to admin/mess_owner and tagged so we know it came from the
     batch tool (helpful for later re-enroll prompts).
     """
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     if len(payload.embedding) not in (128, 512):
         raise HTTPException(status_code=400, detail="Bad embedding shape")
@@ -2932,7 +2932,7 @@ async def kiosk_heartbeat(payload: KioskHeartbeatIn, user: User = Depends(get_cu
     """Wall kiosk pings this every ~30s with its live camera + voice state
     so the admin dashboard can flag "camera lost" without walking to the
     display."""
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
     await db.kiosk_heartbeats.update_one(
         {"admin_user_id": user.user_id},
@@ -2951,7 +2951,7 @@ async def kiosk_heartbeat(payload: KioskHeartbeatIn, user: User = Depends(get_cu
 
 @api_router.get("/admin/kiosk/health")
 async def kiosk_health(user: User = Depends(get_current_user)):
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
     hb_docs = await db.kiosk_heartbeats.find({}, {"_id": 0}).sort("ts", -1).limit(10).to_list(10)
     # Last face check-in for the "N min ago" fresh-scan indicator.
@@ -2967,12 +2967,12 @@ async def kiosk_health(user: User = Depends(get_current_user)):
 @api_router.post("/kiosk/face-checkin")
 async def kiosk_face_checkin(payload: FaceCheckinIn, user: User = Depends(get_current_user)):
     """Live wall-kiosk face match → attendance.
-    Only admin/staff/franchise_owner may call this (the wall kiosk runs
+    Only admin/staff/mess_owner may call this (the wall kiosk runs
     under such a session). Compares payload.embedding against every
     subscriber's stored embedding, picks the closest match under threshold
     0.6, and records an attendance row exactly like a QR scan would.
     """
-    if user.role not in ("staff", "admin", "franchise_owner"):
+    if user.role not in ("staff", "admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Kiosk-only endpoint")
     if len(payload.embedding) not in (128, 512):
         raise HTTPException(status_code=400, detail="Bad embedding shape")
@@ -3071,7 +3071,7 @@ async def kiosk_face_checkin(payload: FaceCheckinIn, user: User = Depends(get_cu
 
 @api_router.get("/counter/qr")
 async def counter_qr(meal: str = "lunch", location: str = "main", user: User = Depends(get_current_user)):
-    if user.role not in ("staff", "admin", "franchise_owner"):
+    if user.role not in ("staff", "admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Staff/Admin only")
     if meal not in ("lunch", "dinner"):
         raise HTTPException(status_code=400, detail="meal must be lunch or dinner")
@@ -3725,9 +3725,9 @@ async def admin_wallet_adjust(target_user_id: str, payload: WalletAdjustRequest,
     - extend_days  → optionally pushes the active subscription end_date forward.
     - meals_delta  → positive adds meals back, negative deducts meals (e.g. user
       ate an extra meal for a friend and admin needs to count it).
-    iter-92 #3: franchise_owner can adjust wallets of users in *their* branch only.
+    iter-92 #3: mess_owner can adjust wallets of users in *their* branch only.
     iter-98:   meals_delta now supports BOTH directions; restore_meals kept as alias."""
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     # iter-98: unify meals_delta and the legacy restore_meals field.
     if abs(int(payload.extend_days or 0)) > 3650:
@@ -3742,7 +3742,7 @@ async def admin_wallet_adjust(target_user_id: str, payload: WalletAdjustRequest,
         raise HTTPException(status_code=404, detail="User not found")
     # iter-106: Block wallet adjustment if the user's profile is incomplete.
     _require_complete_profile(target, "adjusting their wallet")
-    if user.role == "franchise_owner":
+    if user.role == "mess_owner":
         m = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
         if not m:
             raise HTTPException(status_code=403, detail="No mess assigned")
@@ -3921,10 +3921,10 @@ async def admin_wallet_adjust(target_user_id: str, payload: WalletAdjustRequest,
 
 @api_router.get("/admin/users/{target_user_id}/wallet-history")
 async def admin_wallet_history(target_user_id: str, user: User = Depends(get_current_user)):
-    # iter-92 #3: franchise_owner can read wallet history of their branch's users.
-    if user.role not in ("admin", "franchise_owner"):
+    # iter-92 #3: mess_owner can read wallet history of their branch's users.
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
-    if user.role == "franchise_owner":
+    if user.role == "mess_owner":
         m = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
         if not m:
             raise HTTPException(status_code=403, detail="No mess assigned")
@@ -3969,7 +3969,7 @@ def _require_complete_profile(user_doc: dict, action: str) -> None:
 @api_router.get("/admin/users/{target_user_id}/profile-status")
 async def admin_user_profile_status(target_user_id: str, user: User = Depends(get_current_user)):
     """Lightweight check the admin UI can call to disable buttons / show a hint."""
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     target = await db.users.find_one({"user_id": target_user_id}, {"_id": 0})
     if not target:
@@ -4002,7 +4002,7 @@ async def admin_reconcile_subscription(
     payload: ReconcileSubRequest,
     user: User = Depends(get_current_user),
 ):
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     if not (payload.reason or "").strip():
         raise HTTPException(status_code=400, detail="Reason is required for audit log")
@@ -4012,7 +4012,7 @@ async def admin_reconcile_subscription(
     # iter-106: Block reconcile if the user's profile is incomplete — admin
     # shouldn't be touching their numbers until we have basic contact info.
     _require_complete_profile(target, "reconciling their subscription")
-    if user.role == "franchise_owner":
+    if user.role == "mess_owner":
         m = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
         if not m:
             raise HTTPException(status_code=403, detail="No mess assigned")
@@ -4193,7 +4193,7 @@ async def admin_assign_subscription(
     onto a subscription without going through Razorpay. Used for customers
     who pay cash to the manager and don't navigate the web app themselves.
     """
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     if not (payload.reason or "").strip():
         raise HTTPException(status_code=400, detail="reason is required for audit log")
@@ -4203,7 +4203,7 @@ async def admin_assign_subscription(
     # iter-106: Block manual subscription assignment if the user's profile
     # is incomplete — get their basics on file before we onboard them.
     _require_complete_profile(target, "assigning a subscription")
-    if user.role == "franchise_owner":
+    if user.role == "mess_owner":
         m = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
         if not m:
             raise HTTPException(status_code=403, detail="No mess assigned")
@@ -4570,7 +4570,7 @@ async def admin_merge_users(
         raise HTTPException(status_code=404, detail="One or both users not found")
     if primary.get("role") in ("admin",) and duplicate.get("role") not in ("admin", "subscriber"):
         # Keep this guard conservative — we don't want a non-admin role
-        # (rider, staff, franchise_owner) silently absorbed into an admin row.
+        # (rider, staff, mess_owner) silently absorbed into an admin row.
         raise HTTPException(status_code=400, detail=f"Refusing to merge a `{duplicate.get('role')}` into an admin")
 
     # Move every reference
@@ -4787,7 +4787,7 @@ async def admin_expiring_subscriptions(
     days (default 3). Includes the user's name + phone so admin can dial
     them directly. Franchise owners are scoped to their branch.
     """
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     within_days = max(0, min(int(within_days or 3), 30))
     cutoff = iso(now_utc() + timedelta(days=within_days))
@@ -4798,7 +4798,7 @@ async def admin_expiring_subscriptions(
     }
     # Branch-scope for franchise owners
     user_ids_in_branch = None
-    if user.role == "franchise_owner":
+    if user.role == "mess_owner":
         m = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
         if not m:
             return {"subscriptions": [], "count": 0, "within_days": within_days}
@@ -4883,11 +4883,11 @@ async def admin_broadcast_audience(
     Franchise owners are scoped to their branch. Users without a phone
     number are skipped since wa.me requires one.
     """
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
 
     sub_query: dict = {"status": "active"}
-    if user.role == "franchise_owner":
+    if user.role == "mess_owner":
         m = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
         if not m:
             return {"users": [], "count": 0}
@@ -5134,17 +5134,17 @@ async def _count_active_persons(mess_id: Optional[str] = None) -> dict:
 
 
 def _admin_or_staff(user: User):
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin or staff only")
 
 
 # iter-95: unified branch scoping for ALL operational endpoints.
 # Returns the mess_id whose data should be served for the current request:
-#   • franchise_owner → their assigned mess (cannot be overridden)
+#   • mess_owner → their assigned mess (cannot be overridden)
 #   • admin / staff   → `as_mess_id` query param (None = HQ-global)
 #   • other           → 403
 async def effective_mess_id(user: User, as_mess_id: Optional[str] = None) -> Optional[str]:
-    if user.role == "franchise_owner":
+    if user.role == "mess_owner":
         m = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
         if not m:
             raise HTTPException(status_code=403, detail="No mess assigned")
@@ -5350,7 +5350,7 @@ class RawMaterialStockTopup(BaseModel):
 @api_router.put("/admin/raw-materials")
 async def update_raw_materials(payload: RawMaterialPatch, user: User = Depends(get_current_user), as_mess_id: Optional[str] = None):
     # Admin + staff can both edit/add rows. Staff frequently knows current market rates.
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin or staff only")
     mid = await effective_mess_id(user, as_mess_id)
     doc_id = mid or "active"
@@ -5371,7 +5371,7 @@ async def update_raw_materials(payload: RawMaterialPatch, user: User = Depends(g
 async def topup_raw_materials_stock(payload: RawMaterialStockTopup, user: User = Depends(get_current_user), as_mess_id: Optional[str] = None):
     """Admin/staff add a partial or full month's stock for a single item.
     Resets the consumption clock to now."""
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin or staff only")
     mid = await effective_mess_id(user, as_mess_id)
     doc_id = mid or "active"
@@ -5394,7 +5394,7 @@ async def topup_raw_materials_stock(payload: RawMaterialStockTopup, user: User =
 
 @api_router.post("/admin/raw-materials/reset")
 async def reset_raw_materials(user: User = Depends(get_current_user), as_mess_id: Optional[str] = None):
-    if user.role not in ("admin", "franchise_owner"):
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     mid = await effective_mess_id(user, as_mess_id)
     doc_id = mid or "active"
@@ -5581,7 +5581,7 @@ async def staff_today_deliveries(user: User = Depends(get_current_user)):
 
 # ---------------------------
 # Staff dispatch console — /staff/dispatch route + fastest-route map
-# iter-131.15: standalone dispatch UI for staff (also usable by admin/franchise_owner).
+# iter-131.15: standalone dispatch UI for staff (also usable by admin/mess_owner).
 # Wraps the delivery sub-router's roster+ready flows behind an admin-or-staff gate.
 # ---------------------------
 @api_router.get("/staff/dispatch/today")
@@ -5819,6 +5819,14 @@ app.add_middleware(
 @app.on_event("startup")
 async def on_startup():
     from tasks import start_background_loops  # local import — keeps tasks.py free of server side-effects
+    # iter-158d — one-shot idempotent role rename: franchise_owner → mess_owner.
+    # eFoodTech has no franchise concept; every mess is independently owned.
+    try:
+        r = await db.users.update_many({"role": "franchise_owner"}, {"$set": {"role": "mess_owner"}})
+        if r.modified_count:
+            logger.info(f"[ROLE MIGRATION] renamed {r.modified_count} users: franchise_owner → mess_owner")
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[ROLE MIGRATION] failed: {e}")
     await seed_plans()
     await _ensure_theme_version()
     await _load_dashboard_config()  # pre-seed default config so first GET doesn't write during a public read
@@ -5920,7 +5928,7 @@ async def user_request_refund(payload: RefundRequestIn, user: User = Depends(get
 
 @api_router.get("/admin/refunds")
 async def admin_list_refunds(status: str = "pending", user: User = Depends(get_current_user)):
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
     cur = db.refund_requests.find({"status": status} if status != "all" else {}, {"_id": 0}).sort("created_at", -1)
     items = await cur.to_list(500)
@@ -5935,15 +5943,15 @@ class RefundDecisionIn(BaseModel):
 
 @api_router.patch("/admin/refunds/{refund_id}")
 async def admin_decide_refund(refund_id: str, payload: RefundDecisionIn, user: User = Depends(get_current_user)):
-    # iter-92 #3: franchise_owner can approve/decline refunds for their branch.
-    if user.role not in ("admin", "franchise_owner"):
+    # iter-92 #3: mess_owner can approve/decline refunds for their branch.
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     if payload.decision not in {"approve", "decline"}:
         raise HTTPException(status_code=400, detail="decision must be approve | decline")
     doc = await db.refund_requests.find_one({"refund_id": refund_id})
     if not doc:
         raise HTTPException(status_code=404, detail="Refund not found")
-    if user.role == "franchise_owner":
+    if user.role == "mess_owner":
         m = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
         if not m:
             raise HTTPException(status_code=403, detail="No mess assigned")
@@ -6159,7 +6167,7 @@ async def franchise_my_mess(user: User = Depends(get_current_user)):
     """iter-94 #1: returns the franchise owner's mess (city, name, lat/lng, radius)
     so the AdminLayout can render the branch-context pill and the
     Kitchen & Radius settings page can prefill."""
-    if user.role not in ("franchise_owner", "admin"):
+    if user.role not in ("mess_owner", "admin"):
         raise HTTPException(status_code=403, detail="Franchise portal only")
     if user.role == "admin":
         return {"mess": None, "scope": "global"}
@@ -6171,7 +6179,7 @@ async def franchise_my_mess(user: User = Depends(get_current_user)):
 
 @api_router.get("/franchise/me/visible-sections")
 async def franchise_my_visible_sections(user: User = Depends(get_current_user)):
-    if user.role not in ("franchise_owner", "admin"):
+    if user.role not in ("mess_owner", "admin"):
         raise HTTPException(status_code=403, detail="Franchise portal only")
     mess = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "franchise_visible_sections": 1})
     # Null in db ⇒ default to ALL sections. Empty list ⇒ admin explicitly hid everything.
@@ -6227,7 +6235,7 @@ async def admin_set_franchise_pages(mess_id: str, payload: FranchisePagesIn, use
 @api_router.get("/franchise/me/visible-pages")
 async def franchise_my_visible_pages(user: User = Depends(get_current_user)):
     """Franchise owner reads the page list they're allowed to see in the admin nav."""
-    if user.role not in ("franchise_owner", "admin"):
+    if user.role not in ("mess_owner", "admin"):
         raise HTTPException(status_code=403, detail="Franchise portal only")
     if user.role == "admin":
         return {"visible_pages": [p["key"] for p in FRANCHISE_PAGES]}

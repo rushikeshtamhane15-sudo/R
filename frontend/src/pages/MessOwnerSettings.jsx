@@ -1,7 +1,7 @@
 /**
  * MessOwnerSettings — iter-143 · efoodtech SaaS.
  *
- * Scoped to a mess owner (role=franchise_owner or admin). Lets them:
+ * Scoped to a mess owner (role=mess_owner or admin). Lets them:
  *   • Update their mess branding (tagline, hero copy, chip tags)
  *   • Upload their own logo (shown on login mess-picker)
  *   • Save their OWN Razorpay Key ID + Secret so payments land directly
@@ -70,7 +70,7 @@ export default function MessOwnerSettings() {
   useEffect(() => { load(); }, []);
 
   if (!user) return <Navigate to="/login" replace />;
-  if (!["admin", "franchise_owner"].includes(user.role))
+  if (!["admin", "mess_owner"].includes(user.role))
     return <Navigate to="/" replace />;
 
   const saveBranding = async () => {

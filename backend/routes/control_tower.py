@@ -23,7 +23,7 @@ def _today_window():
 
 @router.get("/admin/control-tower")
 async def control_tower(user: server.User = Depends(server.get_current_user), as_mess_id: str | None = None):
-    if user.role not in ("admin", "staff", "franchise_owner"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff/franchise only")
     db = server.db
     start, end = _today_window()
@@ -31,7 +31,7 @@ async def control_tower(user: server.User = Depends(server.get_current_user), as
     five_min_ago = (now - timedelta(minutes=5)).isoformat()
     three_min_ago = (now - timedelta(minutes=3)).isoformat()
 
-    # iter-94 #3 / iter-95: franchise_owner sees ONLY their branch's data;
+    # iter-94 #3 / iter-95: mess_owner sees ONLY their branch's data;
     # admins can opt into "view-as-branch" via ?as_mess_id=...
     branch_mess_id: str | None = await server.effective_mess_id(user, as_mess_id)
     branch_user_filter: dict = {}
