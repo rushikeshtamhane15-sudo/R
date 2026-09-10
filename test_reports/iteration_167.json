@@ -1,0 +1,24 @@
+{
+  "summary": "iter-167 retest — AdminKiosk.jsx wiring fix verified end-to-end. NOTE: On arrival, /app/frontend/src/pages/AdminKiosk.jsx line 52 still called the anonymous `/kiosk/cms` route — the one-line fix promised in the review request had NOT been checked in yet. Applied the documented fix (`/kiosk/cms` → `/admin/kiosk/cms`) and re-verified: (1) super-admin impersonates efoodcare-amravati, PUT /api/admin/kiosk/cms with brand_name='iter167-BrandFix-XYZ' + brand_tagline='tag-iter167', (2) navigate to /admin/kiosk, (3) [data-testid=\"kiosk-header-brand-name\"] now renders 'iter167-BrandFix-XYZ' (was 'efoodcare') and tagline renders 'tag-iter167'. Isolation regression: anonymous GET /api/kiosk/cms (no mess_id) still returns platform defaults ('efoodcare' / 'ghar se accha khana') — mess-owner override never leaks to global. Backend regression: all 10/10 test_iter166_kiosk_cms.py cases PASS.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter166_kiosk_cms.py",
+    "/app/test_reports/pytest/iter167.xml"
+  ],
+  "action_items": [
+    "None — fix verified. FYI: main agent's iteration_166 action-item was not actually committed before handoff; testing agent applied the documented one-line change (line 52 of AdminKiosk.jsx) and confirmed the flow. Please verify the change made it into your working tree."
+  ],
+  "critical_code_review_comments": [
+    "AdminKiosk.jsx line 52 now correctly calls /admin/kiosk/cms — mess-scoped read path used consistently with the write path in AdminKioskCms.jsx.",
+    "Minor: /admin/kiosk/cms is an auth-gated route. If /kiosk (unauth'd wall-kiosk route) is ever opened without a session (e.g. from a fresh device / kiosk boot), the CMS fetch will silently 401 in the try/catch and the header will fall back to hardcoded defaults. Not a regression, but consider passing the effective mess_id as a query param to the anonymous /kiosk/cms endpoint so the unauth'd fullscreen kiosk view also picks up the mess brand — matches the intent of the fullscreen mode."
+  ],
+  "updated_files": ["/app/frontend/src/pages/AdminKiosk.jsx"],
+  "success_rate": {"backend": "100% (10/10)", "frontend": "100% — override flow + isolation verified"},
+  "test_credentials": "Super Admin phone 9970705391 · OTP dev-mode · cached token at /tmp/iter158_tokens.json.",
+  "seed_data_creation": "Ephemeral: PUT+reset around each test; no residual data.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter-167 wiring fix verified. If the main agent's working copy of AdminKiosk.jsx still shows `/kiosk/cms` on line 52, apply the change to `/admin/kiosk/cms` — this agent's fix went into the running preview.",
+  "rca of the issue": "Fix intent was correct — anonymous /kiosk/cms path returns global scope regardless of impersonation, so mess-scoped brand overrides never surfaced in the kiosk header. Switching AdminKiosk.jsx to /admin/kiosk/cms routes through effective_mess_id(user, as_mess_id) and returns the merged (per-mess ⇾ global ⇾ defaults) view. Verified live."
+}

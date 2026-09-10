@@ -42,6 +42,26 @@ export default function AdminKiosk() {
   const isFullscreenRoute = loc.pathname === "/kiosk";
   const branding = useBranding();
   const kioskLogoUrl = branding?.kioskLogoUrl || branding?.brandLogoUrl || branding?.headerLogoUrl || "";
+  // iter-166 · Wall-kiosk CMS overrides (mess-scoped). Falls back to the
+  // legacy hardcoded strings when the mess owner hasn't customised.
+  const [kioskCms, setKioskCms] = useState({ brand_name: "", brand_tagline: "" });
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await api.get("/admin/kiosk/cms");
+        if (cancelled) return;
+        const d = r?.data || {};
+        setKioskCms({ brand_name: d.brand_name || "", brand_tagline: d.brand_tagline || "" });
+        // Mirror voice greetings into localStorage so notify.js picks them up.
+        try {
+          const keys = ["greeting_lunch_hi", "greeting_lunch_en", "greeting_dinner_hi", "greeting_dinner_en"];
+          keys.forEach((k) => localStorage.setItem(`efc.kiosk.${k}`, d[k] || ""));
+        } catch { /* noop */ }
+      } catch { /* silent — CMS may not exist yet on fresh installs */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const [browserFs, setBrowserFs] = useState(false);
   const requestFs = async () => {
     try {
@@ -520,6 +540,7 @@ export default function AdminKiosk() {
     >
       <KioskCounterPanel
         meal={meal} setMeal={setMeal} counter={counter} activeSlot={activeSlot} kioskLogoUrl={kioskLogoUrl}
+        cmsBrandName={kioskCms.brand_name} cmsBrandTagline={kioskCms.brand_tagline}
         qrProvider={qrProvider} onSetQrProvider={setQrProvider}
         btCfg={btCfg} btStatus={btStatus}
         onSetBtEnabled={setBtEnabled} onPairPrinter={ensurePrinter}

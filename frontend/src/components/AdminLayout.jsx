@@ -53,6 +53,7 @@ const SECTIONS = [
       { to: "/admin/scanner", label: "QR Scanner", icon: ScanLine, roles: FRANCHISE_VIEW },
       { to: "/admin/kiosk", label: "Wall Kiosk", icon: ScanLine, roles: FRANCHISE_VIEW },
       { to: "/admin/voice-settings", label: "Kiosk voice", icon: Volume2, roles: FRANCHISE_VIEW },
+      { to: "/admin/kiosk-cms", label: "Kiosk copy & voice", icon: Volume2, roles: OWNER_VIEW },
       { to: "/admin/face-enroll", label: "Face enrol batch", icon: ScanFace, roles: OWNER_VIEW },
       { to: "/admin/counter", label: "Counter QR", icon: QrCode, roles: FRANCHISE_VIEW },
       { to: "/admin/menu", label: "Daily Menu", icon: Utensils, roles: FRANCHISE_VIEW },

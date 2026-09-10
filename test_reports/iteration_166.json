@@ -1,0 +1,39 @@
+{
+  "summary": "iter-166 Wall-Kiosk CMS mess-scoping verified. Backend: 10 new pytest cases (all PASS) cover defaults, unknown-mess fallback, auth gating, super-admin global writes, per-mess isolation (critical invariant), scoped reset, empty-string-inherits-default, partial-update preservation, and empty payload rejection. Regression: iter-160 wave1+wave2 + iter-165 (27 tests) all PASS. Frontend: /admin/kiosk-cms renders correctly, all 3 branding inputs + 4 greeting textareas + Save + Reset present with data-testids. Save round-trip persists to backend AND mirrors greetings into localStorage keys efc.kiosk.greeting_* as required. BUG FOUND: /admin/kiosk page fetches /kiosk/cms (anonymous public route) WITHOUT the current mess_id, so mess-owner customisations never appear in the mess owner's own kiosk header — the header always shows global defaults ('efoodcare'/'ghar se accha khana').",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Mess owner customises kiosk headline via /admin/kiosk-cms → opens /admin/kiosk to preview",
+        "issue": "AdminKiosk.jsx (line ~52) calls `api.get('/kiosk/cms')` with no mess_id query param. The backend public route reads mess_id ONLY from ?mess_id=<X> query (headers/impersonation are ignored on the anonymous endpoint), so the kiosk header renders platform defaults instead of the mess owner's saved override. Verified end-to-end: after successful PUT (backend admin GET returns brand_name='TestMess-UI-iter166' scoped to efoodcare-amravati), /admin/kiosk header shows 'efoodcare' — override never applied.",
+        "affected_selectors": [
+          "[data-testid=\"kiosk-header-brand-name\"]",
+          "[data-testid=\"kiosk-header-brand-tagline\"]"
+        ]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter166_kiosk_cms.py",
+    "/app/test_reports/pytest/iter166.xml"
+  ],
+  "action_items": [
+    "Fix AdminKiosk.jsx to load the mess-scoped kiosk CMS. Two options: (a) switch the fetch to `/admin/kiosk/cms` which auto-scopes via effective_mess_id() and returns the merged view (recommended — matches the write path used by AdminKioskCms.jsx and needs no per-request mess plumbing), or (b) resolve the current effective mess_id in context and pass `?mess_id=<X>` to `/kiosk/cms`. Same fix applies to greetings mirrored into localStorage — currently every mess owner's kiosk speaks the platform default because `/kiosk/cms` returns the global doc."
+  ],
+  "critical_code_review_comments": [
+    "AdminKiosk.jsx line 52: `api.get('/kiosk/cms')` — no mess_id query; renders global defaults for every mess owner (see integration_issues).",
+    "kiosk_cms.py: read-fallback (mess_doc → global_doc → DEFAULTS) and write-scoped (per-mess doc) are correct — mirrors iter-165 pattern cleanly.",
+    "kiosk_cms.py `pick()` (line 70): `(mess_doc.get(k) or '') or (global_doc.get(k) or '')` — falsy '0' or 0 would be swallowed, but all fields are non-numeric strings so this is fine in practice.",
+    "AdminKioskCms.jsx save handler sends every field (including empties) on save, which will actively clobber prior per-mess overrides with '' — but the backend treats '' as 'inherit', which lets a partial edit still work AS LONG AS the user hasn't cleared other fields on the same session. Consider only sending changed fields to avoid surprise-reset."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter166_kiosk_cms.py"],
+  "success_rate": {"backend": "100% (10/10 new + 27/27 regression)", "frontend": "90% — CMS editor + backend isolation OK; kiosk header override integration broken"},
+  "test_credentials": "Super Admin phone 9970705391 (OTP dev-mode echoed). Token cached at /tmp/iter158_tokens.json.",
+  "seed_data_creation": "No permanent seed. All test writes to kiosk_cms collection (per-mess and global) cleaned up via reset endpoints in test teardown.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter-166 backend isolation is CLEAN — mess-owner writes never leak to global anon GET (verified). The one remaining issue is a small frontend wiring fix in /app/frontend/src/pages/AdminKiosk.jsx line ~52 — should call `/admin/kiosk/cms` (auth'd, auto-scoped) instead of the anonymous `/kiosk/cms`. Cache location: /tmp/iter158_tokens.json.",
+  "rca of the issue": "AdminKiosk.jsx was wired to the anonymous public read endpoint that expects an explicit ?mess_id=<X> param. For super-admin impersonation and real mess_owner sessions, the correct scoped read is `/admin/kiosk/cms` which routes through `effective_mess_id(user, as_mess_id)`. Mitigation: change `api.get('/kiosk/cms')` in AdminKiosk.jsx to `api.get('/admin/kiosk/cms')` — no other props/state changes needed since the response shape is the same superset (adds mess_id key which the component doesn't consume)."
+}

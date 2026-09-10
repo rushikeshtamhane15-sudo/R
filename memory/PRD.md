@@ -4,6 +4,15 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-166/167 — Wall-Kiosk CMS mess-scoping (2026-02-10)
+**Status: DONE — testing_agent iter-166: 10/10 new pytest + iter-167 retest verified end-to-end. Isolation invariant preserved.**
+
+- **Backend**: New `/app/backend/routes/kiosk_cms.py` with `GET/PUT/POST /api/{admin/}kiosk/cms{,/reset}`. Storage: per-mess doc `{_id:"active:<mess_id>"}` layered over global `{_id:"active"}` layered over hardcoded DEFAULTS. Uses `effective_mess_id()` for scoping (mess owner → their mess, admin+impersonation → that mess, admin bare → global). Empty-string writes = "inherit" so a mess can clear one field and keep others.
+- **Frontend**: New `/admin/kiosk-cms` editor page (`AdminKioskCms.jsx`) with 3 branding inputs (headline, sub-headline, pure-veg pill) + 4 voice greeting textareas (lunch/dinner × Hi/En, `{name}` placeholder) + Save/Reset + live TTS preview. Wired into `AdminLayout.jsx` sidebar under Wall Kiosk section (`OWNER_VIEW`).
+- **Wall-kiosk render**: `AdminKiosk.jsx` fetches `/admin/kiosk/cms` (auth'd, auto-scoped) and passes `cmsBrandName`/`cmsBrandTagline` to `KioskCounterPanel`. Voice greetings mirrored into `localStorage` keys `efc.kiosk.greeting_*` — `notify.js#announceCheckinSuccess` reads them at speak time so custom greetings kick in immediately on the next scan.
+- **Isolation**: Anonymous `GET /api/kiosk/cms` (no mess_id) always returns platform DEFAULTS untouched by any mess-owner writes — verified in `test_iter166_kiosk_cms.py`.
+
+
 ## iter-165 — Multi-tenant scoping wave 3 · Restaurant/Menu/Branding + Login shrink (2026-02-10)
 **Status: DONE — testing_agent iter-165: 10/10 new mess-isolation tests + 23/23 iter160 regression pass. Anonymous efoodtech (Super Admin) surface UNTOUCHED.**
 

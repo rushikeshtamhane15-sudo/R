@@ -216,14 +216,25 @@ export function announceCheckinSuccess(meal = "lunch", name = "") {
   const isDinner = String(meal).toLowerCase() === "dinner";
   // Use only the first word so long full-names don't slow the read.
   const first = String(name || "").trim().split(/\s+/)[0] || "";
-  const hindiPrefix = first ? `${first}, ` : "";
-  const englishPrefix = first ? `${first}, ` : "";
-  const hindi = isDinner
-    ? `${hindiPrefix}डिनर चेक-इन सफल हुआ। धन्यवाद।`
-    : `${hindiPrefix}लंच चेक-इन सफल हुआ। धन्यवाद।`;
-  const english = isDinner
-    ? `${englishPrefix}Dinner check-in successful. Thank you.`
-    : `${englishPrefix}Lunch check-in successful. Thank you.`;
+  // iter-166 · mess-owner-editable greeting templates. The wall kiosk writes
+  // its CMS payload into localStorage on mount (see AdminKiosk.jsx). If a
+  // template contains "{name}" we substitute the first name; otherwise we
+  // prepend it just like the legacy behaviour.
+  const readCms = (k) => { try { return localStorage.getItem(k) || ""; } catch { return ""; } };
+  const applyTpl = (tpl, fallback) => {
+    const raw = (tpl || "").trim();
+    if (!raw) return fallback;
+    if (raw.includes("{name}")) return raw.replace("{name}", first || "").trim().replace(/^,\s*/, "");
+    return first ? `${first}, ${raw}` : raw;
+  };
+  const hindi = applyTpl(
+    readCms(isDinner ? "efc.kiosk.greeting_dinner_hi" : "efc.kiosk.greeting_lunch_hi"),
+    (first ? `${first}, ` : "") + (isDinner ? "डिनर चेक-इन सफल हुआ। धन्यवाद।" : "लंच चेक-इन सफल हुआ। धन्यवाद।"),
+  );
+  const english = applyTpl(
+    readCms(isDinner ? "efc.kiosk.greeting_dinner_en" : "efc.kiosk.greeting_lunch_en"),
+    (first ? `${first}, ` : "") + (isDinner ? "Dinner check-in successful. Thank you." : "Lunch check-in successful. Thank you."),
+  );
   try {
     playCheckinSuccess();
   } catch { /* noop */ }

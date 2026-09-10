@@ -18,6 +18,11 @@ export default function KioskCounterPanel({
   slotCountdownLabel = "", slotCountdownEndsAt = "",
   qrRotateSeconds = 0,
   faceScanNode = null,
+  // iter-166 · mess-scoped kiosk CMS overrides. When absent we fall back to
+  // the legacy hardcoded "efoodcare" / "ghar se accha khana" strings so the
+  // Super Admin platform view stays untouched.
+  cmsBrandName = "",
+  cmsBrandTagline = "",
 }) {
   // iter-131.30: hard-lock the meal toggle to the currently-active slot. Off-slot
   // buttons render disabled + faded so staff can never mint the wrong QR.
@@ -71,8 +76,8 @@ export default function KioskCounterPanel({
       <div className={`relative border-b border-white/12 ${isFullscreen ? "px-6 py-3" : "px-5 py-3"}`}>
         {/* Brand centered over the whole header */}
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center leading-tight" data-testid="kiosk-header-brand">
-          <p className={`font-display font-extrabold text-white tracking-tight ${isFullscreen ? "text-5xl" : "text-2xl"}`} data-testid="kiosk-header-brand-name">efoodcare</p>
-          <p className={`uppercase font-bold text-white/85 tracking-[0.32em] ${isFullscreen ? "text-sm mt-1" : "text-[10px]"}`} data-testid="kiosk-header-brand-tagline">ghar se accha khana</p>
+          <p className={`font-display font-extrabold text-white tracking-tight ${isFullscreen ? "text-5xl" : "text-2xl"}`} data-testid="kiosk-header-brand-name">{cmsBrandName || "efoodcare"}</p>
+          <p className={`uppercase font-bold text-white/85 tracking-[0.32em] ${isFullscreen ? "text-sm mt-1" : "text-[10px]"}`} data-testid="kiosk-header-brand-tagline">{cmsBrandTagline || "ghar se accha khana"}</p>
         </div>
 
         {/* Foreground row: logo LEFT, pure-veg mark RIGHT */}
