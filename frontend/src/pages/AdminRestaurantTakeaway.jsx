@@ -27,6 +27,21 @@ export default function AdminRestaurantTakeaway() {
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [filter]);
 
+  // iter-158l · Auto-refresh takeaway pendency every 30s so kitchen staff
+  // don't need to hit Refresh. Pauses when tab is hidden to save API calls.
+  useEffect(() => {
+    let interval = null;
+    const tick = () => { if (!document.hidden) load(); };
+    interval = setInterval(tick, 30000);
+    const onVis = () => { if (!document.hidden) load(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      if (interval) clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter]);
+
   const collect = async (pendency_id) => {
     if (!window.confirm("Mark this customer's tiffin(s) as collected? This decrements their tiffin balance.")) return;
     try {

@@ -4,6 +4,25 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-158l — Cash Reset · Auto-refresh Pendency · City-only Pill fallback (2026-02-05)
+**Status: DONE — 3 next-action items shipped, backend pytest 3/3 pass.**
+
+### 1. Cash Reset endpoint
+- New `POST /api/admin/cash-collections/reset` (also supports `?dry_run=true` for preview).
+- Scoping: mess_owner → their own mess only. Admin → impersonated mess if active, else global.
+- Cancels TODAY's `pending_cash` payment_orders with `status=cancelled`, `cancel_reason=cash_reset`.
+- Frontend: red "Reset today" button (`reset-cash-btn`) added next to the Refresh button on `/admin/cash-collections`, with a confirm dialog.
+
+### 2. Location pill "City-only" fallback
+- `LocationPill.jsx`: when Nominatim doesn't return area+pincode (common for anonymous / rural users), fall back to just the city or state name so the pill shows "Nagpur" instead of the spinning "Locating…" indefinitely.
+
+### 3. Takeaway pendency auto-refresh
+- `AdminRestaurantTakeaway.jsx`: added a 30-second polling interval + visibilitychange refresh, pauses when tab is hidden. Kitchen staff no longer need to hit Refresh manually.
+
+### Tests
+- New `test_iter158l_cash_reset.py` — 3 tests (admin dry-run, forbidden for anon, returns 0 when empty). All passing.
+
+
 ## iter-158j/k — Mess-owner admin rights (broad widening) · Bug fixes (2026-02-05)
 **Status: DONE for 9 of 13 user asks — 34 pytest / 1 skip. Remaining: #2 pendency data, #4 reset buttons, #5 city auto-detect UI, #9 delivery page data model (defensively fixed).**
 

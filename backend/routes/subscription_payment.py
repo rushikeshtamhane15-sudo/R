@@ -259,6 +259,57 @@ async def create_cash_order(payload: CashOrPartialIn, user: server.User = Depend
     }
 
 
+# ---------------------------------------------------------------------------
+# iter-158l · Cash Reset — wipe today's pending_cash rows for the owner's mess
+# ---------------------------------------------------------------------------
+@router.post("/admin/cash-collections/reset")
+async def cash_collections_reset(
+    dry_run: bool = False,
+    user: server.User = Depends(server.get_current_user),
+):
+    """Cancel all pending_cash payment_orders belonging to today for the
+    caller's mess. Used to reset the Cash Collections screen after end-of-
+    day close-out. Only touches the mess's OWN rows: mess_owner can only
+    wipe their mess; admin can wipe globally.
+    """
+    if user.role not in ("admin", "mess_owner"):
+        raise HTTPException(status_code=403, detail="Admin or mess owner only")
+    # Resolve target mess for scoping
+    target_mess_id = None
+    if user.role == "mess_owner":
+        m = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+        target_mess_id = (m or {}).get("mess_id")
+        if not target_mess_id:
+            raise HTTPException(status_code=403, detail="No mess owned by your account")
+    else:
+        # Admin: honor active impersonation, else global
+        s = await server.db.user_sessions.find_one(
+            {"user_id": user.user_id, "impersonate_mess_id": {"$exists": True}},
+            {"_id": 0, "impersonate_mess_id": 1},
+        )
+        target_mess_id = (s or {}).get("impersonate_mess_id")
+
+    today_ist = server.iso(server.now_utc())[:10]
+    q: dict = {
+        "status": "pending_cash",
+        "created_at": {"$gte": today_ist + "T00:00:00", "$lte": today_ist + "T23:59:59.999"},
+    }
+    if target_mess_id:
+        q["mess_id"] = target_mess_id
+    matches = await server.db.payment_orders.count_documents(q)
+    if dry_run:
+        return {"ok": True, "dry_run": True, "would_cancel": matches, "mess_id": target_mess_id}
+    if matches == 0:
+        return {"ok": True, "cancelled": 0, "mess_id": target_mess_id}
+    now_iso = server.iso(server.now_utc())
+    await server.db.payment_orders.update_many(
+        q,
+        {"$set": {"status": "cancelled", "cancelled_at": now_iso, "cancelled_by": user.user_id, "cancel_reason": "cash_reset"},
+         "$unset": {"cash_otp": ""}},
+    )
+    return {"ok": True, "cancelled": matches, "mess_id": target_mess_id}
+
+
 @router.post("/admin/payments/cash-collect/assign")
 async def cash_assign(payload: AssignStaffIn, user: server.User = Depends(server.get_current_user)):
     if user.role not in ("admin", "mess_owner"):

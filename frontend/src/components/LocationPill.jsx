@@ -60,7 +60,12 @@ export default function LocationPill({ className = "", variant = "default" }) {
         const city = a.city || a.county || a.state_district || "";
         const pin = a.postcode || "";
         const built = [area, city, pin].filter(Boolean).join(", ");
-        const final = built || (j?.display_name?.split(",").slice(0, 2).join(", ")) || "your area";
+        // iter-158l · never leave the pill spinning: if reverse-geocode fails
+        // to produce area+pin (common for rural / anonymous users), fall back
+        // to just the city name so the pill shows "Nagpur" instead of
+        // "Locating…" indefinitely.
+        const cityOnly = city || a.state || "";
+        const final = built || cityOnly || (j?.display_name?.split(",").slice(0, 2).join(", ")) || "your area";
         if (!cancel) { sessionStorage.setItem(key, final); setLabel(final); }
       } catch {
         if (!cancel) setLabel("your area");

@@ -57,6 +57,19 @@ export default function AdminCashCollections() {
   };
   useEffect(() => { load(); }, []);
 
+  // iter-158l · Reset button — wipes today's pending_cash rows for this mess.
+  const [resetting, setResetting] = useState(false);
+  const resetToday = async () => {
+    if (!window.confirm("Cancel ALL of today's pending cash entries for your mess? Use this only at end-of-day close-out.")) return;
+    setResetting(true);
+    try {
+      const r = await api.post("/admin/cash-collections/reset");
+      toast.success(`Reset ${r.data?.cancelled || 0} pending entr${r.data?.cancelled === 1 ? "y" : "ies"}`);
+      load();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Reset failed"); }
+    finally { setResetting(false); }
+  };
+
   const isAdmin = me?.role === "admin";
 
   const assign = async (orderId, staffId) => {
@@ -113,7 +126,11 @@ export default function AdminCashCollections() {
           <h1 className="font-display font-extrabold text-3xl mt-1">Pending cash collections</h1>
           <p className="text-sm text-muted-foreground mt-1">Collect cash from subscribers and verify with their OTP. {isAdmin ? "" : "Staff view — assign-action disabled for staff."}</p>
         </div>
+        <div className="flex gap-2 flex-wrap">
         <Button variant="outline" onClick={load} className="rounded-full" data-testid="refresh-btn"><RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Refresh</Button>
+        <Button variant="outline" onClick={resetToday} disabled={resetting} className="rounded-full border-rose-300 text-rose-700 hover:bg-rose-50" data-testid="reset-cash-btn">
+          {resetting ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5 mr-1.5" />} Reset today
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
