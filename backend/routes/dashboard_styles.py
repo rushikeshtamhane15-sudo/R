@@ -39,7 +39,7 @@ class DashStylesIn(BaseModel):
 
 @router.put("/admin/dashboard-styles")
 async def set_styles(payload: DashStylesIn, user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     await server.db.dashboard_styles.update_one(
         {"_id": "active"}, {"$set": payload.model_dump()}, upsert=True,

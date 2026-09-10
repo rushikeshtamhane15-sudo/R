@@ -414,7 +414,7 @@ async def get_restaurant_theme():
 
 @router.put("/admin/restaurant/theme")
 async def put_restaurant_theme(payload: RestaurantTheme, user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     update = {k: v for k, v in payload.model_dump(exclude_none=True).items()}
     update["updated_at"] = server.iso(server.now_utc())
@@ -434,14 +434,14 @@ async def put_restaurant_theme(payload: RestaurantTheme, user: server.User = Dep
 # ---------------------------------------------------------------------------
 @router.get("/admin/restaurant/menu")
 async def admin_menu(user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     return {"items": await _load_menu()}
 
 
 @router.put("/admin/restaurant/menu")
 async def admin_save_menu(payload: MenuPatch, user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     seen_ids: set = set()
     cleaned: list[dict] = []
@@ -491,7 +491,7 @@ class VegCheckIn(BaseModel):
 async def admin_check_veg(payload: VegCheckIn, user: server.User = Depends(server.get_current_user)):
     """Lightweight veg/non-veg classifier used by the admin form to warn the
     admin BEFORE save if a name/description hits non-veg keywords."""
-    if user.role != "admin":
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     flagged = is_non_veg(payload.name, payload.description, payload.category)
     return {"is_non_veg": flagged, "is_veg": not flagged}
@@ -513,7 +513,7 @@ async def admin_generate_menu_image(
     The handler refuses to generate for non-veg items so we never accidentally
     embed a non-veg image on the storefront.
     """
-    if user.role != "admin":
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     if is_non_veg(payload.name, payload.description, payload.category):
         raise HTTPException(status_code=400, detail="Refusing to generate — non-veg item")
@@ -558,7 +558,7 @@ async def admin_generate_menu_image(
 
 @router.post("/admin/restaurant/menu/reset")
 async def admin_reset_menu(user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     await server.db.restaurant_menu_items.update_one(
         {"_id": "active"},
@@ -576,7 +576,7 @@ async def admin_upload_menu_image(
     """Iter-55: Persist admin-uploaded menu images as base64 data-URLs so they
     survive production redeploys (local disk gets wiped each release). We
     still optimise to WebP first for bandwidth, then encode."""
-    if user.role != "admin":
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     ext = _EXT_BY_MIME.get((file.content_type or "").lower())
     if not ext:
@@ -647,7 +647,7 @@ async def public_categories():
 
 @router.get("/admin/restaurant/categories")
 async def admin_categories(user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     return {"categories": await _load_categories()}
 
@@ -663,7 +663,7 @@ async def admin_save_categories(
     (admin replaces a name in-place). For server-side rename propagation, we
     diff the new list against the old list at the same index and treat
     different strings as renames."""
-    if user.role != "admin":
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     cleaned: list[str] = []
     seen: set = set()

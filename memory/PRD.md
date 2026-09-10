@@ -4,6 +4,39 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-158j/k — Mess-owner admin rights (broad widening) · Bug fixes (2026-02-05)
+**Status: DONE for 9 of 13 user asks — 34 pytest / 1 skip. Remaining: #2 pendency data, #4 reset buttons, #5 city auto-detect UI, #9 delivery page data model (defensively fixed).**
+
+### P0 Fixes
+- **#1 Super Admin dashboard not opening** → React Hooks crash in `BottomNav.jsx` (useState + useEffect placed AFTER an early return). Moved hooks above guard, verified webpack no longer shows "Compiled with problems" overlay on /login mobile viewport.
+- **#11 Footer edited by mess owner not reflecting on public login** → api.js axios interceptor now auto-injects `x-mess-id` header from `localStorage['efoodtech.mess.picked']`. Backend `GET /content/{key}` reads the header when `?mess_id=` is absent. Cross-verified via test: with header returns mess-scoped footer, without returns global.
+- **#9 KeyError crash in /admin/delivery/today** exposed after role-widening — `delivery/admin_roster.py` now defensively skips subscriptions missing plan_id/user_id instead of crashing the whole roster.
+
+### Mess-owner rights widened (via targeted sed + surgical server.py edits)
+- Files widened (`if user.role != "admin"` → `if user.role not in ("admin","mess_owner")`):
+  - `routes/restaurant.py` (9 endpoints — #3 restaurant page editor + #7 menu)
+  - `routes/dashboard_styles.py` (1 — #12 design tokens)
+  - `routes/app_cms.py` (7 — #6 P&L + #8 meal slots + #2 takeaway pendency)
+  - `routes/branding.py` (1 — brand logo)
+  - `routes/subscription_payment.py` (3 — cash collect assign/resend/delete)
+  - `routes/mess_menu_cal.py` (8)
+  - `routes/cash_analytics.py` (3 — kiosk cash pendency)
+  - `delivery/admin.py` (1 — #9 tiffin delivery)
+- `server.py`: /admin/theme, /admin/theme/reset, /admin/menu, /admin/dashboard/config, /admin/dashboard/config/reset now accept mess_owner.
+
+### #13 Login form even tinier
+- Outer max-width `260px`, card padding `px-3 py-3`, avatar bubble `40px`, chip row text `[9px]`.
+
+### Tests
+- `test_iter160_wave1.py` — 9 tests (login render, admin dashboard, 6 widened endpoints, x-mess-id scoping).
+- `test_iter160_wave2.py` — 8 tests (takeaway, delivery/today, cash pendency, kiosk cash, cash-collect assign/resend).
+- Combined with iter-158 suite: **34 passed / 1 skipped.**
+
+### Deferred (Wave 2 remainder)
+- #4 Reset buttons for Cash Collections + Partial Payments (needs new backend endpoints + UI buttons).
+- #5 Location pill auto-detect city + subscriber reflection of mess.lat/lng (LocationPill already auto-geolocates via Nominatim; needs UX polish to show only "City" when area is unknown + wire subscriber-side to mess.address).
+
+
 ## iter-158i — Content mess-scoping · Bottom-Nav toggle · Tinier login · Header redesign (2026-02-05)
 **Status: DONE — 17/18 pytest (1 skip) · Frontend compiled clean · 4 user asks shipped.**
 

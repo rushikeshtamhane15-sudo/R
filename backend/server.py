@@ -1476,8 +1476,8 @@ async def get_theme():
 
 @api_router.post("/admin/theme")
 async def update_theme(payload: ThemeUpdate, user: User = Depends(get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
+    if user.role not in ("admin", "mess_owner"):
+        raise HTTPException(status_code=403, detail="Admin or mess owner only")
     current = await _load_theme()
     if payload.brand_name is not None:
         current["brand_name"] = payload.brand_name.strip() or DEFAULT_THEME["brand_name"]
@@ -1491,8 +1491,8 @@ async def update_theme(payload: ThemeUpdate, user: User = Depends(get_current_us
 
 @api_router.post("/admin/theme/reset")
 async def reset_theme(user: User = Depends(get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
+    if user.role not in ("admin", "mess_owner"):
+        raise HTTPException(status_code=403, detail="Admin or mess owner only")
     await db.theme_settings.update_one({"_id": "active"}, {"$set": {**DEFAULT_THEME, "updated_at": iso(now_utc())}}, upsert=True)
     return DEFAULT_THEME
 
@@ -1730,9 +1730,6 @@ DEFAULT_CONTENT = {
 
 
 async def _load_content(key: str, mess_id: Optional[str] = None):
-    """iter-158i: per-mess content scoping.
-    Read order: mess-scoped doc (key + mess_id) → global doc (key, no mess_id) → default.
-    Missing global docs are lazy-seeded from DEFAULT_CONTENT so the app never 404s."""
     default = DEFAULT_CONTENT.get(key)
     # 1) mess-scoped
     if mess_id:
@@ -1779,7 +1776,10 @@ async def _resolve_content_mess_id(user: "User") -> Optional[str]:
 
 
 @api_router.get("/content/{key}")
-async def get_content(key: str, mess_id: Optional[str] = None):
+async def get_content(key: str, request: Request, mess_id: Optional[str] = None):
+    # iter-158j: infer mess from x-mess-id header when caller doesn't pass ?mess_id
+    if not mess_id:
+        mess_id = request.headers.get("x-mess-id") or None
     return await _load_content(key, mess_id=mess_id)
 
 
@@ -3165,8 +3165,8 @@ async def menu_today():
 
 @api_router.post("/admin/menu")
 async def set_menu(payload: MenuUpdateRequest, user: User = Depends(get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
+    if user.role not in ("admin", "mess_owner"):
+        raise HTTPException(status_code=403, detail="Admin or mess owner only")
     await db.menus.update_one(
         {"menu_date": payload.menu_date},
         {"$set": {
@@ -5052,8 +5052,8 @@ async def get_dashboard_config():
 
 @api_router.patch("/admin/dashboard/config")
 async def patch_dashboard_config(payload: DashboardConfigPatch, user: User = Depends(get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
+    if user.role not in ("admin", "mess_owner"):
+        raise HTTPException(status_code=403, detail="Admin or mess owner only")
     cur = await _load_dashboard_config()
     patch = {k: v for k, v in payload.dict(exclude_none=True).items()}
     if "sections" in patch:
@@ -5077,8 +5077,8 @@ async def patch_dashboard_config(payload: DashboardConfigPatch, user: User = Dep
 
 @api_router.post("/admin/dashboard/config/reset")
 async def reset_dashboard_config(user: User = Depends(get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
+    if user.role not in ("admin", "mess_owner"):
+        raise HTTPException(status_code=403, detail="Admin or mess owner only")
     await db.dashboard_config.update_one({"_id": "active"}, {"$set": DASHBOARD_DEFAULT_CONFIG}, upsert=True)
     return await _load_dashboard_config()
 

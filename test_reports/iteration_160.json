@@ -1,0 +1,31 @@
+{
+  "summary": "iter-160 Wave-1 regression + feature verification. (1) BottomNav React-hooks crash on /login (480x900 mobile) is FIXED — page renders cleanly, no webpack Compiled-with-problems overlay, login-form-card width == 260px. (2) /admin renders as super-admin — 'Super Admin' hero card + Dashboard/Overview visible. /super-admin/messes lists 11 mess rows with 'Messes on efoodtech' hero. (3) All 6 widened endpoints accept role=mess_owner: /admin/theme (POST), /admin/theme/reset, /admin/menu (POST), /admin/dashboard/config (PATCH), /admin/restaurant/theme (PUT), /admin/restaurant/menu (GET+PUT), /admin/meal-slots (PUT), /admin/pnl/expenses (GET+PUT) — none returned 403. (4) x-mess-id header scoping works: POST /admin/content/footer as mess_owner writes to mess-scoped doc; GET /content/footer without header returns global (brand differs), with x-mess-id returns mess-scoped brand. (5) 27 pytest tests: 26 passed, 1 skipped (pre-existing real-Razorpay signature skip). No regressions in iter-158 impersonation/wallet/pages/strict-login suites.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter160_wave1.py",
+    "/app/backend/tests/test_iter158_impersonate_wallet.py",
+    "/app/backend/tests/test_iter158ef_pages.py",
+    "/app/backend/tests/test_iter158h_strict_mess_login.py",
+    "/app/test_reports/pytest/iter160.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "BottomNav.jsx: hooks are now unconditionally at top before any early return — verified by rendering /login on mobile (previously crashed).",
+    "server.py L1778-1783: GET /content/{key} reads x-mess-id header when query mess_id is absent — verified by cross-request test (with/without header returns different brand_name).",
+    "server.py L1786-1810: POST /admin/content/{key} correctly resolves scope_mess_id via _resolve_content_mess_id — mess_owner writes to their own site_content doc; super-admin writes global.",
+    "routes/restaurant.py, app_cms.py, dashboard_styles.py, branding.py: role checks correctly widened to include 'mess_owner'.",
+    "Minor: /api/admin/meal-slots PUT returns 422 when payload wrapped in {slots: ...}; endpoint expects {lunch, dinner} at root. Not a bug — schema is stable — but E1 should ensure the frontend AdminMealSlots.jsx sends the flat shape.",
+    "Login card width matches spec (260px on 480x900 viewport)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter160_wave1.py (new — 9 tests covering wave-1 role widenings + x-mess-id footer scoping)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Super Admin phone 9970705391 (dev OTP echo). Tokens cached at /tmp/iter158_tokens.json. Fresh mess_owner is created per-test-module via POST /api/admin/messes + auto-promote OTP login.",
+  "seed_data_creation": "test_iter160_wave1.py creates one throwaway mess 'WaveTestMess *' per pytest module with a fresh owner_phone (94xxxxxxxx); not cleaned up but is inert and safely idempotent for reruns.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All Wave-1 items (#1, #3, #6, #7, #8, #10, #11, #12, #13) are green backend+frontend. Wave-2 items #2 (takeaway pendency), #4 (reset for cash collections/partial payments), #5 (location detection), #9 (tiffin delivery page not loading) NOT tested — deferred by E1. Auth is cookie-based (session_token httpOnly); Playwright must POST /api/auth/verify-otp via context.request to seed cookie before navigating to /admin.",
+  "rca of the issue": "Previously fixed by E1. Root cause of super-admin dashboard-not-opening was BottomNav.jsx invoking useState/useEffect AFTER an early return, violating React Rules of Hooks and crashing the entire app tree. Fix moved hooks above the guard. Verified render at 480x900 no longer produces the red webpack overlay."
+}

@@ -15,6 +15,22 @@ export const api = axios.create({
 let _asMessId = null;
 api.__setAsMessId = (id) => { _asMessId = id || null; };
 
+// iter-158j: also inject `x-mess-id` on every content/franchise/mess-owner
+// request so backend `/content/{key}` returns the mess-scoped version of
+// the page (footer, about, privacy, etc.). Falls back to picked mess in
+// localStorage for un-authenticated visitors.
+api.interceptors.request.use((config) => {
+  try {
+    const picked = JSON.parse(localStorage.getItem("efoodtech.mess.picked") || "null");
+    const mid = picked?.mess_id;
+    if (mid) {
+      config.headers = config.headers || {};
+      if (!config.headers["x-mess-id"]) config.headers["x-mess-id"] = mid;
+    }
+  } catch {}
+  return config;
+});
+
 api.interceptors.request.use((config) => {
   if (!_asMessId) return config;
   const url = config.url || "";

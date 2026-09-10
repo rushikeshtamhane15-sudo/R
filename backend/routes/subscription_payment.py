@@ -261,7 +261,7 @@ async def create_cash_order(payload: CashOrPartialIn, user: server.User = Depend
 
 @router.post("/admin/payments/cash-collect/assign")
 async def cash_assign(payload: AssignStaffIn, user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     staff = await server.db.users.find_one({"user_id": payload.staff_user_id}, {"_id": 0, "name": 1, "phone": 1, "role": 1})
     if not staff:
@@ -547,7 +547,7 @@ async def admin_pending_partials(user: server.User = Depends(server.get_current_
 @router.get("/admin/payments/staff-roster")
 async def admin_staff_roster(user: server.User = Depends(server.get_current_user)):
     """List of admin+staff users for the assignment dropdown."""
-    if user.role != "admin":
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     staff = await server.db.users.find(
         {"role": {"$in": ["admin", "staff"]}},
@@ -561,7 +561,7 @@ async def admin_staff_roster(user: server.User = Depends(server.get_current_user
 # ---------------------------------------------------------------------------
 @router.delete("/admin/payments/cash-collect/{order_id}")
 async def admin_cancel_cash_entry(order_id: str, user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     order = await server.db.payment_orders.find_one({"order_id": order_id}, {"_id": 0})
     if not order:

@@ -104,7 +104,7 @@ async def get_bottom_nav():
 
 @router.put("/admin/bottom-nav")
 async def put_bottom_nav(payload: BottomNavPatch, user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(403, "Admin only")
     update = {}
     for role in ("subscriber", "rider", "guest", "franchise"):
@@ -127,7 +127,7 @@ async def put_bottom_nav(payload: BottomNavPatch, user: server.User = Depends(se
 
 @router.post("/admin/bottom-nav/reset")
 async def reset_bottom_nav(user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(403, "Admin only")
     await server.db.app_config.delete_one({"_id": "bottom_nav"})
     return DEFAULT_BOTTOM_NAV
@@ -150,7 +150,7 @@ async def get_notify_sound():
 
 @router.put("/admin/notify-sound")
 async def put_notify_sound(payload: NotifySoundPatch, user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(403, "Admin only")
     url = payload.sound_url.strip()
     if not (url.startswith("https://") or url.startswith("data:audio/")):
@@ -166,7 +166,7 @@ async def put_notify_sound(payload: NotifySoundPatch, user: server.User = Depend
 
 @router.delete("/admin/notify-sound")
 async def reset_notify_sound(user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(403, "Admin only")
     await server.db.app_config.delete_one({"_id": "notify_sound"})
     return {"sound_url": ""}
@@ -323,7 +323,7 @@ async def get_header_menu():
 
 @router.put("/admin/header-menu")
 async def put_header_menu(payload: HeaderMenuPatch, user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(403, "Admin only")
     if len(payload.items) < 1 or len(payload.items) > 12:
         raise HTTPException(400, "1–12 items required")
@@ -339,7 +339,7 @@ async def put_header_menu(payload: HeaderMenuPatch, user: server.User = Depends(
 
 @router.post("/admin/header-menu/reset")
 async def reset_header_menu(user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(403, "Admin only")
     await server.db.app_config.delete_one({"_id": "header_menu"})
     return {"items": DEFAULT_HEADER_MENU}
@@ -374,7 +374,7 @@ async def get_expenses(user: server.User = Depends(server.get_current_user)):
 
 @router.put("/admin/pnl/expenses")
 async def put_expenses(payload: ExpenseConfig, user: server.User = Depends(server.get_current_user)):
-    if user.role != "admin":
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(403, "Admin only")
     await server.db.app_config.update_one(
         {"_id": "monthly_expenses"},

@@ -1,0 +1,28 @@
+{
+  "summary": "Wave-2 role-widening backend verification. 7/8 endpoints pass (role check widened correctly). GET /api/admin/delivery/today no longer returns 403 for mess_owner (role widening works) but throws 500 KeyError: 'plan_id' in delivery/admin_roster.py:32 — pre-existing data bug exposed once mess_owner can reach it.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "GET /api/admin/delivery/today", "issue": "500 KeyError: 'plan_id' at delivery/admin_roster.py:32 — uses sub['plan_id'] instead of sub.get('plan_id'); crashes when any active subscription lacks plan_id. Role widening worked (no 403) but this masked data bug now surfaces.", "priority": "HIGH"}
+    ],
+    "minor": []
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter160_wave2.py",
+    "/app/test_reports/pytest/wave2_results.xml"
+  ],
+  "action_items": [
+    "Fix delivery/admin_roster.py line 32: change plans.get(sub['plan_id']) → plans.get(sub.get('plan_id')) and add continue if plan_id missing, OR filter subs query to require plan_id. Then rerun test_delivery_today."
+  ],
+  "critical_code_review_comments": [
+    "delivery/admin_roster.py line 32/47 use direct dict indexing (sub['plan_id'], sub['user_id']) without .get() → any legacy/partial subscription record crashes the entire roster endpoint. Should defensively skip malformed subs."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter160_wave2.py"],
+  "success_rate": {"backend": "87.5% (7/8)", "frontend": "n/a"},
+  "test_credentials": "Super Admin phone 9970705391 (dev OTP echoed). Fresh mess_owner phones created per-run.",
+  "seed_data_creation": "Creates one fresh mess + fresh owner phone per pytest module via /api/admin/messes.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Wave-2 role widening PASSES on all 5 endpoint groups (takeaway pendency GET/manual/collect, delivery/today auth layer, pending-cash, kiosk staff-cash-pendency, cash-collect assign/resend-otp). The only failure is a pre-existing KeyError bug in delivery/admin_roster.generate_roster_for_date — not a role/scope issue. Once main agent fixes .get(), rerun pytest backend/tests/test_iter160_wave2.py.",
+  "rca of the issue": "delivery/admin_roster.py:32 does plans.get(sub['plan_id']) — direct subscript on subscription dict. Some active subscription in DB lacks plan_id key (likely a takeaway/legacy record) → KeyError → 500. Fix: use sub.get('plan_id') and `continue` when None, or filter query to {'status': 'active', 'plan_id': {'$exists': True}}."
+}

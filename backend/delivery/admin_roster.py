@@ -29,6 +29,10 @@ async def generate_roster_for_date(db, date_str: str) -> dict:
     created_lunch = created_dinner = 0
 
     for sub in subs:
+        # iter-158k: defensively skip malformed subs (legacy/incomplete rows
+        # missing plan_id / user_id) instead of crashing the whole roster.
+        if not sub.get("plan_id") or not sub.get("user_id"):
+            continue
         plan = plans.get(sub["plan_id"]) or {}
         service = sub.get("service_type") or plan.get("service_type") or (
             "tiffin" if plan.get("plan_type") == "delivery" else "dining"

@@ -26,6 +26,9 @@ export default function BottomNav() {
   const { user, setUser } = useAuth();
   const [config, setConfig] = useState(null);
   const [hasActiveSub, setHasActiveSub] = useState(false);
+  // iter-158i · Per-mess subscriber bottom-nav slot whitelist. MUST live
+  // above any early return to keep hook order stable across renders.
+  const [messNavSlots, setMessNavSlots] = useState(null);
 
   // Pull CMS config once. Errors silently fall back to defaults below.
   useEffect(() => {
@@ -33,8 +36,6 @@ export default function BottomNav() {
   }, []);
 
   // iter-131.26: check if the logged-in subscriber has an active subscription.
-  // For users WITHOUT a valid plan, the "Dashboard" tab is swapped to "Orders"
-  // (their more relevant destination), per user request.
   useEffect(() => {
     if (!user || user.role !== "subscriber") { setHasActiveSub(false); return; }
     api.get("/my/subscriptions").then((r) => {
@@ -43,8 +44,20 @@ export default function BottomNav() {
     }).catch(() => setHasActiveSub(false));
   }, [user]);
 
-  // iter-88 #1: mess_owner gets their own bottom nav (Dashboard /
-  // Account / Contact / Home / Logout). Other admins/staff/delivery still
+  // iter-158j · fetch per-mess bottom-nav slot list (hook must be top-level).
+  useEffect(() => {
+    if (user && (user.role === "admin" || user.role === "staff" || user.role === "delivery_boy" || user.role === "mess_owner" || user.role === "rider")) return;
+    let alive = true;
+    (async () => {
+      try {
+        const r = await api.get("/franchise/me/bottom-nav-slots");
+        if (alive) setMessNavSlots(r.data?.slots || null);
+      } catch (_e) { if (alive) setMessNavSlots(null); }
+    })();
+    return () => { alive = false; };
+  }, [user?.role, user?.mess_id]);
+
+  // iter-88 #1: mess_owner gets their own bottom nav. Other admins/staff/delivery
   // hide the bottom nav (they use the AdminLayout sidebar).
   if (user && (user.role === "admin" || user.role === "staff" || user.role === "delivery_boy")) return null;
 
@@ -58,21 +71,6 @@ export default function BottomNav() {
     toast.success("Logged out");
     navigate("/login", { replace: true });
   };
-
-  // iter-158i · Per-mess subscriber bottom-nav slot whitelist. Fetch once
-  // for subscribers so the tabs the mess owner unchecked disappear immediately.
-  const [messNavSlots, setMessNavSlots] = useState(null); // null = still loading / no filter
-  useEffect(() => {
-    if (role !== "subscriber" && role !== "guest") return;
-    let alive = true;
-    (async () => {
-      try {
-        const r = await api.get("/franchise/me/bottom-nav-slots");
-        if (alive) setMessNavSlots(r.data?.slots || null);
-      } catch (_e) { if (alive) setMessNavSlots(null); }
-    })();
-    return () => { alive = false; };
-  }, [role, user?.mess_id]);
 
   const nextParam = `?next=${encodeURIComponent(location.pathname + (location.search || ""))}`;
 
