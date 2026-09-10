@@ -59,6 +59,21 @@ export default function BottomNav() {
     navigate("/login", { replace: true });
   };
 
+  // iter-158i · Per-mess subscriber bottom-nav slot whitelist. Fetch once
+  // for subscribers so the tabs the mess owner unchecked disappear immediately.
+  const [messNavSlots, setMessNavSlots] = useState(null); // null = still loading / no filter
+  useEffect(() => {
+    if (role !== "subscriber" && role !== "guest") return;
+    let alive = true;
+    (async () => {
+      try {
+        const r = await api.get("/franchise/me/bottom-nav-slots");
+        if (alive) setMessNavSlots(r.data?.slots || null);
+      } catch (_e) { if (alive) setMessNavSlots(null); }
+    })();
+    return () => { alive = false; };
+  }, [role, user?.mess_id]);
+
   const nextParam = `?next=${encodeURIComponent(location.pathname + (location.search || ""))}`;
 
   // iter-88 #1: franchise nav fallback — uses the same item shape as the
@@ -74,6 +89,12 @@ export default function BottomNav() {
   ];
   let items = (config?.[role] || []).filter((it) => it.visible !== false);
   if (isFranchise && items.length === 0) items = FRANCHISE_FALLBACK;
+  // iter-158i · Per-mess whitelist for subscribers/guests. Items with a
+  // matching `id` outside the whitelist are dropped so the mess owner can
+  // hide tabs like "Contact" or "Nearby" without touching the CMS.
+  if ((role === "subscriber" || role === "guest") && Array.isArray(messNavSlots) && messNavSlots.length > 0) {
+    items = items.filter((it) => messNavSlots.includes(it.id));
+  }
   if (items.length === 0) return null;
 
   // iter-146 · efoodtech: inject "Nearby" (Top 5 messes) as a discovery tile

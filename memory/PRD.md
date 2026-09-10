@@ -4,6 +4,29 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-158i — Content mess-scoping · Bottom-Nav toggle · Tinier login · Header redesign (2026-02-05)
+**Status: DONE — 17/18 pytest (1 skip) · Frontend compiled clean · 4 user asks shipped.**
+
+### 1. "Admin only" bug on content editors → FIXED with per-mess scoping
+- `POST /admin/content/{key}` + `/reset` now accept `admin | mess_owner`. Mess owners (and impersonating super-admins) write to a mess-scoped `site_content` document (composite key `key + mess_id`); un-impersonated super-admins write the global default. Reads via `GET /content/{key}?mess_id=X` prefer per-mess and fall back to global. Every mess can now have its own footer / about / privacy / refund / contact / login CMS without touching another mess's copy.
+- Helper `_resolve_content_mess_id(user)` resolves the target mess from user role + impersonation session.
+- **Bonus P0 fix**: `/admin/messes/{id}/franchise-pages` and `/bottom-nav-slots` used `if not mess` after a projection that yielded `{}` for messes without the field set → wrongly 404'd 3 of 6 tenants. Now `if mess is None:` correctly.
+
+### 2. Super-admin messes header redesigned
+- Mobile-first: title + shield icon on one row, "Onboard new mess" CTA drops below on narrow screens (was crushing the title into character-per-line before). "SUPER ADMIN · PLATFORM ONBOARDING" collapsed to a single-line small caps.
+
+### 3. Login form made truly tiny
+- `max-width` dropped to `320px`, card padding `px-3.5 py-3.5`, avatar bubble 40px, chip row text-[9px], mounted with only `pb-12`. The form now fits comfortably in even the smallest viewport widths without wrapping.
+
+### 4. Bottom-nav per-mess toggle
+- Backend catalog `BOTTOM_NAV_SLOTS` (9 slots: home, nearby, dashboard, scan, restaurant, orders, subscribe, profile, contact) + 3 endpoints:
+  - `GET /admin/bottom-nav/slot-catalog`
+  - `GET /admin/messes/{id}/bottom-nav-slots`
+  - `PATCH /admin/messes/{id}/bottom-nav-slots`
+  - `GET /franchise/me/bottom-nav-slots` (for subscribers + impersonating admins)
+- Frontend: new "Nav" button on `/super-admin/messes` opens a Dialog (`nav-editor`) with checkboxes; `BottomNav.jsx` fetches `/franchise/me/bottom-nav-slots` and filters items by `id`, hiding tabs the mess owner disabled.
+
+
 ## iter-158h — Strict mess selection · Auto-promote owner · Messes page redesign (2026-02-05)
 **Status: DONE — 15 pytest / 1 skip (all previous + 3 new).**
 

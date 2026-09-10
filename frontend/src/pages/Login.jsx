@@ -198,17 +198,17 @@ export default function Login() {
         </div>
       )}
 
-      <div className="bg-white flex-1 px-4 sm:px-6 pt-5 pb-14">
-        <div className="max-w-sm mx-auto w-full relative z-10">
+      <div className="bg-white flex-1 px-4 sm:px-6 pt-4 pb-12">
+        <div className="max-w-[320px] mx-auto w-full relative z-10">
           {/* iter-158f · Green nutrient chip row (legacy eFoodCare hero feel, driven by CMS) */}
           {(c.chips || "").trim() && (
-            <div className="flex flex-wrap justify-center gap-1.5 mb-3" data-testid="login-chip-row">
+            <div className="flex flex-wrap justify-center gap-1 mb-2.5" data-testid="login-chip-row">
               {c.chips.split(",").map((raw, i) => {
                 const label = raw.trim();
                 if (!label) return null;
                 return (
-                  <span key={i} className="inline-flex items-center gap-1 rounded-full bg-emerald-600 text-white text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 shadow-sm" data-testid={`login-chip-${i}`}>
-                    <Check className="h-3 w-3 -ml-0.5" strokeWidth={3} />
+                  <span key={i} className="inline-flex items-center gap-1 rounded-full bg-emerald-600 text-white text-[9px] font-extrabold uppercase tracking-widest px-2 py-0.5 shadow-sm" data-testid={`login-chip-${i}`}>
+                    <Check className="h-2.5 w-2.5 -ml-0.5" strokeWidth={3} />
                     {label}
                   </span>
                 );
@@ -216,12 +216,12 @@ export default function Login() {
             </div>
           )}
 
-          {/* iter-158h · compact card (px-4 py-4 vs earlier px-5 py-6) */}
-          <div className="bg-white rounded-2xl px-4 py-4 sm:px-5 sm:py-5 shadow-xl border border-slate-200 relative" data-testid="login-form-card">
+          {/* iter-158i · ultra-compact card (px-3.5 py-3.5) */}
+          <div className="bg-white rounded-xl px-3.5 py-3.5 shadow-lg border border-slate-200 relative" data-testid="login-form-card">
             {/* iter-158f · Avatar bubble hovering at the top of the card */}
             {c.avatar_show !== false && (
               <div
-                className="absolute -top-6 left-1/2 -translate-x-1/2 h-12 w-12 rounded-full flex items-center justify-center shadow-lg ring-4 ring-white"
+                className="absolute -top-5 left-1/2 -translate-x-1/2 h-10 w-10 rounded-full flex items-center justify-center shadow-lg ring-[3px] ring-white"
                 style={{
                   background: `linear-gradient(135deg, ${c.icon_bg_color_start || "#fee2e2"}, ${c.icon_bg_color_end || "#fecaca"})`,
                   color: c.icon_color || "#a02323",
@@ -231,11 +231,11 @@ export default function Login() {
                 {c.avatar_url ? (
                   <img src={c.avatar_url} alt="" className="h-full w-full rounded-full object-cover" />
                 ) : (
-                  <UserIcon className="h-6 w-6" strokeWidth={2.25} />
+                  <UserIcon className="h-5 w-5" strokeWidth={2.25} />
                 )}
               </div>
             )}
-            <div className={c.avatar_show !== false ? "pt-6" : ""}>
+            <div className={c.avatar_show !== false ? "pt-5" : ""}>
             <AnimatePresence mode="wait">
               {!otpMode ? (
                 <motion.div key="single" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} data-testid="login-single-step">

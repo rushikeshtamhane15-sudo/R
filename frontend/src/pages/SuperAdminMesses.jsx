@@ -47,6 +47,9 @@ export default function SuperAdminMesses() {
   // iter-158e · Per-mess page whitelist editor (super-admin only).
   const [pagesEditor, setPagesEditor] = useState(null); // { messId, name, catalog[], selected[Set] }
   const [pagesBusy, setPagesBusy] = useState(false);
+  // iter-158i · Per-mess bottom-nav slot editor
+  const [navEditor, setNavEditor] = useState(null); // { messId, name, catalog[], selected[Set] }
+  const [navBusy, setNavBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -140,26 +143,62 @@ export default function SuperAdminMesses() {
   const allOn = () => setPagesEditor((s) => s ? { ...s, selected: new Set(s.catalog.map((p) => p.key)) } : s);
   const allOff = () => setPagesEditor((s) => s ? { ...s, selected: new Set() } : s);
 
+  // iter-158i · Bottom-nav slot editor handlers
+  const openNavEditor = async (m) => {
+    try {
+      const r = await api.get(`/admin/messes/${encodeURIComponent(m.mess_id)}/bottom-nav-slots`);
+      setNavEditor({
+        messId: m.mess_id, name: m.name,
+        catalog: r.data.catalog || [],
+        selected: new Set(r.data.slots || []),
+      });
+    } catch (e) { toast.error(e?.response?.data?.detail || "Failed to load bottom-nav slots"); }
+  };
+  const toggleNavSlot = (key) => {
+    setNavEditor((s) => {
+      if (!s) return s;
+      const next = new Set(s.selected);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return { ...s, selected: next };
+    });
+  };
+  const saveNavEditor = async () => {
+    if (!navEditor) return;
+    setNavBusy(true);
+    try {
+      await api.patch(`/admin/messes/${encodeURIComponent(navEditor.messId)}/bottom-nav-slots`, {
+        slots: Array.from(navEditor.selected),
+      });
+      toast.success(`Bottom-nav saved for ${navEditor.name}`);
+      setNavEditor(null);
+    } catch (e) { toast.error(e?.response?.data?.detail || "Save failed"); }
+    finally { setNavBusy(false); }
+  };
+
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-6" data-testid="super-admin-messes">
-      {/* Header */}
-      <div className="rounded-2xl bg-primary text-white p-5 shadow-lg">
-        <div className="flex items-start gap-3 flex-wrap">
-          <div className="h-11 w-11 rounded-xl bg-white/10 flex items-center justify-center">
-            <ShieldCheck className="h-6 w-6" />
+      {/* iter-158i · Header — mobile-first stacked layout so the "Onboard"
+          CTA never crushes the title text (the earlier flex-wrap made
+          "Messes on efoodtech" wrap character-by-character on narrow screens). */}
+      <div className="rounded-2xl bg-primary text-white p-4 sm:p-5 shadow-lg">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+            <ShieldCheck className="h-5 w-5" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-[10px] uppercase tracking-widest font-bold text-white/70">Super Admin · Platform Onboarding</div>
-            <div className="text-xl font-extrabold">Messes on efoodtech</div>
-            <div className="text-xs text-white/70 mt-0.5">{messes.length} tenant{messes.length === 1 ? "" : "s"} · SaaS multi-tenant</div>
+            <div className="text-[10px] uppercase tracking-widest font-bold text-white/70 truncate">Super Admin</div>
+            <div className="text-lg sm:text-xl font-extrabold leading-tight truncate">Messes on efoodtech</div>
+            <div className="text-[11px] text-white/80 mt-0.5">
+              {messes.length} tenant{messes.length === 1 ? "" : "s"} · SaaS multi-tenant
+            </div>
           </div>
-          {!showForm && (
-            <Button onClick={() => { setForm(EMPTY); setShowForm(true); setLastCreated(null); }}
-              className="rounded-xl bg-white text-primary hover:bg-white/90 font-semibold" data-testid="new-mess-btn">
-              <Plus className="h-4 w-4 mr-1.5" /> Onboard new mess
-            </Button>
-          )}
         </div>
+        {!showForm && (
+          <Button onClick={() => { setForm(EMPTY); setShowForm(true); setLastCreated(null); }}
+            className="w-full sm:w-auto mt-3 sm:mt-3 rounded-xl bg-white text-primary hover:bg-white/90 font-semibold" data-testid="new-mess-btn">
+            <Plus className="h-4 w-4 mr-1.5" /> Onboard new mess
+          </Button>
+        )}
       </div>
 
           {/* Last created ribbon + WhatsApp welcome */}
@@ -367,6 +406,9 @@ export default function SuperAdminMesses() {
                   <Button size="sm" variant="outline" onClick={() => openPagesEditor(m)} className="flex-1 min-w-[7.5rem] rounded-xl" data-testid={`pages-${m.mess_id}`}>
                     <ListChecks className="h-3.5 w-3.5 mr-1.5" /> Pages
                   </Button>
+                  <Button size="sm" variant="outline" onClick={() => openNavEditor(m)} className="flex-1 min-w-[7.5rem] rounded-xl" data-testid={`nav-${m.mess_id}`}>
+                    <ListChecks className="h-3.5 w-3.5 mr-1.5" /> Nav
+                  </Button>
                   <Button size="sm" variant="outline" onClick={() => toggleStatus(m)} className="flex-1 min-w-[7.5rem] rounded-xl" data-testid={`toggle-${m.mess_id}`}>
                     {m.status === "active" ? (<><PowerOff className="h-3.5 w-3.5 mr-1.5" /> Suspend</>) : (<><Power className="h-3.5 w-3.5 mr-1.5" /> Activate</>)}
                   </Button>
@@ -422,6 +464,49 @@ export default function SuperAdminMesses() {
                 <Button variant="outline" onClick={() => setPagesEditor(null)} className="rounded-xl">Cancel</Button>
                 <Button onClick={savePagesEditor} disabled={pagesBusy} className="rounded-xl bg-primary hover:bg-primary/90 text-white" data-testid="pages-save-btn">
                   {pagesBusy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                  Save
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* iter-158i · Per-mess subscriber bottom-nav slot editor */}
+      <Dialog open={!!navEditor} onOpenChange={(o) => !o && setNavEditor(null)}>
+        <DialogContent className="max-w-md" data-testid="nav-editor">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ListChecks className="h-5 w-5 text-primary" />
+              Subscriber bottom-nav · {navEditor?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Pick the tabs that appear on the subscriber bottom-nav for this mess.
+              Applies immediately on save.
+            </DialogDescription>
+          </DialogHeader>
+          {navEditor && (
+            <>
+              <div className="flex items-center gap-2 pb-2 border-b border-slate-100 text-[11px]">
+                <span className="text-slate-500">Max 5 tabs render on mobile · pick your top ones.</span>
+                <span className="ml-auto text-slate-500">{navEditor.selected.size} / {navEditor.catalog.length} enabled</span>
+              </div>
+              <div className="max-h-[45vh] overflow-y-auto grid grid-cols-1 gap-1 py-2">
+                {navEditor.catalog.map((p) => {
+                  const on = navEditor.selected.has(p.key);
+                  return (
+                    <label key={p.key} className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-slate-50 ${on ? "bg-emerald-50/50" : ""}`} data-testid={`nav-slot-${p.key}`}>
+                      <input type="checkbox" checked={on} onChange={() => toggleNavSlot(p.key)} className="h-4 w-4 accent-primary" />
+                      <span className="flex-1 min-w-0 text-sm text-slate-800 truncate">{p.label}</span>
+                      <span className="font-mono text-[10px] text-slate-400">{p.key}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setNavEditor(null)} className="rounded-xl">Cancel</Button>
+                <Button onClick={saveNavEditor} disabled={navBusy} className="rounded-xl bg-primary hover:bg-primary/90 text-white" data-testid="nav-save-btn">
+                  {navBusy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                   Save
                 </Button>
               </DialogFooter>

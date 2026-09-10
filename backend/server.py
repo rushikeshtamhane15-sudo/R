@@ -1729,19 +1729,30 @@ DEFAULT_CONTENT = {
 }
 
 
-async def _load_content(key: str):
+async def _load_content(key: str, mess_id: Optional[str] = None):
+    """iter-158i: per-mess content scoping.
+    Read order: mess-scoped doc (key + mess_id) → global doc (key, no mess_id) → default.
+    Missing global docs are lazy-seeded from DEFAULT_CONTENT so the app never 404s."""
     default = DEFAULT_CONTENT.get(key)
-    doc = await db.site_content.find_one({"key": key}, {"_id": 0})
+    # 1) mess-scoped
+    if mess_id:
+        mdoc = await db.site_content.find_one({"key": key, "mess_id": mess_id}, {"_id": 0})
+        if mdoc:
+            existing = mdoc.get("data", {}) or {}
+            if isinstance(default, dict):
+                return {**default, **existing}
+            return existing
+    # 2) global fallback
+    doc = await db.site_content.find_one({"key": key, "mess_id": {"$in": [None, "__global__"]}}, {"_id": 0}) \
+        or await db.site_content.find_one({"key": key, "mess_id": {"$exists": False}}, {"_id": 0})
     if doc:
         existing = doc.get("data", {}) or {}
         if isinstance(default, dict):
-            # Merge default for any missing keys so schema upgrades flow through
-            merged = {**default, **existing}
-            return merged
+            return {**default, **existing}
         return existing
     if default is None:
         raise HTTPException(status_code=404, detail="Unknown content key")
-    await db.site_content.insert_one({"key": key, "data": default, "updated_at": iso(now_utc())})
+    await db.site_content.insert_one({"key": key, "mess_id": None, "data": default, "updated_at": iso(now_utc())})
     return default
 
 
@@ -1749,25 +1760,40 @@ class ContentUpdate(BaseModel):
     data: dict
 
 
+async def _resolve_content_mess_id(user: "User") -> Optional[str]:
+    """Return the mess_id whose content the caller should write to.
+    - mess_owner: their own mess.
+    - admin actively impersonating: the impersonated mess.
+    - admin not impersonating: None → writes global content.
+    """
+    if user.role == "mess_owner":
+        m = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+        return (m or {}).get("mess_id")
+    if user.role == "admin":
+        s = await db.user_sessions.find_one(
+            {"user_id": user.user_id, "impersonate_mess_id": {"$exists": True}},
+            {"_id": 0, "impersonate_mess_id": 1},
+        )
+        return (s or {}).get("impersonate_mess_id")
+    return None
+
+
 @api_router.get("/content/{key}")
-async def get_content(key: str):
-    return await _load_content(key)
+async def get_content(key: str, mess_id: Optional[str] = None):
+    return await _load_content(key, mess_id=mess_id)
 
 
 @api_router.post("/admin/content/{key}")
 async def update_content(key: str, payload: ContentUpdate, user: User = Depends(get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
+    # iter-158i: mess_owner AND impersonating super-admin can edit their
+    # mess's version of any content page. Un-impersonated super-admins
+    # write the global default that new messes inherit.
+    if user.role not in ("admin", "mess_owner"):
+        raise HTTPException(status_code=403, detail="Admin or mess owner only")
     if key not in DEFAULT_CONTENT:
         raise HTTPException(status_code=400, detail="Unknown content key")
-    current = await _load_content(key)
-    # Iter-57 fix: honor whatever the admin saves — including explicit empty
-    # strings. Previously this endpoint silently dropped "" so when an admin
-    # cleared the login heading, the default re-appeared on every reload.
-    # Auto-reset is still available via POST /admin/content/{key}/reset.
-    # We still strip "" for *color* / *bg* / *fg* keys because an empty CSS
-    # value would render no color and break the UI; for text fields, "" means
-    # "I want this gone, don't render it" — exactly what the admin asked for.
+    scope_mess_id = await _resolve_content_mess_id(user)
+    current = await _load_content(key, mess_id=scope_mess_id)
     defaults = DEFAULT_CONTENT.get(key, {})
     incoming = dict(payload.data or {})
     for k, v in list(incoming.items()):
@@ -1777,19 +1803,24 @@ async def update_content(key: str, payload: ContentUpdate, user: User = Depends(
                 incoming.pop(k)
     merged = {**current, **incoming}
     await db.site_content.update_one(
-        {"key": key}, {"$set": {"key": key, "data": merged, "updated_at": iso(now_utc())}}, upsert=True,
+        {"key": key, "mess_id": scope_mess_id},
+        {"$set": {"key": key, "mess_id": scope_mess_id, "data": merged, "updated_at": iso(now_utc())}},
+        upsert=True,
     )
     return merged
 
 
 @api_router.post("/admin/content/{key}/reset")
 async def reset_content(key: str, user: User = Depends(get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
+    if user.role not in ("admin", "mess_owner"):
+        raise HTTPException(status_code=403, detail="Admin or mess owner only")
     if key not in DEFAULT_CONTENT:
         raise HTTPException(status_code=400, detail="Unknown content key")
+    scope_mess_id = await _resolve_content_mess_id(user)
     await db.site_content.update_one(
-        {"key": key}, {"$set": {"key": key, "data": DEFAULT_CONTENT[key], "updated_at": iso(now_utc())}}, upsert=True,
+        {"key": key, "mess_id": scope_mess_id},
+        {"$set": {"key": key, "mess_id": scope_mess_id, "data": DEFAULT_CONTENT[key], "updated_at": iso(now_utc())}},
+        upsert=True,
     )
     return DEFAULT_CONTENT[key]
 
@@ -6222,6 +6253,85 @@ async def franchise_my_visible_sections(user: User = Depends(get_current_user)):
 # Admin chooses which admin nav pages a franchise owner can see.
 # =====================================================================
 
+# iter-158i: subscriber bottom-nav slot catalog (per-mess toggle). Super-admin
+# picks which of these appear in the subscriber bottom-nav for each mess.
+BOTTOM_NAV_SLOT_KEYS = ["home", "nearby", "dashboard", "scan", "restaurant", "orders", "subscribe", "profile", "contact"]
+BOTTOM_NAV_SLOTS = [
+    {"key": "home",       "label": "Home"},
+    {"key": "nearby",     "label": "Nearby messes"},
+    {"key": "dashboard",  "label": "Dashboard"},
+    {"key": "scan",       "label": "Scan & eat"},
+    {"key": "restaurant", "label": "Restaurant menu"},
+    {"key": "orders",     "label": "My orders"},
+    {"key": "subscribe",  "label": "Subscribe"},
+    {"key": "profile",    "label": "Profile"},
+    {"key": "contact",    "label": "Contact"},
+]
+
+
+class BottomNavSlotsIn(BaseModel):
+    slots: List[str] = Field(default_factory=list)
+
+
+@api_router.get("/admin/bottom-nav/slot-catalog")
+async def bottom_nav_slot_catalog(user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    return {"slots": BOTTOM_NAV_SLOTS}
+
+
+@api_router.get("/admin/messes/{mess_id}/bottom-nav-slots")
+async def admin_get_bottom_nav_slots(mess_id: str, user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    mess = await db.messes.find_one(
+        {"mess_id": mess_id}, {"_id": 0, "mess_id": 1, "bottom_nav_slots": 1}
+    )
+    if mess is None:
+        raise HTTPException(status_code=404, detail="Mess not found")
+    slots = mess.get("bottom_nav_slots")
+    if slots is None:
+        slots = [s["key"] for s in BOTTOM_NAV_SLOTS]
+    return {"slots": slots, "catalog": BOTTOM_NAV_SLOTS}
+
+
+@api_router.patch("/admin/messes/{mess_id}/bottom-nav-slots")
+async def admin_set_bottom_nav_slots(mess_id: str, payload: BottomNavSlotsIn, user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    invalid = [s for s in payload.slots if s not in BOTTOM_NAV_SLOT_KEYS]
+    if invalid:
+        raise HTTPException(status_code=400, detail=f"Unknown slots: {invalid}")
+    res = await db.messes.update_one(
+        {"mess_id": mess_id},
+        {"$set": {"bottom_nav_slots": payload.slots, "updated_at": iso(now_utc())}},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Mess not found")
+    return {"ok": True, "slots": payload.slots}
+
+
+@api_router.get("/franchise/me/bottom-nav-slots")
+async def franchise_my_bottom_nav_slots(user: User = Depends(get_current_user)):
+    """Public-ish: subscriber's mess bottom-nav slot list. Falls back to full catalog."""
+    target_mess_id = None
+    if user.role == "admin":
+        s = await db.user_sessions.find_one(
+            {"user_id": user.user_id, "impersonate_mess_id": {"$exists": True}},
+            {"_id": 0, "impersonate_mess_id": 1},
+        )
+        target_mess_id = (s or {}).get("impersonate_mess_id")
+    else:
+        target_mess_id = user.mess_id
+    if not target_mess_id:
+        return {"slots": [s["key"] for s in BOTTOM_NAV_SLOTS]}
+    mess = await db.messes.find_one({"mess_id": target_mess_id}, {"_id": 0, "bottom_nav_slots": 1})
+    slots = (mess or {}).get("bottom_nav_slots")
+    if slots is None:
+        slots = [s["key"] for s in BOTTOM_NAV_SLOTS]
+    return {"slots": slots}
+
+
 @api_router.get("/admin/franchise/pages-catalog")
 async def admin_franchise_pages_catalog(user: User = Depends(get_current_user)):
     """Catalog of every page key + label that can be toggled per mess."""
@@ -6234,8 +6344,14 @@ async def admin_franchise_pages_catalog(user: User = Depends(get_current_user)):
 async def admin_get_franchise_pages(mess_id: str, user: User = Depends(get_current_user)):
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
-    mess = await db.messes.find_one({"mess_id": mess_id}, {"_id": 0, "franchise_visible_pages": 1})
-    if not mess:
+    # iter-158i: use projection {mess_id:1, franchise_visible_pages:1} so we
+    # can distinguish "doc missing" (None) from "doc present but field never
+    # set" (returns {} → falsy). Previously `if not mess` mis-flagged legacy
+    # messes as 404.
+    mess = await db.messes.find_one(
+        {"mess_id": mess_id}, {"_id": 0, "mess_id": 1, "franchise_visible_pages": 1}
+    )
+    if mess is None:
         raise HTTPException(status_code=404, detail="Mess not found")
     pages = mess.get("franchise_visible_pages")
     # null/empty → return defaults so the UI can show every page checked initially.
