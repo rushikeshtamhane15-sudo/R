@@ -1,0 +1,21 @@
+{
+  "summary": "Retest for iter-163 HIGH bug fix (mess_id null on manual takeaway pendency inserts under admin impersonation). All 6 iter-163 tests PASS. Regression suite (iter-158*, iter-160*, iter-158l, iter-163) = 43 passed, 1 skipped (0 fails). Explicit round-trip (impersonate mess_a → POST manual → GET list) confirms row.mess_id == impersonated mess (not null).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter163_mess_scoping.py",
+    "/app/test_reports/pytest/iter164_regression.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "effective_mess_id (server.py L5197-5210) and _resolve_target_mess (tiffin_stock.py L137-158) now correctly honor db.user_sessions.impersonate_mess_id for admin role. Fix is consistent across both call sites — good."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "N/A (backend-only test)"},
+  "test_credentials": "Super Admin phone 9970705391 (dev OTP echoed via /api/auth/send-otp).",
+  "seed_data_creation": "One takeaway pendency row created under efoodcare-amravati for round-trip verification (pendency_id rtp_manual_0ee2278fc5).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter-163 HIGH bug is fully resolved. Manual takeaway pendency inserts now stamp mess_id from impersonation session correctly. Regression clean at 43 passed / 1 skipped.",
+  "rca of the issue": "Prior code path resolved mess_id from user's own users.mess_id record, which for a super-admin is null. Fix now reads db.user_sessions.impersonate_mess_id for admin role in both effective_mess_id() and _resolve_target_mess() so writes get correctly scoped under active impersonation. Verified via round-trip POST → GET on /api/admin/restaurant/takeaway-pendency/manual."
+}

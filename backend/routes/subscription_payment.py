@@ -564,10 +564,26 @@ async def clear_partial_balance(sub_id: str = Body(..., embed=True), amount: flo
 async def admin_pending_cash(user: server.User = Depends(server.get_current_user)):
     if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
-    rows = await server.db.payment_orders.find(
-        {"status": "pending_cash"}, {"_id": 0, "cash_otp": 0},  # never expose OTP server-side
-    ).sort("created_at", -1).to_list(200)
-    # Enrich with user name/phone
+    # iter-158n: scope by caller's mess (mess_owner → their mess; admin →
+    # impersonated mess if any, else global; staff → user.mess_id).
+    scope_mess_id = None
+    if user.role == "mess_owner":
+        m = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+        scope_mess_id = (m or {}).get("mess_id")
+    elif user.role == "admin":
+        s = await server.db.user_sessions.find_one(
+            {"user_id": user.user_id, "impersonate_mess_id": {"$exists": True}},
+            {"_id": 0, "impersonate_mess_id": 1},
+        )
+        scope_mess_id = (s or {}).get("impersonate_mess_id")
+    else:
+        scope_mess_id = user.mess_id
+    q = {"status": "pending_cash"}
+    if scope_mess_id:
+        # Filter by users belonging to this mess
+        uids = [u["user_id"] async for u in server.db.users.find({"mess_id": scope_mess_id}, {"_id": 0, "user_id": 1})]
+        q["user_id"] = {"$in": uids or ["__none__"]}
+    rows = await server.db.payment_orders.find(q, {"_id": 0, "cash_otp": 0}).sort("created_at", -1).to_list(200)
     user_ids = list({r["user_id"] for r in rows})
     users = {u["user_id"]: u async for u in server.db.users.find({"user_id": {"$in": user_ids}}, {"_id": 0, "user_id": 1, "name": 1, "phone": 1})}
     for r in rows:
@@ -582,9 +598,24 @@ async def admin_pending_cash(user: server.User = Depends(server.get_current_user
 async def admin_pending_partials(user: server.User = Depends(server.get_current_user)):
     if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin/staff only")
-    subs = await server.db.subscriptions.find(
-        {"pending_amount": {"$gt": 0}}, {"_id": 0},
-    ).sort("created_at", -1).to_list(500)
+    # iter-158n: same mess-scoping as pending-cash.
+    scope_mess_id = None
+    if user.role == "mess_owner":
+        m = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+        scope_mess_id = (m or {}).get("mess_id")
+    elif user.role == "admin":
+        s = await server.db.user_sessions.find_one(
+            {"user_id": user.user_id, "impersonate_mess_id": {"$exists": True}},
+            {"_id": 0, "impersonate_mess_id": 1},
+        )
+        scope_mess_id = (s or {}).get("impersonate_mess_id")
+    else:
+        scope_mess_id = user.mess_id
+    q = {"pending_amount": {"$gt": 0}}
+    if scope_mess_id:
+        uids = [u["user_id"] async for u in server.db.users.find({"mess_id": scope_mess_id}, {"_id": 0, "user_id": 1})]
+        q["user_id"] = {"$in": uids or ["__none__"]}
+    subs = await server.db.subscriptions.find(q, {"_id": 0}).sort("created_at", -1).to_list(500)
     user_ids = list({s["user_id"] for s in subs})
     users = {u["user_id"]: u async for u in server.db.users.find({"user_id": {"$in": user_ids}}, {"_id": 0, "user_id": 1, "name": 1, "phone": 1})}
     for s in subs:
@@ -593,6 +624,35 @@ async def admin_pending_partials(user: server.User = Depends(server.get_current_
         s["customer_phone"] = u.get("phone") or ""
     total_pending = sum(float(s.get("pending_amount") or 0) for s in subs)
     return {"rows": subs, "count": len(subs), "total_pending": round(total_pending, 2)}
+
+
+@router.post("/admin/partial-payments/reset")
+async def admin_reset_partial_payments(dry_run: bool = False, user: server.User = Depends(server.get_current_user)):
+    """iter-158n: clear pending_amount on all subs for the caller's mess."""
+    if user.role not in ("admin", "mess_owner"):
+        raise HTTPException(status_code=403, detail="Admin or mess owner only")
+    scope_mess_id = None
+    if user.role == "mess_owner":
+        m = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+        scope_mess_id = (m or {}).get("mess_id")
+        if not scope_mess_id:
+            raise HTTPException(status_code=403, detail="No mess owned by your account")
+    else:
+        s = await server.db.user_sessions.find_one(
+            {"user_id": user.user_id, "impersonate_mess_id": {"$exists": True}},
+            {"_id": 0, "impersonate_mess_id": 1},
+        )
+        scope_mess_id = (s or {}).get("impersonate_mess_id")
+    q = {"pending_amount": {"$gt": 0}}
+    if scope_mess_id:
+        uids = [u["user_id"] async for u in server.db.users.find({"mess_id": scope_mess_id}, {"_id": 0, "user_id": 1})]
+        q["user_id"] = {"$in": uids or ["__none__"]}
+    matches = await server.db.subscriptions.count_documents(q)
+    if dry_run:
+        return {"ok": True, "dry_run": True, "would_clear": matches, "mess_id": scope_mess_id}
+    if matches:
+        await server.db.subscriptions.update_many(q, {"$set": {"pending_amount": 0, "partial_cleared_at": server.iso(server.now_utc()), "partial_cleared_by": user.user_id}})
+    return {"ok": True, "cleared": matches, "mess_id": scope_mess_id}
 
 
 @router.get("/admin/payments/staff-roster")

@@ -493,7 +493,7 @@ async def admin_assign_rider(order_id: str, payload: AssignRider, user: server.U
 
 @router.get("/admin/cash-reconcile/pending")
 async def admin_cash_pending(user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(403, "Admin or staff only")
     pipeline = [
         {"$match": {"payment_mode": "cash", "cash_reconciled": False, "status": "delivered"}},
@@ -512,7 +512,7 @@ async def admin_cash_pending(user: server.User = Depends(server.get_current_user
 @router.post("/admin/cash-reconcile/issue-otp")
 async def admin_issue_cash_otp(payload: AssignRider, user: server.User = Depends(server.get_current_user)):
     """Admin generates OTP, system sends to rider's phone. Rider enters → cash cleared."""
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(403, "Admin or staff only")
     rider = await server.db.users.find_one({"user_id": payload.rider_user_id, "role": "rider"}, {"_id": 0})
     if not rider:

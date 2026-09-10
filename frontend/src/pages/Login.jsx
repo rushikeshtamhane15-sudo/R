@@ -198,7 +198,8 @@ export default function Login() {
         </div>
       )}
 
-      <div className="bg-white flex-1 px-4 sm:px-6 pt-3 pb-10">
+      {/* iter-158n · shrink vertical padding further */}
+      <div className="bg-white flex-1 px-4 sm:px-6 pt-2 pb-6">
         <div className="max-w-[260px] mx-auto w-full relative z-10">
           {/* iter-158f · Green nutrient chip row (legacy eFoodCare hero feel, driven by CMS) */}
           {(c.chips || "").trim() && (
@@ -216,8 +217,8 @@ export default function Login() {
             </div>
           )}
 
-          {/* iter-158j · truly tiny — 260px max, h-9 inputs, tight spacing */}
-          <div className="bg-white rounded-xl px-3 py-3 shadow-lg border border-slate-200 relative" data-testid="login-form-card">
+          {/* iter-158n · ultra-slim card padding */}
+          <div className="bg-white rounded-xl px-3 py-2 shadow-lg border border-slate-200 relative" data-testid="login-form-card">
             {/* iter-158f · Avatar bubble hovering at the top of the card */}
             {c.avatar_show !== false && (
               <div

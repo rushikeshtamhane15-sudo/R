@@ -137,11 +137,25 @@ def _admin_or_staff(user):
 async def _resolve_target_mess(user, mess_id_param: Optional[str]) -> Optional[str]:
     """Determine which branch's stock the caller is touching:
     - mess_owner → always their own mess (ignore the query param).
-    - admin/staff → respect the ?mess_id= param (or None = legacy global).
+    - admin/staff → respect the ?mess_id= param, else admin impersonation session.
+    iter-158o: previously admins always got None (HQ) even while impersonating,
+    silently mis-tagging manual take-away pendency rows.
     """
     if user.role == "mess_owner":
         return await _resolve_mess_for_user(user)
-    return mess_id_param
+    if mess_id_param:
+        return mess_id_param
+    if user.role == "admin":
+        try:
+            s = await server.db.user_sessions.find_one(
+                {"user_id": user.user_id, "impersonate_mess_id": {"$exists": True}},
+                {"_id": 0, "impersonate_mess_id": 1},
+            )
+            if s and s.get("impersonate_mess_id"):
+                return s["impersonate_mess_id"]
+        except Exception:  # noqa: BLE001
+            pass
+    return None
 
 
 @router.get("/admin/tiffin-stock")

@@ -1777,9 +1777,23 @@ async def _resolve_content_mess_id(user: "User") -> Optional[str]:
 
 @api_router.get("/content/{key}")
 async def get_content(key: str, request: Request, mess_id: Optional[str] = None):
-    # iter-158j: infer mess from x-mess-id header when caller doesn't pass ?mess_id
+    # iter-158j/n: prefer explicit ?mess_id then x-mess-id header. For
+    # authenticated users, fall back to their mess_id so a logged-in
+    # subscriber sees their mess's footer/about/etc. Logged-out visitors
+    # see the global default.
     if not mess_id:
         mess_id = request.headers.get("x-mess-id") or None
+    if not mess_id:
+        # Try to infer from session token cookie
+        try:
+            tok = request.cookies.get("session_token") or (request.headers.get("authorization") or "").replace("Bearer ", "").strip()
+            if tok:
+                sess = await db.user_sessions.find_one({"token": tok}, {"_id": 0, "user_id": 1})
+                if sess:
+                    u = await db.users.find_one({"user_id": sess["user_id"]}, {"_id": 0, "mess_id": 1})
+                    mess_id = (u or {}).get("mess_id") or None
+        except Exception:  # noqa: BLE001
+            pass
     return await _load_content(key, mess_id=mess_id)
 
 
@@ -5182,11 +5196,20 @@ async def effective_mess_id(user: User, as_mess_id: Optional[str] = None) -> Opt
         return m["mess_id"]
     if user.role in ("admin", "staff"):
         if as_mess_id:
-            # Verify the mess exists so admins don't accidentally filter into nothing.
             exists = await db.messes.find_one({"mess_id": as_mess_id}, {"_id": 0, "mess_id": 1})
             if not exists:
                 raise HTTPException(status_code=404, detail=f"Unknown mess: {as_mess_id}")
             return as_mess_id
+        # iter-158o: for admin, honor active impersonation session so scoped
+        # writes/reads target the impersonated mess (was returning None →
+        # global scope, breaking manual takeaway pendency + list scoping).
+        if user.role == "admin":
+            s = await db.user_sessions.find_one(
+                {"user_id": user.user_id, "impersonate_mess_id": {"$exists": True}},
+                {"_id": 0, "impersonate_mess_id": 1},
+            )
+            if s and s.get("impersonate_mess_id"):
+                return s["impersonate_mess_id"]
         return None  # HQ-global view
     raise HTTPException(status_code=403, detail="Not allowed")
 

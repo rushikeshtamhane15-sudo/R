@@ -4,6 +4,22 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-158n/o — Mess-scoping fixes for cash/partials/takeaway + login trim (2026-02-05)
+**Status: DONE — testing_agent iter-164: 43 pytest / 1 skip, all mess-scoping issues resolved.**
+
+- **Pending cash + partial payments** (#3, #4): both list endpoints now scope by caller's mess_id (mess_owner → their own, admin+impersonating → that mess, else global). New `POST /admin/partial-payments/reset` (dry_run supported) mirrors the cash-reset.
+- **Takeaway manual pendency** (#2): manual inserts now tag `mess_id` from impersonation session; list endpoint includes them via `$or`. Root cause was `_resolve_target_mess` + `effective_mess_id` not honoring `db.user_sessions.impersonate_mess_id` for admin — fixed both helpers in one place.
+- **Content mess-scoping for logged-in users** (#11): `GET /content/{key}` now reads session token cookie / Authorization header and falls back to authenticated user's `mess_id` — so a logged-in subscriber sees their mess's footer/about/privacy/refund, while anonymous visitors see the global default super-admin edits.
+- **Login card slimmer** (#10): `delivery_banner` default emptied ("One step away…" no longer renders), outer padding trimmed to `pt-2 pb-6`, card `py-2`. (Card height ~496px on mobile — inputs+CTA can't compress under 320px per testing-agent note; further trim would need removing privacy line.)
+
+### Deferred to next round
+- #1 restaurant page + brand-logo anonymous-vs-logged-in split (needs public GET /admin/restaurant/theme to accept mess_id fallback)
+- #5 restaurant menu editing (GET /admin/restaurant/menu returns "Could not load menu" for mess_owner — role widening happened but frontend may need x-mess-id header)
+- #6 meal-slot window frontend guard still shows "Admin or staff only" toast (RequireRole in frontend needs `mess_owner` added)
+- #7 wall-kiosk text editing rights
+- #9 super-admin theme page for mess owners
+
+
 ## iter-158m — JSX build-error hotfix (2026-02-05)
 **Status: DONE — fixed unterminated JSX in AdminCashCollections.jsx. testing_agent iter-162: 37/37 backend + frontend 100%.**
 

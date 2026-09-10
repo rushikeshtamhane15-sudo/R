@@ -219,7 +219,16 @@ async def list_takeaway_pendency(user: server.User = Depends(server.get_current_
         raise HTTPException(403, "Admin or staff only")
     mid = await server.effective_mess_id(user, as_mess_id)
     user_ids = await server._users_in_mess(mid)
-    q: dict = {} if user_ids is None else {"user_id": {"$in": user_ids}}
+    # iter-158n: include manual pendency rows (user_id=None) tagged with
+    # this mess_id — the previous `user_id IN users_in_mess` filter dropped
+    # them because their user_id is null.
+    if user_ids is None:
+        q = {}
+    else:
+        or_clauses: list = [{"user_id": {"$in": user_ids}}]
+        if mid:
+            or_clauses.append({"mess_id": mid, "user_id": None})
+        q = {"$or": or_clauses}
     if collected is not None:
         q["collected"] = collected
     rows = await server.db.restaurant_tiffin_pendency.find(q, {"_id": 0}).sort("delivered_at", -1).to_list(500)
@@ -508,6 +517,7 @@ async def add_manual_takeaway(payload: ManualTakeaway, user: server.User = Depen
         "pendency_id": pid,
         "order_id": None,
         "user_id": None,
+        "mess_id": None,  # will be set below to the caller's mess
         "name": payload.name.strip(),
         "phone": payload.phone.strip(),
         "address": (payload.address or "").strip(),
@@ -518,6 +528,14 @@ async def add_manual_takeaway(payload: ManualTakeaway, user: server.User = Depen
         "manual_notes": payload.notes or "",
         "added_by": user.user_id,
     }
+    # iter-158n: tag the pendency row with the caller's mess_id so it appears
+    # in that mess's list — otherwise manual entries (user_id=None) never
+    # matched the branch-scoped `user_id IN users_in_mess` filter.
+    try:
+        from routes.tiffin_stock import _resolve_target_mess
+        doc["mess_id"] = await _resolve_target_mess(user, None)
+    except Exception:  # noqa: BLE001
+        pass
     await server.db.restaurant_tiffin_pendency.insert_one(doc)
     # iter-137.c/e — manual takeaway pendency decrements physical in-hand so
     # the invariant Raw = In-hand + Engaged holds. Uses the SAME mess-scope
@@ -571,7 +589,7 @@ async def get_meal_slots():
 
 @router.put("/admin/meal-slots")
 async def set_meal_slots(payload: MealSlotsIn, user: server.User = Depends(server.get_current_user)):
-    if user.role not in ("admin", "staff"):
+    if user.role not in ("admin", "staff", "mess_owner"):
         raise HTTPException(403, "Admin or staff only")
     import re
     def valid(t):

@@ -37,8 +37,8 @@ export const LOGIN_DEFAULTS = {
   // row does not render. Super-admin can re-enable via CMS by adding
   // comma-separated labels (e.g. "FRESH DAILY, NO ADULTERATION").
   chips: "",
-  // Red delivery ribbon below the card — kept short/mobile-first.
-  delivery_banner: "One step away from ghar se accha khana",
+  // iter-158n: delivery banner disabled by default (user asked to remove).
+  delivery_banner: "",
   // Avatar bubble on the card
   avatar_show: true,
   avatar_url: "",   // fallback to lucide User icon when blank
