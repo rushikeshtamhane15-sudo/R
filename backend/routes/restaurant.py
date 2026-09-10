@@ -17,12 +17,55 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import List, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from pydantic import BaseModel, Field
 
 from shared import server  # late-binding via shared shim (avoids circular-import flag)
 
 router = APIRouter()
+
+
+# ---------------------------------------------------------------------------
+# iter-165 · Multi-tenant scoping helpers
+#
+# efoodtech is multi-tenant SaaS: each mess owner can customise their own
+# restaurant page (theme + menu + categories) WITHOUT touching the global
+# Super Admin defaults served to anonymous visitors of the platform.
+#
+# Storage model:
+#   * Global (Super Admin) — restaurant_theme {singleton:1, mess_id:absent}
+#                            restaurant_menu_items {_id:"active"}
+#                            restaurant_categories {_id:"active"}
+#   * Per-mess           — restaurant_theme {singleton:1, mess_id:<X>}
+#                            restaurant_menu_items {_id:"active:<X>"}
+#                            restaurant_categories {_id:"active:<X>"}
+#
+# Reads: if mess_id provided AND a per-mess doc exists → serve it. Else
+# fall through to global. This means a mess owner who hasn't customised
+# anything inherits the platform default until they save.
+#
+# Writes: mess owners always target their own per-mess doc; super-admins
+# without impersonation target the global doc (untouched behaviour).
+# ---------------------------------------------------------------------------
+def _theme_filter(mess_id: Optional[str]) -> dict:
+    if mess_id:
+        return {"singleton": 1, "mess_id": mess_id}
+    return {"singleton": 1, "mess_id": {"$exists": False}}
+
+
+def _theme_set_on_insert(mess_id: Optional[str]) -> dict:
+    d = {"singleton": 1}
+    if mess_id:
+        d["mess_id"] = mess_id
+    return d
+
+
+def _menu_id(mess_id: Optional[str]) -> str:
+    return f"active:{mess_id}" if mess_id else "active"
+
+
+def _cats_id(mess_id: Optional[str]) -> str:
+    return f"active:{mess_id}" if mess_id else "active"
 
 # ---------------------------------------------------------------------------
 # Local-disk "object storage" for admin-uploaded menu images.
@@ -195,7 +238,21 @@ DELIVERY_FEE_FLAT = 50          # ₹ — flat below threshold
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-async def _load_menu() -> list[dict]:
+async def _load_menu(mess_id: Optional[str] = None) -> list[dict]:
+    """Load the menu for a given tenant. When mess_id is provided we first try
+    the per-mess doc; if it's absent OR empty we fall back to the global doc
+    (which never gets auto-populated with a per-mess row — this is a
+    read-only fallthrough so an un-customised mess inherits the platform
+    defaults until the owner saves for the first time).
+    """
+    # 1) Try mess-scoped first (only if requested).
+    if mess_id:
+        doc = await server.db.restaurant_menu_items.find_one({"_id": _menu_id(mess_id)}, {"_id": 0})
+        if doc and doc.get("items"):
+            return doc["items"]
+        # No per-mess doc yet → fall through to the global one below.
+
+    # 2) Global doc (super-admin baseline). Bootstrap with DEFAULT_MENU if empty.
     doc = await server.db.restaurant_menu_items.find_one({"_id": "active"}, {"_id": 0})
     if not doc or not doc.get("items"):
         await server.db.restaurant_menu_items.update_one(
@@ -329,8 +386,11 @@ async def restaurant_serviceable_area():
 
 
 @router.get("/restaurant/menu")
-async def public_menu():
-    items = await _load_menu()
+async def public_menu(mess_id: Optional[str] = Query(default=None)):
+    # iter-165: multi-tenant — logged-in subscribers pass ?mess_id=<their mess>
+    # so they see their tenant's customised menu. Anonymous traffic omits the
+    # param and gets the global (Super Admin) baseline menu.
+    items = await _load_menu(mess_id)
     # Pure-veg gatekeeper: filter out any non-veg rows even if an admin saved
     # one bypassing the check. The storefront should NEVER show non-veg items.
     visible = [
@@ -405,27 +465,64 @@ class RestaurantTheme(BaseModel):
     hero_elements: Optional[list[dict]] = None
 
 
-@router.get("/restaurant/theme")
-async def get_restaurant_theme():
-    doc = await server.db.restaurant_theme.find_one({"singleton": 1}, {"_id": 0}) or {}
+@router.get("/admin/restaurant/theme")
+async def admin_get_restaurant_theme(
+    as_mess_id: Optional[str] = Query(default=None),
+    user: server.User = Depends(server.get_current_user),
+):
+    """iter-165: mess-owner-scoped read for the admin editor. Returns the
+    owner's per-mess theme (or falls back to the global default if they
+    haven't customised yet). Super-admins without impersonation get the
+    global doc — same UX as before."""
+    if user.role not in ("admin", "mess_owner"):
+        raise HTTPException(status_code=403, detail="Admin only")
+    mid = await server.effective_mess_id(user, as_mess_id)
+    doc = None
+    if mid:
+        doc = await server.db.restaurant_theme.find_one({"singleton": 1, "mess_id": mid}, {"_id": 0})
+    if not doc:
+        doc = await server.db.restaurant_theme.find_one({"singleton": 1, "mess_id": {"$exists": False}}, {"_id": 0}) or {}
     doc.pop("singleton", None)
+    doc.pop("mess_id", None)
+    doc["mess_id"] = mid  # let the frontend know which scope was served
+    return doc
+
+
+@router.get("/restaurant/theme")
+async def get_restaurant_theme(mess_id: Optional[str] = Query(default=None)):
+    # iter-165: multi-tenant — mess-scoped theme first, global fallback.
+    doc = None
+    if mess_id:
+        doc = await server.db.restaurant_theme.find_one({"singleton": 1, "mess_id": mess_id}, {"_id": 0})
+    if not doc:
+        doc = await server.db.restaurant_theme.find_one({"singleton": 1, "mess_id": {"$exists": False}}, {"_id": 0}) or {}
+    doc.pop("singleton", None)
+    doc.pop("mess_id", None)
     return doc
 
 
 @router.put("/admin/restaurant/theme")
-async def put_restaurant_theme(payload: RestaurantTheme, user: server.User = Depends(server.get_current_user)):
+async def put_restaurant_theme(
+    payload: RestaurantTheme,
+    as_mess_id: Optional[str] = Query(default=None),
+    user: server.User = Depends(server.get_current_user),
+):
     if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
+    # iter-165: mess owners always target their own doc; admins without an
+    # impersonation session target the global doc.
+    mid = await server.effective_mess_id(user, as_mess_id)
     update = {k: v for k, v in payload.model_dump(exclude_none=True).items()}
     update["updated_at"] = server.iso(server.now_utc())
     update["updated_by"] = user.user_id
     await server.db.restaurant_theme.update_one(
-        {"singleton": 1},
-        {"$set": update, "$setOnInsert": {"singleton": 1}},
+        _theme_filter(mid),
+        {"$set": update, "$setOnInsert": _theme_set_on_insert(mid)},
         upsert=True,
     )
-    fresh = await server.db.restaurant_theme.find_one({"singleton": 1}, {"_id": 0})
+    fresh = await server.db.restaurant_theme.find_one(_theme_filter(mid), {"_id": 0}) or {}
     fresh.pop("singleton", None)
+    fresh.pop("mess_id", None)
     return fresh
 
 
@@ -433,16 +530,25 @@ async def put_restaurant_theme(payload: RestaurantTheme, user: server.User = Dep
 # Admin — full menu CRUD
 # ---------------------------------------------------------------------------
 @router.get("/admin/restaurant/menu")
-async def admin_menu(user: server.User = Depends(server.get_current_user)):
+async def admin_menu(
+    as_mess_id: Optional[str] = Query(default=None),
+    user: server.User = Depends(server.get_current_user),
+):
     if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
-    return {"items": await _load_menu()}
+    mid = await server.effective_mess_id(user, as_mess_id)
+    return {"items": await _load_menu(mid), "mess_id": mid}
 
 
 @router.put("/admin/restaurant/menu")
-async def admin_save_menu(payload: MenuPatch, user: server.User = Depends(server.get_current_user)):
+async def admin_save_menu(
+    payload: MenuPatch,
+    as_mess_id: Optional[str] = Query(default=None),
+    user: server.User = Depends(server.get_current_user),
+):
     if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
+    mid = await server.effective_mess_id(user, as_mess_id)
     seen_ids: set = set()
     cleaned: list[dict] = []
     rejected_non_veg: list[str] = []
@@ -474,11 +580,11 @@ async def admin_save_menu(payload: MenuPatch, user: server.User = Depends(server
             detail=f"efoodcare is strictly vegetarian — rejected non-veg item(s): {', '.join(rejected_non_veg)}",
         )
     await server.db.restaurant_menu_items.update_one(
-        {"_id": "active"},
-        {"$set": {"items": cleaned, "updated_at": server.iso(server.now_utc())}},
+        {"_id": _menu_id(mid)},
+        {"$set": {"items": cleaned, "updated_at": server.iso(server.now_utc()), "mess_id": mid} if mid else {"items": cleaned, "updated_at": server.iso(server.now_utc())}},
         upsert=True,
     )
-    return {"items": cleaned}
+    return {"items": cleaned, "mess_id": mid}
 
 
 class VegCheckIn(BaseModel):
@@ -557,15 +663,22 @@ async def admin_generate_menu_image(
 
 
 @router.post("/admin/restaurant/menu/reset")
-async def admin_reset_menu(user: server.User = Depends(server.get_current_user)):
+async def admin_reset_menu(
+    as_mess_id: Optional[str] = Query(default=None),
+    user: server.User = Depends(server.get_current_user),
+):
     if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
+    mid = await server.effective_mess_id(user, as_mess_id)
+    set_doc = {"items": DEFAULT_MENU, "updated_at": server.iso(server.now_utc())}
+    if mid:
+        set_doc["mess_id"] = mid
     await server.db.restaurant_menu_items.update_one(
-        {"_id": "active"},
-        {"$set": {"items": DEFAULT_MENU, "updated_at": server.iso(server.now_utc())}},
+        {"_id": _menu_id(mid)},
+        {"$set": set_doc},
         upsert=True,
     )
-    return {"items": DEFAULT_MENU}
+    return {"items": DEFAULT_MENU, "mess_id": mid}
 
 
 @router.post("/admin/restaurant/menu/upload-image")
@@ -614,7 +727,14 @@ class CategoryList(BaseModel):
     categories: List[str]
 
 
-async def _load_categories() -> list[str]:
+async def _load_categories(mess_id: Optional[str] = None) -> list[str]:
+    # 1) Try mess-scoped first if requested.
+    if mess_id:
+        doc = await server.db.restaurant_categories.find_one({"_id": _cats_id(mess_id)}, {"_id": 0}) or {}
+        if doc.get("categories"):
+            return doc["categories"]
+        # Fall through to global.
+
     doc = await server.db.restaurant_categories.find_one({"_id": "active"}, {"_id": 0}) or {}
     cats = doc.get("categories")
     if cats:
@@ -640,21 +760,26 @@ async def _load_categories() -> list[str]:
 
 
 @router.get("/restaurant/categories")
-async def public_categories():
+async def public_categories(mess_id: Optional[str] = Query(default=None)):
     """Public — sorted category list for the storefront category strip."""
-    return {"categories": await _load_categories()}
+    return {"categories": await _load_categories(mess_id)}
 
 
 @router.get("/admin/restaurant/categories")
-async def admin_categories(user: server.User = Depends(server.get_current_user)):
+async def admin_categories(
+    as_mess_id: Optional[str] = Query(default=None),
+    user: server.User = Depends(server.get_current_user),
+):
     if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
-    return {"categories": await _load_categories()}
+    mid = await server.effective_mess_id(user, as_mess_id)
+    return {"categories": await _load_categories(mid), "mess_id": mid}
 
 
 @router.put("/admin/restaurant/categories")
 async def admin_save_categories(
     payload: CategoryList,
+    as_mess_id: Optional[str] = Query(default=None),
     user: server.User = Depends(server.get_current_user),
 ):
     """Save admin-curated category list. Accepts a rename map {old: new}
@@ -665,6 +790,7 @@ async def admin_save_categories(
     different strings as renames."""
     if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
+    mid = await server.effective_mess_id(user, as_mess_id)
     cleaned: list[str] = []
     seen: set = set()
     for c in payload.categories:
@@ -682,13 +808,13 @@ async def admin_save_categories(
 
     # Detect renames by index against the previously stored list so we can
     # propagate the change to every menu item using the old name.
-    prev = await _load_categories()
+    prev = await _load_categories(mid)
     renames: dict[str, str] = {}
     for i, new_name in enumerate(cleaned):
         if i < len(prev) and prev[i] != new_name and prev[i] not in cleaned:
             renames[prev[i]] = new_name
     if renames:
-        menu_doc = await server.db.restaurant_menu_items.find_one({"_id": "active"}, {"_id": 0}) or {}
+        menu_doc = await server.db.restaurant_menu_items.find_one({"_id": _menu_id(mid)}, {"_id": 0}) or {}
         items = menu_doc.get("items") or []
         touched = False
         for it in items:
@@ -696,18 +822,24 @@ async def admin_save_categories(
                 it["category"] = renames[it["category"]]
                 touched = True
         if touched:
+            patch = {"items": items, "updated_at": server.iso(server.now_utc())}
+            if mid:
+                patch["mess_id"] = mid
             await server.db.restaurant_menu_items.update_one(
-                {"_id": "active"},
-                {"$set": {"items": items, "updated_at": server.iso(server.now_utc())}},
+                {"_id": _menu_id(mid)},
+                {"$set": patch},
                 upsert=True,
             )
 
+    cat_patch = {"categories": cleaned, "updated_at": server.iso(server.now_utc())}
+    if mid:
+        cat_patch["mess_id"] = mid
     await server.db.restaurant_categories.update_one(
-        {"_id": "active"},
-        {"$set": {"categories": cleaned, "updated_at": server.iso(server.now_utc())}},
+        {"_id": _cats_id(mid)},
+        {"$set": cat_patch},
         upsert=True,
     )
-    return {"categories": cleaned, "renames": renames}
+    return {"categories": cleaned, "renames": renames, "mess_id": mid}
 
 
 

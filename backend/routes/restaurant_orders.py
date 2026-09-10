@@ -46,7 +46,13 @@ async def create_restaurant_order(payload: CreateRestaurantOrder, user: server.U
     from routes.restaurant_hours import _assert_open
     await _assert_open()
 
-    menu = await _load_menu()
+    # iter-165: multi-tenant — price the cart against the customer's mess menu
+    # (falls back to the global menu when the mess owner hasn't customised).
+    user_mess_id = None
+    _u = await server.db.users.find_one({"user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+    if _u:
+        user_mess_id = _u.get("mess_id")
+    menu = await _load_menu(user_mess_id)
     menu_by_id = {m["id"]: m for m in menu}
     priced, subtotal, delivery_fee, total = _compute_totals(menu_by_id, payload.items)
 

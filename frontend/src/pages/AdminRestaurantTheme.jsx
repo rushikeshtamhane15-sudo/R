@@ -83,7 +83,9 @@ export default function AdminRestaurantTheme() {
   const load = async () => {
     setLoading(true);
     try {
-      const r = await api.get("/restaurant/theme");
+      // iter-165 · use scoped admin endpoint so mess owners see THEIR theme
+      // (not the platform's Super Admin default).
+      const r = await api.get("/admin/restaurant/theme");
       const t = r.data || {};
       const next = { ...form };
       ALL_TEXT_KEYS.forEach((k) => { next[k] = t[k] || ""; });

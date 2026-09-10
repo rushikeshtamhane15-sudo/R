@@ -219,7 +219,7 @@ function AppRoutes() {
             <Route path="broadcast" element={<AdminBroadcast />} />
             <Route path="face-enroll" element={<AdminFaceEnroll />} />
             <Route path="partial-payments" element={<AdminPartialPayments />} />
-            <Route path="theme" element={<AdminTheme />} />
+            <Route path="theme" element={<RequireAuth roles={["admin"]}><AdminTheme /></RequireAuth>} />
             <Route path="landing" element={<AdminLanding />} />
             <Route path="dashboard-editor" element={<AdminDashboardEditor />} />
             <Route path="testimonials" element={<AdminTestimonials />} />

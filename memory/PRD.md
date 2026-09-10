@@ -4,6 +4,21 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-165 — Multi-tenant scoping wave 3 · Restaurant/Menu/Branding + Login shrink (2026-02-10)
+**Status: DONE — testing_agent iter-165: 10/10 new mess-isolation tests + 23/23 iter160 regression pass. Anonymous efoodtech (Super Admin) surface UNTOUCHED.**
+
+- **Restaurant theme & logo anonymous-vs-logged-in split (#1)**: `restaurant_theme` collection now supports per-mess doc `{singleton:1, mess_id:<X>}` alongside the global `{singleton:1}` doc. `GET /restaurant/theme?mess_id=X` serves the mess doc when present, falls through to global otherwise. `PUT /admin/restaurant/theme` uses `effective_mess_id()` so mess-owner writes only touch their own row and admin writes stay global. New `GET /admin/restaurant/theme` for scoped read in the admin editor. Same pattern for `/branding` — `_load()` now merges per-mess doc over the platform default per slot, so any slot the owner hasn't customised is inherited automatically.
+- **Restaurant menu "Could not load" for mess_owner (#2)**: `_load_menu(mess_id)` and admin CRUD (`GET/PUT /admin/restaurant/menu`, reset) now scope by `active:<mess_id>` doc with global fallback. Cart-pricing (`POST /restaurant/order`) also loads the customer's mess menu so checkout totals match what they saw. Categories mirror this.
+- **Meal-slot page for mess_owner (#3)**: Verified already accessible (App.js `/admin` allows `mess_owner`, sidebar entry uses `FRANCHISE_VIEW` alias = `[admin,staff,mess_owner]`, backend `/admin/meal-slots` PUT allows mess_owner). No code change needed.
+- **/admin/theme (Design tokens) locked to super-admin (#4)**: Route in App.js wrapped in `<RequireAuth roles={["admin"]}>` so a mess owner navigating directly gets redirected to /dashboard. Sidebar already hides this entry for non-admins.
+- **Login vertical shrink + remove tagline (#5)**: Replaced 2xl heading "User Management System · for messes across India" and "Enter your details" overline with a compact 10px "Sign in" overline. Card is now ~120px shorter on mobile.
+
+### Deferred to next round
+- Wall-kiosk text CMS mess-scoping (dropped from this wave by user)
+- Payment-pending screen for messes overdue >7 days
+- Server.py refactor (>6200 lines)
+
+
 ## iter-158n/o — Mess-scoping fixes for cash/partials/takeaway + login trim (2026-02-05)
 **Status: DONE — testing_agent iter-164: 43 pytest / 1 skip, all mess-scoping issues resolved.**
 

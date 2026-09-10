@@ -31,7 +31,7 @@ function statusIndex(status) {
 export default function OrderTrack() {
   const { orderId } = useParams();
   const navigate = useNavigate();
-  const { checkAuth } = useAuth();
+  const { checkAuth, user } = useAuth();
   const [order, setOrder] = useState(null);
   const [err, setErr] = useState("");
   const [activeOrders, setActiveOrders] = useState([]);
@@ -77,8 +77,8 @@ export default function OrderTrack() {
     if (!order?.items?.length) return;
     let liveIds = new Set();
     try {
-      const r = await api.get("/restaurant/menu");
-      liveIds = new Set((r.data?.items || []).map((m) => m.id));
+      // iter-165 multi-tenant — respect user's mess when reloading menu for reorder
+      const r = await api.get("/restaurant/menu", user?.mess_id ? { params: { mess_id: user.mess_id } } : undefined);
     } catch {
       toast.error("Menu unavailable, cannot reorder right now");
       return;

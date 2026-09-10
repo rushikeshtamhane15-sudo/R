@@ -63,7 +63,8 @@ export default function RestaurantCheckout() {
   useEffect(() => {
     if (!user) { navigate("/login?next=/restaurant/checkout"); return; }
     setWalletBalance(Number(user.wallet_balance || 0));
-    api.get("/restaurant/menu")
+    // iter-165 multi-tenant — hydrate menu against the logged-in user's mess
+    api.get("/restaurant/menu", user?.mess_id ? { params: { mess_id: user.mess_id } } : undefined)
       .then((r) => {
         setMenu(r.data.items || []);
         setMeta({

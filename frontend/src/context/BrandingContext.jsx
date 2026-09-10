@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { api } from "../lib/api";
+import { useAuth } from "./AuthContext";
 
 /**
  * BrandingContext — single source of truth for admin-managed logos.
@@ -37,6 +38,12 @@ const BrandingContext = createContext({
 });
 
 export function BrandingProvider({ children }) {
+  // iter-165 · multi-tenant SaaS — logged-in subscribers see their mess's
+  // custom brand/header/splash/kiosk logo. Anonymous traffic and the Super
+  // Admin frontend always fall through to the platform (Super Admin) defaults.
+  const { user } = useAuth();
+  const messId = user?.mess_id || null;
+
   const [state, setState] = useState({
     brandLogoUrl: DEFAULT_BRAND_URL,
     headerLogoUrl: DEFAULT_HEADER_URL,
@@ -55,7 +62,8 @@ export function BrandingProvider({ children }) {
 
   const refresh = useCallback(async () => {
     try {
-      const { data } = await api.get("/branding");
+      const params = messId ? { mess_id: messId } : undefined;
+      const { data } = await api.get("/branding", params ? { params } : undefined);
       if (!data) return;
       setState({
         brandLogoUrl:  data.brand_logo_url  || DEFAULT_BRAND_URL,
@@ -75,7 +83,7 @@ export function BrandingProvider({ children }) {
     } catch {
       // fall through — keep defaults
     }
-  }, []);
+  }, [messId]);
 
   useEffect(() => { refresh(); }, [refresh]);
 

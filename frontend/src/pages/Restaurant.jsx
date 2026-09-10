@@ -55,15 +55,22 @@ export default function Restaurant() {
   // Intentionally an empty-deps effect — `api` / `hydrateGuestCart` are module-
   // scope singletons; running this every render would refetch on every state
   // change which we explicitly don't want.
+  //
+  // iter-165 · multi-tenant SaaS — when a logged-in subscriber has a
+  // `mess_id`, we forward it as a query param so the backend serves that
+  // tenant's customised menu/theme/categories (falling back to the platform
+  // default per-slot). Anonymous visitors omit the param and always get the
+  // Super Admin baseline.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    api.get("/restaurant/menu")
+    const messParam = user?.mess_id ? { params: { mess_id: user.mess_id } } : undefined;
+    api.get("/restaurant/menu", messParam)
       .then((r) => { setMenu(r.data.items || []); setMeta({ delivery_fee_flat: r.data.delivery_fee_flat, delivery_free_over: r.data.delivery_free_over }); })
       .catch(() => toast.error("Could not load menu"));
-    api.get("/restaurant/theme").then((r) => { setTheme(r.data || null); writeCmsCache("/restaurant/theme", r.data); }).catch((err) => console.warn("[restaurant] theme load failed", err));
-    api.get("/restaurant/categories").then((r) => setCmsCategories(r.data?.categories || null)).catch((err) => console.warn("[restaurant] categories load failed", err));
+    api.get("/restaurant/theme", messParam).then((r) => { setTheme(r.data || null); writeCmsCache("/restaurant/theme", r.data); }).catch((err) => console.warn("[restaurant] theme load failed", err));
+    api.get("/restaurant/categories", messParam).then((r) => setCmsCategories(r.data?.categories || null)).catch((err) => console.warn("[restaurant] categories load failed", err));
     hydrateGuestCart().then((merged) => setCart(merged)).catch((err) => console.warn("[restaurant] guest-cart hydrate failed", err));
-  }, []);
+  }, [user?.mess_id]);
 
   // Pull most recent delivered order for the "reorder in 1 tap" banner
   // AND any in-flight (out_for_delivery / preparing / etc) for the live tracking pill.

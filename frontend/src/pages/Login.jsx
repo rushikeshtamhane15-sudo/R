@@ -240,11 +240,11 @@ export default function Login() {
             <AnimatePresence mode="wait">
               {!otpMode ? (
                 <motion.div key="single" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} data-testid="login-single-step">
-                  <p className="text-[11px] tracking-overline uppercase font-bold text-secondary">Enter your details</p>
-                  <h2 className="font-display font-extrabold text-xl sm:text-2xl tracking-tight mt-1 leading-tight text-slate-900">User Management System · for messes across India</h2>
+                  {/* iter-165 · shrink heading — removed "User Management System · for messes across India" tagline per user */}
+                  <p className="text-[10px] tracking-overline uppercase font-bold text-secondary">Sign in</p>
 
                   {/* Mess autocomplete */}
-                  <label className="block text-[10px] tracking-overline uppercase font-bold text-slate-500 mt-5">Your mess</label>
+                  <label className="block text-[10px] tracking-overline uppercase font-bold text-slate-500 mt-3">Your mess</label>
                   {picked ? (
                     <div className="mt-1 flex items-center gap-3 rounded-2xl bg-primary/5 border border-primary/15 px-3 py-2.5" data-testid="picked-mess">
                       {picked.logo_url ? (

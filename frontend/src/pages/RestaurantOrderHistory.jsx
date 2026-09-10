@@ -37,7 +37,7 @@ function fmtDate(iso) {
 
 export default function RestaurantOrderHistory() {
   const navigate = useNavigate();
-  const { checkAuth } = useAuth();
+  const { checkAuth, user } = useAuth();
   const [orders, setOrders] = useState(null);
   const [err, setErr] = useState("");
   const [cancellingId, setCancellingId] = useState(null);
@@ -75,7 +75,8 @@ export default function RestaurantOrderHistory() {
     // Pull live menu so we only re-add still-available items.
     let menu = [];
     try {
-      const r = await api.get("/restaurant/menu");
+      // iter-165 multi-tenant — respect user's mess when reloading menu for reorder
+      const r = await api.get("/restaurant/menu", user?.mess_id ? { params: { mess_id: user.mess_id } } : undefined);
       menu = r.data?.items || [];
     } catch {
       toast.error("Menu unavailable, cannot reorder right now");

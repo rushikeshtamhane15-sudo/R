@@ -29,6 +29,15 @@ from shared import server  # late-binding via shared shim
 router = APIRouter()
 
 SETTINGS_KEY = "branding_settings_v1"
+
+
+# ---------------------------------------------------------------------------
+# iter-165 · Multi-tenant scoping for brand logos.
+# Global doc  → _id = SETTINGS_KEY (Super Admin default served to anonymous)
+# Per-mess    → _id = f"{SETTINGS_KEY}:{mess_id}"
+# ---------------------------------------------------------------------------
+def _settings_id(mess_id: Optional[str]) -> str:
+    return f"{SETTINGS_KEY}:{mess_id}" if mess_id else SETTINGS_KEY
 MAX_UPLOAD_BYTES = 2 * 1024 * 1024   # 2 MB — logos should be small
 DEFAULT_BRAND_URL = "/brand-logo.jpg"    # bundled fallback for the app-wide brand mark
 DEFAULT_HEADER_URL = "/brand-logo.jpg"   # bundled fallback for the header icon
@@ -49,27 +58,49 @@ def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-async def _load() -> dict:
-    doc = await server.db.app_settings.find_one({"_id": SETTINGS_KEY}, {"_id": 0}) or {}
+async def _load(mess_id: Optional[str] = None) -> dict:
+    # Try mess-scoped first, merge with global for any slot the mess owner
+    # hasn't customised. This means a mess with only a custom header logo
+    # still inherits the platform's brand/splash/kiosk assets automatically.
+    global_doc = await server.db.app_settings.find_one({"_id": SETTINGS_KEY}, {"_id": 0}) or {}
+    mess_doc: dict = {}
+    if mess_id:
+        mess_doc = await server.db.app_settings.find_one({"_id": _settings_id(mess_id)}, {"_id": 0}) or {}
+
+    def pick(key: str) -> str:
+        return (mess_doc.get(key) or "") or (global_doc.get(key) or "")
+
+    def pick_ts(key: str):
+        # Return the timestamp of whichever value is being served.
+        if mess_doc.get(key):
+            return mess_doc.get(f"{key.replace('_url','')}_updated_at") or mess_doc.get("updated_at")
+        return global_doc.get(f"{key.replace('_url','')}_updated_at") or global_doc.get("updated_at")
+
     return {
-        "brand_logo_url":  doc.get("brand_logo_url", "") or "",
-        "header_logo_url": doc.get("header_logo_url", "") or "",
-        "splash_logo_url": doc.get("splash_logo_url", "") or "",
-        "kiosk_logo_url":  doc.get("kiosk_logo_url", "") or "",
-        "brand_updated_at":  doc.get("brand_updated_at"),
-        "header_updated_at": doc.get("header_updated_at"),
-        "splash_updated_at": doc.get("splash_updated_at"),
-        "kiosk_updated_at":  doc.get("kiosk_updated_at"),
-        "updated_at": doc.get("updated_at"),
+        "brand_logo_url":  pick("brand_logo_url"),
+        "header_logo_url": pick("header_logo_url"),
+        "splash_logo_url": pick("splash_logo_url"),
+        "kiosk_logo_url":  pick("kiosk_logo_url"),
+        "brand_updated_at":  mess_doc.get("brand_updated_at")  or global_doc.get("brand_updated_at"),
+        "header_updated_at": mess_doc.get("header_updated_at") or global_doc.get("header_updated_at"),
+        "splash_updated_at": mess_doc.get("splash_updated_at") or global_doc.get("splash_updated_at"),
+        "kiosk_updated_at":  mess_doc.get("kiosk_updated_at")  or global_doc.get("kiosk_updated_at"),
+        "updated_at": mess_doc.get("updated_at") or global_doc.get("updated_at"),
+        # iter-165 · surface which slots are mess-customised (vs inherited)
+        "_mess_scoped": bool(mess_id),
+        "_mess_brand_custom":  bool(mess_doc.get("brand_logo_url")),
+        "_mess_header_custom": bool(mess_doc.get("header_logo_url")),
+        "_mess_splash_custom": bool(mess_doc.get("splash_logo_url")),
+        "_mess_kiosk_custom":  bool(mess_doc.get("kiosk_logo_url")),
     }
 
 
-async def _save_patch(patch: dict) -> dict:
+async def _save_patch(patch: dict, mess_id: Optional[str] = None) -> dict:
     patch["updated_at"] = _iso_now()
     await server.db.app_settings.update_one(
-        {"_id": SETTINGS_KEY}, {"$set": patch}, upsert=True,
+        {"_id": _settings_id(mess_id)}, {"$set": patch}, upsert=True,
     )
-    return await _load()
+    return await _load(mess_id)
 
 
 def _admin(user: server.User) -> None:
@@ -85,9 +116,12 @@ def _validate_slot(slot: Optional[str]) -> str:
 
 
 @router.get("/branding")
-async def public_branding():
-    """Public — returns current URLs for both logo slots (with fallbacks)."""
-    cur = await _load()
+async def public_branding(mess_id: Optional[str] = Query(default=None)):
+    """Public — returns current URLs for both logo slots (with fallbacks).
+    iter-165: multi-tenant — pass ?mess_id=<X> to get mess-customised logos
+    with global fallback per slot. Anonymous traffic (no param) always gets
+    the platform's Super Admin baseline."""
+    cur = await _load(mess_id)
     return {
         # Legacy field, kept for older clients: mirrors `brand_logo_url`.
         "brand_logo_url":  cur["brand_logo_url"] or DEFAULT_BRAND_URL,
@@ -106,19 +140,36 @@ async def public_branding():
     }
 
 
+async def _scope_mess_id(user, as_mess_id: Optional[str]) -> Optional[str]:
+    """Resolve which branding scope a request should target.
+    * mess_owner → their mess (via effective_mess_id)
+    * admin without impersonation → global (None)
+    * admin impersonating a mess → that mess
+    """
+    return await server.effective_mess_id(user, as_mess_id)
+
+
 @router.get("/admin/branding")
-async def admin_branding(user: server.User = Depends(server.get_current_user)):
+async def admin_branding(
+    as_mess_id: Optional[str] = Query(default=None),
+    user: server.User = Depends(server.get_current_user),
+):
     _admin(user)
-    return await _load()
+    mid = await _scope_mess_id(user, as_mess_id)
+    d = await _load(mid)
+    d["mess_id"] = mid
+    return d
 
 
 @router.post("/admin/branding/logo")
 async def admin_upload_logo(
     file: UploadFile = File(...),
     slot: Optional[str] = Query(default="brand"),
+    as_mess_id: Optional[str] = Query(default=None),
     user: server.User = Depends(server.get_current_user),
 ):
     _admin(user)
+    mid = await _scope_mess_id(user, as_mess_id)
     s = _validate_slot(slot)
     ext = _EXT_BY_MIME.get((file.content_type or "").lower())
     if not ext:
@@ -143,29 +194,33 @@ async def admin_upload_logo(
     data_url = f"data:{mime};base64," + base64.b64encode(payload).decode("ascii")
     field    = {"brand": "brand_logo_url", "header": "header_logo_url", "splash": "splash_logo_url", "kiosk": "kiosk_logo_url"}[s]
     ts_field = {"brand": "brand_updated_at", "header": "header_updated_at", "splash": "splash_updated_at", "kiosk": "kiosk_updated_at"}[s]
-    saved = await _save_patch({field: data_url, ts_field: _iso_now()})
+    saved = await _save_patch({field: data_url, ts_field: _iso_now()}, mess_id=mid)
     return {
         "slot": s,
         field: saved[field],
         "bytes": len(payload),
         "updated_at": saved.get(ts_field),
+        "mess_id": mid,
     }
 
 
 @router.post("/admin/branding/reset")
 async def admin_reset(
     slot: Optional[str] = Query(default="brand"),
+    as_mess_id: Optional[str] = Query(default=None),
     user: server.User = Depends(server.get_current_user),
 ):
     _admin(user)
+    mid = await _scope_mess_id(user, as_mess_id)
     s = _validate_slot(slot)
     field    = {"brand": "brand_logo_url", "header": "header_logo_url", "splash": "splash_logo_url", "kiosk": "kiosk_logo_url"}[s]
     ts_field = {"brand": "brand_updated_at", "header": "header_updated_at", "splash": "splash_updated_at", "kiosk": "kiosk_updated_at"}[s]
     default  = {"brand": DEFAULT_BRAND_URL, "header": DEFAULT_HEADER_URL, "splash": DEFAULT_SPLASH_URL, "kiosk": DEFAULT_KIOSK_URL}[s]
-    saved = await _save_patch({field: "", ts_field: _iso_now()})
+    saved = await _save_patch({field: "", ts_field: _iso_now()}, mess_id=mid)
     return {
         "slot": s,
         field: default,
         "is_custom": False,
         "updated_at": saved.get(ts_field),
+        "mess_id": mid,
     }

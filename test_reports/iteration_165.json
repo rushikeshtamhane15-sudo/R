@@ -1,0 +1,25 @@
+{
+  "summary": "iter-165 multi-tenant scoping verified. Wrote 10 new backend tests covering theme/menu/branding/categories mess isolation + anonymous fallbacks. All 10 PASS. Login form compactness (data-testid=login-form-card contains only 'SIGN IN' overline, no 'Enter your details', no 'User Management System · for messes across India'). /admin/theme guarded by RequireAuth roles=['admin']; /admin/meal-slots accessible to mess_owner (verified via App.js routing).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter165_mess_scoping.py",
+    "/app/test_reports/pytest/iter165.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "restaurant.py: _load_menu falls back to global if per-mess doc is empty but writes always target per-mess doc — correct read/write asymmetry preserves platform defaults.",
+    "branding.py: _load merges mess_doc over global_doc per-slot so uncustomised slots inherit from platform — matches spec.",
+    "Impersonation-based scoping (admin acting as mess) also correctly reaches mess-scoped writes/reads via server.effective_mess_id().",
+    "Minor: admin_save_menu writes {'mess_id': mid} into the doc when mid is set, but per-mess doc _id already encodes 'active:<mess_id>' — the extra mess_id field is redundant but harmless.",
+    "Legacy DEFAULT_MENU still contains items whose names/descriptions trip the non-veg regex ('Chicken 65', 'Butter Chicken', 'Hara Bhara Kebab') — a re-save through /admin/restaurant/menu rejects the whole payload. Not new to iter-165 but observed while testing; consider cleaning seed data."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter165_mess_scoping.py"],
+  "success_rate": {"backend": "100% (10/10)", "frontend": "smoke ok"},
+  "test_credentials": "Super Admin phone 9970705391 (dev OTP echoed).",
+  "seed_data_creation": "Created mess-scoped theme/menu/branding/categories docs for mess_id=efoodcare-amravati (safe: per-mess docs; do not affect global platform view).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter-165 mess-owner multi-tenant isolation is CLEAN. Anonymous /api/restaurant/{theme,menu,categories} and /api/branding continue to serve global (Super Admin) data untouched even after mess-owner customises. Impersonation flow is the surrogate for real mess_owner login in tests (per /tmp/iter158_tokens.json admin token pattern used across iter-158/160/163 suites). Cache location: /tmp/iter158_tokens.json.",
+  "rca of the issue": "N/A — this was a verification pass, not a bug fix. All isolation invariants verified via round-trip: impersonate mess → PUT/POST scoped write → confirm anon global GET unchanged."
+}
