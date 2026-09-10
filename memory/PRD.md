@@ -4,6 +4,14 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-158m — JSX build-error hotfix (2026-02-05)
+**Status: DONE — fixed unterminated JSX in AdminCashCollections.jsx. testing_agent iter-162: 37/37 backend + frontend 100%.**
+
+- **Bug**: Preview showing red "Compiled with problems: Unterminated JSX contents (271:10)" — my earlier edit added a flex wrapper around Refresh + Reset buttons but only closed one `</div>`, orphaning the outer header container.
+- **Fix**: Added the missing `</div>` at line 134 so the two-button header (`refresh-btn` + `reset-cash-btn`) sits correctly inside the flex-start container.
+- **Verified**: /login on mobile renders cleanly, /admin/cash-collections shows 44 pending rows + ₹99,616 with both buttons visible side-by-side; confirm dialog fires on Reset click; 37/37 pytest pass including the cash-reset endpoint.
+
+
 ## iter-158l — Cash Reset · Auto-refresh Pendency · City-only Pill fallback (2026-02-05)
 **Status: DONE — 3 next-action items shipped, backend pytest 3/3 pass.**
 

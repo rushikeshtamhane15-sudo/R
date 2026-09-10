@@ -131,6 +131,7 @@ export default function AdminCashCollections() {
         <Button variant="outline" onClick={resetToday} disabled={resetting} className="rounded-full border-rose-300 text-rose-700 hover:bg-rose-50" data-testid="reset-cash-btn">
           {resetting ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5 mr-1.5" />} Reset today
         </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
