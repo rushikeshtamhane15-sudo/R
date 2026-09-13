@@ -4,6 +4,14 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-169 — Location Pill accuracy (Nominatim + India Post District) (2026-02-13)
+**Status: DONE.**
+
+- **Frontend LocationPill.jsx** now hits the backend `/api/geo/reverse` proxy instead of calling Nominatim directly. This gets pincode + city verified against the India Post database — no more browser-side rate-limit surprises or Nominatim tier-3 quirks.
+- **Backend `/api/geo/reverse`** now uses the India Post `District` (returned by the pincode-verify API) as the canonical `city`. Nominatim commonly mis-attributes rural tier-3 coordinates to a nearby admin centre — e.g. Amravati 444606 was being tagged as "Shegaon". India Post postal geography is authoritative, so we prefer it whenever the PIN is verified.
+- **Cache-safe**: existing 24 h cache rows keyed on `round(lat,4),round(lng,4)` continue to serve until they expire; new lookups get the corrected city immediately.
+
+
 ## iter-168 — Take-away bug fix + mess-owner bottom nav + login shrink (2026-02-13)
 **Status: DONE — 37/37 regression pytest pass; testing_agent iter-168 verifies mess-scoped E2E.**
 

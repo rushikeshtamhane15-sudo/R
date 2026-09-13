@@ -59,22 +59,34 @@ async def _nominatim_reverse(lat: float, lng: float) -> dict:
     return {}
 
 
-async def _india_post_verify(pin: str) -> bool:
-    """Returns True if the PIN code resolves to at least one post office."""
+async def _india_post_verify(pin: str) -> tuple[bool, str, str]:
+    """Returns (is_valid, district, state) for a given 6-digit PIN.
+
+    iter-169: also surface the District so `reverse_geocode` can prefer it
+    over Nominatim's `city` field. Nominatim frequently mis-attributes rural
+    tier-3 coordinates to a nearby admin centre (e.g. lat/lng that is truly
+    Amravati 444606 gets tagged city='Shegaon'). India Post is authoritative
+    for postal geography.
+    """
     if not pin or not pin.isdigit() or len(pin) != 6:
-        return False
+        return False, "", ""
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT) as cli:
             r = await cli.get(f"https://api.postalpincode.in/pincode/{pin}")
             if r.status_code != 200:
-                return False
+                return False, "", ""
             body = r.json()
             if isinstance(body, list) and body and body[0].get("Status") == "Success":
                 offices = body[0].get("PostOffice") or []
-                return len(offices) > 0
+                if not offices:
+                    return False, "", ""
+                first = offices[0] or {}
+                district = (first.get("District") or "").strip()
+                state = (first.get("State") or "").strip()
+                return True, district, state
     except Exception:  # noqa: BLE001
-        return False
-    return False
+        return False, "", ""
+    return False, "", ""
 
 
 async def _india_post_by_name(name: str, lat: float, lng: float) -> str:
@@ -167,8 +179,10 @@ async def reverse_geocode(
     pin_raw = (addr.get("postcode") or "").replace(" ", "")
 
     pin_verified = False
+    ip_district = ""
+    ip_state = ""
     if pin_raw and pin_raw.isdigit() and len(pin_raw) == 6:
-        pin_verified = await _india_post_verify(pin_raw)
+        pin_verified, ip_district, ip_state = await _india_post_verify(pin_raw)
         pin = pin_raw if pin_verified else ""
     else:
         pin = ""
@@ -180,9 +194,18 @@ async def reverse_geocode(
                 alt = await _india_post_by_name(cand, lat, lng)
                 if alt:
                     pin = alt
-                    pin_verified = await _india_post_verify(alt)
+                    pin_verified, ip_district, ip_state = await _india_post_verify(alt)
                     if pin_verified:
                         break
+
+    # iter-169: India Post District is authoritative — prefer it over
+    # Nominatim's `city` when we have a verified PIN. Nominatim regularly
+    # returns nearby-town names for rural tier-3 coordinates (e.g. Amravati
+    # 444606 gets tagged 'Shegaon'), which is wrong per postal geography.
+    if pin_verified and ip_district:
+        city = ip_district
+    if pin_verified and ip_state and not state:
+        state = ip_state
 
     label_bits = [b for b in (area, city) if b]
     label = ", ".join(label_bits)

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import { api } from "../lib/api";
 import { MapPin } from "lucide-react";
 
 /**
@@ -51,21 +52,18 @@ export default function LocationPill({ className = "", variant = "default" }) {
     if (cached) { setLabel(cached); return; }
     let cancel = false;
     (async () => {
+      // iter-169 · Use the backend /api/geo/reverse proxy. It does
+      // Nominatim + India Post PIN verification and prefers the postal
+      // District as the canonical city — fixes the "Shegaon vs Amravati"
+      // mismatch that pure browser-side Nominatim was returning.
       try {
-        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=16&addressdetails=1`;
-        const r = await fetch(url, { headers: { "Accept-Language": "en" } });
-        const j = await r.json();
-        const a = j?.address || {};
-        const area = a.suburb || a.neighbourhood || a.locality || a.village || a.town || "";
-        const city = a.city || a.county || a.state_district || "";
-        const pin = a.postcode || "";
+        const r = await api.get(`/geo/reverse?lat=${lat}&lng=${lng}`);
+        const d = r?.data || {};
+        const area = d.area || "";
+        const city = d.city || "";
+        const pin = d.pincode || "";
         const built = [area, city, pin].filter(Boolean).join(", ");
-        // iter-158l · never leave the pill spinning: if reverse-geocode fails
-        // to produce area+pin (common for rural / anonymous users), fall back
-        // to just the city name so the pill shows "Nagpur" instead of
-        // "Locating…" indefinitely.
-        const cityOnly = city || a.state || "";
-        const final = built || cityOnly || (j?.display_name?.split(",").slice(0, 2).join(", ")) || "your area";
+        const final = d.label || built || city || "your area";
         if (!cancel) { sessionStorage.setItem(key, final); setLabel(final); }
       } catch {
         if (!cancel) setLabel("your area");
