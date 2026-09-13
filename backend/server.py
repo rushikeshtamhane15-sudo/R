@@ -6194,6 +6194,7 @@ FRANCHISE_PAGES = [
     {"key": "/admin/landing",               "label": "Home page"},
     {"key": "/admin/dashboard-editor",      "label": "Subscriber dashboard"},
     {"key": "/admin/bottom-nav",            "label": "Bottom nav & sound"},
+    {"key": "/admin/my-bottom-nav",         "label": "My subscriber tabs"},
     {"key": "/admin/header-menu",           "label": "Hamburger menu"},
     {"key": "/admin/testimonials",          "label": "Testimonials"},
     {"key": "/admin/tiffin-preferences",    "label": "Tiffin food preferences"},
@@ -6301,14 +6302,25 @@ class BottomNavSlotsIn(BaseModel):
 
 @api_router.get("/admin/bottom-nav/slot-catalog")
 async def bottom_nav_slot_catalog(user: User = Depends(get_current_user)):
-    if user.role != "admin":
+    # iter-168: mess owners may read the slot catalog to build their own
+    # per-mess subscriber-tab editor.
+    if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin only")
     return {"slots": BOTTOM_NAV_SLOTS}
 
 
 @api_router.get("/admin/messes/{mess_id}/bottom-nav-slots")
 async def admin_get_bottom_nav_slots(mess_id: str, user: User = Depends(get_current_user)):
-    if user.role != "admin":
+    # iter-168: mess owners may read their own mess's slot whitelist. Accept
+    # EITHER of two links: (a) their user.mess_id, (b) messes.owner_user_id
+    # → their user_id. Seed-time drift left some rows with only one of these
+    # set, so we honor both.
+    if user.role == "mess_owner":
+        owned = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+        owned_mid = (owned or {}).get("mess_id")
+        if mess_id not in {user.mess_id, owned_mid}:
+            raise HTTPException(status_code=403, detail="Not your mess")
+    elif user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
     mess = await db.messes.find_one(
         {"mess_id": mess_id}, {"_id": 0, "mess_id": 1, "bottom_nav_slots": 1}
@@ -6323,7 +6335,15 @@ async def admin_get_bottom_nav_slots(mess_id: str, user: User = Depends(get_curr
 
 @api_router.patch("/admin/messes/{mess_id}/bottom-nav-slots")
 async def admin_set_bottom_nav_slots(mess_id: str, payload: BottomNavSlotsIn, user: User = Depends(get_current_user)):
-    if user.role != "admin":
+    # iter-168: mess owners may PATCH their own mess's whitelist. Accepts
+    # either user.mess_id or the mess where owner_user_id=user.user_id (see
+    # admin_get_bottom_nav_slots for rationale).
+    if user.role == "mess_owner":
+        owned = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+        owned_mid = (owned or {}).get("mess_id")
+        if mess_id not in {user.mess_id, owned_mid}:
+            raise HTTPException(status_code=403, detail="Not your mess")
+    elif user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
     invalid = [s for s in payload.slots if s not in BOTTOM_NAV_SLOT_KEYS]
     if invalid:

@@ -198,9 +198,9 @@ export default function Login() {
         </div>
       )}
 
-      {/* iter-158n · shrink vertical padding further */}
-      <div className="bg-white flex-1 px-4 sm:px-6 pt-2 pb-6">
-        <div className="max-w-[260px] mx-auto w-full relative z-10">
+      {/* iter-168 · shrink login card + add breathing space below the marquee. */}
+      <div className="bg-white flex-1 px-4 sm:px-6 pt-6 pb-4">
+        <div className="max-w-[240px] mx-auto w-full relative z-10">
           {/* iter-158f · Green nutrient chip row (legacy eFoodCare hero feel, driven by CMS) */}
           {(c.chips || "").trim() && (
             <div className="flex flex-wrap justify-center gap-1 mb-2.5" data-testid="login-chip-row">
@@ -217,8 +217,8 @@ export default function Login() {
             </div>
           )}
 
-          {/* iter-158n · ultra-slim card padding */}
-          <div className="bg-white rounded-xl px-3 py-2 shadow-lg border border-slate-200 relative" data-testid="login-form-card">
+          {/* iter-168n · ultra-slim card padding */}
+          <div className="bg-white rounded-xl px-3 py-1.5 shadow-lg border border-slate-200 relative" data-testid="login-form-card">
             {/* iter-158f · Avatar bubble hovering at the top of the card */}
             {c.avatar_show !== false && (
               <div
@@ -324,12 +324,12 @@ export default function Login() {
                     className="mt-1 rounded-2xl h-11 px-4 text-base" data-testid="name-input" />
 
                   <Button onClick={sendOtp} disabled={submitting || phone.length < 10}
-                    className="w-full h-12 mt-5 rounded-2xl bg-primary hover:bg-primary/90 font-semibold text-base disabled:opacity-50 text-white"
+                    className="w-full h-10 mt-4 rounded-2xl bg-primary hover:bg-primary/90 font-semibold text-sm disabled:opacity-50 text-white"
                     data-testid="send-otp-button">
                     {submitting ? "Sending OTP…" : (<>Continue <ArrowRight className="h-4 w-4 ml-1.5" /></>)}
                   </Button>
 
-                  <p className="text-[11px] text-slate-500 text-center mt-5 leading-relaxed">
+                  <p className="text-[10px] text-slate-500 text-center mt-3 leading-relaxed">
                     By continuing, you agree to our{" "}
                     <Link to="/privacy" className="font-semibold text-primary underline-offset-2 hover:underline">Privacy Policy</Link>{" "}and{" "}
                     <Link to="/refund" className="font-semibold text-primary underline-offset-2 hover:underline">Refund Policy</Link>.

@@ -249,12 +249,19 @@ async def collect_takeaway(payload: CollectTakeaway, user: server.User = Depends
     if not rec:
         raise HTTPException(404, "Pendency not found")
     # iter-96 #2: franchise can only mark THEIR branch's pendency.
+    # iter-168: also accept "manual" pendency rows where user_id is None but
+    # the row itself carries mess_id (iter-158n added this) — the previous
+    # code only checked the customer's mess and 403'd on any manual row.
     if user.role == "mess_owner":
         m = await server.db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
         if not m:
             raise HTTPException(403, "No mess assigned")
-        u = await server.db.users.find_one({"user_id": rec.get("user_id")}, {"_id": 0, "mess_id": 1})
-        if (u or {}).get("mess_id") != m["mess_id"]:
+        my_mess = m["mess_id"]
+        rec_mess = rec.get("mess_id")
+        if not rec_mess and rec.get("user_id"):
+            u = await server.db.users.find_one({"user_id": rec.get("user_id")}, {"_id": 0, "mess_id": 1})
+            rec_mess = (u or {}).get("mess_id")
+        if rec_mess != my_mess:
             raise HTTPException(403, "Pendency not in your branch")
     if rec.get("collected"):
         raise HTTPException(400, "Already collected")

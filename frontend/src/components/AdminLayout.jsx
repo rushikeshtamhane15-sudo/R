@@ -65,7 +65,8 @@ const SECTIONS = [
     items: [
       { to: "/admin/landing", label: "Home page", icon: Home, roles: OWNER_VIEW },
       { to: "/admin/dashboard-editor", label: "Subscriber dashboard", icon: Layout, roles: OWNER_VIEW },
-      { to: "/admin/bottom-nav", label: "Bottom nav & sound", icon: Megaphone, roles: OWNER_VIEW },
+      { to: "/admin/bottom-nav", label: "Bottom nav & sound", icon: Megaphone, roles: ["admin"] },
+      { to: "/admin/my-bottom-nav", label: "My subscriber tabs", icon: Megaphone, roles: OWNER_VIEW },
       { to: "/admin/header-menu", label: "Hamburger menu", icon: Menu, roles: OWNER_VIEW },
       { to: "/admin/testimonials", label: "Testimonials", icon: MessageSquareQuote, roles: OWNER_VIEW },
       { to: "/admin/tiffin-preferences", label: "Tiffin food preferences", icon: UtensilsCrossed, roles: OWNER_VIEW },

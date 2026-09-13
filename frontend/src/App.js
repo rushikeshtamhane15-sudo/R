@@ -79,6 +79,7 @@ import AdminCashAnalytics from "./pages/AdminCashAnalytics";
 import AdminKitchenSettings from "./pages/AdminKitchenSettings";
 import AdminVoiceSettings from "./pages/AdminVoiceSettings";
 import AdminKioskCms from "./pages/AdminKioskCms";
+import AdminMyBottomNav from "./pages/AdminMyBottomNav";
 import AdminBroadcast from "./pages/AdminBroadcast";
 import MessOwnerSettings from "./pages/MessOwnerSettings";
 import SuperAdminMesses from "./pages/SuperAdminMesses";
@@ -218,6 +219,7 @@ function AppRoutes() {
             <Route path="kitchen-settings" element={<AdminKitchenSettings />} />
             <Route path="voice-settings" element={<AdminVoiceSettings />} />
             <Route path="kiosk-cms" element={<AdminKioskCms />} />
+            <Route path="my-bottom-nav" element={<AdminMyBottomNav />} />
             <Route path="broadcast" element={<AdminBroadcast />} />
             <Route path="face-enroll" element={<AdminFaceEnroll />} />
             <Route path="partial-payments" element={<AdminPartialPayments />} />

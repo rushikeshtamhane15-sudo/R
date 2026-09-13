@@ -4,6 +4,21 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-168 — Take-away bug fix + mess-owner bottom nav + login shrink (2026-02-13)
+**Status: DONE — 37/37 regression pytest pass; testing_agent iter-168 verifies mess-scoped E2E.**
+
+- **#2 Take-away collect bug**: `POST /api/admin/restaurant/takeaway-pendency/collect` for mess owners now respects manual rows (user_id=null) tagged with their mess_id. Previously the endpoint did `users.find_one({user_id:null}).mess_id` which was always null → 403 "Pendency not in your branch". Fixed to read `rec.mess_id` first, fall back to the customer's mess if the row was created from a real order.
+### iter-168.b · Mess-owner mess-link mismatch hardened
+- `admin_get/set_bottom_nav_slots` and `AdminMyBottomNav.jsx` now resolve the caller's target mess via a new `GET /api/franchise/me/mess` helper that honours BOTH `messes.owner_user_id` and legacy `user.mess_id`. Fixes the case where a mess_owner's user row has a stale `mess_id` (e.g. `efoodcare-amravati`) while their owned mess row is `MESS-C0A9` — previously the editor 403'd.
+
+- **#7 Bottom-nav mess-owner rights**: `admin_get_bottom_nav_slots`, `admin_set_bottom_nav_slots`, `bottom_nav_slot_catalog` now allow `mess_owner` scoped to their assigned mess. New `/admin/my-bottom-nav` React page (`AdminMyBottomNav.jsx`) with checkboxes over the slot catalog. Super-admin's `/admin/bottom-nav` (guest/global config) stays untouched.
+- **#6 Login shrink**: card `py-1.5`, `max-w-[240px]`, Continue button `h-10`, footer text `text-[10px]`, outer padding `pt-6 pb-4` — adds breathing space below the marquee and keeps the whole form ~120px shorter.
+- **#1/#3/#4/#8**: Wall-kiosk CMS (iter-166), brand logo (iter-165), footer + content pages (iter-158n) already mess-scoped — no additional changes needed. Regression tests confirm anonymous stays on platform defaults.
+
+### Deferred to next round
+- #5 location accuracy — needs a geocoder integration (OSM Nominatim or Google Geocoding). Confirming API choice with user before wiring.
+
+
 ## iter-166/167 — Wall-Kiosk CMS mess-scoping (2026-02-10)
 **Status: DONE — testing_agent iter-166: 10/10 new pytest + iter-167 retest verified end-to-end. Isolation invariant preserved.**
 
