@@ -4,6 +4,19 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-170 — Strict tenant isolation + super-admin logo fix (2026-02-14)
+**Status: DONE — 20/20 iter-166 pass, 40/40 iter-160/165/168 regression pass.**
+
+- **Strict tenant isolation** across three CMS surfaces. Previously mess owners INHERITED the super-admin's live edits when they hadn't customised — now they see the pristine DEFAULT_CONTENT / DEFAULTS / bundled logo:
+  - `_load_content(key, mess_id)` in `server.py`: mess-scoped GET no longer falls through to the global doc. Anonymous GET still serves the super-admin's live global copy.
+  - `routes/kiosk_cms._load()`: mess-scoped GET returns hardcoded DEFAULTS if no override; anonymous serves global doc layered over DEFAULTS.
+  - `routes/branding._load()`: mess-scoped GET returns empty strings (frontend falls back to bundled default URLs) if no override; anonymous serves the global logos.
+- **#1 Super-admin brand logo fix**: `BrandingContext.refresh()` now skips passing `mess_id` for `role=admin` — super-admin sees the global brand doc even if their /users row has a legacy `mess_id` field. Uploads via `/admin/branding/logo` (no impersonation) write global and reflect instantly.
+- **#4 Restaurant menu blank page fix**: `AdminRestaurant.jsx` initialises `items=[]` (was `null`), surfaces backend error detail to toast, guards against non-array responses.
+- **#6 Login spacing**: outer `pt-12` (was `pt-6`) — 48 px gap between marquee and login card.
+- **#7 Location pill**: cache key bumped to `geo:v2:` + `efc_user_geo_v3` — invalidates stale "Shegaon" labels from the pre-iter-169 browser-Nominatim path. Backend already returns India-Post-verified "Amravati" per iter-169.
+
+
 ## iter-169 — Location Pill accuracy (Nominatim + India Post District) (2026-02-13)
 **Status: DONE.**
 

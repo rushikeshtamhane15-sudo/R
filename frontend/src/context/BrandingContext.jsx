@@ -62,7 +62,12 @@ export function BrandingProvider({ children }) {
 
   const refresh = useCallback(async () => {
     try {
-      const params = messId ? { mess_id: messId } : undefined;
+      // iter-170 · strict isolation. Super-admin (role=admin) sees the
+      // global brand doc even if the /users record has a legacy `mess_id`
+      // field — passing mess_id would return a scoped view which would
+      // hide their global upload behind a per-mess override.
+      const scopeMess = (user?.role === "subscriber" || user?.role === "mess_owner") ? messId : null;
+      const params = scopeMess ? { mess_id: scopeMess } : undefined;
       const { data } = await api.get("/branding", params ? { params } : undefined);
       if (!data) return;
       setState({
@@ -83,7 +88,7 @@ export function BrandingProvider({ children }) {
     } catch {
       // fall through — keep defaults
     }
-  }, [messId]);
+  }, [messId, user?.role]);
 
   useEffect(() => { refresh(); }, [refresh]);
 

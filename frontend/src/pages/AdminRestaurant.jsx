@@ -43,7 +43,7 @@ async function uploadMenuImage(file) {
 const CATEGORIES_FALLBACK = ["Starters", "Mains", "Tiffin Specials", "Beverages", "Desserts"];
 
 export default function AdminRestaurant() {
-  const [items, setItems] = useState(null);
+  const [items, setItems] = useState([]);
   const [saving, setSaving] = useState(false);
   const fileInputs = useRef({});
 
@@ -55,16 +55,23 @@ export default function AdminRestaurant() {
   const [newCatName, setNewCatName] = useState("");
 
   const load = async () => {
+    // iter-170: initialise to [] instead of null so the render never crashes
+    // on `.map()` before the fetch resolves — was manifesting as a blank
+    // /admin/restaurant page when the load path threw.
+    setItems([]);
     try {
       const [menuRes, catsRes] = await Promise.all([
         api.get("/admin/restaurant/menu"),
         api.get("/admin/restaurant/categories"),
       ]);
-      setItems(menuRes.data?.items || []);
+      setItems(Array.isArray(menuRes.data?.items) ? menuRes.data.items : []);
       const cats = catsRes.data?.categories;
       if (Array.isArray(cats) && cats.length) setCategories(cats);
-    } catch {
-      toast.error("Could not load menu");
+    } catch (e) {
+      const detail = e?.response?.data?.detail || e?.message || "Could not load menu";
+      // eslint-disable-next-line no-console
+      console.warn("[AdminRestaurant] load failed:", detail, e?.response?.status);
+      toast.error(detail);
       setItems([]);
     }
   };

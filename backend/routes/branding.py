@@ -59,39 +59,44 @@ def _iso_now() -> str:
 
 
 async def _load(mess_id: Optional[str] = None) -> dict:
-    # Try mess-scoped first, merge with global for any slot the mess owner
-    # hasn't customised. This means a mess with only a custom header logo
-    # still inherits the platform's brand/splash/kiosk assets automatically.
-    global_doc = await server.db.app_settings.find_one({"_id": SETTINGS_KEY}, {"_id": 0}) or {}
-    mess_doc: dict = {}
+    """Return branding slot URLs for a scope.
+    iter-170: STRICT tenant isolation — mess owners no longer inherit the
+    super-admin's global logo uploads. When a mess has no override for a
+    slot, the frontend renders the bundled default (empty string → default
+    URL fallback in BrandingContext). The anonymous / super-admin surface
+    continues to serve the global doc unchanged.
+    """
     if mess_id:
         mess_doc = await server.db.app_settings.find_one({"_id": _settings_id(mess_id)}, {"_id": 0}) or {}
+        return {
+            "brand_logo_url":  (mess_doc.get("brand_logo_url")  or ""),
+            "header_logo_url": (mess_doc.get("header_logo_url") or ""),
+            "splash_logo_url": (mess_doc.get("splash_logo_url") or ""),
+            "kiosk_logo_url":  (mess_doc.get("kiosk_logo_url")  or ""),
+            "brand_updated_at":  mess_doc.get("brand_updated_at"),
+            "header_updated_at": mess_doc.get("header_updated_at"),
+            "splash_updated_at": mess_doc.get("splash_updated_at"),
+            "kiosk_updated_at":  mess_doc.get("kiosk_updated_at"),
+            "updated_at": mess_doc.get("updated_at"),
+            "_mess_scoped": True,
+            "_mess_brand_custom":  bool(mess_doc.get("brand_logo_url")),
+            "_mess_header_custom": bool(mess_doc.get("header_logo_url")),
+            "_mess_splash_custom": bool(mess_doc.get("splash_logo_url")),
+            "_mess_kiosk_custom":  bool(mess_doc.get("kiosk_logo_url")),
+        }
 
-    def pick(key: str) -> str:
-        return (mess_doc.get(key) or "") or (global_doc.get(key) or "")
-
-    def pick_ts(key: str):
-        # Return the timestamp of whichever value is being served.
-        if mess_doc.get(key):
-            return mess_doc.get(f"{key.replace('_url','')}_updated_at") or mess_doc.get("updated_at")
-        return global_doc.get(f"{key.replace('_url','')}_updated_at") or global_doc.get("updated_at")
-
+    global_doc = await server.db.app_settings.find_one({"_id": SETTINGS_KEY}, {"_id": 0}) or {}
     return {
-        "brand_logo_url":  pick("brand_logo_url"),
-        "header_logo_url": pick("header_logo_url"),
-        "splash_logo_url": pick("splash_logo_url"),
-        "kiosk_logo_url":  pick("kiosk_logo_url"),
-        "brand_updated_at":  mess_doc.get("brand_updated_at")  or global_doc.get("brand_updated_at"),
-        "header_updated_at": mess_doc.get("header_updated_at") or global_doc.get("header_updated_at"),
-        "splash_updated_at": mess_doc.get("splash_updated_at") or global_doc.get("splash_updated_at"),
-        "kiosk_updated_at":  mess_doc.get("kiosk_updated_at")  or global_doc.get("kiosk_updated_at"),
-        "updated_at": mess_doc.get("updated_at") or global_doc.get("updated_at"),
-        # iter-165 · surface which slots are mess-customised (vs inherited)
-        "_mess_scoped": bool(mess_id),
-        "_mess_brand_custom":  bool(mess_doc.get("brand_logo_url")),
-        "_mess_header_custom": bool(mess_doc.get("header_logo_url")),
-        "_mess_splash_custom": bool(mess_doc.get("splash_logo_url")),
-        "_mess_kiosk_custom":  bool(mess_doc.get("kiosk_logo_url")),
+        "brand_logo_url":  global_doc.get("brand_logo_url",  "") or "",
+        "header_logo_url": global_doc.get("header_logo_url", "") or "",
+        "splash_logo_url": global_doc.get("splash_logo_url", "") or "",
+        "kiosk_logo_url":  global_doc.get("kiosk_logo_url",  "") or "",
+        "brand_updated_at":  global_doc.get("brand_updated_at"),
+        "header_updated_at": global_doc.get("header_updated_at"),
+        "splash_updated_at": global_doc.get("splash_updated_at"),
+        "kiosk_updated_at":  global_doc.get("kiosk_updated_at"),
+        "updated_at": global_doc.get("updated_at"),
+        "_mess_scoped": False,
     }
 
 

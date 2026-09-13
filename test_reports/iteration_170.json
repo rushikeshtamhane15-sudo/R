@@ -1,0 +1,35 @@
+{
+  "summary": "iter-170 backend + frontend testing complete. Backend: 11/11 new iter-170 strict-isolation tests PASS + 57/57 regression (iter-160 wave1/wave2, iter-165, iter-166, iter-168) all PASS. Verified strict tenant isolation: (a) Super-admin PUT /api/admin/content/footer sets a marker into global; anon GET reflects it; but GET /api/content/footer?mess_id=<pristine> returns pristine DEFAULT (NOT super-admin's marker). (b) Mess-owner writes stay scoped — anon global unchanged. (c) Super-admin POST /api/admin/branding/logo (no impersonation) — GET /api/branding immediately reflects the data-URL upload; GET /api/branding?mess_id=<pristine> returns brand_logo_url='/brand-logo.jpg' (bundled default, is_custom=false), NOT the super-admin's logo. (d) Kiosk CMS super-admin marker in global; /api/kiosk/cms?mess_id=<pristine> returns 'efoodcare' (default). (e) All 7 content keys (footer, announcement, contact, privacy, refund, about, login) reachable both anon and mess-scoped.\n\nFrontend: (1) /login page has 48px visible gap between marquee announcement bar (bottom=115px) and login-form-card (top=163px) — matches pt-12 spec. (2) /admin/restaurant page renders correctly for super-admin (no impersonation) — no blank screen, categories list ('Mains', 'Starters', 'Tiffin Specials', 'Desserts', 'Beverages') rendered, Paneer Tikka item editor visible, save/reset/add buttons present, ZERO console errors. Note: actual testid on root div is 'admin-restaurant' (line 234 AdminRestaurant.jsx), NOT 'admin-restaurant-page' as specified in review request.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "AdminRestaurant.jsx", "issue": "Root div uses data-testid='admin-restaurant' (line 234), but review request expected 'admin-restaurant-page'. Page itself renders fine — this is only a testid naming mismatch. Recommend renaming to 'admin-restaurant-page' for consistency with the acceptance criteria, or updating the review spec.", "selector": "[data-testid='admin-restaurant']", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter170_strict_isolation.py",
+    "/app/test_reports/pytest/iter170.xml",
+    "/app/test_reports/pytest/iter170_regression.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: rename root testid in AdminRestaurant.jsx from 'admin-restaurant' → 'admin-restaurant-page' to match iter-170 spec (or update the spec to match reality). Page renders fine either way — non-blocking."
+  ],
+  "critical_code_review_comments": [
+    "The three isolation gates (server.py _load_content, routes/kiosk_cms.py _load, routes/branding.py _load) all now correctly branch on `if mess_id:` and return the per-mess doc or pristine DEFAULTS — never falling through to the global doc. Symmetric design across all three modules — good.",
+    "server.py get_content (line 1786) still infers mess_id from the caller's session/cookie. This means a super-admin who is IMPERSONATING a mess AND fires an anon-like GET /api/content/footer without ?mess_id in the query will see the impersonated mess's scope (empty override → DEFAULT under strict isolation). That's correct behavior for the impersonation session but subtle — worth documenting in code comments so future authors don't accidentally revert.",
+    "branding._load returns empty strings for mess-scoped without override, and public_branding then falls back to DEFAULT_BRAND_URL. This is correct but relies on the frontend BrandingContext also treating empty string as 'use bundled default'. BrandingContext.jsx skip-mess_id-for-admin-role change should preserve super-admin's ability to see the global doc directly. Verified indirectly via /api/branding anon.",
+    "test_iter166_kiosk_cms::test_reset_scoped_to_caller was updated to expect DEFAULT (not global marker) — matches strict isolation. All 10 iter-166 tests still pass."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter170_strict_isolation.py"
+  ],
+  "success_rate": {"backend": "100% (11/11 iter170 + 57/57 regression)", "frontend": "100% (login spacing + admin-restaurant render, minor testid naming note)"},
+  "test_credentials": "Super admin phone 9970705391 (dev OTP); tokens cached at /tmp/iter158_tokens.json. Impersonation: POST /api/admin/impersonate/{mess_id}, DELETE /api/admin/impersonate to clear.",
+  "seed_data_creation": "Ephemeral: super-admin's /api/admin/content/footer PUT/reset and /api/admin/branding/logo upload/reset. All cleaned up in finally blocks. Kiosk CMS global marker reset after test.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter-170 fully green. Strict tenant isolation is now the invariant across /content/{key}, /kiosk/cms, /branding. Re-run: `cd /app && python -m pytest backend/tests/test_iter170_strict_isolation.py backend/tests/test_iter166_kiosk_cms.py backend/tests/test_iter165_mess_scoping.py backend/tests/test_iter168_takeaway_bottomnav.py backend/tests/test_iter160_wave1.py backend/tests/test_iter160_wave2.py -v`. Test mess used: efoodcare-amravati. The AdminRestaurant testid naming ('admin-restaurant' vs 'admin-restaurant-page') is a spec-vs-code discrepancy — either side can be updated; page rendering works.",
+  "rca of the issue": "N/A — no bugs found. All 7 bugs from user surface (super-admin edits leaking into mess-owner surface) are fixed by the symmetric strict-isolation branches in _load_content, kiosk_cms._load, and branding._load. The mess-scoped read paths now return pristine DEFAULTS when no per-mess override exists, ensuring platform live-copy edits by super-admin never bleed into tenant surfaces. Anonymous / super-admin surfaces continue to render the global doc unchanged."
+}

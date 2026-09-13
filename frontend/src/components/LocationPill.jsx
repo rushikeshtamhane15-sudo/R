@@ -47,7 +47,9 @@ export default function LocationPill({ className = "", variant = "default" }) {
 
   useEffect(() => {
     if (lat == null || lng == null) { setLabel(null); return; }
-    const key = `geo:${lat.toFixed(3)},${lng.toFixed(3)}`;
+    // iter-170 · bump cache key version so any stale "Shegaon" / raw-coord
+    // labels from the pre-fix browser Nominatim path get invalidated.
+    const key = `geo:v2:${lat.toFixed(3)},${lng.toFixed(3)}`;
     const cached = sessionStorage.getItem(key);
     if (cached) { setLabel(cached); return; }
     let cancel = false;

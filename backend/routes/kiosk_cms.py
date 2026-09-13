@@ -58,18 +58,18 @@ def _doc_id(mess_id: Optional[str]) -> str:
 
 
 async def _load(mess_id: Optional[str]) -> dict:
-    """Return a merged view — mess overrides on top of the global doc on top
-    of the hardcoded DEFAULTS. Empty strings inherit; only non-empty writes
-    override."""
-    global_doc = await server.db.kiosk_cms.find_one({"_id": "active"}, {"_id": 0}) or {}
-    mess_doc: dict = {}
+    """Return the kiosk CMS for a scope with STRICT tenant isolation.
+    iter-170: mess owners no longer inherit the super-admin's global edits.
+    If no per-mess override exists, the mess sees the pristine DEFAULTS —
+    the platform live copy is reserved for anonymous / super-admin surface.
+    """
     if mess_id:
         mess_doc = await server.db.kiosk_cms.find_one({"_id": _doc_id(mess_id)}, {"_id": 0}) or {}
+        return {k: (mess_doc.get(k) or DEFAULTS[k]) for k in CMS_KEYS}
 
-    def pick(k: str) -> str:
-        return (mess_doc.get(k) or "") or (global_doc.get(k) or "") or DEFAULTS[k]
-
-    return {k: pick(k) for k in CMS_KEYS}
+    # Anonymous / super-admin surface uses the global doc layered over DEFAULTS.
+    global_doc = await server.db.kiosk_cms.find_one({"_id": "active"}, {"_id": 0}) or {}
+    return {k: (global_doc.get(k) or DEFAULTS[k]) for k in CMS_KEYS}
 
 
 async def _save(mess_id: Optional[str], patch: dict) -> dict:

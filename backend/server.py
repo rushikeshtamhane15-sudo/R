@@ -1739,7 +1739,15 @@ async def _load_content(key: str, mess_id: Optional[str] = None):
             if isinstance(default, dict):
                 return {**default, **existing}
             return existing
-    # 2) global fallback
+        # iter-170: STRICT tenant isolation — do NOT fall through to the
+        # super-admin's global doc when a mess owner hasn't customised yet.
+        # Return the pristine DEFAULT_CONTENT so tenants never inherit the
+        # platform's live copy edits (footer/announcement/kiosk/etc.).
+        if default is None:
+            raise HTTPException(status_code=404, detail="Unknown content key")
+        return default
+    # 2) anonymous / global path — serve the super-admin's live doc (fallback
+    # to defaults when it's never been touched).
     doc = await db.site_content.find_one({"key": key, "mess_id": {"$in": [None, "__global__"]}}, {"_id": 0}) \
         or await db.site_content.find_one({"key": key, "mess_id": {"$exists": False}}, {"_id": 0})
     if doc:

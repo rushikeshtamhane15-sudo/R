@@ -198,8 +198,8 @@ export default function Login() {
         </div>
       )}
 
-      {/* iter-168 · shrink login card + add breathing space below the marquee. */}
-      <div className="bg-white flex-1 px-4 sm:px-6 pt-6 pb-4">
+      {/* iter-170 · larger breathing gap between marquee and login card. */}
+      <div className="bg-white flex-1 px-4 sm:px-6 pt-12 pb-4">
         <div className="max-w-[240px] mx-auto w-full relative z-10">
           {/* iter-158f · Green nutrient chip row (legacy eFoodCare hero feel, driven by CMS) */}
           {(c.chips || "").trim() && (

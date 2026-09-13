@@ -259,11 +259,13 @@ def test_reset_scoped_to_caller(admin_headers, test_mess_id):
                 timeout=15,
             )
             assert r_reset.status_code == 200
-            # mess-scoped GET now falls back to global marker
+            # iter-170: strict tenant isolation — mess-scoped GET now returns
+            # pristine DEFAULTS (not the super-admin's global marker) so
+            # tenants never inherit platform live-copy edits.
             r_scoped = requests.get(
                 f"{BASE_URL}/api/kiosk/cms?mess_id={test_mess_id}", timeout=15
             )
-            assert r_scoped.json()["brand_tagline"] == global_marker
+            assert r_scoped.json()["brand_tagline"] == "ghar se accha khana"
         finally:
             _clear_imp(admin_headers)
 

@@ -18,7 +18,7 @@ import { MapPin, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
  * subscribe flow's _enforce_serviceable_area passes without forcing the user
  * to re-pin in Profile.
  */
-const SS_KEY = "efc_user_geo_v2";
+const SS_KEY = "efc_user_geo_v3";
 
 function haversineKm(lat1, lng1, lat2, lng2) {
   const R = 6371;
