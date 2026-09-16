@@ -1,0 +1,34 @@
+{
+  "summary": "iter-171 fully green. Backend: 10/10 new iter-171 tests PASS (subscription-tabs auth 401/403, row shape for all three tabs, active vs expiring 3-day window, expired status filter + end_date DESC sort, admin/stats active_dining+active_tiffin=active_subscriptions invariant, impersonated mess scope). Regression: 21/21 (iter-170 strict-isolation 11 + iter-166 kiosk CMS 10) PASS. Frontend: /admin renders admin-dashboard root; both new stat cards render (Active dining=1, Active tiffin=0, sums to active_subs=1); Subscriptions card renders with three tab buttons showing counts (Active 1 / Expiring 0 / Expired 83); each tab click fires /api/admin/subscriptions/tabs and hydrates the table (active tab shows User 3333 row; expired tab shows 83 rows; empty state renders correctly on Expiring tab). Wall-kiosk isolation verified: efc.kiosk.active_scope='global' and efc.kiosk.global.<key> namespaced keys are written correctly on super-admin surface with platform DEFAULTS.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter171_subscription_tabs.py",
+    "/app/test_reports/pytest/iter171.xml",
+    "/app/test_reports/pytest/iter171_regression.xml"
+  ],
+  "action_items": [
+    "MINOR: AdminKiosk.jsx writes BOTH the scope-namespaced key (efc.kiosk.<scope>.<key>) AND the legacy un-namespaced key (efc.kiosk.<key>) — because notify.js still reads the un-namespaced form. This makes cross-tenant cleanliness dependent on last-write-wins timing: when a super-admin browses to a mess-owner impersonated kiosk and back, the un-namespaced keys get overwritten with the new scope's values, which is good. But if notify.js is ever fired while the CMS fetch is in flight or races another tab, stale greetings could still play once. Consider migrating notify.js (announceCheckinSuccess) to read localStorage['efc.kiosk.' + localStorage.getItem('efc.kiosk.active_scope') + '.<key>'] to eliminate the legacy path entirely."
+  ],
+  "critical_code_review_comments": [
+    "routes/subscription_tabs.py is clean: single query with a filter switch on tab, batch user hydration via $in, MongoDB _id excluded. days_left clamp mirrors SubscriberDashboard iter-140 coherency exactly. Sort direction correctly flips DESC only for expired tab.",
+    "The 'active' tab uses end_date > now+3d as a STRICT greater-than while 'expiring' uses <= now+3d — no overlap, no double-counting. Good.",
+    "admin.py active_dining/active_tiffin split is O(N) with a users find_one per subscription — same pattern as pre-171 active_subs counter, so no regression, but this is a candidate for a future bulk-lookup refactor if active-sub counts grow to hundreds.",
+    "SubscriptionTabs.jsx prime-loads all three counts in parallel on mount then re-fetches full rows on tab click — good UX, no waterfall. Empty state and loading state both have dedicated testids.",
+    "AdminKiosk.jsx dual-write to legacy + scoped keys is documented in a comment, but the un-namespaced legacy key is still the READ path for notify.js — see action item above."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter171_subscription_tabs.py"
+  ],
+  "success_rate": {"backend": "100% (10/10 new + 21/21 regression)", "frontend": "100% (all data-testids present, tab clicks work, stat cards populate, kiosk scope key set)"},
+  "test_credentials": "Super admin phone 9970705391 dev OTP; session token cached at /tmp/iter158_tokens.json under key '9970705391'. Auth via httponly session_token cookie (context.add_cookies with domain=preview.emergentagent.com).",
+  "seed_data_creation": "None needed — mess efoodcare-amravati already had 1 active dining subscription (User 3333, plan_id null, 49 meals left, renewal 14 Oct) and 83 expired/cancelled rows. Would recommend seeding a tiffin subscription for a more complete UI proof but functionality is verified end-to-end (row shape, tab filter, stat card split, sum invariant).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Re-run: `cd /app && python -m pytest backend/tests/test_iter171_subscription_tabs.py backend/tests/test_iter170_strict_isolation.py backend/tests/test_iter166_kiosk_cms.py -v`. All 31 pass. /admin dashboard root testid is 'admin-dashboard' (verified). SubscriptionTabs testids: subscriptions-tabs-card, subscriptions-tab-{active,expiring,expired}, subscriptions-table, subscriptions-empty, subscriptions-loading, subscriptions-row-<sub_id>, subscriptions-row-{customer,meals,renewal,status}-<sub_id>. Stat cards: stat-card-active-dining, stat-card-active-tiffin. Kiosk namespaced localStorage keys: efc.kiosk.active_scope + efc.kiosk.<scope>.<greeting_key>. OTP is rate-limited per IP (10/hr, 50/day) — reuse cached session token from /tmp/iter158_tokens.json before requesting fresh OTP.",
+  "rca of the issue": "N/A — no bugs. Implementation matches spec across all three deliverables."
+}

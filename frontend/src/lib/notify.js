@@ -216,11 +216,19 @@ export function announceCheckinSuccess(meal = "lunch", name = "") {
   const isDinner = String(meal).toLowerCase() === "dinner";
   // Use only the first word so long full-names don't slow the read.
   const first = String(name || "").trim().split(/\s+/)[0] || "";
-  // iter-166 · mess-owner-editable greeting templates. The wall kiosk writes
-  // its CMS payload into localStorage on mount (see AdminKiosk.jsx). If a
-  // template contains "{name}" we substitute the first name; otherwise we
-  // prepend it just like the legacy behaviour.
-  const readCms = (k) => { try { return localStorage.getItem(k) || ""; } catch { return ""; } };
+  // iter-166 · mess-owner-editable greeting templates. iter-171 · reads
+  // the scope-namespaced key first (`efc.kiosk.<scope>.<k>`) so a super-
+  // admin browsing between global and impersonated messes never hears the
+  // wrong tenant's greeting after a race. Falls back to the legacy
+  // un-namespaced key for backwards-compat.
+  const readCms = (k) => {
+    try {
+      const scope = localStorage.getItem("efc.kiosk.active_scope") || "global";
+      const scoped = localStorage.getItem(`efc.kiosk.${scope}.${k}`);
+      if (scoped) return scoped;
+      return localStorage.getItem(`efc.kiosk.${k}`) || "";
+    } catch { return ""; }
+  };
   const applyTpl = (tpl, fallback) => {
     const raw = (tpl || "").trim();
     if (!raw) return fallback;

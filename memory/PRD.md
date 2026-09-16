@@ -4,6 +4,14 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-171 — Subscription tabs + active mix tiles + kiosk cache namespacing (2026-02-16)
+**Status: DONE — regression stable, testing_agent iter-171 verifies E2E.**
+
+- **Subscriptions tabs card** — new `/api/admin/subscriptions/tabs?tab={active|expiring|expired}` (see `/app/backend/routes/subscription_tabs.py`) with `effective_mess_id()` scoping. Rows carry Customer, Plan, Meals Left (iter-140 clamp), Renewal date, Status. Frontend component: `/app/frontend/src/components/SubscriptionTabs.jsx` mounted on `/admin` dashboard.
+- **Active dining / Active tiffin tiles** — `admin_stats` now returns `active_dining` and `active_tiffin` integer keys. Dashboard grid widened to 6 columns to accommodate.
+- **Wall-kiosk cache namespacing** — `AdminKiosk.jsx` now scopes voice greeting localStorage keys by `mess_id` (`efc.kiosk.<scope>.greeting_*`) so cross-tenant browsing by super-admin never leaves stale greetings on the wrong kiosk.
+
+
 ## iter-170 — Strict tenant isolation + super-admin logo fix (2026-02-14)
 **Status: DONE — 20/20 iter-166 pass, 40/40 iter-160/165/168 regression pass.**
 
