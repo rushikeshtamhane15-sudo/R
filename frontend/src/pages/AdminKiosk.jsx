@@ -44,7 +44,13 @@ export default function AdminKiosk() {
   const kioskLogoUrl = branding?.kioskLogoUrl || branding?.brandLogoUrl || branding?.headerLogoUrl || "";
   // iter-166 · Wall-kiosk CMS overrides (mess-scoped). Falls back to the
   // legacy hardcoded strings when the mess owner hasn't customised.
+  // iter-171 · namespace localStorage by mess_id so cross-tenant browsing
+  // (super-admin switching between global and impersonated messes) never
+  // leaves stale greetings ringing on someone else's kiosk. Nulling the
+  // key back to "global" on the super-admin surface likewise clears any
+  // mess-owner values that may have been written earlier in the session.
   const [kioskCms, setKioskCms] = useState({ brand_name: "", brand_tagline: "" });
+  const [kioskScopeKey, setKioskScopeKey] = useState("global");
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -52,11 +58,19 @@ export default function AdminKiosk() {
         const r = await api.get("/admin/kiosk/cms");
         if (cancelled) return;
         const d = r?.data || {};
+        const scope = d.mess_id || "global";
+        setKioskScopeKey(scope);
         setKioskCms({ brand_name: d.brand_name || "", brand_tagline: d.brand_tagline || "" });
-        // Mirror voice greetings into localStorage so notify.js picks them up.
+        // Wipe stale keys from any previously-viewed scope, then write the
+        // fresh ones under both the scope-specific key AND the legacy
+        // un-namespaced key (which notify.js currently reads).
         try {
           const keys = ["greeting_lunch_hi", "greeting_lunch_en", "greeting_dinner_hi", "greeting_dinner_en"];
-          keys.forEach((k) => localStorage.setItem(`efc.kiosk.${k}`, d[k] || ""));
+          keys.forEach((k) => {
+            localStorage.setItem(`efc.kiosk.${k}`, d[k] || "");
+            localStorage.setItem(`efc.kiosk.${scope}.${k}`, d[k] || "");
+          });
+          localStorage.setItem("efc.kiosk.active_scope", scope);
         } catch { /* noop */ }
       } catch { /* silent — CMS may not exist yet on fresh installs */ }
     })();

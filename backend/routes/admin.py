@@ -147,12 +147,16 @@ async def admin_stats(
 
     # iter-65 #10 fix: only count subs whose user record still exists
     # with role=subscriber (drops orphans + seeded stale rows).
+    # iter-171: additionally split active count by service_type so admin
+    # dashboard can show "Active dining" and "Active tiffin" separately.
     active_subs = 0
+    active_dining = 0
+    active_tiffin = 0
     sub_filter: dict = {"status": "active"}
     if franchise_mess_id:
         sub_filter["mess_id"] = franchise_mess_id
     async for sub in server.db.subscriptions.find(
-        sub_filter, {"_id": 0, "user_id": 1},
+        sub_filter, {"_id": 0, "user_id": 1, "service_type": 1},
     ):
         uid = sub.get("user_id")
         if not uid:
@@ -162,6 +166,10 @@ async def admin_stats(
         )
         if owner:
             active_subs += 1
+            if (sub.get("service_type") or "dining") == "tiffin":
+                active_tiffin += 1
+            else:
+                active_dining += 1
 
     # Today's attendance — still anchored to "today" (not the window) so
     # the Today's check-ins card always reads the live counter.
@@ -201,6 +209,8 @@ async def admin_stats(
         "total_users": total_users,
         "total_subscribers": total_subscribers,
         "active_subscriptions": active_subs,
+        "active_dining": active_dining,
+        "active_tiffin": active_tiffin,
         "today_attendance": today_att,
         "revenue": round(revenue, 2),
         "currency": "INR",

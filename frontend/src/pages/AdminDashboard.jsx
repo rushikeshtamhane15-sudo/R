@@ -2,9 +2,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
-import { Users, Calendar, IndianRupee, Check, RefreshCw, AlertTriangle, Phone, MessageCircle, Building2, ShieldCheck, MessageSquare, ArrowRight, Sparkles } from "lucide-react";
+import { Users, Calendar, IndianRupee, Check, RefreshCw, AlertTriangle, Phone, MessageCircle, Building2, ShieldCheck, MessageSquare, ArrowRight, Sparkles, Utensils, Truck } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
 import KioskHealthTile from "../components/KioskHealthTile";
+import SubscriptionTabs from "../components/SubscriptionTabs";
 
 const PERIODS = [
   { id: "cycle", label: "Billing cycle" },
@@ -55,6 +56,9 @@ export default function AdminOverview() {
     return [
       { label: "Total users", value: stats.total_users, icon: Users },
       { label: "Active subs", value: stats.active_subscriptions, icon: Check },
+      // iter-171 · split active dining vs tiffin so mess owners see the mix
+      { label: "Active dining", value: stats.active_dining ?? 0, icon: Utensils, testid: "stat-card-active-dining" },
+      { label: "Active tiffin", value: stats.active_tiffin ?? 0, icon: Truck,    testid: "stat-card-active-tiffin" },
       { label: "Today's check-ins", value: stats.today_attendance, icon: Calendar },
       { label: `Revenue · ${stats.period_label || ""}`, value: `₹${Math.round(stats.revenue || 0).toLocaleString("en-IN")}`, icon: IndianRupee },
     ];
@@ -169,9 +173,9 @@ export default function AdminOverview() {
 
       <div className="mt-6"><KioskHealthTile /></div>
 
-      <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4" data-testid="stat-cards">
+      <div className="mt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4" data-testid="stat-cards">
         {cards.map((c, idx) => (
-          <div key={c.label} className="bg-card rounded-2xl border border-border p-6" data-testid={`stat-card-${idx}`}>
+          <div key={c.label} className="bg-card rounded-2xl border border-border p-6" data-testid={c.testid || `stat-card-${idx}`}>
             <div className="flex items-center justify-between gap-2">
               <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground line-clamp-2">{c.label}</p>
               <c.icon className="h-4 w-4 text-primary flex-shrink-0" strokeWidth={1.75} />
@@ -180,6 +184,8 @@ export default function AdminOverview() {
           </div>
         ))}
       </div>
+
+      <SubscriptionTabs />
 
       <div className="mt-6 bg-card rounded-2xl border border-border p-6" data-testid="attendance-trend">
         <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Attendance · {stats.period_label}</p>
