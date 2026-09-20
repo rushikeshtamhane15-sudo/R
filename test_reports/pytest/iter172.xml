@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="1" tests="9" time="395.634" timestamp="2026-09-20T19:58:48.668161+00:00" hostname="agent-env-4867a075-5146-47e1-bce2-3dbde1d37252"><testcase classname="backend.tests.test_iter172_dashboard_drilldown.TestActiveTiffinDetails" name="test_no_auth_returns_401_or_403" time="0.246" /><testcase classname="backend.tests.test_iter172_dashboard_drilldown.TestActiveTiffinDetails" name="test_subscriber_forbidden" time="0.435" /><testcase classname="backend.tests.test_iter172_dashboard_drilldown.TestActiveTiffinDetails" name="test_super_admin_platform_scope" time="0.321" /><testcase classname="backend.tests.test_iter172_dashboard_drilldown.TestActiveTiffinDetails" name="test_impersonated_scope_filters" time="0.453" /><testcase classname="backend.tests.test_iter172_dashboard_drilldown.TestActiveTiffinDetails" name="test_attendance_flips_delivered_flags" time="0.143"><skipped type="pytest.skip" message="No active tiffin subscribers on platform to seed against">/app/backend/tests/test_iter172_dashboard_drilldown.py:198: No active tiffin subscribers on platform to seed against</skipped></testcase><testcase classname="backend.tests.test_iter172_dashboard_drilldown.TestFooterEditingMessOwner" name="test_mess_owner_edits_scope_to_mess" time="196.719"><failure message="RuntimeError: otp send rate limited">backend/tests/test_iter172_dashboard_drilldown.py:244: in test_mess_owner_edits_scope_to_mess
+    sub_tok = _login(sub_phone, name="TEST_iter172_msub", mess_id=owner_ctx["mess_id"])
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_iter172_dashboard_drilldown.py:77: in _login
+    otp = _send_otp(phone)
+          ^^^^^^^^^^^^^^^^
+backend/tests/test_iter172_dashboard_drilldown.py:67: in _send_otp
+    raise RuntimeError("otp send rate limited")
+E   RuntimeError: otp send rate limited</failure></testcase><testcase classname="backend.tests.test_iter172_dashboard_drilldown.TestFooterEditingMessOwner" name="test_mess_owner_fallback_to_user_mess_id" time="196.208"><failure message="RuntimeError: otp send rate limited">backend/tests/test_iter172_dashboard_drilldown.py:284: in test_mess_owner_fallback_to_user_mess_id
+    owner_tok = _login(phone, name="Iter172bOwner", mess_id=mess_id, force=True)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_iter172_dashboard_drilldown.py:77: in _login
+    otp = _send_otp(phone)
+          ^^^^^^^^^^^^^^^^
+backend/tests/test_iter172_dashboard_drilldown.py:67: in _send_otp
+    raise RuntimeError("otp send rate limited")
+E   RuntimeError: otp send rate limited</failure></testcase><testcase classname="backend.tests.test_iter172_dashboard_drilldown.TestFooterEditingSuperAdmin" name="test_super_admin_writes_global" time="0.492" /><testcase classname="backend.tests.test_iter172_dashboard_drilldown.TestFooterEditingSuperAdmin" name="test_iter170_isolation_untouched_mess_gets_defaults" time="0.495" /></testsuite></testsuites>

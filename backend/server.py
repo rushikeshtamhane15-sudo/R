@@ -1803,7 +1803,7 @@ async def get_content(key: str, request: Request, mess_id: Optional[str] = None)
         try:
             tok = request.cookies.get("session_token") or (request.headers.get("authorization") or "").replace("Bearer ", "").strip()
             if tok:
-                sess = await db.user_sessions.find_one({"token": tok}, {"_id": 0, "user_id": 1})
+                sess = await db.user_sessions.find_one({"session_token": tok}, {"_id": 0, "user_id": 1})
                 if sess:
                     u = await db.users.find_one({"user_id": sess["user_id"]}, {"_id": 0, "mess_id": 1})
                     mess_id = (u or {}).get("mess_id") or None

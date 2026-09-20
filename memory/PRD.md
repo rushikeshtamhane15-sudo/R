@@ -4,6 +4,15 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-172 — Dashboard trim + drill-down popups + footer fix (2026-02-17)
+**Status: DONE. Testing_agent iter-172 verifies E2E.**
+
+- **Tile trim for mess owners**: `AdminDashboard` now hides Kiosk-Health, Today's Check-ins, and Revenue tiles when `role != admin`. Grid collapses cleanly to 4 tiles.
+- **Total Users drill-down**: Total Users tile is a `<button>` opening `<TotalUsersModal>` (fetches `/api/admin/users`, already scoped by branch). Renders name, phone, email, role pill, address, wallet.
+- **Active Tiffin drill-down**: Active Tiffin tile opens `<ActiveTiffinModal>` (new backend `/api/admin/active-tiffin-details`) with lunch/dinner delivered status pills, tap-to-call phone link, address. Sorted by pending first.
+- **Footer editing fix**: `_resolve_content_mess_id()` for `mess_owner` now falls back to `user.mess_id` when the mess row's `owner_user_id` link is missing (seed-drift). Fixes the "nothing edits" symptom — writes now correctly land in the per-mess doc; anonymous still sees the super-admin's global copy.
+
+
 ## iter-171 — Subscription tabs + active mix tiles + kiosk cache namespacing (2026-02-16)
 **Status: DONE — regression stable, testing_agent iter-171 verifies E2E.**
 
