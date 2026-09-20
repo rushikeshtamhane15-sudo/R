@@ -1767,13 +1767,20 @@ class ContentUpdate(BaseModel):
 
 async def _resolve_content_mess_id(user: "User") -> Optional[str]:
     """Return the mess_id whose content the caller should write to.
-    - mess_owner: their own mess.
+    - mess_owner: their own mess (via owner_user_id lookup, fall back to
+      user.mess_id if the mess row's owner_user_id link ever drifts from
+      seed-time — iter-168 fix).
     - admin actively impersonating: the impersonated mess.
     - admin not impersonating: None → writes global content.
     """
     if user.role == "mess_owner":
         m = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
-        return (m or {}).get("mess_id")
+        owned = (m or {}).get("mess_id")
+        if owned:
+            return owned
+        # Fallback for legacy seed data where the mess_owner's user record has
+        # `mess_id` set but the mess row's owner_user_id link is missing.
+        return getattr(user, "mess_id", None) or None
     if user.role == "admin":
         s = await db.user_sessions.find_one(
             {"user_id": user.user_id, "impersonate_mess_id": {"$exists": True}},
@@ -5807,6 +5814,7 @@ from routes.plans import router as _plans_router
 from routes.mess_owner import router as _mess_owner_router
 from routes.kiosk_cms import router as _kiosk_cms_router
 from routes.subscription_tabs import router as _subscription_tabs_router
+from routes.active_tiffin_details import router as _active_tiffin_router
 from routes.mess_reviews import router as _mess_reviews_router
 from routes.impersonate_billing import router as _imp_bill_router
 from routes.wallet import router as _wallet_router
@@ -5842,6 +5850,7 @@ api_router.include_router(_plans_router)
 api_router.include_router(_mess_owner_router)
 api_router.include_router(_kiosk_cms_router)
 api_router.include_router(_subscription_tabs_router)
+api_router.include_router(_active_tiffin_router)
 api_router.include_router(_mess_reviews_router)
 api_router.include_router(_imp_bill_router)
 api_router.include_router(_wallet_router)

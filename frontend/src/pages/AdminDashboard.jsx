@@ -6,6 +6,7 @@ import { Users, Calendar, IndianRupee, Check, RefreshCw, AlertTriangle, Phone, M
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
 import KioskHealthTile from "../components/KioskHealthTile";
 import SubscriptionTabs from "../components/SubscriptionTabs";
+import { TotalUsersModal, ActiveTiffinModal } from "../components/DashboardDrilldownModals";
 
 const PERIODS = [
   { id: "cycle", label: "Billing cycle" },
@@ -24,6 +25,9 @@ export default function AdminOverview() {
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
+  // iter-172 · tile drill-downs
+  const [showUsers, setShowUsers] = useState(false);
+  const [showTiffin, setShowTiffin] = useState(false);
 
   const refresh = async (p = period, d = date) => {
     setLoading(true);
@@ -53,16 +57,22 @@ export default function AdminOverview() {
 
   const cards = useMemo(() => {
     if (!stats) return [];
-    return [
-      { label: "Total users", value: stats.total_users, icon: Users },
-      { label: "Active subs", value: stats.active_subscriptions, icon: Check },
-      // iter-171 · split active dining vs tiffin so mess owners see the mix
-      { label: "Active dining", value: stats.active_dining ?? 0, icon: Utensils, testid: "stat-card-active-dining" },
-      { label: "Active tiffin", value: stats.active_tiffin ?? 0, icon: Truck,    testid: "stat-card-active-tiffin" },
-      { label: "Today's check-ins", value: stats.today_attendance, icon: Calendar },
-      { label: `Revenue · ${stats.period_label || ""}`, value: `₹${Math.round(stats.revenue || 0).toLocaleString("en-IN")}`, icon: IndianRupee },
+    // iter-172 · mess owners get a slim tile set: Total Users, Active subs,
+    // Active dining, Active tiffin. Today's check-ins and Revenue tiles are
+    // for super-admin only (mess owners see the same info elsewhere — the
+    // check-in list right below and the Payments/Wallet section).
+    const base = [
+      { label: "Total users",   value: stats.total_users,         icon: Users,   testid: "stat-card-total-users",    onClick: () => setShowUsers(true) },
+      { label: "Active subs",   value: stats.active_subscriptions, icon: Check },
+      { label: "Active dining", value: stats.active_dining ?? 0,   icon: Utensils, testid: "stat-card-active-dining" },
+      { label: "Active tiffin", value: stats.active_tiffin ?? 0,   icon: Truck,   testid: "stat-card-active-tiffin", onClick: () => setShowTiffin(true) },
     ];
-  }, [stats]);
+    if (isSuperAdmin) {
+      base.push({ label: "Today's check-ins", value: stats.today_attendance, icon: Calendar });
+      base.push({ label: `Revenue · ${stats.period_label || ""}`, value: `₹${Math.round(stats.revenue || 0).toLocaleString("en-IN")}`, icon: IndianRupee });
+    }
+    return base;
+  }, [stats, isSuperAdmin]);
 
   if (!stats && loading) return <div className="text-muted-foreground" data-testid="overview-loading">Loading…</div>;
 
@@ -171,19 +181,38 @@ export default function AdminOverview() {
         )}
       </div>
 
-      <div className="mt-6"><KioskHealthTile /></div>
+      <div className="mt-6" data-testid="kiosk-health-wrap">
+        {/* iter-172 · Kiosk Health tile is a platform-operations signal —
+            only visible to super-admins so mess owners aren't pestered by
+            heartbeat warnings for a shared platform component. */}
+        {isSuperAdmin && <KioskHealthTile />}
+      </div>
 
       <div className="mt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4" data-testid="stat-cards">
-        {cards.map((c, idx) => (
-          <div key={c.label} className="bg-card rounded-2xl border border-border p-6" data-testid={c.testid || `stat-card-${idx}`}>
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground line-clamp-2">{c.label}</p>
-              <c.icon className="h-4 w-4 text-primary flex-shrink-0" strokeWidth={1.75} />
-            </div>
-            <p className="font-display font-extrabold text-3xl md:text-4xl mt-3 tabular-nums">{c.value}</p>
-          </div>
-        ))}
+        {cards.map((c, idx) => {
+          const clickable = typeof c.onClick === "function";
+          const Wrap = clickable ? "button" : "div";
+          return (
+            <Wrap
+              key={c.label}
+              type={clickable ? "button" : undefined}
+              onClick={clickable ? c.onClick : undefined}
+              className={`bg-card rounded-2xl border border-border p-6 text-left w-full ${clickable ? "hover:border-primary/50 hover:shadow-md transition cursor-pointer" : ""}`}
+              data-testid={c.testid || `stat-card-${idx}`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[10px] tracking-overline uppercase font-bold text-muted-foreground line-clamp-2">{c.label}</p>
+                <c.icon className="h-4 w-4 text-primary flex-shrink-0" strokeWidth={1.75} />
+              </div>
+              <p className="font-display font-extrabold text-3xl md:text-4xl mt-3 tabular-nums">{c.value}</p>
+              {clickable && <p className="text-[10px] text-muted-foreground mt-1">Tap for details →</p>}
+            </Wrap>
+          );
+        })}
       </div>
+
+      <TotalUsersModal open={showUsers} onClose={() => setShowUsers(false)} />
+      <ActiveTiffinModal open={showTiffin} onClose={() => setShowTiffin(false)} />
 
       <SubscriptionTabs />
 
