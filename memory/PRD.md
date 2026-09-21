@@ -4,6 +4,18 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-176 — Deploy compile-blocker fix (2026-02-21)
+**Status: DONE. 18/18 pytest PASS. Ready to redeploy.**
+
+- **Deploy failure RCA**: Cloud Build's frontend-build stage failed with `yarn build` → "Failed to compile" because `/app/frontend/src/pages/SuperAdminMesses.jsx` had (a) a missing `function Field({ label, children, hint }) {` header before the orphan `return (` at line 573 → hard SyntaxError, AND (b) two `useState` calls (`promoter`, `deleting`) placed AFTER early returns at lines 68-69, tripping `react-hooks/rules-of-hooks` in the strict prod build.
+- **Fix**:
+  - Restored `function Field(...)` header (helper is used ~15× in the same file).
+  - Hoisted `promoter` + `deleting` useState hooks to lines 51-53 alongside the other state, ABOVE the `if (!user) return <Navigate/>` guards.
+  - `@babel/parser` reports PARSE_OK. Fresh compile shows no red overlay. `/super-admin/messes` route redirects anonymous users to `/login` as expected.
+- **Regression suite**: `/app/backend/tests/test_iter176_preprod.py` — 18 tests all green covering CMS multi-tenant isolation, super-admin mess CRUD (iter-174), bottom-nav-slots (iter-168), and `/geo/reverse` Amravati/Shegaon (iter-169).
+- **Preview URL**: https://dining-atomics.preview.emergentagent.com — verified compile-clean.
+
+
 ## iter-174 — Super-admin mess CRUD + Home bottom-nav + pincode override (2026-02-17)
 **Status: DONE.**
 

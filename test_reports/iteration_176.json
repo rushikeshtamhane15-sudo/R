@@ -1,0 +1,26 @@
+{
+  "summary": "iter-176 pre-deploy verification. FIXED two compile-blockers in /app/frontend/src/pages/SuperAdminMesses.jsx: (1) missing `function Field({ label, children, hint })` header at line 573 caused `SyntaxError: 'return' outside of function` and killed the yarn build in Cloud Build; (2) two useState hooks (`promoter`, `deleting`) were called at line ~179 AFTER early returns at lines 68-69, triggering ESLint react-hooks/rules-of-hooks violation that dev-server refused to compile past. Both hooks hoisted to lines 51-53 alongside the other state; helper `function Field(...)` restored. `@babel/parser` confirms PARSE_OK; screenshot of /super-admin/messes (redirected to /login as anonymous) renders clean, no red compile overlay.\n\nBackend verification via /app/backend/tests/test_iter176_preprod.py (18 tests): all 18 PASSING after removing the invalid `fallback_to_global` test (which contradicts iter-170 STRICT isolation — the current, correct behaviour is that a mess without an override returns DEFAULT_CONTENT, not the super-admin's global copy). Coverage: CMS multi-tenant isolation (footer/announcement/contact/privacy/about/pricing/landing/login/refund), iter-174 super-admin mess CRUD (PUT edit incl. manager_phone, POST promote-owner with 403/404 guards, DELETE delist with default-mess guard), iter-168 bottom-nav-slots (GET/PATCH round-trip with 'home' slot, 400 on invalid slot), iter-169 /geo/reverse (Amravati and Shegaon coords resolve to correct city via India Post district override; 422 on invalid coords).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter176_preprod.py"
+  ],
+  "action_items": [
+    "Redeploy — build should now succeed."
+  ],
+  "critical_code_review_comments": [
+    "SuperAdminMesses.jsx hook order restored: useState calls for promoter/deleting are now at lines 51-53, ABOVE the `if (!user) return <Navigate ... />` guards at 68-69. This satisfies react-hooks/rules-of-hooks and the dev-server + prod build.",
+    "The missing `function Field(...)` header was a plain code accident (probably a bad merge or auto-formatter dropping the function header). The helper is used ~15x in the same file so removing it was not an option."
+  ],
+  "updated_files": [
+    "/app/frontend/src/pages/SuperAdminMesses.jsx (2 fixes: Field helper restored, promoter/deleting hooks hoisted above early returns)",
+    "/app/backend/tests/test_iter176_preprod.py (new — 18 regression tests for pre-deploy scope)"
+  ],
+  "success_rate": {"backend": "100% (18/18)", "frontend": "smoke: /super-admin/messes compiles clean, /login renders"},
+  "test_credentials": "See /app/memory/test_credentials.md (OTP dev-mode + super-admin allowlist).",
+  "seed_data_creation": "Test file reuses super-admin and mess_owner sessions cached from prior iterations; regenerates on failure via OTP dev-mode.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Compile blockers in SuperAdminMesses.jsx are resolved. Deploy pipeline should pass the build_image stage now. No behaviour changed — only structural JS/JSX fixes.",
+  "rca of the issue": "Deploy failed at Cloud Build frontend-build stage (yarn build → 'Failed to compile') because /app/frontend/src/pages/SuperAdminMesses.jsx had (a) a missing `function Field(...)` header before the orphan `return (` at line 573 → hard SyntaxError, and (b) useState hooks called after early returns → hooks-order ESLint error. Dev preview was running the old cached bundle, hiding both problems until a fresh compile. Fix restored the Field helper and hoisted the two hooks to sit above the early returns."
+}
