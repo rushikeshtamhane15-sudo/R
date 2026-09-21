@@ -17,6 +17,7 @@ import Footer from "./components/Footer";
 import BottomNav from "./components/BottomNav";
 import AdminLayout from "./components/AdminLayout";
 import Landing from "./pages/Landing";
+import Benefits from "./pages/Benefits";
 import Login from "./pages/Login";
 import AuthCallback from "./pages/AuthCallback";
 import Dashboard from "./pages/Dashboard";
@@ -159,6 +160,7 @@ function AppRoutes() {
         <Routes>
           <Route path="/" element={<HomeRoute />} />
           <Route path="/home" element={<Landing />} />
+          <Route path="/benefits" element={<Benefits />} />
           <Route path="/login" element={<Login />} />
           <Route path="/restaurant" element={<Restaurant />} />
           <Route path="/restaurant/checkout" element={<RequireAuth><RestaurantCheckout /></RequireAuth>} />

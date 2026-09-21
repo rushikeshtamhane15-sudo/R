@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Check, Loader2, Sparkles, Utensils, Truck, MapPin, AlertTriangle } from "lucide-react";
 import { ensureServiceableFix } from "../lib/serviceability";
 import { getBulletIcon } from "../lib/planBulletIcons";
+import LocationPill from "../components/LocationPill";
 
 const MEAL_PRICE_FULL = 70;
 const MEAL_PRICE_HALF = 50;
@@ -119,6 +120,12 @@ export default function Plans() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 md:px-8 lg:px-12 py-5 sm:py-8" data-testid="plans-page">
+      {/* iter-179 · Location pill so subscribers can verify their delivery
+          area before picking a plan. Sits above the H1. */}
+      <div className="flex justify-center mb-4" data-testid="plans-location-pill-wrap">
+        <LocationPill variant="default" />
+      </div>
+
       <div className="text-center max-w-2xl mx-auto">
         <p className="text-xs tracking-overline uppercase font-bold text-secondary">Subscription plans</p>
         <h1 className="font-display font-extrabold text-3xl sm:text-4xl md:text-5xl tracking-tight mt-2 leading-[1.05]">Pick a plan. Eat <span className="text-primary">ghar se achha khana.</span></h1>

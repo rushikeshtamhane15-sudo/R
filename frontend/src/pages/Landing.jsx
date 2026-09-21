@@ -43,56 +43,172 @@ export default function Landing() {
         path="/"
         description="India's multi-tenant SaaS for messes: onboard in 10 min. QR + face check-in, subscriber wallets, per-mess Razorpay, 30-day meal passes. Payments land directly in your bank." />
 
-      {/* HERO */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-primary via-primary to-red-800 text-white" data-testid="hero">
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "radial-gradient(circle at 25% 25%, #ffffff 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
-        <div className="relative max-w-7xl mx-auto px-6 md:px-10 pt-16 md:pt-24 pb-20 md:pb-28">
-          <div className="grid lg:grid-cols-[1.15fr_0.85fr] gap-10 items-center">
+      {/* HERO — iter-179 rebuild
+           - Deep gradient stack + floating orbs + fine grain overlay for depth
+           - Left column: badge / H1 / sub / CTAs / trust chips
+           - Right column: layered app-preview mockups (Meal Pass QR / Wallet /
+             Check-in toast / Live counter) — anchors the eye and shows product
+             instead of forcing a wall of text on mobile.
+      */}
+      <section className="relative isolate overflow-hidden text-white" data-testid="hero"
+        style={{
+          background: "radial-gradient(1200px 620px at 15% -10%, #7f1d1d 0%, transparent 55%), radial-gradient(900px 520px at 105% 10%, #b91c1c 0%, transparent 55%), linear-gradient(160deg, #4c0f14 0%, #7a1418 45%, #a02323 100%)",
+        }}
+      >
+        {/* Grain — subtle SVG noise, dampens the flat gradient */}
+        <div className="pointer-events-none absolute inset-0 opacity-[0.10] mix-blend-overlay"
+          style={{ backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")" }} />
+        {/* Floating orbs */}
+        <div className="pointer-events-none absolute -top-24 -right-16 h-72 w-72 rounded-full bg-amber-300/25 blur-3xl" />
+        <div className="pointer-events-none absolute top-40 -left-20 h-64 w-64 rounded-full bg-rose-400/20 blur-3xl" />
+        {/* Dot-mesh */}
+        <div className="pointer-events-none absolute inset-0 opacity-[0.08]"
+          style={{ backgroundImage: "radial-gradient(circle at 25% 25%, #ffffff 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
+
+        <div className="relative max-w-7xl mx-auto px-5 sm:px-8 md:px-10 pt-12 sm:pt-16 md:pt-24 pb-16 md:pb-28">
+          <div className="grid lg:grid-cols-[1.05fr_0.95fr] gap-10 lg:gap-14 items-center">
+            {/* -------- Left copy column -------- */}
             <div>
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
-                className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 backdrop-blur px-3 py-1.5 mb-5"
+              <motion.div
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
+                className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/25 backdrop-blur-md pl-1.5 pr-3.5 py-1.5 mb-5 shadow-[0_1px_0_rgba(255,255,255,0.14)_inset,0_10px_30px_-12px_rgba(0,0,0,0.5)]"
                 data-testid="hero-badge">
-                <Rocket className="h-3.5 w-3.5" />
-                <span className="text-xs font-semibold uppercase tracking-widest">Onboard your mess in 10 minutes</span>
+                <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-amber-400 text-red-900">
+                  <Rocket className="h-3.5 w-3.5" strokeWidth={2.5} />
+                </span>
+                <span className="text-[11px] font-black uppercase tracking-[0.18em]">Live in 10 minutes</span>
               </motion.div>
-              <motion.h1 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
-                className="font-display font-extrabold text-4xl sm:text-5xl lg:text-6xl leading-[1.05] tracking-tight">
-                Your mess.{" "}
-                <span className="text-white/90 underline decoration-white/40 decoration-4 underline-offset-4">Online in 10 minutes.</span>
+
+              <motion.h1
+                initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
+                className="font-display font-black text-[38px] leading-[1.02] sm:text-5xl lg:text-[64px] tracking-tight">
+                Your mess.<br className="hidden sm:block" />
+                <span className="relative inline-block">
+                  <span className="relative z-10">Online</span>
+                  <span aria-hidden className="absolute inset-x-0 bottom-1.5 h-3 sm:h-4 bg-amber-300/70 rounded-sm -z-0 skew-x-[-6deg]" />
+                </span>{" "}
+                in <span className="tabular-nums">10 min</span>.
               </motion.h1>
-              <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }}
-                className="mt-5 text-lg sm:text-xl text-white/85 max-w-2xl leading-relaxed">
-                <b>efoodtech</b> is the multi-tenant SaaS messes across India run on — QR + face check-in, subscriber wallets, 30-day meal passes and <b>direct Razorpay payments to your bank</b>. Sign up, upload your logo, and your subscribers are checking in the same evening.
+
+              <motion.p
+                initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }}
+                className="mt-5 text-[15px] sm:text-lg text-white/85 max-w-xl leading-relaxed">
+                The multi-tenant SaaS for messes across India — QR + face check-in, subscriber wallets, 30-day meal passes and <span className="font-bold text-white">Razorpay payouts straight to your bank</span>. Zero platform fee to start.
               </motion.p>
-              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}
+
+              <motion.div
+                initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}
                 className="mt-8 flex flex-wrap gap-3">
                 <Link to={ownerCta} data-testid="hero-cta-owner">
-                  <Button size="lg" className="rounded-full bg-white text-primary hover:bg-white/90 px-7 h-12 text-base font-bold">
-                    <Store className="h-4 w-4 mr-2" /> Onboard my mess · 10 min
+                  <Button size="lg" className="rounded-full bg-white text-primary hover:bg-white/95 px-7 h-12 text-sm sm:text-base font-black shadow-[0_10px_30px_-10px_rgba(0,0,0,0.55)] hover:shadow-[0_16px_36px_-10px_rgba(0,0,0,0.55)] transition-shadow">
+                    <Store className="h-4 w-4 mr-2" /> Onboard my mess
                   </Button>
                 </Link>
                 <Link to={subscriberCta} data-testid="hero-cta-subscriber">
-                  <Button size="lg" variant="outline" className="rounded-full border-white/40 hover:bg-white/10 text-white px-7 h-12 text-base font-semibold bg-transparent">
+                  <Button size="lg" variant="outline" className="rounded-full border-white/30 hover:bg-white/10 text-white px-7 h-12 text-sm sm:text-base font-bold bg-white/5 backdrop-blur">
                     Find messes near me <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
                 </Link>
               </motion.div>
-              <div className="mt-8 flex flex-wrap gap-6 text-xs sm:text-sm text-white/80" data-testid="hero-trust-strip">
-                <div className="flex items-center gap-1.5"><BadgeCheck className="h-4 w-4" /> No app install · runs on any phone</div>
-                <div className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4" /> Payments land directly in your bank</div>
-                <div className="flex items-center gap-1.5"><Star className="h-4 w-4 fill-white" /> Zero platform fee to start</div>
-              </div>
+
+              {/* Pill trust chips */}
+              <motion.div
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
+                className="mt-7 flex flex-wrap gap-2" data-testid="hero-trust-strip">
+                {[
+                  { icon: BadgeCheck, text: "No app install" },
+                  { icon: ShieldCheck, text: "Direct-to-bank payouts" },
+                  { icon: Star, text: "Zero platform fee" },
+                ].map((c, i) => (
+                  <span key={i} className="inline-flex items-center gap-1.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-md px-3 py-1 text-[11px] font-semibold text-white/90">
+                    <c.icon className="h-3.5 w-3.5" strokeWidth={2.25} /> {c.text}
+                  </span>
+                ))}
+              </motion.div>
             </div>
 
-            {/* Stat cards */}
-            <div className="grid grid-cols-2 gap-4" data-testid="hero-stats">
-              <StatCard label="Setup time" value="10 min" icon={Rocket} />
-              <StatCard label="Messes on platform" value={messCount ?? "—"} icon={Building2} />
-              <StatCard label="Check-in modes" value="QR + Face" icon={ScanFace} />
-              <StatCard label="Payment routing" value="Direct to mess" icon={Wallet} />
-            </div>
+            {/* -------- Right visual column — app-preview mockups -------- */}
+            <motion.div
+              initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.45 }}
+              className="relative h-[380px] sm:h-[440px] lg:h-[520px] mt-4 lg:mt-0"
+              data-testid="hero-mockups"
+            >
+              {/* Halo behind the stack */}
+              <div className="absolute inset-0 rounded-[36px] bg-gradient-to-br from-white/15 via-white/5 to-transparent border border-white/15 backdrop-blur-[2px]" />
+
+              {/* Meal Pass card (main, back-left) */}
+              <div className="absolute left-3 sm:left-6 top-5 w-[62%] sm:w-[64%] rounded-2xl bg-gradient-to-br from-white to-rose-50 text-slate-900 shadow-2xl p-4 -rotate-[6deg] border border-white/60">
+                <div className="flex items-center justify-between">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-rose-700">30-day meal pass</p>
+                  <span className="inline-flex h-6 items-center rounded-full bg-emerald-100 text-emerald-800 px-2 text-[9px] font-black">ACTIVE</span>
+                </div>
+                <p className="mt-2 text-xl sm:text-2xl font-black tracking-tight">Rahul S.</p>
+                <p className="text-[11px] text-slate-500">Mess ID · MESS-C0A9</p>
+                <div className="mt-3 flex items-end justify-between">
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Meals left</p>
+                    <p className="text-2xl font-black leading-none tabular-nums">42<span className="text-sm text-slate-400"> / 60</span></p>
+                  </div>
+                  <div className="h-16 w-16 rounded-lg bg-slate-900 p-1.5 shadow-inner">
+                    {/* Faux QR made of a CSS grid */}
+                    <div className="grid grid-cols-6 gap-[2px] h-full w-full">
+                      {Array.from({ length: 36 }).map((_, i) => (
+                        <span key={i} className={`rounded-[1px] ${["00","01","05","06","07","0b","0c","0d","0f","10","11","14","17","1a","1c","20","22","23"].includes(i.toString(16).padStart(2,"0")) ? "bg-white" : "bg-slate-900"}`} />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Wallet card (mid, front-right) */}
+              <div className="absolute right-2 sm:right-4 top-24 sm:top-32 w-[56%] sm:w-[58%] rounded-2xl bg-slate-900 text-white shadow-2xl p-4 rotate-[5deg] border border-white/10">
+                <div className="flex items-center gap-2">
+                  <span className="h-7 w-7 rounded-lg bg-emerald-400/20 text-emerald-300 flex items-center justify-center"><Wallet className="h-4 w-4" strokeWidth={2.4} /></span>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-white/60">Subscriber wallet</p>
+                </div>
+                <p className="mt-3 text-xl sm:text-2xl font-black tracking-tight tabular-nums">₹ 2,940</p>
+                <p className="text-[10px] text-white/50">14 days · 28 meals left</p>
+                <div className="mt-3 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                  <div className="h-full w-[68%] bg-gradient-to-r from-emerald-400 to-lime-400" />
+                </div>
+                <div className="mt-2.5 flex items-center justify-between text-[9px] text-white/50">
+                  <span>Cron tick · 06:20 AM</span>
+                  <span className="tabular-nums">−₹140 today</span>
+                </div>
+              </div>
+
+              {/* Check-in success toast (top-right) */}
+              <div className="absolute right-4 sm:right-8 -top-1 sm:top-2 w-[52%] sm:w-[46%] rounded-xl bg-white text-slate-900 shadow-2xl p-3 rotate-[-3deg] border border-emerald-200">
+                <div className="flex items-center gap-2.5">
+                  <span className="relative h-9 w-9 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow">
+                    <ScanFace className="h-4.5 w-4.5" />
+                    <span className="absolute inset-0 rounded-full border-2 border-emerald-400 animate-ping opacity-60" />
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Checked in</p>
+                    <p className="text-xs font-bold truncate">Ananya · Lunch</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Live counter (bottom-left) */}
+              <div className="absolute left-0 bottom-2 w-[46%] sm:w-[42%] rounded-xl bg-white/10 border border-white/20 backdrop-blur-md text-white shadow-2xl p-3 rotate-[3deg]">
+                <p className="text-[9px] font-black uppercase tracking-widest text-white/70">Today's plate count</p>
+                <p className="text-2xl font-black tabular-nums leading-none mt-1.5">238 <span className="text-[10px] text-emerald-300 align-middle">▲ 12%</span></p>
+                <div className="mt-2 flex items-end gap-1 h-6">
+                  {[35, 60, 48, 72, 55, 88, 70, 92].map((h, i) => (
+                    <span key={i} className="w-1.5 rounded-sm bg-white/60" style={{ height: `${h}%` }} />
+                  ))}
+                </div>
+              </div>
+            </motion.div>
           </div>
         </div>
+
+        {/* Bottom decorative wave */}
+        <svg aria-hidden viewBox="0 0 1440 60" className="absolute bottom-0 inset-x-0 w-full text-white" preserveAspectRatio="none">
+          <path fill="currentColor" d="M0,30 C220,60 420,0 720,30 C1020,60 1220,0 1440,30 L1440,60 L0,60 Z" />
+        </svg>
       </section>
 
       {/* WHY EFOODTECH */}

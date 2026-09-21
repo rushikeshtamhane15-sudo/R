@@ -9,6 +9,7 @@ import { Input } from "../components/ui/input";
 import { toast } from "sonner";
 import { ArrowRight, KeyRound, Search, Building2, MapPin, ShieldCheck, X, Check, User as UserIcon, Truck } from "lucide-react";
 import SEO from "../components/SEO";
+import LocationPill from "../components/LocationPill";
 
 import { LOGIN_DEFAULTS } from "./login/loginContentDefaults";
 
@@ -171,6 +172,13 @@ export default function Login() {
       <SEO title="Login · efoodtech" path="/login" description="Login to efoodtech. Type your mess name to find it — one-step login." />
 
       {/* iter-149: hero block removed per user — brand identity already shown in the site header above. */}
+
+      {/* iter-179 · Location pill so visitors can pin/verify their location
+          BEFORE logging in. Uses default 'Amravati' for anon; tap to detect
+          via GPS or double-tap to enter a 6-digit PIN override. */}
+      <div className="w-full flex justify-center pt-3 px-4" data-testid="login-location-pill-wrap">
+        <LocationPill variant="default" />
+      </div>
 
       {/* iter-148 · Super-admin editable 3D marquee announcement bar */}
       {(c.announcement_bar || "").trim() && (

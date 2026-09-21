@@ -4,6 +4,29 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-179 — Hero rebuild + Benefits page + Location on Login/Plans (2026-02-21)
+**Status: DONE. Compile-clean. Screenshots verified on mobile (hero) and desktop (Benefits).**
+
+- **Landing hero redesigned**: replaces the flat text-only block with a two-column layout on desktop and a rich mockup stack anchor visual on mobile.
+  - Multi-layer gradient (radial + linear) with SVG noise grain + floating orbs
+  - New badge pill with amber inset icon: `Live in 10 minutes`
+  - H1: `Your mess. Online in 10 min.` — with an animated amber-highlight sweep behind "Online"
+  - App-preview mockup cluster: Meal Pass card (with pseudo-QR CSS grid), Subscriber Wallet card (dark, gradient progress bar), Check-in toast (green pulse), Today's plate-count mini chart (bar spark)
+  - Trust chips (pill row) replace the tall trust strip
+  - Decorative SVG wave separator at bottom
+- **NEW `/benefits` page** (`pages/Benefits.jsx`): subscriber-focused feature explainer.
+  - Emerald + cyan gradient hero mirroring the Landing style so brand feels continuous
+  - H1: `Meals sorted. Wallet in your pocket.`
+  - Mockup stack: Priya's Meal Pass, Wallet with fair-usage strip, WhatsApp receipt toast, `14 🔥` streak card
+  - 6-tile feature grid: QR/Face check-in, Wallet on autopilot, 30-day meal pass, Streaks + rewards, WhatsApp receipts, Skip-a-day flexibility
+  - "A day on efoodtech" 3-step storyboard (12:45 → 12:46 → 12:47)
+  - 3 testimonial cards (Rahul, Priya, Aman)
+  - 4-question FAQ strip
+  - Final emerald CTA — `Find a mess near me` / `See plans`
+  - Route registered in `App.js` (`/benefits`)
+- **LocationPill on Login + Plans** (`pages/Login.jsx`, `pages/Plans.jsx`): before-login location capture. Uses the iter-177 default "Amravati" for anonymous users; tap to detect via GPS or double-tap to enter a 6-digit PIN override.
+
+
 ## iter-178 — Landing hero refresh + guest routes to Landing (2026-02-21)
 **Status: DONE. Compile-clean, preview screenshot verified. Deploy queued.**
 
