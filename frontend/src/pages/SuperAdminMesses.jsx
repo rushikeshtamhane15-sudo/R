@@ -50,6 +50,9 @@ export default function SuperAdminMesses() {
   // iter-158i · Per-mess bottom-nav slot editor
   const [navEditor, setNavEditor] = useState(null); // { messId, name, catalog[], selected[Set] }
   const [navBusy, setNavBusy] = useState(false);
+  // iter-174 · Super-admin actions on a mess row.
+  const [promoter, setPromoter] = useState(null); // { messId, name, phone, saving }
+  const [deleting, setDeleting] = useState(null); // mess_id being deleted
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -175,9 +178,7 @@ export default function SuperAdminMesses() {
     finally { setNavBusy(false); }
   };
 
-  // iter-174 · Super-admin actions on a mess row.
-  const [promoter, setPromoter] = useState(null); // { messId, name, phone, saving }
-  const [deleting, setDeleting] = useState(null); // mess_id being deleted
+  // iter-174 · Super-admin actions on a mess row (state hoisted above early returns).
   const openPromoter = (m) => setPromoter({ messId: m.mess_id, name: m.name, phone: "", saving: false });
   const submitPromote = async () => {
     if (!promoter) return;
@@ -570,6 +571,8 @@ export default function SuperAdminMesses() {
     </div>
   );
 }
+
+function Field({ label, children, hint }) {
   return (
     <div>
       <label className="block text-[10px] tracking-widest uppercase font-bold text-slate-500">{label}</label>
