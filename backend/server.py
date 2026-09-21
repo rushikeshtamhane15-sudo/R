@@ -1765,12 +1765,17 @@ class ContentUpdate(BaseModel):
     data: dict
 
 
-async def _resolve_content_mess_id(user: "User") -> Optional[str]:
+async def _resolve_content_mess_id(user: "User", request: Optional[Request] = None) -> Optional[str]:
     """Return the mess_id whose content the caller should write to.
     - mess_owner: their own mess (via owner_user_id lookup, fall back to
       user.mess_id if the mess row's owner_user_id link ever drifts from
       seed-time — iter-168 fix).
-    - admin actively impersonating: the impersonated mess.
+    - admin actively impersonating: the impersonated mess. iter-173 · we now
+      ONLY read impersonate_mess_id from the CURRENT request's session token
+      (matched on `session_token`) — this prevents a stale historical
+      impersonation row from silently redirecting a super-admin's global
+      writes to a mess they aren't actively viewing. Fixes the "super admin
+      can't edit footer" symptom users hit after logging back in.
     - admin not impersonating: None → writes global content.
     """
     if user.role == "mess_owner":
@@ -1778,15 +1783,24 @@ async def _resolve_content_mess_id(user: "User") -> Optional[str]:
         owned = (m or {}).get("mess_id")
         if owned:
             return owned
-        # Fallback for legacy seed data where the mess_owner's user record has
-        # `mess_id` set but the mess row's owner_user_id link is missing.
         return getattr(user, "mess_id", None) or None
     if user.role == "admin":
-        s = await db.user_sessions.find_one(
-            {"user_id": user.user_id, "impersonate_mess_id": {"$exists": True}},
-            {"_id": 0, "impersonate_mess_id": 1},
-        )
-        return (s or {}).get("impersonate_mess_id")
+        # Extract the current session token from the request headers/cookies.
+        tok = None
+        if request is not None:
+            try:
+                tok = (request.cookies.get("session_token")
+                       or (request.headers.get("authorization") or "").replace("Bearer ", "").strip())
+            except Exception:  # noqa: BLE001
+                tok = None
+        if tok:
+            s = await db.user_sessions.find_one(
+                {"session_token": tok, "user_id": user.user_id},
+                {"_id": 0, "impersonate_mess_id": 1},
+            )
+            if s and s.get("impersonate_mess_id"):
+                return s["impersonate_mess_id"]
+        return None
     return None
 
 
@@ -1813,7 +1827,7 @@ async def get_content(key: str, request: Request, mess_id: Optional[str] = None)
 
 
 @api_router.post("/admin/content/{key}")
-async def update_content(key: str, payload: ContentUpdate, user: User = Depends(get_current_user)):
+async def update_content(key: str, payload: ContentUpdate, request: Request, user: User = Depends(get_current_user)):
     # iter-158i: mess_owner AND impersonating super-admin can edit their
     # mess's version of any content page. Un-impersonated super-admins
     # write the global default that new messes inherit.
@@ -1821,7 +1835,7 @@ async def update_content(key: str, payload: ContentUpdate, user: User = Depends(
         raise HTTPException(status_code=403, detail="Admin or mess owner only")
     if key not in DEFAULT_CONTENT:
         raise HTTPException(status_code=400, detail="Unknown content key")
-    scope_mess_id = await _resolve_content_mess_id(user)
+    scope_mess_id = await _resolve_content_mess_id(user, request)
     current = await _load_content(key, mess_id=scope_mess_id)
     defaults = DEFAULT_CONTENT.get(key, {})
     incoming = dict(payload.data or {})
@@ -1840,12 +1854,12 @@ async def update_content(key: str, payload: ContentUpdate, user: User = Depends(
 
 
 @api_router.post("/admin/content/{key}/reset")
-async def reset_content(key: str, user: User = Depends(get_current_user)):
+async def reset_content(key: str, request: Request, user: User = Depends(get_current_user)):
     if user.role not in ("admin", "mess_owner"):
         raise HTTPException(status_code=403, detail="Admin or mess owner only")
     if key not in DEFAULT_CONTENT:
         raise HTTPException(status_code=400, detail="Unknown content key")
-    scope_mess_id = await _resolve_content_mess_id(user)
+    scope_mess_id = await _resolve_content_mess_id(user, request)
     await db.site_content.update_one(
         {"key": key, "mess_id": scope_mess_id},
         {"$set": {"key": key, "mess_id": scope_mess_id, "data": DEFAULT_CONTENT[key], "updated_at": iso(now_utc())}},

@@ -17,29 +17,42 @@ import { MapPin } from "lucide-react";
 export default function LocationPill({ className = "", variant = "default" }) {
   const { user } = useAuth();
   const [label, setLabel] = useState(null);
+  const [detecting, setDetecting] = useState(false);
+  // iter-173 · bump anon-geo key to invalidate stale Shegaon coords cached
+  // during pre-fix sessions where GPS/IP triangulation was fuzzy.
+  const ANON_GEO_KEY = "ef_anon_geo_v2";
   const [anonLatLng, setAnonLatLng] = useState(() => {
     try {
-      const c = JSON.parse(window.sessionStorage.getItem("ef_anon_geo") || "null");
+      const c = JSON.parse(window.sessionStorage.getItem(ANON_GEO_KEY) || "null");
       if (c && typeof c.lat === "number") return c;
     } catch { /* ignore */ }
     return null;
   });
 
+  const requestGps = React.useCallback((force = false) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    setDetecting(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const obj = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        try { window.sessionStorage.setItem(ANON_GEO_KEY, JSON.stringify(obj)); } catch { /* ignore */ }
+        setAnonLatLng(obj);
+        setDetecting(false);
+      },
+      () => { setDetecting(false); },
+      // iter-173 · high-accuracy so we prefer real GPS over IP/WiFi
+      // triangulation which is what leads Chrome to guess "Shegaon" from
+      // an Amravati cell tower.
+      { maximumAge: force ? 0 : 60000, timeout: 15000, enableHighAccuracy: true }
+    );
+  }, []);
+
   // Auto-detect for anonymous (no user or user without lat/lng) — best-effort.
   useEffect(() => {
     const haveOwn = user && user.lat != null && user.lng != null;
     if (haveOwn || anonLatLng) return;
-    if (typeof navigator === "undefined" || !navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const obj = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        try { window.sessionStorage.setItem("ef_anon_geo", JSON.stringify(obj)); } catch { /* ignore */ }
-        setAnonLatLng(obj);
-      },
-      () => { /* user denied / unavailable — silently keep CTA */ },
-      { maximumAge: 600000, timeout: 6000, enableHighAccuracy: false }
-    );
-  }, [user, anonLatLng]);
+    requestGps(false);
+  }, [user, anonLatLng, requestGps]);
 
   // Resolve which lat/lng to reverse-geocode
   const lat = user?.lat ?? anonLatLng?.lat;
@@ -47,9 +60,8 @@ export default function LocationPill({ className = "", variant = "default" }) {
 
   useEffect(() => {
     if (lat == null || lng == null) { setLabel(null); return; }
-    // iter-170 · bump cache key version so any stale "Shegaon" / raw-coord
-    // labels from the pre-fix browser Nominatim path get invalidated.
-    const key = `geo:v2:${lat.toFixed(3)},${lng.toFixed(3)}`;
+    // iter-173 · cache key v3 forces a full re-fetch after this ship.
+    const key = `geo:v3:${lat.toFixed(3)},${lng.toFixed(3)}`;
     const cached = sessionStorage.getItem(key);
     if (cached) { setLabel(cached); return; }
     let cancel = false;
@@ -87,25 +99,45 @@ export default function LocationPill({ className = "", variant = "default" }) {
 
   if (lat == null || lng == null) {
     // No lat/lng available — show a CTA so user knows location is missing.
-    const ctaHref = user ? "/profile?pickLocation=1" : "/login";
-    const ctaLabel = user ? "Pin your location" : "Locate me";
+    const ctaHref = user ? "/profile?pickLocation=1" : "#";
+    const ctaLabel = detecting ? "Detecting…" : (user ? "Pin your location" : "Locate me");
     return (
-      <a href={ctaHref} className={`${cls} ${className}`} data-testid={`location-pill-cta${variant === "strip" ? "-strip" : variant === "drawer" ? "-drawer" : ""}`}>
+      <a
+        href={ctaHref}
+        onClick={(e) => { if (!user) { e.preventDefault(); requestGps(true); } }}
+        className={`${cls} ${className}`}
+        data-testid={`location-pill-cta${variant === "strip" ? "-strip" : variant === "drawer" ? "-drawer" : ""}`}
+      >
         <MapPin className="h-3.5 w-3.5 shrink-0" />
         <span className="truncate">{ctaLabel}</span>
       </a>
     );
   }
 
+  // iter-173 · For anonymous users, tapping the pill re-detects the GPS.
+  // For logged-in users it still opens the profile picker.
+  const handleClick = (e) => {
+    if (user) return; // let default anchor navigation run
+    e.preventDefault();
+    // Clear cached label so next label reflects the new coords.
+    try {
+      const stale = `geo:v3:${lat.toFixed(3)},${lng.toFixed(3)}`;
+      sessionStorage.removeItem(stale);
+    } catch { /* ignore */ }
+    setLabel(null);
+    requestGps(true);
+  };
+
   return (
     <a
-      href={user ? "/profile?pickLocation=1" : "/login"}
+      href={user ? "/profile?pickLocation=1" : "#"}
+      onClick={handleClick}
       className={`${cls} ${className}`}
       data-testid={`location-pill${variant === "strip" ? "-strip" : variant === "drawer" ? "-drawer" : ""}`}
-      title={label || "Your delivery location"}
+      title={user ? "Your delivery location" : "Tap to redetect"}
     >
       <MapPin className="h-3.5 w-3.5 shrink-0" />
-      <span className="truncate">{label || "Locating…"}</span>
+      <span className="truncate">{detecting ? "Detecting…" : (label || "Locating…")}</span>
     </a>
   );
 }

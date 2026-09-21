@@ -4,6 +4,18 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-173 — Super-admin footer editing + GPS high-accuracy fixes (2026-02-17)
+**Status: DONE.**
+
+- **#1 Super-admin footer editing fixed**: root cause — `_resolve_content_mess_id()` was scanning `user_sessions` for ANY row with `impersonate_mess_id` set, so a super-admin who had impersonated a mess previously would keep writing to that mess even after logout+relogin. Now the query matches the CURRENT request's `session_token`, so a fresh admin session cleanly writes to the global doc. Anonymous still sees the super-admin's global footer.
+- **#2 Location pill accuracy**:
+  - `LocationPill.jsx` now requests GPS with `enableHighAccuracy: true` (was `false`) — favours real GPS over IP/WiFi triangulation, which is what was resolving Amravati users to "Shegaon".
+  - Anonymous-geo sessionStorage bumped to `ef_anon_geo_v2` — invalidates every stale cache.
+  - Reverse-geocode cache key bumped to `geo:v3:`.
+  - `ServiceabilityPill.jsx` bumped to `efc_user_geo_v4`.
+  - Tapping the pill (for anonymous users) now RE-DETECTS the GPS instead of navigating to `/login` — gives users a manual override if auto-detect returned the wrong nearby town. Shows "Detecting…" during the re-fetch.
+
+
 ## iter-172 — Dashboard trim + drill-down popups + footer fix (2026-02-17)
 **Status: DONE. Testing_agent iter-172 verifies E2E.**
 
