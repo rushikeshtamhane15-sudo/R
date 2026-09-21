@@ -2161,6 +2161,23 @@ async def _find_nearby_impl(lat: float, lng: float):
     return {"messes": items, "closest_mess_id": items[0]["mess_id"] if items else None}
 
 
+@api_router.get("/messes/by-id/{mess_id}")
+async def get_mess_by_id_public(mess_id: str):
+    """iter-177 · Public lookup of a mess by its Mess ID (not slug). Used by
+    LocationPill for logged-in subscribers who have `user.mess_id` but not
+    the slug. Returns only public-safe fields — city, pincode, state, name,
+    tagline — so the header pill can render the chosen mess's location.
+    """
+    doc = await db.messes.find_one(
+        {"mess_id": mess_id},
+        {"_id": 0, "mess_id": 1, "name": 1, "slug": 1, "city": 1, "state": 1,
+         "pincode": 1, "tagline": 1, "logo_url": 1, "status": 1},
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="Mess not found")
+    return doc
+
+
 @api_router.get("/messes/{slug}")
 async def get_mess_by_slug(slug: str):
     doc = await db.messes.find_one({"slug": slug}, {"_id": 0})
@@ -2308,11 +2325,20 @@ async def admin_promote_owner_by_phone(payload: PromoteOwnerIn, user: User = Dep
         {"user_id": target["user_id"]},
         {"$set": {"role": "mess_owner", "mess_id": payload.mess_id}},
     )
+    # iter-177 · Fix: also persist the mobile number on the mess doc so the
+    # SuperAdminMesses UI stops showing "No owner phone set" after promotion.
+    # Normalise to the 10-digit variant to match the frontend rendering
+    # (which prefixes "+91" itself).
+    owner_phone_10 = phone_raw[-10:] if len(phone_raw) >= 10 else phone_raw
     await db.messes.update_one(
         {"mess_id": payload.mess_id},
-        {"$set": {"owner_user_id": target["user_id"], "updated_at": iso(now_utc())}},
+        {"$set": {
+            "owner_user_id": target["user_id"],
+            "owner_phone": owner_phone_10,
+            "updated_at": iso(now_utc()),
+        }},
     )
-    return {"promoted_user_id": target["user_id"], "name": target.get("name"), "mess_id": payload.mess_id}
+    return {"promoted_user_id": target["user_id"], "name": target.get("name"), "mess_id": payload.mess_id, "owner_phone": owner_phone_10}
 
 
 class MessStatusIn(BaseModel):
@@ -2640,6 +2666,44 @@ async def _startup_backfill_mess_ids():
         await _backfill_mess_id_once()
     except Exception as e:  # noqa: BLE001
         logger.warning(f"[iter-76] mess_id backfill skipped: {e}")
+
+
+@app.on_event("startup")
+async def _startup_backfill_owner_phone():
+    """iter-177 · One-shot backfill for messes that have an `owner_user_id`
+    linked but no `owner_phone`. Legacy rows (pre-iter-177 promote-owner
+    endpoint) never wrote the phone back to the mess doc, causing the
+    SuperAdminMesses page to show "No owner phone set" even after a
+    successful promotion. Safe to re-run at every startup — it's a targeted
+    update, not a scan.
+    """
+    try:
+        cursor = db.messes.find(
+            {"owner_user_id": {"$exists": True, "$ne": None},
+             "$or": [{"owner_phone": {"$exists": False}}, {"owner_phone": None}, {"owner_phone": ""}]},
+            {"_id": 0, "mess_id": 1, "owner_user_id": 1},
+        )
+        fixed = 0
+        async for m in cursor:
+            uid = m.get("owner_user_id")
+            if not uid:
+                continue
+            u = await db.users.find_one({"user_id": uid}, {"_id": 0, "phone": 1})
+            phone = str((u or {}).get("phone") or "").strip()
+            if not phone:
+                continue
+            digits = "".join(c for c in phone if c.isdigit())
+            phone_10 = digits[-10:] if len(digits) >= 10 else digits
+            if phone_10:
+                await db.messes.update_one(
+                    {"mess_id": m["mess_id"]},
+                    {"$set": {"owner_phone": phone_10}},
+                )
+                fixed += 1
+        if fixed:
+            logger.info(f"[iter-177] backfilled owner_phone on {fixed} mess doc(s)")
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[iter-177] owner_phone backfill skipped: {e}")
 
 
 # -----------------------------------------------------------------------------
@@ -5897,6 +5961,7 @@ from routes.mess_owner import router as _mess_owner_router
 from routes.kiosk_cms import router as _kiosk_cms_router
 from routes.subscription_tabs import router as _subscription_tabs_router
 from routes.active_tiffin_details import router as _active_tiffin_router
+from routes.active_dining_details import router as _active_dining_router
 from routes.mess_reviews import router as _mess_reviews_router
 from routes.impersonate_billing import router as _imp_bill_router
 from routes.wallet import router as _wallet_router
@@ -5933,6 +5998,7 @@ api_router.include_router(_mess_owner_router)
 api_router.include_router(_kiosk_cms_router)
 api_router.include_router(_subscription_tabs_router)
 api_router.include_router(_active_tiffin_router)
+api_router.include_router(_active_dining_router)
 api_router.include_router(_mess_reviews_router)
 api_router.include_router(_imp_bill_router)
 api_router.include_router(_wallet_router)

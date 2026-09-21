@@ -2,11 +2,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
-import { Users, Calendar, IndianRupee, Check, RefreshCw, AlertTriangle, Phone, MessageCircle, Building2, ShieldCheck, MessageSquare, ArrowRight, Sparkles, Utensils, Truck } from "lucide-react";
+import { Users, Calendar, IndianRupee, Check, RefreshCw, AlertTriangle, Phone, MessageCircle, Building2, ShieldCheck, MessageSquare, ArrowRight, Sparkles, Utensils, Truck, Menu as MenuIcon, LayoutGrid } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
 import KioskHealthTile from "../components/KioskHealthTile";
-import SubscriptionTabs from "../components/SubscriptionTabs";
-import { TotalUsersModal, ActiveTiffinModal } from "../components/DashboardDrilldownModals";
+import { TotalUsersModal, ActiveTiffinModal, ActiveDiningModal, ActiveSubsModal } from "../components/DashboardDrilldownModals";
 
 const PERIODS = [
   { id: "cycle", label: "Billing cycle" },
@@ -28,6 +27,9 @@ export default function AdminOverview() {
   // iter-172 · tile drill-downs
   const [showUsers, setShowUsers] = useState(false);
   const [showTiffin, setShowTiffin] = useState(false);
+  // iter-177 · new tile drill-downs
+  const [showDining, setShowDining] = useState(false);
+  const [showSubs, setShowSubs] = useState(false);
 
   const refresh = async (p = period, d = date) => {
     setLoading(true);
@@ -63,8 +65,8 @@ export default function AdminOverview() {
     // check-in list right below and the Payments/Wallet section).
     const base = [
       { label: "Total users",   value: stats.total_users,         icon: Users,   testid: "stat-card-total-users",    onClick: () => setShowUsers(true) },
-      { label: "Active subs",   value: stats.active_subscriptions, icon: Check },
-      { label: "Active dining", value: stats.active_dining ?? 0,   icon: Utensils, testid: "stat-card-active-dining" },
+      { label: "Active subs",   value: stats.active_subscriptions, icon: Check,   testid: "stat-card-active-subs",    onClick: () => setShowSubs(true) },
+      { label: "Active dining", value: stats.active_dining ?? 0,   icon: Utensils, testid: "stat-card-active-dining", onClick: () => setShowDining(true) },
       { label: "Active tiffin", value: stats.active_tiffin ?? 0,   icon: Truck,   testid: "stat-card-active-tiffin", onClick: () => setShowTiffin(true) },
     ];
     if (isSuperAdmin) {
@@ -131,6 +133,20 @@ export default function AdminOverview() {
               <Sparkles className="h-5 w-5 mb-2" strokeWidth={2} />
               <div className="text-sm font-bold flex items-center justify-between">Site branding <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" /></div>
               <div className="text-[11px] text-white/70 mt-1">Splash logo, brand mark, theme.</div>
+            </Link>
+            {/* iter-177 · Fast access to platform-wide nav editors so super-admins
+                aren't scrolling through the sidebar to reach them. */}
+            <Link to="/admin/bottom-nav" data-testid="super-admin-tile-bottom-nav"
+              className="rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 p-4 transition group">
+              <LayoutGrid className="h-5 w-5 mb-2" strokeWidth={2} />
+              <div className="text-sm font-bold flex items-center justify-between">Bottom nav <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" /></div>
+              <div className="text-[11px] text-white/70 mt-1">Edit guest / subscriber / rider tabs — labels, icons, order.</div>
+            </Link>
+            <Link to="/admin/header-menu" data-testid="super-admin-tile-header-menu"
+              className="rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 p-4 transition group">
+              <MenuIcon className="h-5 w-5 mb-2" strokeWidth={2} />
+              <div className="text-sm font-bold flex items-center justify-between">Hamburger menu <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" /></div>
+              <div className="text-[11px] text-white/70 mt-1">Edit the top-right drawer links visible on every page.</div>
             </Link>
           </div>
         </div>
@@ -213,8 +229,8 @@ export default function AdminOverview() {
 
       <TotalUsersModal open={showUsers} onClose={() => setShowUsers(false)} />
       <ActiveTiffinModal open={showTiffin} onClose={() => setShowTiffin(false)} />
-
-      <SubscriptionTabs />
+      <ActiveDiningModal open={showDining} onClose={() => setShowDining(false)} />
+      <ActiveSubsModal open={showSubs} onClose={() => setShowSubs(false)} />
 
       <div className="mt-6 bg-card rounded-2xl border border-border p-6" data-testid="attendance-trend">
         <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Attendance · {stats.period_label}</p>

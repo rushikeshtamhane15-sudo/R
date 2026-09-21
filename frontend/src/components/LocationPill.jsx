@@ -4,26 +4,31 @@ import { api } from "../lib/api";
 import { MapPin } from "lucide-react";
 
 /**
- * LocationPill — iter-55 / iter-56 #5
- * 3D-styled pill that shows "Area, City — PIN".
- * Variants:
- *   - default (legacy): for in-row placement (now unused)
- *   - strip: thin row above the main header, light-on-primary background
- *   - drawer: full-width pill inside the hamburger drawer, on dark bg
+ * LocationPill — iter-55 / iter-56 / iter-177
  *
- * Auto-detect for anonymous users (#5): if no user.lat/lng we ask the
- * browser geolocation API (one-shot, low-accuracy) and cache the result.
+ * Shows a compact "Area, City — PIN" pill in the header (and drawer).
+ *
+ * iter-177 · Priority order for the label:
+ *   1. Logged-in user whose profile stores lat/lng → reverse-geocode.
+ *   2. Logged-in user with a mess_id but no personal GPS → show the
+ *      MESS's city + pincode (fetched via /messes/by-id/{mess_id}).
+ *   3. Anonymous with GPS cached → reverse-geocode via /geo/reverse.
+ *   4. Anonymous with a manual PIN override → India Post lookup.
+ *   5. Anonymous fallback → **"Amravati"** (efoodtech HQ) so the header
+ *      never renders empty. Users can double-tap to override with a PIN.
  */
+const DEFAULT_ANON_LABEL = "Amravati";
+
 export default function LocationPill({ className = "", variant = "default" }) {
   const { user } = useAuth();
   const [label, setLabel] = useState(null);
   const [detecting, setDetecting] = useState(false);
   const [pinPrompt, setPinPrompt] = useState(false);
   const [pinInput, setPinInput] = useState("");
-  // iter-173 · bump anon-geo key to invalidate stale Shegaon coords cached
-  // during pre-fix sessions where GPS/IP triangulation was fuzzy.
+  // iter-173 · bump anon-geo key to invalidate stale coords cached in older
+  // sessions where GPS/IP triangulation was fuzzy.
   const ANON_GEO_KEY = "ef_anon_geo_v2";
-  const ANON_LABEL_KEY = "ef_anon_label_v1"; // iter-174 · pincode override
+  const ANON_LABEL_KEY = "ef_anon_label_v1";
   const [anonLatLng, setAnonLatLng] = useState(() => {
     try {
       const c = JSON.parse(window.sessionStorage.getItem(ANON_GEO_KEY) || "null");
@@ -35,9 +40,10 @@ export default function LocationPill({ className = "", variant = "default" }) {
     try { return window.sessionStorage.getItem(ANON_LABEL_KEY) || null; } catch { return null; }
   });
 
-  // iter-174 · Manual pincode override — user types their pincode when
-  // GPS/IP mis-identifies the city. India Post is authoritative for postal
-  // geography; we call the same backend endpoint that /geo/reverse uses.
+  // iter-177 · Logged-in user's mess city (fallback when they have no
+  // personal lat/lng). Fetched once per mess_id change.
+  const [messLabel, setMessLabel] = useState(null);
+
   const submitPincode = async () => {
     const pin = (pinInput || "").replace(/\D/g, "").slice(0, 6);
     if (pin.length !== 6) { return; }
@@ -54,7 +60,7 @@ export default function LocationPill({ className = "", variant = "default" }) {
       try { window.sessionStorage.setItem(ANON_LABEL_KEY, newLabel); } catch { /* ignore */ }
       setPinPrompt(false);
       setPinInput("");
-    } catch { /* silently ignore — user can retry */ }
+    } catch { /* silently ignore */ }
     finally { setDetecting(false); }
   };
 
@@ -73,29 +79,41 @@ export default function LocationPill({ className = "", variant = "default" }) {
     );
   }, []);
 
-  // Auto-detect for anonymous (no user or user without lat/lng) — best-effort.
+  // iter-177 · For logged-in users w/ a mess_id but no personal lat/lng,
+  // fetch the MESS's city+pincode so the pill reflects their chosen mess.
+  useEffect(() => {
+    if (!user?.mess_id) { setMessLabel(null); return; }
+    if (user.lat != null && user.lng != null) return; // profile GPS wins
+    let cancel = false;
+    (async () => {
+      try {
+        const r = await api.get(`/messes/by-id/${encodeURIComponent(user.mess_id)}`);
+        const d = r?.data || {};
+        const parts = [d.city, d.pincode].filter(Boolean);
+        if (!cancel && parts.length) setMessLabel(parts.join(" · "));
+      } catch { /* silently keep fallback */ }
+    })();
+    return () => { cancel = true; };
+  }, [user?.mess_id, user?.lat, user?.lng]);
+
+  // Auto-detect GPS for anonymous users — best-effort only.
   useEffect(() => {
     const haveOwn = user && user.lat != null && user.lng != null;
     if (haveOwn || anonLatLng || pinLabel) return;
+    if (user) return; // logged-in without GPS falls back to messLabel, not GPS
     requestGps(false);
   }, [user, anonLatLng, requestGps, pinLabel]);
 
-  // Resolve which lat/lng to reverse-geocode
   const lat = user?.lat ?? anonLatLng?.lat;
   const lng = user?.lng ?? anonLatLng?.lng;
 
   useEffect(() => {
     if (lat == null || lng == null) { setLabel(null); return; }
-    // iter-173 · cache key v3 forces a full re-fetch after this ship.
     const key = `geo:v3:${lat.toFixed(3)},${lng.toFixed(3)}`;
     const cached = sessionStorage.getItem(key);
     if (cached) { setLabel(cached); return; }
     let cancel = false;
     (async () => {
-      // iter-169 · Use the backend /api/geo/reverse proxy. It does
-      // Nominatim + India Post PIN verification and prefers the postal
-      // District as the canonical city — fixes the "Shegaon vs Amravati"
-      // mismatch that pure browser-side Nominatim was returning.
       try {
         const r = await api.get(`/geo/reverse?lat=${lat}&lng=${lng}`);
         const d = r?.data || {};
@@ -123,8 +141,10 @@ export default function LocationPill({ className = "", variant = "default" }) {
     cls = `${baseShared} h-9 pl-2 pr-3 max-w-[200px] sm:max-w-[280px] bg-card text-foreground border border-border shadow-[0_2px_0_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.6)]`;
   }
 
-  // iter-174 · when a manual pincode override is set, it wins over GPS.
-  const effectiveLabel = pinLabel || label;
+  // iter-177 · Effective label priority. Personal PIN override > GPS reverse
+  // > messLabel (logged-in) > anonymous default.
+  const effectiveLabel = pinLabel || label || messLabel || (!user ? DEFAULT_ANON_LABEL : null);
+
   if (pinPrompt) {
     return (
       <div className={`${cls} ${className} !w-auto !max-w-none`} data-testid="location-pill-pincode">
@@ -144,9 +164,11 @@ export default function LocationPill({ className = "", variant = "default" }) {
     );
   }
 
+  // Case: no lat/lng and no cached labels — anonymous falls to DEFAULT_ANON_LABEL,
+  // logged-in with a resolved messLabel falls to that; both variants below render
+  // a tappable pill that lets the user override.
   if (lat == null || lng == null) {
-    // No lat/lng available — show a CTA so user knows location is missing.
-    const ctaLabel = detecting ? "Detecting…" : (user ? "Pin your location" : "Locate me");
+    const shownLabel = effectiveLabel || (detecting ? "Detecting…" : (user ? "Pin your location" : DEFAULT_ANON_LABEL));
     return (
       <button
         type="button"
@@ -154,18 +176,16 @@ export default function LocationPill({ className = "", variant = "default" }) {
         onDoubleClick={() => setPinPrompt(true)}
         className={`${cls} ${className}`}
         data-testid={`location-pill-cta${variant === "strip" ? "-strip" : variant === "drawer" ? "-drawer" : ""}`}
+        title={user ? "Tap to pin exact location · double-tap for PIN" : "Tap to detect location · double-tap to enter PIN"}
       >
         <MapPin className="h-3.5 w-3.5 shrink-0" />
-        <span className="truncate">{effectiveLabel || ctaLabel}</span>
+        <span className="truncate">{shownLabel}</span>
       </button>
     );
   }
 
-  // iter-174 · single tap re-detects GPS (anonymous) or opens profile picker
-  // (logged in). Double tap opens the manual PIN input — a reliable escape
-  // hatch when GPS/IP triangulation returns the wrong nearby town.
   const handleClick = (e) => {
-    if (user) return; // let default anchor navigation run
+    if (user) return;
     e.preventDefault();
     try {
       const stale = `geo:v3:${lat.toFixed(3)},${lng.toFixed(3)}`;
