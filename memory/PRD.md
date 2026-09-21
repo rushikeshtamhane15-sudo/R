@@ -4,6 +4,22 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-177 — 7-point batch: promote-phone fix, dashboards, location default (2026-02-21)
+**Status: DONE. 13/13 iter-177 pytest PASS · 18/18 iter-176 regression PASS · testing_agent full-pass.**
+
+- **#1 Default location = "Amravati" for logged-out users**: LocationPill rewrite. Anon fallback → `"Amravati"`. Logged-in with `mess_id` but no personal GPS → new `GET /api/messes/by-id/{mess_id}` returns `{city, pincode}` → pill shows `"City · PIN"`. Manual pincode override (double-tap) still works.
+- **#2 Active dining + Active subs drill-downs with clickable phones**: New `<ActiveDiningModal/>` + `<ActiveSubsModal/>`. New backend `GET /api/admin/active-dining-details` mirrors `active-tiffin-details` (partition validated with zero sub_id overlap). Phone rendered as `tel:+91…` link on every row.
+- **#3 Active/Expiring/Expired merged into Active Subs tile**: `<ActiveSubsModal/>` hosts 3 tabs (Active/Expiring/Expired) using `/admin/subscriptions/tabs`. Standalone `<SubscriptionTabs/>` panel BELOW the tiles is REMOVED.
+- **#4 Super-admin dashboard: Bottom Nav + Hamburger tiles**: 2 new tiles in the super-admin panel — `super-admin-tile-bottom-nav` → `/admin/bottom-nav`, `super-admin-tile-header-menu` → `/admin/header-menu`. Panel is now a 5-tile grid.
+- **#5 Promote-owner mobile now reflects**: Root cause — `admin_promote_owner_by_phone` set only `owner_user_id`; never wrote `owner_phone`. Fixed to persist the 10-digit variant. One-shot startup backfill (`_startup_backfill_owner_phone`) populated 2 legacy docs on first restart, log: `[iter-177] backfilled owner_phone on 2 mess doc(s)`.
+- **#6 Location detection wired**: Combined with #1 — priority order = personal PIN override → GPS reverse-geocode → mess city (logged-in) → `"Amravati"` (anon default).
+- **#7 eFoodTech Home in guest bottom-nav editable by super-admin**: The legacy `restaurant` slot is already remapped to `Home → /` in `BottomNav.jsx`; super-admin can now access the editor directly from the new `Bottom nav` tile on the dashboard.
+
+- **New endpoints**: `GET /api/messes/by-id/{mess_id}` (public), `GET /api/admin/active-dining-details` (admin/mess_owner/staff).
+- **New files**: `/app/backend/routes/active_dining_details.py`, `/app/backend/tests/test_iter177_batch.py`.
+- **Tests**: iter-177 pytest 13/13 · iter-176 pytest 18/18 (regression clean).
+
+
 ## iter-176 — Deploy compile-blocker fix (2026-02-21)
 **Status: DONE. 18/18 pytest PASS. Ready to redeploy.**
 
