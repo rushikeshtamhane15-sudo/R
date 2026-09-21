@@ -39,9 +39,9 @@ export default function Landing() {
 
   return (
     <div className="bg-white" data-testid="landing-page">
-      <SEO title="efoodtech · User Management System for Messes across India"
-        path="/home"
-        description="India's multi-tenant SaaS for messes: QR + face check-in, wallet, per-mess plans and Razorpay payments. Onboard your mess in minutes." />
+      <SEO title="efoodtech · Multi-tenant SaaS for messes across India · Onboard in 10 min"
+        path="/"
+        description="India's multi-tenant SaaS for messes: onboard in 10 min. QR + face check-in, subscriber wallets, per-mess Razorpay, 30-day meal passes. Payments land directly in your bank." />
 
       {/* HERO */}
       <section className="relative overflow-hidden bg-gradient-to-br from-primary via-primary to-red-800 text-white" data-testid="hero">
@@ -52,23 +52,23 @@ export default function Landing() {
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
                 className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 backdrop-blur px-3 py-1.5 mb-5"
                 data-testid="hero-badge">
-                <Sparkles className="h-3.5 w-3.5" />
-                <span className="text-xs font-semibold uppercase tracking-widest">Multi-tenant SaaS · India</span>
+                <Rocket className="h-3.5 w-3.5" />
+                <span className="text-xs font-semibold uppercase tracking-widest">Onboard your mess in 10 minutes</span>
               </motion.div>
               <motion.h1 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
                 className="font-display font-extrabold text-4xl sm:text-5xl lg:text-6xl leading-[1.05] tracking-tight">
-                Run your mess like a{" "}
-                <span className="text-white/90 underline decoration-white/40 decoration-4 underline-offset-4">tech company</span>.
+                Your mess.{" "}
+                <span className="text-white/90 underline decoration-white/40 decoration-4 underline-offset-4">Online in 10 minutes.</span>
               </motion.h1>
               <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }}
                 className="mt-5 text-lg sm:text-xl text-white/85 max-w-2xl leading-relaxed">
-                <b>efoodtech</b> is the User Management System messes across India use to run 30-day meal passes, QR + face check-ins, subscriber wallets and per-mess Razorpay payments — all in one app your subscribers already love.
+                <b>efoodtech</b> is the multi-tenant SaaS messes across India run on — QR + face check-in, subscriber wallets, 30-day meal passes and <b>direct Razorpay payments to your bank</b>. Sign up, upload your logo, and your subscribers are checking in the same evening.
               </motion.p>
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}
                 className="mt-8 flex flex-wrap gap-3">
                 <Link to={ownerCta} data-testid="hero-cta-owner">
                   <Button size="lg" className="rounded-full bg-white text-primary hover:bg-white/90 px-7 h-12 text-base font-bold">
-                    <Store className="h-4 w-4 mr-2" /> Onboard my mess
+                    <Store className="h-4 w-4 mr-2" /> Onboard my mess · 10 min
                   </Button>
                 </Link>
                 <Link to={subscriberCta} data-testid="hero-cta-subscriber">
@@ -77,17 +77,17 @@ export default function Landing() {
                   </Button>
                 </Link>
               </motion.div>
-              <div className="mt-8 flex flex-wrap gap-6 text-xs sm:text-sm text-white/80">
-                <div className="flex items-center gap-1.5"><BadgeCheck className="h-4 w-4" /> Setup in under 10 minutes</div>
-                <div className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4" /> Payments land in your bank directly</div>
-                <div className="flex items-center gap-1.5"><Star className="h-4 w-4 fill-white" /> Trusted by messes across India</div>
+              <div className="mt-8 flex flex-wrap gap-6 text-xs sm:text-sm text-white/80" data-testid="hero-trust-strip">
+                <div className="flex items-center gap-1.5"><BadgeCheck className="h-4 w-4" /> No app install · runs on any phone</div>
+                <div className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4" /> Payments land directly in your bank</div>
+                <div className="flex items-center gap-1.5"><Star className="h-4 w-4 fill-white" /> Zero platform fee to start</div>
               </div>
             </div>
 
             {/* Stat cards */}
             <div className="grid grid-cols-2 gap-4" data-testid="hero-stats">
+              <StatCard label="Setup time" value="10 min" icon={Rocket} />
               <StatCard label="Messes on platform" value={messCount ?? "—"} icon={Building2} />
-              <StatCard label="Meal passes / month" value="30-day" icon={QrCode} />
               <StatCard label="Check-in modes" value="QR + Face" icon={ScanFace} />
               <StatCard label="Payment routing" value="Direct to mess" icon={Wallet} />
             </div>
@@ -117,13 +117,14 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-6 md:px-10">
           <div className="text-center mb-14">
             <p className="text-xs uppercase tracking-widest font-bold text-secondary">How it works</p>
-            <h2 className="font-display font-extrabold text-3xl sm:text-4xl mt-2">From onboarding to first meal — 3 steps.</h2>
+            <h2 className="font-display font-extrabold text-3xl sm:text-4xl mt-2">Live in under 10 minutes.</h2>
+            <p className="text-muted-foreground mt-3 max-w-2xl mx-auto">3 short steps — most owners finish onboarding on a single WhatsApp call.</p>
           </div>
           <ol className="grid md:grid-cols-3 gap-6">
             {[
-              { n: 1, t: "Onboard", c: "Super-admin creates your mess in one form. You get your Mess ID over WhatsApp instantly." },
-              { n: 2, t: "Set up", c: "Upload your logo, tagline and Razorpay keys from /mess-owner/settings. Add your plans." },
-              { n: 3, t: "Go live", c: "Share your Mess ID. Subscribers type it on /login, subscribe, and start checking in via QR + face." },
+              { n: 1, t: "Onboard · 2 min", c: "Share your mess name, city and owner phone. Super-admin creates your Mess ID and WhatsApps it to you instantly." },
+              { n: 2, t: "Set up · 5 min",  c: "Upload logo, add your plans, paste your Razorpay keys once. All payments land directly in your bank from day one." },
+              { n: 3, t: "Go live · 3 min", c: "Share your Mess ID. Subscribers type it on /login, subscribe, and start checking in via QR + face on your wall kiosk." },
             ].map((s) => (
               <li key={s.n} className="rounded-2xl bg-white border border-slate-200 p-6 relative overflow-hidden">
                 <span className="absolute -top-3 -left-3 text-[100px] font-black text-primary/5 leading-none">{s.n}</span>
@@ -187,16 +188,16 @@ export default function Landing() {
       <section className="relative overflow-hidden bg-primary text-white" data-testid="final-cta-section">
         <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "radial-gradient(circle at 80% 30%, #ffffff 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
         <div className="relative max-w-4xl mx-auto px-6 md:px-10 py-20 md:py-24 text-center">
-          <h2 className="font-display font-extrabold text-4xl sm:text-5xl leading-tight">Ready to onboard your mess?</h2>
-          <p className="mt-5 text-white/85 text-lg max-w-2xl mx-auto">Join the multi-tenant SaaS trusted by messes across India. Under 10 minutes to go live. Payments direct to your bank.</p>
+          <h2 className="font-display font-extrabold text-4xl sm:text-5xl leading-tight">Onboard your mess in 10 minutes.</h2>
+          <p className="mt-5 text-white/85 text-lg max-w-2xl mx-auto">Every mess on efoodtech gets a custom Mess ID, its own branded subscriber app, wallet math on autopilot and Razorpay payments straight to the mess's bank. Zero platform fee to start.</p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Link to={ownerCta} data-testid="final-cta-owner">
               <Button size="lg" className="rounded-full bg-white text-primary hover:bg-white/90 px-8 h-12 text-base font-bold">
-                <Store className="h-4 w-4 mr-2" /> Get started for your mess
+                <Store className="h-4 w-4 mr-2" /> Get started · 10 min setup
               </Button>
             </Link>
             <a href="tel:+919970705391" className="inline-flex items-center gap-2 rounded-full border border-white/40 hover:bg-white/10 px-7 h-12 font-semibold" data-testid="final-cta-call">
-              <PhoneCall className="h-4 w-4" /> +91 99707 05391
+              <PhoneCall className="h-4 w-4" /> Talk to founder · +91 99707 05391
             </a>
           </div>
         </div>

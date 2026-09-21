@@ -117,10 +117,14 @@ function AdminIndex() {
 
 function HomeRoute() {
   // iter-92 #1: franchise owners get the Partner Portal as their landing page
-  // (replaces the consumer-facing Restaurant home). Everyone else continues
-  // to see the existing Restaurant homepage.
+  // (replaces the consumer-facing Restaurant home).
+  // iter-178: LOGGED-OUT visitors now land on the eFoodTech SaaS marketing
+  // page so the Bottom Nav "Home" tab (guests) correctly showcases the
+  // multi-tenant proposition instead of dropping straight into a single
+  // mess's Restaurant page. Existing subscribers keep the Restaurant page.
   const { user } = useAuth();
   if (user?.role === "mess_owner") return <PartnerPortal />;
+  if (!user) return <Landing />;
   return <Restaurant />;
 }
 

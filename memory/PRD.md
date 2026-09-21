@@ -4,6 +4,22 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-178 — Landing hero refresh + guest routes to Landing (2026-02-21)
+**Status: DONE. Compile-clean, preview screenshot verified. Deploy queued.**
+
+- **Guest `/` now renders `<Landing />` (not `<Restaurant />`)**: `HomeRoute` in `App.js` was serving the single-mess Restaurant page even to logged-out visitors. Now anonymous users see the eFoodTech SaaS marketing landing at `/` — same page the guest Bottom Nav "Home" tab now points to. Logged-in subscribers still see Restaurant; mess_owner still sees Partner Portal.
+- **Landing hero refresh** (`Landing.jsx`): spotlights the "onboard in 10 minutes" proposition.
+  - Badge: `Onboard your mess in 10 minutes`
+  - H1: `Your mess. Online in 10 minutes.`
+  - Sub-heading emphasises **direct Razorpay to your bank + same-evening go-live**
+  - CTA copy: `Onboard my mess · 10 min` and `Get started · 10 min setup`
+  - Hero stat card now leads with `Setup time · 10 min`, followed by live mess count (43 on preview)
+  - Trust strip: `No app install · runs on any phone`, `Payments land directly in your bank`, `Zero platform fee to start`
+  - How-it-works section reframed with per-step time estimates (2 + 5 + 3 min)
+  - Final CTA rewritten: `Onboard your mess in 10 minutes.` and `Talk to founder` phone anchor
+- **SEO**: title/description on the landing updated to spotlight the multi-tenant + 10-min-onboarding proposition; `path` bumped from `/home` to `/` since the page now serves both routes.
+
+
 ## iter-177 — 7-point batch: promote-phone fix, dashboards, location default (2026-02-21)
 **Status: DONE. 13/13 iter-177 pytest PASS · 18/18 iter-176 regression PASS · testing_agent full-pass.**
 
