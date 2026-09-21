@@ -4,6 +4,35 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-181 — Benefits red theme · Editable Copy · Logo concepts · Sora videos (2026-02-21)
+**Status: DONE. Compile-clean. Screenshots verified.**
+
+### 1) Benefits page → red/rose theme (aligned with Pricing)
+- Hero rebuilt with the same 3-stop radial + linear gradient as Pricing (crimson → deep red → primary), amber orbs and rose accent orbs.
+- All emerald/lime/cyan tones replaced with rose / amber / red / slate. Mockup stack (meal pass, wallet, WhatsApp receipt, 14🔥 streak) now uses rose gradient on the pass, amber-to-rose wallet progress bar.
+- Section backgrounds → `bg-rose-50/40` with `border-rose-100`. Icon accents on FAQ + testimonials → `text-primary`.
+
+### 2) Super-admin text editing (Benefits page — Landing + Pricing follow next)
+- NEW `components/EditableCopy.jsx` — provides `<EditableCopyProvider>`, `useEditableCopy()` hook, `<EditableText path="hero.h1">` component and floating `<EditPageToggle>` button.
+- Data lives in `app_content` CMS under `{contentKey}_copy` (Benefits → `benefits_copy`). Loads on mount, falls back to `defaults` prop so a broken CMS payload can't blank the page.
+- Admin-only UX: pencil-toggle FAB in the bottom-right → each editable string sprouts a dashed amber outline → contentEditable → blur saves via existing `POST /api/admin/content/{key}`.
+- Benefits.jsx wired: ~35 strings editable (badge, H1 fragments, sub, CTAs, 3 chips, 6 feature titles+copy, 3 day-storyboard entries, 3 testimonials, 4 FAQ Q&A, final CTA).
+- Landing + Pricing wrapping deferred to a follow-up iteration (larger files, will reuse the same framework).
+
+### 3) Logo concepts — 3 SVG marks
+- NEW `components/EFoodTechLogo.jsx` exports `EFoodTechLogoA/B/C` React components.
+  - **Concept A · Plate + QR** — QR-grid metaphor over primary-red rounded square, amber steam dot. Techy · signals kiosk.
+  - **Concept B · Meal Ring** — dotted subscriber-ring around an "ef" nucleus. SaaS-network mark.
+  - **Concept C · Chai Chip** — tilted mess-coupon chip with amber steam curls. Distinctly Indian.
+- Preview route added at `/dev/logo-preview` — visitors see all 3 concepts side-by-side with wordmark previews. User picks one; agent wires it into `Header.jsx` + `Splash.jsx`.
+
+### 4) Sora 2 animated videos — B2B + B2C explainers
+- NEW `backend/scripts/gen_sora_videos.py` — 2 prompts, each 12-second `1280x720` sora-2 clips, saved to `/app/frontend/public/videos/`.
+  - `owner-pitch.mp4` — mess-owner smile, dashboard tick-up, Razorpay UPI notification, wordmark end-card.
+  - `subscriber-pitch.mp4` — thali top-down, "Checked in ✓" toast, wallet ₹2,940 → ₹2,870 with 14🔥, face-scan pulse.
+- Uses `EMERGENT_LLM_KEY` (already in `.env`). Runs in background — takes ~5-10 min per video. Log at `/tmp/sora_videos.log`.
+
+
 ## iter-180 — LocationPill sync, Benefits in nav, Nearby removed, Pricing rewrite + Razorpay (2026-02-21)
 **Status: DONE. Compile-clean. Backend live with Razorpay. Screenshots verified.**
 

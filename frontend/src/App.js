@@ -18,6 +18,7 @@ import BottomNav from "./components/BottomNav";
 import AdminLayout from "./components/AdminLayout";
 import Landing from "./pages/Landing";
 import Benefits from "./pages/Benefits";
+import LogoPreview from "./components/EFoodTechLogo";
 import Login from "./pages/Login";
 import AuthCallback from "./pages/AuthCallback";
 import Dashboard from "./pages/Dashboard";
@@ -161,6 +162,7 @@ function AppRoutes() {
           <Route path="/" element={<HomeRoute />} />
           <Route path="/home" element={<Landing />} />
           <Route path="/benefits" element={<Benefits />} />
+          <Route path="/dev/logo-preview" element={<LogoPreview />} />
           {/* iter-180 · Legacy /nearby now redirects to the Benefits page. The
               Nearby-mess concept has been removed platform-wide to avoid
               competition between mess owners. */}
