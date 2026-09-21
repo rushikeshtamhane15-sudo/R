@@ -78,9 +78,9 @@ export default function Benefits() {
               <motion.div
                 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}
                 className="mt-8 flex flex-wrap gap-3">
-                <Link to="/nearby" data-testid="benefits-cta-nearby">
+                <Link to="/plans" data-testid="benefits-cta-plans-primary">
                   <Button size="lg" className="rounded-full bg-white text-emerald-800 hover:bg-white/95 px-7 h-12 text-sm sm:text-base font-black shadow-[0_10px_30px_-10px_rgba(0,0,0,0.55)]">
-                    <MapPin className="h-4 w-4 mr-2" /> Find a mess near me
+                    <Utensils className="h-4 w-4 mr-2" /> See meal plans
                   </Button>
                 </Link>
                 <Link to="/plans" data-testid="benefits-cta-plans">
@@ -308,14 +308,14 @@ export default function Benefits() {
           <h2 className="font-display font-extrabold text-4xl sm:text-5xl leading-tight">Ready for meals-on-autopilot?</h2>
           <p className="mt-5 text-white/85 text-lg max-w-2xl mx-auto">Find a mess near you and start today. Pay once, eat for a month, skip whenever you want.</p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Link to="/nearby" data-testid="benefits-final-nearby">
+            <Link to="/plans" data-testid="benefits-final-plans">
               <Button size="lg" className="rounded-full bg-white text-emerald-800 hover:bg-white/90 px-8 h-12 text-base font-black">
-                <MapPin className="h-4 w-4 mr-2" /> Find a mess near me
+                <Utensils className="h-4 w-4 mr-2" /> See meal plans
               </Button>
             </Link>
-            <Link to="/plans" data-testid="benefits-final-plans">
+            <Link to="/login" data-testid="benefits-final-login">
               <Button size="lg" variant="outline" className="rounded-full border-white/30 hover:bg-white/10 text-white px-7 h-12 font-bold bg-white/5 backdrop-blur">
-                See plans <ArrowRight className="h-4 w-4 ml-2" />
+                Login to my mess <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </Link>
           </div>

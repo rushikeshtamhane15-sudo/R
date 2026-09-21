@@ -4,6 +4,39 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-180 — LocationPill sync, Benefits in nav, Nearby removed, Pricing rewrite + Razorpay (2026-02-21)
+**Status: DONE. Compile-clean. Backend live with Razorpay. Screenshots verified.**
+
+### Location sync fix (#1)
+- Root cause: multiple LocationPill instances (Header + Login body + Plans) held INDEPENDENT React state. Header would keep GPS-derived "Shegaon" while the Login-body pill was updated to a manually-entered pincode → labels diverged.
+- Fix: new custom event `ef:location-updated` fired on every PIN submit and every GPS acquisition; all LocationPill instances subscribe and re-read `sessionStorage`. PIN submit also flushes stale `geo:v3:*` cache entries so old reverse-geocodes can't resurface.
+
+### Benefits in Bottom Nav + Hamburger (#2)
+- New `benefits` nav slot in both `subscriber` and `guest` CMS defaults.
+- BottomNav.jsx swaps the tab label at render:
+  - Active subscriber → label `Home` + Home icon
+  - Guest / inactive → label `Benefits` + Heart icon
+- Hamburger drawer: added `Home → /benefits` (logged-in), `Benefits → /benefits` + `Platform pricing → /pricing` (guest).
+- Auto-migration in `app_cms.py` unsets legacy persisted `guest` nav so the new defaults ship without needing a super-admin to hit reset.
+
+### Nearby mess concept removed (#3a)
+- `/nearby` route now redirects to `/benefits` in `App.js`.
+- BottomNav no longer injects the "Nearby" slot.
+- Landing / Benefits / Login pages replace `/nearby` links with `/pricing`, `/plans` or `/benefits` as contextually appropriate.
+
+### `/pricing` rewrite with 3 tiers + Razorpay wire (#3b)
+- 3 tiers: **Starter ₹2,799** (up to 100), **Growth ₹4,499** (101–200, MOST POPULAR), **Scale ₹9,499** (200+). Each with icon, tagline, 6 features, and Subscribe CTA.
+- Super-admin sees an inline "Edit tier prices" toggle → per-tier ₹ inputs → Save (POST `/api/admin/content/pricing` with `{tiers: [...]}`).
+- Razorpay Standard Checkout wired via `POST /api/billing/platform-fee/order` + `POST /api/billing/platform-fee/verify` (both require `mess_owner`/`admin`). All payment modes (UPI/Card/Netbanking/Wallet) enabled by Razorpay dashboard settings.
+- On successful verify, the mess doc is stamped with `platform_tier_id`, `platform_tier_paid_until` (30-day cycle), and `platform_tier_last_amount`.
+- Falls back to a mock-mode auto-verify when RZP keys are blank/invalid (dev environments).
+
+### New endpoints
+- `GET /api/billing/platform-fee/status` — returns `{razorpay_key_id, mock}` for the frontend to know if it should open Razorpay checkout or auto-verify.
+- `POST /api/billing/platform-fee/order` — creates a Razorpay order for the selected tier, persists into `db.platform_fee_orders`.
+- `POST /api/billing/platform-fee/verify` — verifies signature (or accepts mock) and stamps the mess.
+
+
 ## iter-179 — Hero rebuild + Benefits page + Location on Login/Plans (2026-02-21)
 **Status: DONE. Compile-clean. Screenshots verified on mobile (hero) and desktop (Benefits).**
 

@@ -6620,6 +6620,156 @@ async def franchise_my_visible_pages(user: User = Depends(get_current_user)):
     return {"visible_pages": pages}
 
 
+# ---------------------------------------------------------------------------
+# iter-180 · Platform-fee (B2B mess-owner subscription) — order + verify
+# ---------------------------------------------------------------------------
+_DEFAULT_PLATFORM_TIERS = [
+    {"id": "starter", "name": "Starter", "amount": 2799, "min": 0,   "upto": 100},
+    {"id": "growth",  "name": "Growth",  "amount": 4499, "min": 101, "upto": 200},
+    {"id": "scale",   "name": "Scale",   "amount": 9499, "min": 201, "upto": None},
+]
+
+
+async def _load_platform_tiers() -> list:
+    """Resolve tiers with priority: cms pricing.tiers → in-code defaults.
+
+    The CMS pricing doc lives at `app_content["pricing"].tiers`. Super-admins
+    can edit the amounts from the /pricing page inline editor (POST
+    /api/admin/content/pricing with {"tiers": [...]}). Missing entries fall
+    back to the in-code defaults so a broken/partial CMS payload can't kill
+    checkout.
+    """
+    try:
+        doc = await db.app_content.find_one({"key": "pricing"}, {"_id": 0}) or {}
+        data = doc.get("data") or {}
+        remote = data.get("tiers") if isinstance(data, dict) else None
+        if isinstance(remote, list) and remote:
+            merged = []
+            for d in _DEFAULT_PLATFORM_TIERS:
+                override = next((r for r in remote if r.get("id") == d["id"]), None)
+                merged.append({**d, **(override or {})})
+            return merged
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[iter-180] tiers load failed, falling back: {e}")
+    return list(_DEFAULT_PLATFORM_TIERS)
+
+
+class PlatformTierOrderIn(BaseModel):
+    tier_id: str
+
+
+class PlatformTierVerifyIn(BaseModel):
+    order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+
+
+@api_router.get("/billing/platform-fee/status")
+async def platform_fee_status(user: User = Depends(get_current_user)):
+    """Returns the Razorpay key_id to use for platform-fee checkout, plus
+    whether the platform is in mock mode (blank/invalid keys)."""
+    return {
+        "razorpay_key_id": RZP_KEY_ID if RZP_ENABLED else None,
+        "mock": not RZP_ENABLED,
+    }
+
+
+@api_router.post("/billing/platform-fee/order")
+async def platform_fee_order(payload: PlatformTierOrderIn, user: User = Depends(get_current_user)):
+    if user.role not in ("mess_owner", "admin"):
+        raise HTTPException(status_code=403, detail="Only mess owners can subscribe to a platform tier")
+    tiers = await _load_platform_tiers()
+    tier = next((t for t in tiers if t.get("id") == payload.tier_id), None)
+    if not tier:
+        raise HTTPException(status_code=404, detail="Unknown tier")
+
+    amount_paise = int(round(float(tier["amount"]) * 100))
+    currency = "INR"
+    receipt = f"pftier_{uuid.uuid4().hex[:14]}"
+    rzp_order = None
+    if RZP_ENABLED and rzp_client is not None:
+        try:
+            rzp_order = rzp_client.order.create({
+                "amount": amount_paise, "currency": currency, "receipt": receipt,
+                "payment_capture": 1,
+                "notes": {
+                    "kind": "platform_fee",
+                    "tier_id": tier["id"], "tier_name": tier["name"],
+                    "mess_id": user.mess_id or "",
+                    "owner_id": user.user_id,
+                },
+            })
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"[iter-180] platform-fee rzp order errored → mock · {e}")
+            rzp_order = None
+
+    if rzp_order is not None:
+        order_id = rzp_order["id"]
+        mock = False
+    else:
+        order_id = f"order_pftier_mock_{uuid.uuid4().hex[:12]}"
+        mock = True
+
+    await db.platform_fee_orders.insert_one({
+        "order_id": order_id, "receipt": receipt,
+        "tier_id": tier["id"], "tier_name": tier["name"],
+        "amount": tier["amount"], "amount_paise": amount_paise, "currency": currency,
+        "mess_id": user.mess_id, "owner_id": user.user_id,
+        "status": "created", "mock": mock,
+        "created_at": iso(now_utc()),
+    })
+    return {
+        "order_id": order_id, "amount_paise": amount_paise, "currency": currency,
+        "key_id": RZP_KEY_ID if RZP_ENABLED else None,
+        "mock": mock, "tier": tier,
+    }
+
+
+@api_router.post("/billing/platform-fee/verify")
+async def platform_fee_verify(payload: PlatformTierVerifyIn, user: User = Depends(get_current_user)):
+    order = await db.platform_fee_orders.find_one({"order_id": payload.order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.get("owner_id") != user.user_id and user.role != "admin":
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    if order.get("mock"):
+        logger.warning(f"[MOCKED] Auto-verifying mock platform-fee order {payload.order_id}")
+    else:
+        try:
+            rzp_client.utility.verify_payment_signature({
+                "razorpay_order_id": payload.order_id,
+                "razorpay_payment_id": payload.razorpay_payment_id,
+                "razorpay_signature": payload.razorpay_signature,
+            })
+        except Exception as e:
+            logger.error(f"[iter-180] platform-fee signature verify failed: {e}")
+            raise HTTPException(status_code=400, detail="Invalid payment signature")
+
+    now = now_utc()
+    valid_until = iso(now + timedelta(days=30))
+    await db.platform_fee_orders.update_one(
+        {"order_id": payload.order_id},
+        {"$set": {
+            "status": "paid",
+            "razorpay_payment_id": payload.razorpay_payment_id,
+            "razorpay_signature": payload.razorpay_signature,
+            "paid_at": iso(now),
+            "valid_until": valid_until,
+        }},
+    )
+    if order.get("mess_id"):
+        await db.messes.update_one(
+            {"mess_id": order["mess_id"]},
+            {"$set": {
+                "platform_tier_id": order["tier_id"],
+                "platform_tier_paid_until": valid_until,
+                "platform_tier_last_amount": order["amount"],
+            }},
+        )
+    return {"ok": True, "tier_id": order["tier_id"], "valid_until": valid_until}
+
+
 # Register all @api_router endpoints (including the iter-77 refund/wallet/
 # franchise sections defined above) onto the FastAPI app.
 app.include_router(api_router)

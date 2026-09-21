@@ -18,6 +18,10 @@ import { MapPin } from "lucide-react";
  *      never renders empty. Users can double-tap to override with a PIN.
  */
 const DEFAULT_ANON_LABEL = "Amravati";
+// iter-180 · Cross-instance sync event. Header + Login + Plans + Drawer can
+// all render a LocationPill at the same time; when the user updates the
+// location (PIN or GPS) on ONE pill, all others must re-read from storage.
+const LOC_EVENT = "ef:location-updated";
 
 export default function LocationPill({ className = "", variant = "default" }) {
   const { user } = useAuth();
@@ -57,7 +61,17 @@ export default function LocationPill({ className = "", variant = "default" }) {
       const newLabel = [area, district, pin].filter(Boolean).join(", ") || `PIN ${pin}`;
       setPinLabel(newLabel);
       setLabel(newLabel);
-      try { window.sessionStorage.setItem(ANON_LABEL_KEY, newLabel); } catch { /* ignore */ }
+      try {
+        window.sessionStorage.setItem(ANON_LABEL_KEY, newLabel);
+        // iter-180 · flush stale reverse-geocode entries so other pills that
+        // used GPS won't keep rendering the old locality.
+        for (const k of Object.keys(window.sessionStorage)) {
+          if (k.startsWith("geo:v3:")) window.sessionStorage.removeItem(k);
+        }
+        window.sessionStorage.removeItem(ANON_GEO_KEY);
+        setAnonLatLng(null);
+        window.dispatchEvent(new CustomEvent(LOC_EVENT, { detail: { label: newLabel } }));
+      } catch { /* ignore */ }
       setPinPrompt(false);
       setPinInput("");
     } catch { /* silently ignore */ }
@@ -70,13 +84,36 @@ export default function LocationPill({ className = "", variant = "default" }) {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const obj = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        try { window.sessionStorage.setItem(ANON_GEO_KEY, JSON.stringify(obj)); } catch { /* ignore */ }
+        try {
+          window.sessionStorage.setItem(ANON_GEO_KEY, JSON.stringify(obj));
+          // iter-180 · a fresh GPS supersedes the last PIN override.
+          window.sessionStorage.removeItem(ANON_LABEL_KEY);
+        } catch { /* ignore */ }
+        setPinLabel(null);
         setAnonLatLng(obj);
         setDetecting(false);
+        try { window.dispatchEvent(new CustomEvent(LOC_EVENT, { detail: { lat: obj.lat, lng: obj.lng } })); } catch { /* ignore */ }
       },
       () => { setDetecting(false); },
       { maximumAge: force ? 0 : 60000, timeout: 15000, enableHighAccuracy: true }
     );
+  }, []);
+
+  // iter-180 · Listen for cross-instance updates from any OTHER LocationPill
+  // on the page (Header vs Login-body vs Drawer). Re-read the freshest state
+  // from sessionStorage.
+  useEffect(() => {
+    const onSync = () => {
+      try {
+        const pl = window.sessionStorage.getItem(ANON_LABEL_KEY) || null;
+        const gs = JSON.parse(window.sessionStorage.getItem(ANON_GEO_KEY) || "null");
+        setPinLabel(pl);
+        setAnonLatLng(pl ? null : (gs && typeof gs.lat === "number" ? gs : null));
+        if (pl) setLabel(pl);
+      } catch { /* ignore */ }
+    };
+    window.addEventListener(LOC_EVENT, onSync);
+    return () => window.removeEventListener(LOC_EVENT, onSync);
   }, []);
 
   // iter-177 · For logged-in users w/ a mess_id but no personal lat/lng,

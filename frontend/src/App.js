@@ -161,6 +161,10 @@ function AppRoutes() {
           <Route path="/" element={<HomeRoute />} />
           <Route path="/home" element={<Landing />} />
           <Route path="/benefits" element={<Benefits />} />
+          {/* iter-180 · Legacy /nearby now redirects to the Benefits page. The
+              Nearby-mess concept has been removed platform-wide to avoid
+              competition between mess owners. */}
+          <Route path="/nearby" element={<Navigate to="/benefits" replace />} />
           <Route path="/login" element={<Login />} />
           <Route path="/restaurant" element={<Restaurant />} />
           <Route path="/restaurant/checkout" element={<RequireAuth><RestaurantCheckout /></RequireAuth>} />

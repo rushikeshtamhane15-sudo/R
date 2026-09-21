@@ -5,13 +5,13 @@ import { api } from "../lib/api";
 import { toast } from "sonner";
 import {
   Home, ChefHat, LayoutDashboard, Bike, User, Phone, LogIn, LogOut, Receipt,
-  ShoppingBag, Wallet, Heart, Settings, Bell, MapPin, Clock, Star, ScanLine, Radio, QrCode,
+  ShoppingBag, Wallet, Heart, Settings, Bell, MapPin, Clock, Star, ScanLine, Radio, QrCode, IndianRupee,
 } from "lucide-react";
 
 // Icons admin can pick from (mapped from lucide-react names sent by backend).
 const ICON_MAP = {
   Home, ChefHat, LayoutDashboard, Bike, User, Phone, LogIn, LogOut, Receipt,
-  ShoppingBag, Wallet, Heart, Settings, Bell, MapPin, Clock, Star, ScanLine, Radio, QrCode,
+  ShoppingBag, Wallet, Heart, Settings, Bell, MapPin, Clock, Star, ScanLine, Radio, QrCode, IndianRupee,
 };
 
 /**
@@ -95,24 +95,29 @@ export default function BottomNav() {
   }
   // iter-174 · re-map the legacy "restaurant" slot: the button no longer
   // points to /restaurant, it now opens the eFoodTech Home landing page.
+  // iter-180 · "benefits" slot swaps its label based on role/state:
+  //   - active subscriber → "Home" (their subscriber-side home)
+  //   - guest / inactive subscriber → "Benefits" (discovery)
   items = items.map((it) => {
     if (it.id === "restaurant" || it.to === "/restaurant") {
       return { ...it, label: "Home", icon: "Home", to: "/" };
+    }
+    if (it.id === "benefits" || it.to === "/benefits") {
+      const isActiveSub = user && user.role === "subscriber" && hasActiveSub;
+      return {
+        ...it,
+        to: "/benefits",
+        label: isActiveSub ? "Home" : "Benefits",
+        icon: isActiveSub ? "Home" : "Heart",
+      };
     }
     return it;
   });
 
   if (items.length === 0) return null;
 
-  // iter-146 · efoodtech: inject "Nearby" (Top 5 messes) as a discovery tile
-  // for subscribers + guests. Placed after Home when possible.
-  if (role === "subscriber" || role === "guest") {
-    const hasNearby = items.some((it) => it.to === "/nearby");
-    if (!hasNearby) {
-      const nearbyItem = { id: "nearby", label: "Nearby", icon: "Star", to: "/nearby", visible: true };
-      items = [items[0], nearbyItem, ...items.slice(1)].slice(0, 5);
-    }
-  }
+  // iter-180 · Nearby mess concept removed to avoid competition between mess
+  // owners on the platform. The old injection block was here.
 
   // iter-131.26: subscribers WITHOUT an active plan see "Orders" in the slot
   // where valid subscribers see "Dashboard" — the CMS default keeps Dashboard

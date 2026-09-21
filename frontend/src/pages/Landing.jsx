@@ -35,7 +35,9 @@ export default function Landing() {
   }, []);
 
   const ownerCta = user?.role === "mess_owner" || user?.role === "admin" ? "/admin" : "/login";
-  const subscriberCta = user ? "/nearby" : "/nearby";
+  // iter-180 · Nearby mess concept removed platform-wide (no competition
+  // between messes). Subscribers now go to the /benefits explainer instead.
+  const subscriberCta = "/benefits";
 
   return (
     <div className="bg-white" data-testid="landing-page">
@@ -263,13 +265,13 @@ export default function Landing() {
               <p className="text-xs uppercase tracking-widest font-bold text-secondary">Live on efoodtech</p>
               <h2 className="font-display font-extrabold text-3xl sm:text-4xl mt-2">Messes already serving on our platform.</h2>
             </div>
-            <Link to="/nearby" className="text-primary font-semibold text-sm inline-flex items-center gap-1 hover:underline" data-testid="featured-see-all">
-              See all <ChevronRight className="h-4 w-4" />
+            <Link to="/pricing" className="text-primary font-semibold text-sm inline-flex items-center gap-1 hover:underline" data-testid="featured-see-all">
+              See platform pricing <ChevronRight className="h-4 w-4" />
             </Link>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {featured.map((m) => (
-              <Link to="/nearby" key={m.mess_id} className="rounded-2xl border border-slate-200 bg-white p-5 hover:shadow-md transition group"
+              <Link to="/pricing" key={m.mess_id} className="rounded-2xl border border-slate-200 bg-white p-5 hover:shadow-md transition group"
                 data-testid={`landing-mess-${m.mess_id}`}>
                 <div className="flex items-center gap-3">
                   {m.logo_url ? (

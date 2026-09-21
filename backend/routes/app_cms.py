@@ -21,7 +21,7 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 DEFAULT_BOTTOM_NAV: dict = {
     "subscriber": [
-        {"id": "restaurant", "label": "Restaurant", "icon": "ChefHat",         "to": "/restaurant",        "visible": True},
+        {"id": "benefits",   "label": "Home",       "icon": "Home",            "to": "/benefits",          "visible": True},
         {"id": "dashboard",  "label": "Dashboard",  "icon": "LayoutDashboard", "to": "/dashboard",         "visible": True},
         {"id": "scan",       "label": "Scan",       "icon": "QrCode",          "to": "/self-scan",         "visible": True},
         {"id": "subscribe",  "label": "Subscribe",  "icon": "Bell",            "to": "/plans",             "visible": True},
@@ -34,10 +34,11 @@ DEFAULT_BOTTOM_NAV: dict = {
         {"id": "account",    "label": "Account",      "icon": "User",            "to": "/rider/account", "visible": True},
     ],
     "guest": [
-        {"id": "restaurant", "label": "Restaurant",   "icon": "ChefHat",         "to": "/restaurant",    "visible": True},
-        {"id": "subscription","label": "Plans",       "icon": "Home",            "to": "/home",          "visible": True},
-        {"id": "contact",    "label": "Contact",      "icon": "Phone",           "to": "/contact",       "visible": True},
-        {"id": "login",      "label": "Login",        "icon": "LogIn",           "to": "__login__",      "visible": True},
+        {"id": "benefits",    "label": "Benefits",     "icon": "Heart",           "to": "/benefits",      "visible": True},
+        {"id": "subscription","label": "Plans",        "icon": "Bell",            "to": "/plans",         "visible": True},
+        {"id": "pricing",     "label": "Pricing",      "icon": "IndianRupee",     "to": "/pricing",       "visible": True},
+        {"id": "contact",     "label": "Contact",      "icon": "Phone",           "to": "/contact",       "visible": True},
+        {"id": "login",       "label": "Login",        "icon": "LogIn",           "to": "__login__",      "visible": True},
     ],
     # iter-89 #1: mess_owner default bottom nav — CMS-editable from
     # /admin/bottom-nav-editor by HQ admin.
@@ -93,10 +94,31 @@ async def get_bottom_nav():
         except Exception:
             pass
         persisted_sub = []
+    # iter-180 · Guest auto-migration — if the persisted guest nav still
+    # points to legacy "restaurant" / "/restaurant" / "/home" (removed with
+    # the Nearby-mess concept), unset it so the new Benefits + Pricing
+    # defaults ship out.
+    persisted_guest = doc.get("guest") or []
+    guest_ids = {i.get("id") for i in persisted_guest if isinstance(i, dict)}
+    guest_needs_reset = bool(persisted_guest) and (
+        "restaurant" in guest_ids or "nearby" in guest_ids
+        or "benefits" not in guest_ids or "pricing" not in guest_ids
+    )
+    if guest_needs_reset:
+        try:
+            await server.db.app_config.update_one(
+                {"_id": "bottom_nav"},
+                {"$unset": {"guest": ""}},
+            )
+        except Exception:
+            pass
+        persisted_guest = []
     out = {}
     for role in ("subscriber", "rider", "guest", "franchise"):
         if role == "subscriber":
             out[role] = persisted_sub or DEFAULT_BOTTOM_NAV[role]
+        elif role == "guest":
+            out[role] = persisted_guest or DEFAULT_BOTTOM_NAV[role]
         else:
             out[role] = doc.get(role) or DEFAULT_BOTTOM_NAV[role]
     return out

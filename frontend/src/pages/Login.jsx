@@ -151,11 +151,12 @@ export default function Login() {
         window.location.href = "/admin";
         return;
       }
-      // iter-148: subscribers without a mess → bounce to Nearby to pick one.
+      // iter-180: subscribers without a mess → bounce to Benefits page to
+      // learn about efoodtech (Nearby mess picker has been removed).
       if (u.role === "subscriber" && !u.mess_id) {
         setUser(u);
-        toast.success("Logged in — please pick your mess to continue");
-        navigate("/nearby", { replace: true, state: { user: u } });
+        toast.success("Logged in — meet efoodtech");
+        navigate("/benefits", { replace: true, state: { user: u } });
         return;
       }
       const dest = computeNext(u);

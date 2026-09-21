@@ -8,7 +8,7 @@ import WalletPill from "./WalletPill";
 import MessSwitcher from "./MessSwitcher";
 import { useBranding } from "../context/BrandingContext";
 import { api } from "../lib/api";
-import { LogOut, Menu, X, Wallet, Home, LayoutDashboard, Package, User as UserIcon, ShieldCheck, Info, Phone, Handshake, Lock, RefreshCw, ChevronRight, Utensils, MapPin, QrCode, Bike, Bell, SlidersHorizontal, Calendar, Store, MessageCircle, Receipt, ScanLine } from "lucide-react";
+import { LogOut, Menu, X, Wallet, Home, LayoutDashboard, Package, User as UserIcon, ShieldCheck, Info, Phone, Handshake, Lock, RefreshCw, ChevronRight, Utensils, MapPin, QrCode, Bike, Bell, SlidersHorizontal, Calendar, Store, MessageCircle, Receipt, ScanLine, Heart, IndianRupee } from "lucide-react";
 
 const DEFAULT_INFO = [
   { id: "about",      label: "About us",               to: "/about",                    visible: true, icon: Info },
@@ -168,7 +168,7 @@ export default function Header() {
                 {user ? (
                   <>
                     <MenuSection label="Eat" testid="drawer-section-eat">
-                      <MenuRow icon={Utensils} label="Home — restaurant menu" to="/restaurant" onClick={close} testid="drawer-item-restaurant" />
+                      <MenuRow icon={Home} label="Home" to="/benefits" onClick={close} testid="drawer-item-home" />
                       <MenuRow icon={Bell} label="Subscription plans" to="/plans" onClick={close} testid="drawer-item-plans" />
                       <MenuRow icon={Calendar} label="Today&apos;s mess menu" to="/dashboard" onClick={close} testid="drawer-item-mess-menu" />
                       <MenuRow icon={SlidersHorizontal} label="Tiffin preferences" to="/dashboard" onClick={close} testid="drawer-item-tiffin-prefs" />
@@ -185,8 +185,9 @@ export default function Header() {
                 ) : (
                   <MenuSection label="Explore" testid="drawer-section-explore">
                     <MenuRow icon={Home} label="Home" to="/" onClick={close} testid="drawer-item-home" />
+                    <MenuRow icon={Heart} label="Benefits" to="/benefits" onClick={close} testid="drawer-item-benefits" />
                     <MenuRow icon={Package} label="Subscription plans" to="/plans" onClick={close} testid="drawer-item-plans" />
-                    <MenuRow icon={Utensils} label="Restaurant menu" to="/restaurant" onClick={close} testid="drawer-item-restaurant" />
+                    <MenuRow icon={IndianRupee} label="Platform pricing" to="/pricing" onClick={close} testid="drawer-item-pricing" />
                   </MenuSection>
                 )}
 
