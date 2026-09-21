@@ -93,6 +93,15 @@ export default function BottomNav() {
   if ((role === "subscriber" || role === "guest") && Array.isArray(messNavSlots) && messNavSlots.length > 0) {
     items = items.filter((it) => messNavSlots.includes(it.id));
   }
+  // iter-174 · re-map the legacy "restaurant" slot: the button no longer
+  // points to /restaurant, it now opens the eFoodTech Home landing page.
+  items = items.map((it) => {
+    if (it.id === "restaurant" || it.to === "/restaurant") {
+      return { ...it, label: "Home", icon: "Home", to: "/" };
+    }
+    return it;
+  });
+
   if (items.length === 0) return null;
 
   // iter-146 · efoodtech: inject "Nearby" (Top 5 messes) as a discovery tile

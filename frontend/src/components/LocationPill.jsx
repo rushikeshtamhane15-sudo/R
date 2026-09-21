@@ -18,9 +18,12 @@ export default function LocationPill({ className = "", variant = "default" }) {
   const { user } = useAuth();
   const [label, setLabel] = useState(null);
   const [detecting, setDetecting] = useState(false);
+  const [pinPrompt, setPinPrompt] = useState(false);
+  const [pinInput, setPinInput] = useState("");
   // iter-173 · bump anon-geo key to invalidate stale Shegaon coords cached
   // during pre-fix sessions where GPS/IP triangulation was fuzzy.
   const ANON_GEO_KEY = "ef_anon_geo_v2";
+  const ANON_LABEL_KEY = "ef_anon_label_v1"; // iter-174 · pincode override
   const [anonLatLng, setAnonLatLng] = useState(() => {
     try {
       const c = JSON.parse(window.sessionStorage.getItem(ANON_GEO_KEY) || "null");
@@ -28,6 +31,32 @@ export default function LocationPill({ className = "", variant = "default" }) {
     } catch { /* ignore */ }
     return null;
   });
+  const [pinLabel, setPinLabel] = useState(() => {
+    try { return window.sessionStorage.getItem(ANON_LABEL_KEY) || null; } catch { return null; }
+  });
+
+  // iter-174 · Manual pincode override — user types their pincode when
+  // GPS/IP mis-identifies the city. India Post is authoritative for postal
+  // geography; we call the same backend endpoint that /geo/reverse uses.
+  const submitPincode = async () => {
+    const pin = (pinInput || "").replace(/\D/g, "").slice(0, 6);
+    if (pin.length !== 6) { return; }
+    setDetecting(true);
+    try {
+      const r = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
+      const j = await r.json();
+      const first = Array.isArray(j) && j[0]?.Status === "Success" ? (j[0].PostOffice?.[0] || {}) : {};
+      const district = (first.District || "").trim();
+      const area = (first.Name || "").trim();
+      const newLabel = [area, district, pin].filter(Boolean).join(", ") || `PIN ${pin}`;
+      setPinLabel(newLabel);
+      setLabel(newLabel);
+      try { window.sessionStorage.setItem(ANON_LABEL_KEY, newLabel); } catch { /* ignore */ }
+      setPinPrompt(false);
+      setPinInput("");
+    } catch { /* silently ignore — user can retry */ }
+    finally { setDetecting(false); }
+  };
 
   const requestGps = React.useCallback((force = false) => {
     if (typeof navigator === "undefined" || !navigator.geolocation) return;
@@ -40,9 +69,6 @@ export default function LocationPill({ className = "", variant = "default" }) {
         setDetecting(false);
       },
       () => { setDetecting(false); },
-      // iter-173 · high-accuracy so we prefer real GPS over IP/WiFi
-      // triangulation which is what leads Chrome to guess "Shegaon" from
-      // an Amravati cell tower.
       { maximumAge: force ? 0 : 60000, timeout: 15000, enableHighAccuracy: true }
     );
   }, []);
@@ -50,9 +76,9 @@ export default function LocationPill({ className = "", variant = "default" }) {
   // Auto-detect for anonymous (no user or user without lat/lng) — best-effort.
   useEffect(() => {
     const haveOwn = user && user.lat != null && user.lng != null;
-    if (haveOwn || anonLatLng) return;
+    if (haveOwn || anonLatLng || pinLabel) return;
     requestGps(false);
-  }, [user, anonLatLng, requestGps]);
+  }, [user, anonLatLng, requestGps, pinLabel]);
 
   // Resolve which lat/lng to reverse-geocode
   const lat = user?.lat ?? anonLatLng?.lat;
@@ -97,29 +123,50 @@ export default function LocationPill({ className = "", variant = "default" }) {
     cls = `${baseShared} h-9 pl-2 pr-3 max-w-[200px] sm:max-w-[280px] bg-card text-foreground border border-border shadow-[0_2px_0_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.6)]`;
   }
 
+  // iter-174 · when a manual pincode override is set, it wins over GPS.
+  const effectiveLabel = pinLabel || label;
+  if (pinPrompt) {
+    return (
+      <div className={`${cls} ${className} !w-auto !max-w-none`} data-testid="location-pill-pincode">
+        <MapPin className="h-3.5 w-3.5 shrink-0" />
+        <input
+          value={pinInput}
+          onChange={(e) => setPinInput(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          onKeyDown={(e) => { if (e.key === "Enter") submitPincode(); if (e.key === "Escape") setPinPrompt(false); }}
+          placeholder="6-digit PIN"
+          inputMode="numeric"
+          className="bg-transparent outline-none w-20 text-inherit placeholder:text-inherit/60"
+          autoFocus
+          data-testid="location-pill-pin-input"
+        />
+        <button onClick={submitPincode} className="text-[10px] font-bold underline" data-testid="location-pill-pin-submit">Set</button>
+      </div>
+    );
+  }
+
   if (lat == null || lng == null) {
     // No lat/lng available — show a CTA so user knows location is missing.
-    const ctaHref = user ? "/profile?pickLocation=1" : "#";
     const ctaLabel = detecting ? "Detecting…" : (user ? "Pin your location" : "Locate me");
     return (
-      <a
-        href={ctaHref}
-        onClick={(e) => { if (!user) { e.preventDefault(); requestGps(true); } }}
+      <button
+        type="button"
+        onClick={() => { if (user) { window.location.href = "/profile?pickLocation=1"; } else { requestGps(true); } }}
+        onDoubleClick={() => setPinPrompt(true)}
         className={`${cls} ${className}`}
         data-testid={`location-pill-cta${variant === "strip" ? "-strip" : variant === "drawer" ? "-drawer" : ""}`}
       >
         <MapPin className="h-3.5 w-3.5 shrink-0" />
-        <span className="truncate">{ctaLabel}</span>
-      </a>
+        <span className="truncate">{effectiveLabel || ctaLabel}</span>
+      </button>
     );
   }
 
-  // iter-173 · For anonymous users, tapping the pill re-detects the GPS.
-  // For logged-in users it still opens the profile picker.
+  // iter-174 · single tap re-detects GPS (anonymous) or opens profile picker
+  // (logged in). Double tap opens the manual PIN input — a reliable escape
+  // hatch when GPS/IP triangulation returns the wrong nearby town.
   const handleClick = (e) => {
     if (user) return; // let default anchor navigation run
     e.preventDefault();
-    // Clear cached label so next label reflects the new coords.
     try {
       const stale = `geo:v3:${lat.toFixed(3)},${lng.toFixed(3)}`;
       sessionStorage.removeItem(stale);
@@ -132,12 +179,13 @@ export default function LocationPill({ className = "", variant = "default" }) {
     <a
       href={user ? "/profile?pickLocation=1" : "#"}
       onClick={handleClick}
+      onDoubleClick={(e) => { e.preventDefault(); setPinPrompt(true); }}
       className={`${cls} ${className}`}
       data-testid={`location-pill${variant === "strip" ? "-strip" : variant === "drawer" ? "-drawer" : ""}`}
-      title={user ? "Your delivery location" : "Tap to redetect"}
+      title={user ? "Your delivery location · double-tap to enter PIN" : "Tap to redetect · double-tap to enter PIN"}
     >
       <MapPin className="h-3.5 w-3.5 shrink-0" />
-      <span className="truncate">{detecting ? "Detecting…" : (label || "Locating…")}</span>
+      <span className="truncate">{detecting ? "Detecting…" : (effectiveLabel || "Locating…")}</span>
     </a>
   );
 }

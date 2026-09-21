@@ -4,6 +4,16 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-174 — Super-admin mess CRUD + Home bottom-nav + pincode override (2026-02-17)
+**Status: DONE.**
+
+- **Super-admin can Edit mess info** (mobile, address, tagline, etc.) via existing `PUT /admin/messes/{id}` — surfaced in SuperAdminMesses row already.
+- **NEW `DELETE /api/admin/messes/{mess_id}`** — hard-delists an onboarded mess (guards the corporate default), demotes the owner back to subscriber, keeps financial history intact. Frontend "Delist" button with confirm.
+- **NEW `POST /api/admin/messes/promote-owner`** — accepts `{ phone, mess_id }`, finds an existing eFoodTech user by phone (10-digit or 91-prefixed), promotes them to `mess_owner` and wires `owner_user_id`. Frontend "Promote owner" dialog.
+- **Bottom-nav "Restaurant menu" → "Home"** — `BottomNav.jsx` maps the legacy `restaurant` slot to `{label:"Home", icon:"Home", to:"/"}` so subscribers see the eFoodTech landing page instead of the menu. `BOTTOM_NAV_SLOTS` catalog re-labelled to "Home (eFoodTech)".
+- **Location pincode override** — `LocationPill.jsx` now supports a manual pincode escape hatch (double-tap the pill → 6-digit input → India Post lookup → cached in sessionStorage as `ef_anon_label_v1`). Fixes the persistent Amravati-vs-Shegaon misdetection when GPS/IP triangulation can't be trusted.
+
+
 ## iter-173 — Super-admin footer editing + GPS high-accuracy fixes (2026-02-17)
 **Status: DONE.**
 

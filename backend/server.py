@@ -2247,6 +2247,74 @@ async def admin_update_mess(mess_id: str, payload: MessIn, user: User = Depends(
     return out
 
 
+@api_router.delete("/admin/messes/{mess_id}")
+async def admin_delete_mess(mess_id: str, user: User = Depends(get_current_user)):
+    """iter-174 · Super-admin only. Hard-delist an onboarded mess.
+
+    We refuse to delete the corporate/default tenant. We also demote the
+    current owner (if any) so their role reverts from `mess_owner` → the
+    default `subscriber` (they can still log in with their phone).
+    Downstream per-mess docs (kiosk_cms, restaurant_theme, subscriptions,
+    etc.) are left in place to avoid destroying financial history — they
+    become orphans and can be swept later if needed.
+    """
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    if mess_id == DEFAULT_MESS_ID:
+        raise HTTPException(status_code=400, detail="Cannot delete the corporate default mess")
+    existing = await db.messes.find_one({"mess_id": mess_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Mess not found")
+    # Demote owner (best-effort, non-fatal).
+    owner_id = existing.get("owner_user_id")
+    if owner_id:
+        await db.users.update_one(
+            {"user_id": owner_id, "role": "mess_owner"},
+            {"$set": {"role": "subscriber"}, "$unset": {"mess_id": ""}},
+        )
+    await db.messes.delete_one({"mess_id": mess_id})
+    return {"deleted": True, "mess_id": mess_id, "demoted_owner": bool(owner_id)}
+
+
+class PromoteOwnerIn(BaseModel):
+    phone: str
+    mess_id: str
+
+
+@api_router.post("/admin/messes/promote-owner")
+async def admin_promote_owner_by_phone(payload: PromoteOwnerIn, user: User = Depends(get_current_user)):
+    """iter-174 · Super-admin promotes a user (by phone) to mess_owner for a
+    given mess. Reuses the phone-normalisation heuristic from the onboarding
+    flow (accept 10-digit and 91-prefixed variants)."""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    phone_raw = "".join(c for c in (payload.phone or "") if c.isdigit())
+    if not phone_raw:
+        raise HTTPException(status_code=400, detail="Phone required")
+    candidates = [phone_raw]
+    if phone_raw.startswith("91") and len(phone_raw) == 12:
+        candidates.append(phone_raw[2:])
+    elif len(payload.phone) == 10:
+        candidates.append("91" + phone_raw)
+    target = await db.users.find_one({"phone": {"$in": candidates}}, {"_id": 0, "user_id": 1, "name": 1, "phone": 1, "role": 1})
+    if not target:
+        raise HTTPException(status_code=404, detail="No user with that phone")
+    if target.get("role") == "admin":
+        raise HTTPException(status_code=400, detail="Cannot demote a super-admin to mess_owner")
+    mess = await db.messes.find_one({"mess_id": payload.mess_id}, {"_id": 0, "mess_id": 1, "name": 1})
+    if not mess:
+        raise HTTPException(status_code=404, detail="Mess not found")
+    await db.users.update_one(
+        {"user_id": target["user_id"]},
+        {"$set": {"role": "mess_owner", "mess_id": payload.mess_id}},
+    )
+    await db.messes.update_one(
+        {"mess_id": payload.mess_id},
+        {"$set": {"owner_user_id": target["user_id"], "updated_at": iso(now_utc())}},
+    )
+    return {"promoted_user_id": target["user_id"], "name": target.get("name"), "mess_id": payload.mess_id}
+
+
 class MessStatusIn(BaseModel):
     status: str
 
@@ -6321,7 +6389,10 @@ BOTTOM_NAV_SLOTS = [
     {"key": "nearby",     "label": "Nearby messes"},
     {"key": "dashboard",  "label": "Dashboard"},
     {"key": "scan",       "label": "Scan & eat"},
-    {"key": "restaurant", "label": "Restaurant menu"},
+    # iter-174 · "restaurant" slot re-labelled to "Home" and now routes to
+    # the eFoodTech landing page instead of /restaurant. Legacy key kept so
+    # existing per-mess whitelists don't break; frontend maps it to `/`.
+    {"key": "restaurant", "label": "Home (eFoodTech)"},
     {"key": "orders",     "label": "My orders"},
     {"key": "subscribe",  "label": "Subscribe"},
     {"key": "profile",    "label": "Profile"},

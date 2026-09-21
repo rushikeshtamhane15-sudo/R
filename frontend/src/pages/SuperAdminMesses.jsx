@@ -175,6 +175,34 @@ export default function SuperAdminMesses() {
     finally { setNavBusy(false); }
   };
 
+  // iter-174 · Super-admin actions on a mess row.
+  const [promoter, setPromoter] = useState(null); // { messId, name, phone, saving }
+  const [deleting, setDeleting] = useState(null); // mess_id being deleted
+  const openPromoter = (m) => setPromoter({ messId: m.mess_id, name: m.name, phone: "", saving: false });
+  const submitPromote = async () => {
+    if (!promoter) return;
+    const digits = promoter.phone.replace(/\D/g, "");
+    if (digits.length < 10) { toast.error("Enter a valid phone"); return; }
+    setPromoter((p) => p && { ...p, saving: true });
+    try {
+      const r = await api.post("/admin/messes/promote-owner", { mess_id: promoter.messId, phone: digits });
+      toast.success(`Promoted ${r.data?.name || digits} → ${promoter.name}`);
+      setPromoter(null);
+      load();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Promote failed"); }
+    finally { setPromoter((p) => p && { ...p, saving: false }); }
+  };
+  const deleteMess = async (m) => {
+    if (!window.confirm(`Delist "${m.name}" (${m.mess_id})? The owner will be demoted to subscriber. Financial history is retained.`)) return;
+    setDeleting(m.mess_id);
+    try {
+      await api.delete(`/admin/messes/${encodeURIComponent(m.mess_id)}`);
+      toast.success(`Delisted ${m.name}`);
+      load();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Delete failed"); }
+    finally { setDeleting(null); }
+  };
+
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-6" data-testid="super-admin-messes">
       {/* iter-158i · Header — mobile-first stacked layout so the "Onboard"
@@ -412,6 +440,12 @@ export default function SuperAdminMesses() {
                   <Button size="sm" variant="outline" onClick={() => toggleStatus(m)} className="flex-1 min-w-[7.5rem] rounded-xl" data-testid={`toggle-${m.mess_id}`}>
                     {m.status === "active" ? (<><PowerOff className="h-3.5 w-3.5 mr-1.5" /> Suspend</>) : (<><Power className="h-3.5 w-3.5 mr-1.5" /> Activate</>)}
                   </Button>
+                  <Button size="sm" variant="outline" onClick={() => openPromoter(m)} className="flex-1 min-w-[7.5rem] rounded-xl" data-testid={`promote-${m.mess_id}`}>
+                    <UserCog className="h-3.5 w-3.5 mr-1.5" /> Promote owner
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => deleteMess(m)} disabled={deleting === m.mess_id} className="flex-1 min-w-[7.5rem] rounded-xl text-red-700 border-red-200 hover:bg-red-50" data-testid={`delete-${m.mess_id}`}>
+                    {deleting === m.mess_id ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <X className="h-3.5 w-3.5 mr-1.5" />} Delist
+                  </Button>
                 </div>
               </div>
             ))}
@@ -514,11 +548,28 @@ export default function SuperAdminMesses() {
           )}
         </DialogContent>
       </Dialog>
+      {/* iter-174 · promote-owner-by-phone dialog */}
+      <Dialog open={!!promoter} onOpenChange={(o) => !o && setPromoter(null)}>
+        <DialogContent className="max-w-md" data-testid="promote-dialog">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><UserCog className="h-5 w-5 text-primary" /> Promote to mess owner</DialogTitle>
+            <DialogDescription>Enter the phone number of an existing eFoodTech user. They will be promoted to <b>mess_owner</b> of <b>{promoter?.name}</b>.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="block text-[10px] uppercase tracking-widest font-bold text-slate-500">Owner phone</label>
+            <Input value={promoter?.phone || ""} onChange={(e) => setPromoter((p) => p && { ...p, phone: e.target.value })} placeholder="10-digit phone" data-testid="promote-phone-input" inputMode="tel" />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPromoter(null)} className="rounded-xl">Cancel</Button>
+            <Button onClick={submitPromote} disabled={promoter?.saving} className="rounded-xl bg-primary hover:bg-primary/90 text-white" data-testid="promote-submit-btn">
+              {promoter?.saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <UserCog className="h-4 w-4 mr-2" />} Promote
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-
-function Field({ label, hint, children }) {
   return (
     <div>
       <label className="block text-[10px] tracking-widest uppercase font-bold text-slate-500">{label}</label>
