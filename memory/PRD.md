@@ -4,6 +4,24 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-182 — Deployment /health probe fix + Sora/logo downloads (2026-02-22)
+**Status: DONE. Curl-verified `GET /health` → 200 locally.**
+
+- **Deployment blocker**: production Kubernetes ingress was hitting `GET /health HTTP/1.0` on the backend liveness/readiness probe. Because every previous route was mounted under `/api` (via `api_router`), the `/health` request 404'd on every probe → thousands of noisy log lines and Kubernetes would eventually mark the pod unhealthy.
+- **Fix**: added two lightweight endpoints in `server.py`:
+  - `@app.get("/health")` — mounted DIRECTLY on the FastAPI `app` (outside `api_router`) so the ingress rewriter doesn't touch it. Pings MongoDB and returns `{"status":"ok","db":true}`.
+  - `@api_router.get("/health")` — companion `/api/health` for app-level self-checks.
+- **Sora-2 videos** finished rendering (~5 min each):
+  - `/app/frontend/public/videos/owner-pitch.mp4` · 6.7 MB · 12s · 1280×720
+  - `/app/frontend/public/videos/subscriber-pitch.mp4` · 7.0 MB · 12s · 1280×720
+  - Copies packaged for download at `/app/downloads/videos/`.
+- **Logo SVGs** exported as standalone files at `/app/downloads/logos/`:
+  - `efoodtech-concept-A-plate-qr.svg`
+  - `efoodtech-concept-B-meal-ring.svg`
+  - `efoodtech-concept-C-chai-chip.svg`
+- `/app/downloads/README.md` documents everything (paths + preview URLs).
+
+
 ## iter-181 — Benefits red theme · Editable Copy · Logo concepts · Sora videos (2026-02-21)
 **Status: DONE. Compile-clean. Screenshots verified.**
 

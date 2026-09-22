@@ -6778,3 +6778,22 @@ app.include_router(api_router)
 @app.on_event("shutdown")
 async def shutdown_db_client():
     mongo_client.close()
+
+
+# iter-182 · Kubernetes liveness/readiness probes hit `/health` (NOT
+# /api/health) — the Deployer's probe was logging thousands of 404s until
+# we added this. Keep it mounted directly on the `app` (outside the
+# api_router) so the ingress rewriter doesn't touch it.
+@app.get("/health")
+async def health_check():
+    try:
+        await db.command("ping")
+        db_ok = True
+    except Exception:
+        db_ok = False
+    return {"status": "ok" if db_ok else "degraded", "db": db_ok}
+
+
+@api_router.get("/health")
+async def api_health_check():
+    return {"status": "ok"}
