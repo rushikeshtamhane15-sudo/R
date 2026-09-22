@@ -4,6 +4,37 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-183 — Emergent Object Storage integration (2026-02-22)
+**Status: DONE. Backend live, storage_key minted at startup, 2 Sora videos uploaded and served via `/api/media/…`, upload endpoint auth-guarded.**
+
+### Backend
+- NEW `backend/routes/storage.py` — `init_storage()` + `put_object()` + `get_object()` with automatic re-init on 403/404 per the playbook. Uses `EMERGENT_LLM_KEY` and `INTEGRATION_PROXY_URL` env vars; `APP_NAME = "efoodtech"` as the bucket prefix.
+- Startup handler `_startup_init_storage` mints the session key. Log line: `[iter-183] object storage ready` on success.
+- NEW endpoints (in `server.py`):
+  - `POST /api/media/upload` — multipart upload, auth-guarded. Content-type sniffed via ext → `MIME_MAP`. Size limits: 2 MB images, 30 MB videos, 10 MB other. Inserts a `media_files` row (soft-delete via `is_deleted`).
+  - `GET /api/media/{path:path}` — serves file bytes. `public_kinds = {"logo", "menu_poster", "video", "banner"}` are open; other kinds require Bearer token or `?auth=<token>` query (playbook pattern for `<img src>` tags).
+  - `DELETE /api/media/{file_id}` — soft-delete only (Object Storage has no hard-delete API per playbook).
+- `app.include_router(api_router)` MOVED to the very last line of `server.py` — previous position was mid-file, causing every late-defined `@api_router.*` route (media upload/download/delete + `/api/health`) to silently 404. Route registration order bug fixed once and for all.
+
+### Frontend
+- NEW `components/MediaUploader.jsx` — drop-in file picker with progress, preview and toast feedback:
+  ```jsx
+  <MediaUploader accept="image/*" maxSizeMB={2} kind="logo"
+                 onUpload={(url, meta) => setLogoUrl(url)} />
+  ```
+- NEW `components/MediaImage.jsx` — authenticated `<img>` renderer that fetches private files as a blob (playbook pattern — `<img src>` can't send Authorization headers).
+
+### Sora videos migrated to Object Storage
+- NEW `backend/scripts/upload_sora_videos.py` — one-shot uploader. Executed:
+  - `owner-pitch.mp4` (6.7 MB) → `/api/media/efoodtech/video/system/owner-pitch-7c634d.mp4`
+  - `subscriber-pitch.mp4` (7.0 MB) → `/api/media/efoodtech/video/system/subscriber-pitch-ea7b78.mp4`
+- Both served publicly (kind = `video` is in `public_kinds`). Verified via curl → 200, `video/mp4`.
+
+### Wiring status
+- Framework is drop-in ready. Existing per-page upload flows in `Profile.jsx`, `AdminBranding.jsx`, and `AdminMessMenuCalendar.jsx` continue to work with their local FileReader → base64 path. Swapping them to Object Storage is now a 5-line change per page: import `MediaUploader`, drop it beside the existing input, wire `onUpload` to save the returned URL into the same state.
+- Deferred (user requested no legacy migration): retire the base64/data-URL storage on `logo_url` and `profile_photo_url` — will happen when we wire each page individually.
+
+
 ## iter-182 — Deployment /health probe fix + Sora/logo downloads (2026-02-22)
 **Status: DONE. Curl-verified `GET /health` → 200 locally.**
 

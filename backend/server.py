@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Cookie, Depends, Body
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Cookie, Depends, Body, UploadFile, File, Form, Header
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
@@ -5962,6 +5962,7 @@ from routes.kiosk_cms import router as _kiosk_cms_router
 from routes.subscription_tabs import router as _subscription_tabs_router
 from routes.active_tiffin_details import router as _active_tiffin_router
 from routes.active_dining_details import router as _active_dining_router
+from routes.storage import init_storage, put_object, get_object, MIME_MAP, APP_NAME as STORAGE_APP
 from routes.mess_reviews import router as _mess_reviews_router
 from routes.impersonate_billing import router as _imp_bill_router
 from routes.wallet import router as _wallet_router
@@ -6770,14 +6771,129 @@ async def platform_fee_verify(payload: PlatformTierVerifyIn, user: User = Depend
     return {"ok": True, "tier_id": order["tier_id"], "valid_until": valid_until}
 
 
-# Register all @api_router endpoints (including the iter-77 refund/wallet/
-# franchise sections defined above) onto the FastAPI app.
-app.include_router(api_router)
+# iter-183 · include_router MOVED to end-of-file so late-defined routes
+# (media upload/download, delete, /api/health) are picked up. Previously
+# was registered at this point — but any @api_router.post() below would
+# silently 404.
+# app.include_router(api_router)  ← moved
 
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
     mongo_client.close()
+
+
+# iter-183 · Emergent Object Storage — mint the session storage_key once at
+# startup. Failure is non-fatal (upload endpoints will surface 503 if the
+# key never materialises).
+@app.on_event("startup")
+async def _startup_init_storage():
+    try:
+        k = init_storage()
+        if k:
+            logger.info("[iter-183] object storage ready")
+        else:
+            logger.warning("[iter-183] object storage init returned no key — uploads disabled")
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[iter-183] object storage init errored: {e}")
+
+
+# iter-183 · Media upload / download endpoints
+_MAX_IMAGE_BYTES = 2 * 1024 * 1024      # 2 MB
+_MAX_VIDEO_BYTES = 30 * 1024 * 1024     # 30 MB
+_MAX_FILE_BYTES  = 10 * 1024 * 1024     # 10 MB for other kinds
+
+
+@api_router.post("/media/upload")
+async def media_upload(
+    file: UploadFile = File(...),
+    kind: str = Form("misc"),
+    user: User = Depends(get_current_user),
+):
+    """Upload a file to Emergent Object Storage. Returns the canonical
+    storage path + a public-shaped URL the frontend can render/download.
+
+    Content type is inferred from the extension → MIME_MAP fallback → the
+    browser-supplied content_type. `kind` (logo/profile_photo/menu_poster/
+    video/misc) is stored on the DB row so admins can browse by category."""
+    original = (file.filename or "upload.bin").strip()
+    ext = original.rsplit(".", 1)[-1].lower() if "." in original else "bin"
+    ct = (file.content_type or "").strip() or MIME_MAP.get(ext, "application/octet-stream")
+
+    limit = _MAX_FILE_BYTES
+    if ct.startswith("image/"): limit = _MAX_IMAGE_BYTES
+    elif ct.startswith("video/"): limit = _MAX_VIDEO_BYTES
+
+    data = await file.read()
+    if len(data) > limit:
+        raise HTTPException(status_code=413, detail=f"File exceeds {limit // (1024 * 1024)} MB")
+
+    path = f"{STORAGE_APP}/{kind}/{user.user_id}/{uuid.uuid4().hex}.{ext}"
+    try:
+        result = put_object(path, data, ct)
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"[iter-183] upload failed: {e}")
+        raise HTTPException(status_code=503, detail="Storage unavailable")
+
+    rec = {
+        "file_id": uuid.uuid4().hex,
+        "storage_path": result.get("path") or path,
+        "original_filename": original,
+        "content_type": ct,
+        "size": result.get("size") or len(data),
+        "kind": kind,
+        "owner_user_id": user.user_id,
+        "mess_id": user.mess_id,
+        "is_deleted": False,
+        "created_at": iso(now_utc()),
+    }
+    await db.media_files.insert_one(rec)
+    # public-shaped URL — served by /api/media/{path:path}
+    rec.pop("_id", None)
+    rec["url"] = f"/api/media/{rec['storage_path']}"
+    return rec
+
+
+@api_router.get("/media/{path:path}")
+async def media_download(path: str, auth: Optional[str] = None, authorization: Optional[str] = Header(None)):
+    """Download a file from storage. Uses either the standard Authorization
+    header OR `?auth=<jwt>` query so `<img src>` tags can render private
+    files. Access control: file must exist and not be soft-deleted."""
+    rec = await db.media_files.find_one({"storage_path": path, "is_deleted": False}, {"_id": 0})
+    if not rec:
+        raise HTTPException(status_code=404, detail="File not found")
+    # Auth check — mimic get_current_user() but tolerate query-param auth.
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ", 1)[1]
+    elif auth:
+        token = auth
+    # For 'logo' / 'menu_poster' we serve publicly (branding); for private
+    # kinds require a valid session.
+    public_kinds = {"logo", "menu_poster", "video", "banner"}
+    if rec.get("kind") not in public_kinds:
+        if not token:
+            raise HTTPException(status_code=401, detail="Auth required")
+        session = await db.user_sessions.find_one({"session_token": token}, {"_id": 0, "user_id": 1})
+        if not session:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    try:
+        data, ct = get_object(rec["storage_path"])
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"[iter-183] download failed for {path}: {e}")
+        raise HTTPException(status_code=503, detail="Storage unavailable")
+    return Response(content=data, media_type=rec.get("content_type") or ct)
+
+
+@api_router.delete("/media/{file_id}")
+async def media_soft_delete(file_id: str, user: User = Depends(get_current_user)):
+    rec = await db.media_files.find_one({"file_id": file_id, "is_deleted": False}, {"_id": 0})
+    if not rec:
+        raise HTTPException(status_code=404, detail="File not found")
+    if rec.get("owner_user_id") != user.user_id and user.role != "admin":
+        raise HTTPException(status_code=403, detail="Forbidden")
+    await db.media_files.update_one({"file_id": file_id}, {"$set": {"is_deleted": True, "deleted_at": iso(now_utc())}})
+    return {"ok": True}
 
 
 # iter-182 · Kubernetes liveness/readiness probes hit `/health` (NOT
@@ -6797,3 +6913,8 @@ async def health_check():
 @api_router.get("/health")
 async def api_health_check():
     return {"status": "ok"}
+
+
+# iter-183 · Late include_router — MUST stay the last line so every
+# @api_router route defined above is picked up.
+app.include_router(api_router)
