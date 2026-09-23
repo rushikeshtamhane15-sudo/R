@@ -25,6 +25,7 @@ import Dashboard from "./pages/Dashboard";
 import AdminOverview from "./pages/AdminDashboard";
 import AdminPlans from "./pages/AdminPlans";
 import AdminDelivery from "./pages/AdminDelivery";
+import AdminTiffinDelivery from "./pages/AdminTiffinDelivery";
 import AdminLiveMap from "./pages/AdminLiveMap";
 import AdminControlTower from "./pages/AdminControlTower";
 import AdminMessMenuCalendar from "./pages/AdminMessMenuCalendar";
@@ -210,6 +211,7 @@ function AppRoutes() {
             <Route path="branding" element={<AdminBranding />} />
             <Route path="plans" element={<AdminPlans />} />
             <Route path="delivery" element={<AdminDelivery />} />
+            <Route path="tiffin-delivery" element={<AdminTiffinDelivery />} />
             <Route path="live" element={<AdminLiveMap />} />
             <Route path="scanner" element={<AdminScanner />} />
             <Route path="kiosk" element={<AdminKiosk />} />

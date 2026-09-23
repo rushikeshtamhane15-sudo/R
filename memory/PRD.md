@@ -4,6 +4,46 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-185 — Phase 3 · Manual Tiffin Delivery Route System (2026-02-23)
+**Status: DONE. 5/5 pytest PASS · Smoke screenshot verified · Mess-owner planner, delivery-boy priority route, and dashboard tile all live.**
+
+### Backend
+- NEW `backend/routes/delivery_routes.py` — `delivery_routes` collection stores one doc per `(mess_id, date, delivery_boy_id)` with per-checkpoint state machine `pending → dispatched → delivered` and route-level `draft → out_for_delivery → completed` derived automatically.
+- Endpoints (auto-scoped via `effective_mess_id()`):
+  - `GET  /api/admin/delivery-routes?date=YYYY-MM-DD` — routes + unassigned active-tiffin subs (auto-pause filter applied) + all active boys + remaining/total counts
+  - `POST /api/admin/delivery-routes` — upsert route (mess owner assigns users to a boy with priority ordering; pulling a user in yanks them off any other boy's route for the same date)
+  - `DELETE /api/admin/delivery-routes/{route_id}` — clear a route
+  - `GET  /api/boy/delivery-routes/today` — boy sees his pre-loaded ordered route
+  - `POST /api/boy/delivery-routes/dispatch` — bulk flip all pending → dispatched (turns everything red)
+  - `POST /api/boy/delivery-routes/mark-delivered` — flip a single checkpoint → delivered (turns it green); once all green the route auto-closes with `completed_at`
+  - `GET  /api/admin/delivery-routes/summary` — lightweight polling endpoint for the dashboard tile (`{total, delivered, dispatched, remaining, any_dispatched}`)
+- Guard: only ACTIVE-TIFFIN subscribers can be assigned; auto-paused (>=4 days no scan or `user_paused=true`) users are excluded from `unassigned` and rejected on POST.
+
+### Frontend
+- NEW `pages/AdminTiffinDelivery.jsx` at `/admin/tiffin-delivery` — mess-owner planner:
+  - Big "Remaining tiffins" pill: red while `remaining > 0`, green when all delivered
+  - Per-boy `RouteCard` with vertical priority-ordered checkpoint list, up/down reorder arrows, remove, "+ Add stop" picker sourced from the unassigned pool
+  - Status pills per checkpoint: blank ⚪ (pending) → red 🔴 (dispatched) → green ✅ (delivered)
+  - "Add another delivery boy to today's roster" bottom panel
+  - Bottom unassigned panel showing every active-tiffin subscriber not yet on any route
+  - Polls `GET /admin/delivery-routes?date=today` every 30 s for live status
+- NEW `components/RemainingTiffinsTile.jsx` — dashboard tile mounted below the stat cards on `AdminDashboard.jsx`. Colour-codes: grey (no routes) · amber (assigned, not dispatched) · red (out for delivery) · green (all delivered). Polls `/admin/delivery-routes/summary` every 30 s. Clicks through to `/admin/tiffin-delivery`.
+- `DeliveryBoyDashboard.jsx` gained a new `PriorityRouteCard` section at the top:
+  - Displays the boy's pre-loaded ordered checkpoints
+  - Big red "Dispatch all" button (only shown while any stop is still pending) → bulk-flips to dispatched
+  - Each dispatched row gets a green "Delivered" tap-to-mark button
+  - Renders green summary + `<CheckCircle2>` when every stop is delivered
+- Sidebar entry `/admin/tiffin-delivery` → "Delivery routes (manual)" added next to the existing pincode-based auto-router page.
+
+### Tests
+- NEW `backend/tests/test_iter185_delivery_routes.py` — 5 pytest cases hitting the live local backend via mocked-OTP:
+  - `test_auth_required` (401 without token)
+  - `test_full_planner_and_dispatch_flow` (end-to-end: create → dispatch → mark 1st → mark 2nd → route auto-completes; summary endpoint matches state at each transition)
+  - `test_reject_non_tiffin_user` (400 when assigning random uid)
+  - `test_boy_cannot_dispatch_without_route` (404 for boy w/o route)
+  - `test_reassign_removes_from_other_boy` (assigning sub to boy2 yanks them off boy1)
+
+
 ## iter-184 — Phase 1 + 2 · Header pill · hero polish · auto-pause exclusion (2026-02-23)
 **Status: Phase 1 + 2 DONE. Screenshot verified. Phase 3 (Tiffin Delivery routes) deferred to next iteration.**
 

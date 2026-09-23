@@ -2,9 +2,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
-import { Users, Calendar, IndianRupee, Check, RefreshCw, AlertTriangle, Phone, MessageCircle, Building2, ShieldCheck, MessageSquare, ArrowRight, Sparkles, Utensils, Truck, Menu as MenuIcon, LayoutGrid } from "lucide-react";
+import { Users, Calendar, IndianRupee, Check, RefreshCw, AlertTriangle, Phone, MessageCircle, Building2, ShieldCheck, MessageSquare, ArrowRight, Sparkles, Utensils, Truck, Menu as MenuIcon, LayoutGrid, CheckCircle2 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
 import KioskHealthTile from "../components/KioskHealthTile";
+import RemainingTiffinsTile from "../components/RemainingTiffinsTile";
 import { TotalUsersModal, ActiveTiffinModal, ActiveDiningModal, ActiveSubsModal } from "../components/DashboardDrilldownModals";
 
 const PERIODS = [
@@ -231,6 +232,14 @@ export default function AdminOverview() {
       <ActiveTiffinModal open={showTiffin} onClose={() => setShowTiffin(false)} />
       <ActiveDiningModal open={showDining} onClose={() => setShowDining(false)} />
       <ActiveSubsModal open={showSubs} onClose={() => setShowSubs(false)} />
+
+      {/* iter-185 · Live 'Remaining tiffins to deliver' tile — red while any
+          checkpoint is out-for-delivery, green when all delivered. Polls every
+          30s so mess owners can see progress at a glance without opening the
+          planner page. */}
+      <div className="mt-6">
+        <RemainingTiffinsTile />
+      </div>
 
       <div className="mt-6 bg-card rounded-2xl border border-border p-6" data-testid="attendance-trend">
         <p className="text-xs tracking-overline uppercase font-bold text-muted-foreground">Attendance · {stats.period_label}</p>

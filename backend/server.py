@@ -5962,6 +5962,7 @@ from routes.kiosk_cms import router as _kiosk_cms_router
 from routes.subscription_tabs import router as _subscription_tabs_router
 from routes.active_tiffin_details import router as _active_tiffin_router
 from routes.active_dining_details import router as _active_dining_router
+from routes.delivery_routes import router as _delivery_routes_router
 from routes.storage import init_storage, put_object, get_object, MIME_MAP, APP_NAME as STORAGE_APP
 from routes.mess_reviews import router as _mess_reviews_router
 from routes.impersonate_billing import router as _imp_bill_router
@@ -6000,6 +6001,7 @@ api_router.include_router(_kiosk_cms_router)
 api_router.include_router(_subscription_tabs_router)
 api_router.include_router(_active_tiffin_router)
 api_router.include_router(_active_dining_router)
+api_router.include_router(_delivery_routes_router)
 api_router.include_router(_mess_reviews_router)
 api_router.include_router(_imp_bill_router)
 api_router.include_router(_wallet_router)

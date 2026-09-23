@@ -19,6 +19,8 @@ export default function DeliveryBoyDashboard() {
   const [slots, setSlots] = useState(null);
   const [empties, setEmpties] = useState({ users: [], count: 0 });
   const [dispatch, setDispatch] = useState(null);
+  const [priorityRoute, setPriorityRoute] = useState(null); // iter-185
+  const [priorityBusy, setPriorityBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [meal, setMeal] = useState("lunch");
   const [starting, setStarting] = useState(false);
@@ -34,7 +36,7 @@ export default function DeliveryBoyDashboard() {
   const load = async () => {
     setLoading(true);
     try {
-      const [meRes, todayRes, slotsRes, emptiesRes, liveRes] = await Promise.all([
+      const [meRes, todayRes, slotsRes, emptiesRes, liveRes, priorityRes] = await Promise.all([
         api.get("/boy/me"),
         api.get("/boy/today"),
         api.get("/boy/slots"),
@@ -42,12 +44,14 @@ export default function DeliveryBoyDashboard() {
         // boys aren't admin — but the dispatch is also embedded on /boy/today via settings.
         // We piggyback off /admin/delivery/live? No — boy is not admin. So expose dispatch via /boy/slots? simpler: just fetch via /boy/today response if added. Skip for now.
         Promise.resolve({ data: null }),
+        api.get("/boy/delivery-routes/today").catch(() => ({ data: null })),
       ]);
       setBoy(meRes.data);
       setData(todayRes.data);
       setSlots(slotsRes.data?.slots || null);
       setEmpties(emptiesRes.data || { users: [], count: 0 });
       setDispatch(todayRes.data?.dispatch || null);
+      setPriorityRoute(priorityRes?.data || null);
       // pick the meal slot that's open right now
       const s = slotsRes.data?.slots || {};
       if (s.lunch?.open) setMeal("lunch");
@@ -148,6 +152,31 @@ export default function DeliveryBoyDashboard() {
     finally { setCollecting(null); }
   };
 
+  // iter-185 · manual priority-route actions
+  const priorityDispatch = async () => {
+    setPriorityBusy(true);
+    try {
+      await api.post("/boy/delivery-routes/dispatch", {});
+      toast.success("Dispatched · all stops turned red");
+      await load();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Failed to dispatch"); }
+    finally { setPriorityBusy(false); }
+  };
+
+  const priorityMarkDelivered = async (userId) => {
+    if (!priorityRoute?.route?.route_id) return;
+    setPriorityBusy(true);
+    try {
+      await api.post("/boy/delivery-routes/mark-delivered", {
+        route_id: priorityRoute.route.route_id,
+        user_id: userId,
+      });
+      toast.success("Delivered");
+      await load();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
+    finally { setPriorityBusy(false); }
+  };
+
   if (loading) {
     return <div className="p-12 text-center text-muted-foreground flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading your run…</div>;
   }
@@ -186,6 +215,16 @@ export default function DeliveryBoyDashboard() {
           <RefreshCw className="h-4 w-4" />
         </Button>
       </div>
+
+      {/* iter-185 · Manual priority route (assigned by mess owner) */}
+      {priorityRoute?.route && (
+        <PriorityRouteCard
+          data={priorityRoute}
+          busy={priorityBusy}
+          onDispatch={priorityDispatch}
+          onDelivered={priorityMarkDelivered}
+        />
+      )}
 
       {/* Outstanding empty tiffins — biggest priority before next slot */}
       {empties.count > 0 && (
@@ -338,6 +377,97 @@ function SlotTab({ id, current, setCurrent, open, icon: Icon, label, reason, win
       <Icon className="h-3.5 w-3.5" /> {label} {!open && <Lock className="h-3 w-3 ml-0.5" />}
     </button>
   );
+}
+
+// iter-185 · Manual Priority Route from mess-owner planner
+function PriorityRouteCard({ data, busy, onDispatch, onDelivered }) {
+  const route = data?.route;
+  if (!route) return null;
+  const cps = route.checkpoints || [];
+  const remaining = cps.filter((c) => c.status !== "delivered").length;
+  const anyPending = cps.some((c) => c.status === "pending");
+  const doneAll = cps.length > 0 && cps.every((c) => c.status === "delivered");
+
+  return (
+    <div
+      className={`rounded-3xl border-2 p-5 space-y-4 ${doneAll ? "border-emerald-300 bg-emerald-50" : remaining > 0 && !anyPending ? "border-red-300 bg-red-50" : "border-primary/30 bg-primary/5"}`}
+      data-testid="priority-route-card"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] tracking-overline uppercase font-bold text-secondary flex items-center gap-1.5">
+            <Truck className="h-3 w-3" /> Priority route · assigned by mess
+          </p>
+          <h2 className="font-display font-extrabold text-2xl mt-0.5" data-testid="priority-route-count">
+            {remaining} / {cps.length} tiffin{cps.length === 1 ? "" : "s"} remaining
+          </h2>
+        </div>
+        {anyPending && (
+          <Button
+            onClick={onDispatch}
+            disabled={busy}
+            className="h-11 rounded-full bg-red-600 hover:bg-red-700 text-white font-bold"
+            data-testid="priority-dispatch-btn"
+          >
+            {busy ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Play className="h-4 w-4 mr-1.5" />}
+            Dispatch all
+          </Button>
+        )}
+        {doneAll && (
+          <span className="inline-flex items-center gap-1 text-emerald-700 font-bold text-sm px-3 h-9 rounded-full bg-emerald-100 border border-emerald-300">
+            <CheckCircle2 className="h-4 w-4" /> All delivered
+          </span>
+        )}
+      </div>
+
+      <ol className="space-y-2" data-testid="priority-checkpoints">
+        {cps.map((cp) => {
+          const isDone = cp.status === "delivered";
+          const isDispatched = cp.status === "dispatched";
+          const tone = isDone
+            ? "border-emerald-200 bg-emerald-50/60"
+            : isDispatched
+              ? "border-red-200 bg-red-50/60"
+              : "border-slate-200 bg-white";
+          return (
+            <li
+              key={cp.user_id}
+              className={`rounded-2xl border p-3 flex items-center gap-3 ${tone}`}
+              data-testid={`priority-cp-${cp.user_id}`}
+            >
+              <span className={`inline-flex h-9 w-9 rounded-full items-center justify-center font-extrabold shrink-0 ${isDone ? "bg-emerald-500 text-white" : isDispatched ? "bg-red-500 text-white" : "bg-slate-200 text-slate-700"}`}>
+                {isDone ? <CheckCircle2 className="h-4 w-4" /> : cp.priority}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm truncate">{cp.name}</p>
+                <p className="text-[11px] text-muted-foreground truncate">{cp.phone || "—"} · {cp.address || "no address"}</p>
+              </div>
+              {cp.phone && (
+                <a href={`tel:${cp.phone}`} className="inline-flex items-center gap-1 h-9 px-3 rounded-full bg-white border border-current text-sm font-semibold" data-testid={`priority-call-${cp.user_id}`}>
+                  <Phone className="h-3.5 w-3.5" />
+                </a>
+              )}
+              {!isDone && isDispatched && (
+                <Button
+                  onClick={() => onDelivered(cp.user_id)}
+                  disabled={busy}
+                  size="sm"
+                  className="h-9 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                  data-testid={`priority-deliver-${cp.user_id}`}
+                >
+                  {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Delivered"}
+                </Button>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+function _SlotTabLegacy({ id, current, setCurrent, open, icon: Icon, label, reason, window: w }) {
+  return null;
 }
 
 function StopRow({ idx, item, marking, collecting, onDelivered, onReturned, onCollectEmpty }) {
