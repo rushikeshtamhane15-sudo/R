@@ -86,11 +86,11 @@ function BenefitsBody() {
         <div className="pointer-events-none absolute -top-20 -left-16 h-72 w-72 rounded-full bg-amber-300/25 blur-3xl" />
         <div className="pointer-events-none absolute top-40 -right-20 h-64 w-64 rounded-full bg-rose-400/20 blur-3xl" />
 
-        <div className="relative max-w-7xl mx-auto px-5 sm:px-8 md:px-10 pt-14 sm:pt-20 pb-16 md:pb-24">
+        <div className="relative max-w-7xl mx-auto px-5 sm:px-8 md:px-10 pt-6 sm:pt-8 pb-16 md:pb-24">
           <div className="grid lg:grid-cols-[1.05fr_0.95fr] gap-10 items-center">
             <div>
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
-                className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/25 backdrop-blur-md pl-1.5 pr-3.5 py-1.5 mb-5"
+                className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/25 backdrop-blur-md pl-1.5 pr-3.5 py-1.5 mb-4"
                 data-testid="benefits-hero-badge">
                 <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-amber-400 text-red-900">
                   <Sparkles className="h-3.5 w-3.5" strokeWidth={2.6} />

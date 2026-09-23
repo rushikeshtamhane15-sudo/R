@@ -174,12 +174,8 @@ export default function Login() {
 
       {/* iter-149: hero block removed per user — brand identity already shown in the site header above. */}
 
-      {/* iter-179 · Location pill so visitors can pin/verify their location
-          BEFORE logging in. Uses default 'Amravati' for anon; tap to detect
-          via GPS or double-tap to enter a 6-digit PIN override. */}
-      <div className="w-full flex justify-center pt-3 px-4" data-testid="login-location-pill-wrap">
-        <LocationPill variant="default" />
-      </div>
+      {/* iter-184 · LocationPill removed from Login body — auto-detected city
+          now lives ONLY in the site header strip pill for a cleaner form.  */}
 
       {/* iter-148 · Super-admin editable 3D marquee announcement bar */}
       {(c.announcement_bar || "").trim() && (

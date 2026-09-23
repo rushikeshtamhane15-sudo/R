@@ -220,10 +220,10 @@ export default function Pricing() {
         <div className="pointer-events-none absolute inset-0 opacity-[0.10] mix-blend-overlay"
           style={{ backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")" }} />
         <div className="pointer-events-none absolute -top-24 -right-16 h-72 w-72 rounded-full bg-amber-300/25 blur-3xl" />
-        <div className="relative max-w-5xl mx-auto px-6 md:px-10 pt-16 pb-14 text-center">
+        <div className="relative max-w-5xl mx-auto px-6 md:px-10 pt-6 sm:pt-8 pb-14 text-center">
           <motion.div
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
-            className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/25 backdrop-blur-md pl-1.5 pr-3.5 py-1.5 mb-5 shadow-[0_1px_0_rgba(255,255,255,0.14)_inset]"
+            className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/25 backdrop-blur-md pl-1.5 pr-3.5 py-1.5 mb-4 shadow-[0_1px_0_rgba(255,255,255,0.14)_inset]"
             data-testid="pricing-hero-badge">
             <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-amber-400 text-red-900">
               <IndianRupee className="h-3.5 w-3.5" strokeWidth={2.6} />

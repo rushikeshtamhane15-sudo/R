@@ -150,7 +150,14 @@ async def _scope_mess_id(user, as_mess_id: Optional[str]) -> Optional[str]:
     * mess_owner → their mess (via effective_mess_id)
     * admin without impersonation → global (None)
     * admin impersonating a mess → that mess
+    * iter-184: admin can force global by passing as_mess_id="global"
+      (bypasses any lingering impersonate_mess_id session state that would
+      otherwise trap the request inside a tenant scope).
     """
+    if user.role == "admin" and (as_mess_id or "").lower() in ("global", "none", "null", ""):
+        # Explicit global-edit intent from super-admin.
+        if (as_mess_id or "").lower() in ("global", "none", "null"):
+            return None
     return await server.effective_mess_id(user, as_mess_id)
 
 

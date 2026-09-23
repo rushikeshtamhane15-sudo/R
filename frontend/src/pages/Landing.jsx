@@ -67,13 +67,13 @@ export default function Landing() {
         <div className="pointer-events-none absolute inset-0 opacity-[0.08]"
           style={{ backgroundImage: "radial-gradient(circle at 25% 25%, #ffffff 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
 
-        <div className="relative max-w-7xl mx-auto px-5 sm:px-8 md:px-10 pt-12 sm:pt-16 md:pt-24 pb-16 md:pb-28">
+        <div className="relative max-w-7xl mx-auto px-5 sm:px-8 md:px-10 pt-6 sm:pt-8 md:pt-10 pb-16 md:pb-28">
           <div className="grid lg:grid-cols-[1.05fr_0.95fr] gap-10 lg:gap-14 items-center">
             {/* -------- Left copy column -------- */}
             <div>
               <motion.div
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
-                className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/25 backdrop-blur-md pl-1.5 pr-3.5 py-1.5 mb-5 shadow-[0_1px_0_rgba(255,255,255,0.14)_inset,0_10px_30px_-12px_rgba(0,0,0,0.5)]"
+                className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/25 backdrop-blur-md pl-1.5 pr-3.5 py-1.5 mb-4 shadow-[0_1px_0_rgba(255,255,255,0.14)_inset,0_10px_30px_-12px_rgba(0,0,0,0.5)]"
                 data-testid="hero-badge">
                 <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-amber-400 text-red-900">
                   <Rocket className="h-3.5 w-3.5" strokeWidth={2.5} />

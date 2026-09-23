@@ -66,10 +66,41 @@ async def admin_active_dining_details(
         ):
             users_by_id[u["user_id"]] = u
 
+    # iter-184 · Auto-pause detection · exclude subs where the user hasn't
+    # scanned in >=4 consecutive days (matches server.py auto-pause rule).
+    # Also excludes any explicit user_paused flag.
+    from datetime import date, timedelta
+    today = server.ist_today() if hasattr(server, "ist_today") else date.today()
+    pause_cutoff = today - timedelta(days=4)
+    last_scan_map: dict = {}
+    if ids:
+        async for a in server.db.attendance.find(
+            {"user_id": {"$in": ids}}, {"_id": 0, "user_id": 1, "date_str": 1},
+        ).sort([("date_str", -1)]):
+            uid = a["user_id"]
+            if uid not in last_scan_map:
+                last_scan_map[uid] = a.get("date_str")
+
     now = server.now_utc()
     rows = []
     for s in subs:
         uid = s.get("user_id")
+        if s.get("user_paused"):
+            continue
+        last_scan = last_scan_map.get(uid)
+        if last_scan:
+            try:
+                if date.fromisoformat(str(last_scan)[:10]) < pause_cutoff:
+                    continue  # auto-paused (>=4 days no scan)
+            except Exception:
+                pass
+        # No scan ever + started 4+ days ago → auto-paused
+        elif s.get("start_date"):
+            try:
+                if date.fromisoformat(str(s["start_date"])[:10]) < pause_cutoff:
+                    continue
+            except Exception:
+                pass
         u = users_by_id.get(uid) or {}
         meals_left = max(0, int(s.get("meals_total") or 0) - int(s.get("meals_used") or 0))
         try:
@@ -90,6 +121,5 @@ async def admin_active_dining_details(
             "renewal_date": s.get("end_date"),
         })
 
-    # Name-sort keeps the list stable across polls.
     rows.sort(key=lambda r: r["name"].lower())
     return {"count": len(rows), "rows": rows, "mess_id": mid}

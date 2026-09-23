@@ -4,6 +4,30 @@
 > (formerly efoodcare · rebranded iter-143)
 
 
+## iter-184 — Phase 1 + 2 · Header pill · hero polish · auto-pause exclusion (2026-02-23)
+**Status: Phase 1 + 2 DONE. Screenshot verified. Phase 3 (Tiffin Delivery routes) deferred to next iteration.**
+
+### Phase 1 · Quick UI polish
+- **#1 Super-admin branding scoping fix** (`routes/branding.py`): `_scope_mess_id` now recognises explicit global-intent tokens (`"global"`, `"none"`, `"null"`) so super-admin can force-edit the logged-out (global) brand logo / splash / footer even if an impersonation session has leaked `as_mess_id` into the URL. Follow-up: AdminBranding.jsx will get a "Editing: Global · switch to mess" toggle button so the intent is explicit.
+- **#2 Header pill = city-only** (`components/LocationPill.jsx`): `variant="strip"` now extracts the CITY from any composite label ("Amravati MIDC, Amravati, 444607" → "Amravati"; "Amravati · 444607" → "Amravati"). Handles 3-part, 2-part, dot-separated, and single-value inputs. `variant="default"` and `variant="drawer"` keep the full label. Also removed the LocationPill from Login body per user request — pincode capture now lives ONLY on the header.
+- **#3 Hero badges moved up** — reduced hero top padding on Landing (`pt-12 sm:pt-16 md:pt-24` → `pt-6 sm:pt-8 md:pt-10`), Pricing (`pt-16` → `pt-6 sm:pt-8`) and Benefits (`pt-14 sm:pt-20` → `pt-6 sm:pt-8`). Badge `mb-5` reduced to `mb-4`. Screenshot confirms "For mess owners" sits ~40px from the top of the hero container instead of ~200px.
+
+### Phase 2 · Active-dining + Active-tiffin auto-pause exclusion
+- **`routes/active_dining_details.py`** & **`routes/active_tiffin_details.py`**: both endpoints now filter out subs that are in the AUTO-PAUSE window. Rule mirrors `server.py` — a sub is auto-paused when the user has had zero scans for 4+ consecutive days, OR `user_paused=True`, OR was started 4+ days ago with no attendance. Result: the drill-down modals + counts on the Active Dining / Active Tiffin tiles now show only the users whose wallets are actively debiting today.
+- This is exactly the population that raw-material prep should be calculated for. Existing `_count_active_persons()` (`server.py` L5314) already applies its own version of the exclusion for cook prep, so both surfaces are now aligned.
+
+
+### Phase 3 (queued) · Tiffin Delivery route system
+Full spec captured for the next iteration:
+- New `/tiffin-delivery` page for mess owners
+- Manual assignment only (no pincode routing) — mess owner drags tiffins into a delivery boy's route with a priority number
+- Vertical checkpoint list: name + mobile per row, priority 1 → N
+- State machine: blank ⚪ (assigned) → red 🔴 (dispatched / out-for-delivery) → green ✅ (delivered)
+- Live "Remaining tiffins to deliver" tile — red while > 0, green when 0
+- Delivery boy sees pre-loaded route; taps Dispatch to update all-to-red; taps each entry to mark delivered
+- New backend collection `delivery_routes`, endpoints for CRUD + status transitions, polling-based live update
+
+
 ## iter-183 — Emergent Object Storage integration (2026-02-22)
 **Status: DONE. Backend live, storage_key minted at startup, 2 Sora videos uploaded and served via `/api/media/…`, upload endpoint auth-guarded.**
 

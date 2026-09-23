@@ -171,16 +171,31 @@ export default function LocationPill({ className = "", variant = "default" }) {
   const baseShared = "inline-flex items-center gap-1.5 rounded-full text-[11px] font-semibold transition-shadow truncate";
   let cls = "";
   if (variant === "strip") {
-    cls = `${baseShared} h-7 px-2.5 max-w-[260px] sm:max-w-[420px] bg-white/15 text-primary-foreground/95 border border-white/20 shadow-[0_1px_0_rgba(255,255,255,0.12)_inset,0_2px_4px_rgba(0,0,0,0.18)] hover:bg-white/20`;
+    cls = `${baseShared} h-7 px-2.5 max-w-[160px] sm:max-w-[220px] bg-white/15 text-primary-foreground/95 border border-white/20 shadow-[0_1px_0_rgba(255,255,255,0.12)_inset,0_2px_4px_rgba(0,0,0,0.18)] hover:bg-white/20`;
   } else if (variant === "drawer") {
     cls = `${baseShared} h-9 px-3 w-full justify-start bg-white/15 text-primary-foreground border border-white/25 shadow-[0_1px_0_rgba(255,255,255,0.15)_inset,0_2px_6px_rgba(0,0,0,0.25)]`;
   } else {
     cls = `${baseShared} h-9 pl-2 pr-3 max-w-[200px] sm:max-w-[280px] bg-card text-foreground border border-border shadow-[0_2px_0_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.6)]`;
   }
 
+  // iter-184 · Header strip pill shows CITY ONLY (compact). Composite labels
+  // like "Amravati MIDC, Amravati, 444607" collapse to "Amravati" (the middle
+  // segment when the string has 3 comma-separated parts). Drawer + default
+  // variants keep the full composite for context.
+  const compactCity = (raw) => {
+    if (!raw) return raw;
+    const parts = String(raw).split(",").map((s) => s.trim()).filter(Boolean);
+    if (parts.length >= 3) return parts[1];           // "area, city, pin" → city
+    if (parts.length === 2) return parts[0];          // "city, pin" → city
+    // 1 part — extract 'city · pin' shape ("Amravati · 444607") too
+    const dotParts = String(raw).split("·").map((s) => s.trim()).filter(Boolean);
+    return dotParts.length >= 2 ? dotParts[0] : raw;
+  };
+
   // iter-177 · Effective label priority. Personal PIN override > GPS reverse
   // > messLabel (logged-in) > anonymous default.
-  const effectiveLabel = pinLabel || label || messLabel || (!user ? DEFAULT_ANON_LABEL : null);
+  const effectiveLabelRaw = pinLabel || label || messLabel || (!user ? DEFAULT_ANON_LABEL : null);
+  const effectiveLabel = variant === "strip" ? compactCity(effectiveLabelRaw) : effectiveLabelRaw;
 
   if (pinPrompt) {
     return (

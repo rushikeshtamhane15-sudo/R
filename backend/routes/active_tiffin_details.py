@@ -48,6 +48,36 @@ async def admin_active_tiffin_details(
         ):
             users_by_id[u["user_id"]] = u
 
+    # iter-184 · Auto-pause exclusion — mirror the /admin/active-dining-details
+    # rule: subs with no scan for 4+ consecutive days OR user_paused=true are
+    # in the auto-pause window and shouldn't count against today's raw-material
+    # prep or the "currently active tiffin users" tile.
+    from datetime import date, timedelta
+    today_d = server.ist_today() if hasattr(server, "ist_today") else date.today()
+    pause_cutoff = today_d - timedelta(days=4)
+    last_scan_map: dict = {}
+    if ids:
+        async for a in server.db.attendance.find(
+            {"user_id": {"$in": ids}}, {"_id": 0, "user_id": 1, "date_str": 1},
+        ).sort([("date_str", -1)]):
+            uid = a["user_id"]
+            if uid not in last_scan_map:
+                last_scan_map[uid] = a.get("date_str")
+
+    def _is_auto_paused(sub: dict) -> bool:
+        if sub.get("user_paused"):
+            return True
+        uid = sub.get("user_id")
+        last_scan = last_scan_map.get(uid)
+        try:
+            if last_scan:
+                return date.fromisoformat(str(last_scan)[:10]) < pause_cutoff
+            if sub.get("start_date"):
+                return date.fromisoformat(str(sub["start_date"])[:10]) < pause_cutoff
+        except Exception:
+            pass
+        return False
+
     # Today's attendance rows key the "delivered" status per meal for tiffin
     # subs (each attendance row = one meal delivered / marked collected).
     date_str = server.today_str()
@@ -63,6 +93,8 @@ async def admin_active_tiffin_details(
 
     rows = []
     for s in subs:
+        if _is_auto_paused(s):
+            continue  # iter-184 · not currently receiving tiffins
         uid = s.get("user_id")
         u = users_by_id.get(uid) or {}
         att = att_map.get(uid) or {"lunch": False, "dinner": False}
