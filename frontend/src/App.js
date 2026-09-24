@@ -73,6 +73,8 @@ import AdminHeaderMenu from "./pages/AdminHeaderMenu";
 import AdminPnL from "./pages/AdminPnL";
 import AdminTiffinPreferences from "./pages/AdminTiffinPreferences";
 import AdminTiffinStock from "./pages/AdminTiffinStock";
+// iter-140.l — ported from R (dining-atomics) iter-185 tiffin-delivery planner.
+import AdminTiffinDelivery from "./pages/AdminTiffinDelivery";
 import AdminCashCollections from "./pages/AdminCashCollections";
 import AdminPartialPayments from "./pages/AdminPartialPayments";
 import AdminCashAnalytics from "./pages/AdminCashAnalytics";
@@ -202,6 +204,7 @@ function AppRoutes() {
             <Route path="pnl" element={<AdminPnL />} />
             <Route path="tiffin-preferences" element={<AdminTiffinPreferences />} />
             <Route path="tiffin-stock" element={<AdminTiffinStock />} />
+            <Route path="tiffin-delivery" element={<AdminTiffinDelivery />} />
             <Route path="cash-collections" element={<AdminCashCollections />} />
             <Route path="cash-analytics" element={<AdminCashAnalytics />} />
             <Route path="kitchen-settings" element={<AdminKitchenSettings />} />

@@ -139,7 +139,7 @@ class User(BaseModel):
     address: Optional[str] = None
     photo_url: Optional[str] = None
     picture: Optional[str] = None
-    role: Literal["admin", "staff", "subscriber", "delivery_boy", "rider", "franchise_owner"] = "subscriber"
+    role: Literal["admin", "staff", "subscriber", "delivery_boy", "rider", "franchise_owner", "mess_owner"] = "subscriber"
     qr_token: str
     created_at: datetime
     lat: Optional[float] = None
@@ -247,7 +247,7 @@ class SelfScanRequest(BaseModel):
 class SetRoleRequest(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
-    role: Literal["admin", "staff", "subscriber", "delivery_boy", "rider", "franchise_owner"]
+    role: Literal["admin", "staff", "subscriber", "delivery_boy", "rider", "franchise_owner", "mess_owner"]
 
 
 class MenuUpdateRequest(BaseModel):
@@ -5020,6 +5020,16 @@ async def effective_mess_id(user: User, as_mess_id: Optional[str] = None) -> Opt
         if not m:
             raise HTTPException(status_code=403, detail="No mess assigned")
         return m["mess_id"]
+    # iter-140.l — mess_owner role (ported from R). Look up their mess by
+    # `owner_user_id` OR by the user's own `mess_id` field.
+    if user.role == "mess_owner":
+        m = await db.messes.find_one({"owner_user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+        if m:
+            return m["mess_id"]
+        u = await db.users.find_one({"user_id": user.user_id}, {"_id": 0, "mess_id": 1})
+        if u and u.get("mess_id"):
+            return u["mess_id"]
+        raise HTTPException(status_code=403, detail="No mess assigned")
     if user.role in ("admin", "staff"):
         if as_mess_id:
             # Verify the mess exists so admins don't accidentally filter into nothing.
@@ -5630,6 +5640,9 @@ from routes.mess_menu_push import router as _mess_menu_push_router, tick_daily_m
 from routes.cart_saver import router as _cart_saver_router
 from routes.restaurant_hours import router as _restaurant_hours_router
 from routes.branch_pnl import router as _branch_pnl_router
+# iter-140.l — ported from R (dining-atomics) iter-185 · manual priority-ordered
+# tiffin delivery routes. Adds mess-owner planner + delivery-boy dispatch.
+from routes.delivery_routes import router as _delivery_routes_router
 api_router.include_router(_auth_router)
 api_router.include_router(_auth_google_router)
 api_router.include_router(_payments_router)
@@ -5660,6 +5673,7 @@ api_router.include_router(_mess_menu_push_router)
 api_router.include_router(_cart_saver_router)
 api_router.include_router(_restaurant_hours_router)
 api_router.include_router(_branch_pnl_router)
+api_router.include_router(_delivery_routes_router)
 
 # NOTE: app.include_router(api_router) is called AT THE BOTTOM of this file
 # (after iter-77 refund + wallet + franchise endpoints) so every @api_router

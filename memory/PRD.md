@@ -4108,3 +4108,21 @@ For **existing production victims** (already have 4× duplicate rows in their le
 ### Files
 - `/app/backend/routes/wallet.py` (`_ensure_joining_credit` helper + calls from both wallet routes)
 - `/app/backend/server.py` (startup backfill loop)
+
+## iter-140.l (2026-02) — Ported Tiffin Delivery planner from R (iter-185)
+
+### Ported from https://github.com/rushikeshtamhane15-sudo/R (iter-185)
+- **Backend**: `/app/backend/routes/delivery_routes.py` (7 endpoints) mounted on `api_router` — mess-owner planner (`GET/POST/DELETE /admin/delivery-routes`), delivery-boy today's route + dispatch + mark-delivered, live dashboard summary. State machine `pending ⚪ → dispatched 🔴 → delivered ✅`. All routes scoped by `effective_mess_id()`.
+- **Frontend**: `/app/frontend/src/pages/AdminTiffinDelivery.jsx` + `/app/frontend/src/components/RemainingTiffinsTile.jsx` — priority-ordered checkpoint list, up/down reorder, add/remove stops from an unassigned pool.
+- **Route**: New `/admin/tiffin-delivery` registered in `App.js` and linked in `AdminLayout.jsx` drawer as "Tiffin delivery routes" (kept the old `/admin/delivery` around).
+- **Multi-tenant plumbing**: Added `mess_owner` to `User.role` Literal (both models) and taught `effective_mess_id()` how to resolve a mess for `role='mess_owner'` (by `owner_user_id` on the mess doc OR by `mess_id` on the user doc).
+- **Tests**: `/app/backend/tests/test_iter185_delivery_routes.py` copied over — 5/5 pass. Regression pass on iter-140 (44/44) and iter-131.29 (7/7) suites — 49/49 total green.
+
+### Files
+- `/app/backend/server.py` (User.role literal + effective_mess_id mess_owner branch + router include)
+- `/app/backend/routes/delivery_routes.py` (new)
+- `/app/frontend/src/pages/AdminTiffinDelivery.jsx` (new)
+- `/app/frontend/src/components/RemainingTiffinsTile.jsx` (new)
+- `/app/frontend/src/App.js` (route registration)
+- `/app/frontend/src/components/AdminLayout.jsx` (drawer link)
+- `/app/backend/tests/test_iter185_delivery_routes.py` (new)

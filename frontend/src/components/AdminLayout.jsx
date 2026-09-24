@@ -47,6 +47,8 @@ const SECTIONS = [
       { to: "/admin/whatsapp", label: "WhatsApp outbox", icon: MessageCircle, roles: ["admin"] },
       { to: "/admin/broadcast", label: "WhatsApp broadcast", icon: Megaphone, roles: FRANCHISE_VIEW },
       { to: "/admin/delivery", label: "Tiffin delivery", icon: Truck, roles: FRANCHISE_VIEW },
+      // iter-140.l — new priority-ordered planner ported from R (iter-185).
+      { to: "/admin/tiffin-delivery", label: "Tiffin delivery routes", icon: Truck, roles: FRANCHISE_VIEW },
       { to: "/admin/live", label: "Live tracking", icon: Radio, roles: FRANCHISE_VIEW },
       { to: "/admin/scanner", label: "QR Scanner", icon: ScanLine, roles: FRANCHISE_VIEW },
       { to: "/admin/kiosk", label: "Wall Kiosk", icon: ScanLine, roles: FRANCHISE_VIEW },
